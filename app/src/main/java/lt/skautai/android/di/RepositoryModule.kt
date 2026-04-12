@@ -6,6 +6,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import lt.skautai.android.data.remote.AuthApiService
 import lt.skautai.android.data.repository.AuthRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Singleton
 
 @Module
@@ -14,7 +15,10 @@ object RepositoryModule {
 
     @Provides
     @Singleton
-    fun provideAuthRepository(authApiService: AuthApiService): AuthRepository {
-        return AuthRepository(authApiService)
+    fun provideAuthRepository(
+        authApiService: AuthApiService,
+        tokenManager: TokenManager
+    ): AuthRepository {
+        return AuthRepository(authApiService, tokenManager)
     }
 }

@@ -5,19 +5,29 @@ import lt.skautai.android.data.remote.LoginRequestDto
 import lt.skautai.android.data.remote.RegisterTuntininkasRequestDto
 import lt.skautai.android.data.remote.RegisterWithInviteRequestDto
 import lt.skautai.android.data.remote.TokenResponseDto
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
-    private val authApiService: AuthApiService
+    private val authApiService: AuthApiService,
+    private val tokenManager: TokenManager
 ) {
 
     suspend fun login(email: String, password: String): Result<TokenResponseDto> {
         return try {
             val response = authApiService.login(LoginRequestDto(email, password))
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val body = response.body()!!
+                tokenManager.saveToken(
+                    token = body.token,
+                    userId = body.userId,
+                    name = body.name,
+                    email = body.email,
+                    type = body.type
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Login failed"))
             }
@@ -50,7 +60,15 @@ class AuthRepository @Inject constructor(
                 )
             )
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val body = response.body()!!
+                tokenManager.saveToken(
+                    token = body.token,
+                    userId = body.userId,
+                    name = body.name,
+                    email = body.email,
+                    type = body.type
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
             }
@@ -79,7 +97,15 @@ class AuthRepository @Inject constructor(
                 )
             )
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val body = response.body()!!
+                tokenManager.saveToken(
+                    token = body.token,
+                    userId = body.userId,
+                    name = body.name,
+                    email = body.email,
+                    type = body.type
+                )
+                Result.success(body)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
             }
@@ -87,4 +113,13 @@ class AuthRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun logout() {
+        tokenManager.clearAll()
+    }
+
+    fun getToken() = tokenManager.token
+    fun getUserId() = tokenManager.userId
+    fun getUserName() = tokenManager.userName
+    fun getActiveTuntasId() = tokenManager.activeTuntasId
 }
