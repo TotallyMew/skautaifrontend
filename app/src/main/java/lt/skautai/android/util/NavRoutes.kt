@@ -6,6 +6,8 @@ sealed class NavRoutes(val route: String) {
     object Login : NavRoutes("login")
     object Register : NavRoutes("register")
 
+    object RegisterInvite : NavRoutes("register_invite")
+
     // Inventory
     object InventoryList : NavRoutes("inventory_list")
     object InventoryDetail : NavRoutes("inventory_detail/{itemId}") {
@@ -48,5 +50,5 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(eventId: Int? = null) =
             if (eventId != null) "event_add_edit?eventId=$eventId" else "event_add_edit"
     }
-    object RegisterInvite : NavRoutes("register_invite")
+
 }

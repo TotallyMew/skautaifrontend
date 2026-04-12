@@ -7,6 +7,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import lt.skautai.android.ui.auth.LoginScreen
+import lt.skautai.android.ui.auth.RegisterInviteScreen
+import lt.skautai.android.ui.auth.RegisterScreen
 import lt.skautai.android.util.NavRoutes
 
 @Composable
@@ -23,7 +25,11 @@ fun AppNavGraph(
             LoginScreen(navController)
         }
         composable(NavRoutes.Register.route) {
-            // RegisterScreen(navController)
+            RegisterScreen(navController)
+        }
+
+        composable(NavRoutes.RegisterInvite.route) {
+            RegisterInviteScreen(navController)
         }
 
         // Inventory
