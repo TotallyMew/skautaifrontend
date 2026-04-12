@@ -11,10 +11,6 @@ build:
   script:
     - $env:GRADLE_USER_HOME = "$(Get-Location)/.gradle"
     - ./gradlew assembleDebug
-  artifacts:
-    paths:
-      - app/build/outputs/apk/debug/
-    expire_in: 1 week
   cache:
     key: "$CI_COMMIT_REF_NAME"
     paths:
