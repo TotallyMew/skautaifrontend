@@ -1,3 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">SkautuInventorius</string>
+    <string name="app_name">Skautų Inventorius</string>
+    <string name="login">Prisijungti</string>
+    <string name="register">Registruotis</string>
+    <string name="email">El. paštas</string>
+    <string name="password">Slaptažodis</string>
+    <string name="name">Vardas</string>
+    <string name="surname">Pavardė</string>
+    <string name="phone">Telefono numeris</string>
+    <string name="tuntas_name">Tunto pavadinimas</string>
+    <string name="tuntas_krastas">Kraštas</string>
+    <string name="tuntas_contact_email">Tunto kontaktinis el. paštas</string>
+    <string name="invite_code">Pakvietimo kodas</string>
+    <string name="register_with_invite">Registruotis su pakvietimu</string>
+    <string name="no_account">Neturite paskyros?</string>
+    <string name="have_account">Jau turite paskyrą?</string>
+    <string name="error_empty_fields">Užpildykite visus laukus</string>
+    <string name="error_invalid_email">Neteisingas el. pašto formatas</string>
+    <string name="error_short_password">Slaptažodis per trumpas</string>
 </resources>

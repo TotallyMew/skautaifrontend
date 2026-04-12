@@ -1,0 +1,38 @@
+package lt.skautai.android.data.remote
+
+data class LoginRequestDto(
+    val email: String,
+    val password: String
+)
+
+data class RegisterTuntininkasRequestDto(
+    val name: String,
+    val surname: String,
+    val email: String,
+    val password: String,
+    val phone: String? = null,
+    val tuntasName: String,
+    val tuntasKrastas: String? = null,
+    val tuntasContactEmail: String? = null
+)
+
+data class RegisterWithInviteRequestDto(
+    val name: String,
+    val surname: String,
+    val email: String,
+    val password: String,
+    val phone: String? = null,
+    val inviteCode: String
+)
+
+data class TokenResponseDto(
+    val token: String,
+    val userId: String,
+    val email: String,
+    val name: String,
+    val type: String = "user"
+)
+
+data class ErrorResponseDto(
+    val error: String
+)
