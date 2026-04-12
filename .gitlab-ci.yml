@@ -1,0 +1,31 @@
+stages:
+  - build
+  - test
+
+variables:
+  ANDROID_SDK_ROOT: "C:\\Users\\User\\AppData\\Local\\Android\\Sdk"
+  GRADLE_OPTS: "-Dorg.gradle.daemon=false"
+
+build:
+  stage: build
+  script:
+    - $env:GRADLE_USER_HOME = "$(Get-Location)/.gradle"
+    - ./gradlew assembleDebug
+  artifacts:
+    paths:
+      - app/build/outputs/apk/debug/app-debug.apk
+    expire_in: 1 week
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    paths:
+      - .gradle/
+
+test:
+  stage: test
+  script:
+    - $env:GRADLE_USER_HOME = "$(Get-Location)/.gradle"
+    - ./gradlew test
+  cache:
+    key: "$CI_COMMIT_REF_NAME"
+    paths:
+      - .gradle/
