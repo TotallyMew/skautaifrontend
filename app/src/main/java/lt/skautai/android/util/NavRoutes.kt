@@ -2,6 +2,10 @@ package lt.skautai.android.util
 
 sealed class NavRoutes(val route: String) {
 
+    //Super-admin
+    object SuperAdminLogin : NavRoutes("super_admin_login")
+    object SuperAdminDashboard : NavRoutes("super_admin_dashboard")
+
     // Auth
     object Login : NavRoutes("login")
     object Register : NavRoutes("register")

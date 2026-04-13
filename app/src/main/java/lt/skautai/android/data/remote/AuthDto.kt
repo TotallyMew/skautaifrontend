@@ -36,3 +36,15 @@ data class TokenResponseDto(
 data class ErrorResponseDto(
     val error: String
 )
+
+data class TuntasDto(
+    val id: String,
+    val name: String,
+    val krastas: String,
+    val status: String,
+    val contactEmail: String
+)
+
+data class MessageResponseDto(
+    val message: String
+)

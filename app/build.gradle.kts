@@ -64,6 +64,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.datastore.preferences)
     implementation("androidx.compose.material:material-icons-extended")
+    implementation("androidx.lifecycle:lifecycle-runtime-compose:2.10.0")
     // Hilt
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)

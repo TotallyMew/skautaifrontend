@@ -24,20 +24,30 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val isSuperAdminDeepLink = intent?.data?.scheme == "skautai" &&
+                intent?.data?.host == "superadmin"
+
         setContent {
             SkautuInventoriusTheme {
                 val navController = rememberNavController()
                 val token by tokenManager.token.collectAsState(initial = null)
 
                 LaunchedEffect(token) {
-                    if (token != null) {
+                    if (!isSuperAdminDeepLink && token != null) {
                         navController.navigate(NavRoutes.InventoryList.route) {
                             popUpTo(NavRoutes.Login.route) { inclusive = true }
                         }
                     }
                 }
 
-                AppNavGraph(navController = navController)
+                AppNavGraph(
+                    navController = navController,
+                    startDestination = if (isSuperAdminDeepLink)
+                        NavRoutes.SuperAdminLogin.route
+                    else
+                        NavRoutes.Login.route
+                )
             }
         }
     }

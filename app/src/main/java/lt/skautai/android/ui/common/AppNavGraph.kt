@@ -9,6 +9,8 @@ import androidx.navigation.navArgument
 import lt.skautai.android.ui.auth.LoginScreen
 import lt.skautai.android.ui.auth.RegisterInviteScreen
 import lt.skautai.android.ui.auth.RegisterScreen
+import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
+import lt.skautai.android.ui.superadmin.SuperAdminLoginScreen
 import lt.skautai.android.util.NavRoutes
 
 @Composable
@@ -20,6 +22,16 @@ fun AppNavGraph(
         navController = navController,
         startDestination = startDestination
     ) {
+
+
+        //superadmin
+        composable(NavRoutes.SuperAdminLogin.route) {
+            SuperAdminLoginScreen(navController)
+        }
+        composable(NavRoutes.SuperAdminDashboard.route) {
+            SuperAdminDashboardScreen()
+        }
+
         // Auth
         composable(NavRoutes.Login.route) {
             LoginScreen(navController)
