@@ -45,6 +45,10 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(unitId: Int) = "unit_detail/$unitId"
     }
 
+
+    object TuntasSelect : NavRoutes("tuntas_select")
+
+
     // Events
     object EventList : NavRoutes("event_list")
     object EventDetail : NavRoutes("event_detail/{eventId}") {

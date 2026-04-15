@@ -1,37 +1,35 @@
 package lt.skautai.android.ui.common
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
+import lt.skautai.android.MainViewModel
 import lt.skautai.android.ui.auth.LoginScreen
-import lt.skautai.android.ui.auth.RegisterInviteScreen
 import lt.skautai.android.ui.auth.RegisterScreen
-import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
+import lt.skautai.android.ui.auth.RegisterInviteScreen
 import lt.skautai.android.ui.superadmin.SuperAdminLoginScreen
+import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.util.NavRoutes
-
+import lt.skautai.android.util.TokenManager
+import androidx.hilt.navigation.compose.hiltViewModel
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
+    tokenManager: TokenManager,
     startDestination: String = NavRoutes.Login.route
 ) {
+    val mainViewModel: MainViewModel = hiltViewModel()
+    val activeTuntasId by tokenManager.activeTuntasId.collectAsState(initial = null)
+
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-
-
-        //superadmin
-        composable(NavRoutes.SuperAdminLogin.route) {
-            SuperAdminLoginScreen(navController)
-        }
-        composable(NavRoutes.SuperAdminDashboard.route) {
-            SuperAdminDashboardScreen()
-        }
-
         // Auth
         composable(NavRoutes.Login.route) {
             LoginScreen(navController)
@@ -39,15 +37,96 @@ fun AppNavGraph(
         composable(NavRoutes.Register.route) {
             RegisterScreen(navController)
         }
-
         composable(NavRoutes.RegisterInvite.route) {
             RegisterInviteScreen(navController)
         }
 
-        // Inventory
-        composable(NavRoutes.InventoryList.route) {
-            // InventoryListScreen(navController)
+        // Super Admin
+        composable(NavRoutes.SuperAdminLogin.route) {
+            SuperAdminLoginScreen(navController)
         }
+        composable(NavRoutes.SuperAdminDashboard.route) {
+            SuperAdminDashboardScreen()
+        }
+
+        // Main screens wrapped in MainScaffold
+        composable(NavRoutes.InventoryList.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            ) {
+                // InventoryListScreen(navController)
+            }
+        }
+        composable(NavRoutes.ReservationList.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            ) {
+                // ReservationListScreen(navController)
+            }
+        }
+        composable(NavRoutes.RequestList.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            ) {
+                // RequestListScreen(navController)
+            }
+        }
+        composable(NavRoutes.MemberList.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            ) {
+                // MemberListScreen(navController)
+            }
+        }
+        composable(NavRoutes.EventList.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+            ) {
+                // EventListScreen(navController)
+            }
+        }
+
+        // Detail screens
         composable(
             route = NavRoutes.InventoryDetail.route,
             arguments = listOf(navArgument("itemId") { type = NavType.IntType })
@@ -63,18 +142,8 @@ fun AppNavGraph(
         ) {
             // InventoryAddEditScreen(navController, it.arguments?.getInt("itemId"))
         }
-
-        // Reservations
-        composable(NavRoutes.ReservationList.route) {
-            // ReservationListScreen(navController)
-        }
         composable(NavRoutes.ReservationCreate.route) {
             // ReservationCreateScreen(navController)
-        }
-
-        // Inventory Requests
-        composable(NavRoutes.RequestList.route) {
-            // RequestListScreen(navController)
         }
         composable(
             route = NavRoutes.RequestDetail.route,
@@ -85,19 +154,12 @@ fun AppNavGraph(
         composable(NavRoutes.RequestCreate.route) {
             // RequestCreateScreen(navController)
         }
-
-        // Members
-        composable(NavRoutes.MemberList.route) {
-            // MemberListScreen(navController)
-        }
         composable(
             route = NavRoutes.MemberDetail.route,
             arguments = listOf(navArgument("userId") { type = NavType.IntType })
         ) {
             // MemberDetailScreen(navController, it.arguments?.getInt("userId")!!)
         }
-
-        // Organizational Units
         composable(NavRoutes.UnitList.route) {
             // UnitListScreen(navController)
         }
@@ -106,11 +168,6 @@ fun AppNavGraph(
             arguments = listOf(navArgument("unitId") { type = NavType.IntType })
         ) {
             // UnitDetailScreen(navController, it.arguments?.getInt("unitId")!!)
-        }
-
-        // Events
-        composable(NavRoutes.EventList.route) {
-            // EventListScreen(navController)
         }
         composable(
             route = NavRoutes.EventDetail.route,
@@ -126,6 +183,9 @@ fun AppNavGraph(
             })
         ) {
             // EventAddEditScreen(navController, it.arguments?.getInt("eventId"))
+        }
+        composable(NavRoutes.TuntasSelect.route) {
+            // TuntasSelectScreen(navController)
         }
     }
 }

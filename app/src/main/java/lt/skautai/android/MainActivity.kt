@@ -43,6 +43,7 @@ class MainActivity : ComponentActivity() {
 
                 AppNavGraph(
                     navController = navController,
+                    tokenManager = tokenManager,
                     startDestination = if (isSuperAdminDeepLink)
                         NavRoutes.SuperAdminLogin.route
                     else
