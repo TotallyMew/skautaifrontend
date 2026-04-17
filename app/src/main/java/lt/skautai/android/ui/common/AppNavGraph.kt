@@ -19,7 +19,7 @@ import lt.skautai.android.util.TokenManager
 import androidx.hilt.navigation.compose.hiltViewModel
 import lt.skautai.android.ui.tuntas.TuntasSelectScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
-
+import lt.skautai.android.ui.inventory.InventoryDetailScreen
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -134,7 +134,11 @@ fun AppNavGraph(
             route = NavRoutes.InventoryDetail.route,
             arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) {
-            // InventoryDetailScreen(navController, it.arguments?.getInt("itemId")!!)
+            val itemId = it.arguments?.getString("itemId")!!
+            InventoryDetailScreen(
+                itemId = itemId,
+                navController = navController
+            )
         }
         composable(
             route = NavRoutes.InventoryAddEdit.route,

@@ -16,7 +16,7 @@ class ItemRepository @Inject constructor(
     suspend fun getItems(
         ownerType: String? = null,
         category: String? = null,
-        status: String? = null
+        status: String? = "ACTIVE"
     ): Result<List<ItemDto>> {
         return try {
             val token = tokenManager.token.first()
@@ -34,6 +34,47 @@ class ItemRepository @Inject constructor(
                 Result.success(response.body()!!.items)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant inventorių"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    suspend fun getItem(itemId: String): Result<ItemDto> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = itemApiService.getItem(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                itemId = itemId
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant daiktą"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteItem(itemId: String): Result<Unit> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = itemApiService.deleteItem(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                itemId = itemId
+            )
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida trinant daiktą"))
             }
         } catch (e: Exception) {
             Result.failure(e)

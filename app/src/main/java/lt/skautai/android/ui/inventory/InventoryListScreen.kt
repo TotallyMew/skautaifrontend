@@ -31,7 +31,11 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
-
+import lt.skautai.android.util.NavRoutes
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 @Composable
 fun InventoryListScreen(
     navController: NavController,
@@ -40,6 +44,19 @@ fun InventoryListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
 
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.loadItems()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+    
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -125,7 +142,7 @@ fun InventoryListScreen(
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(filtered, key = { it.id }) { item ->
-                            InventoryItemCard(item = item)
+                            InventoryItemCard(item = item, navController = navController)
                         }
                     }
                 }
@@ -135,8 +152,9 @@ fun InventoryListScreen(
 }
 
 @Composable
-private fun InventoryItemCard(item: ItemDto) {
+private fun InventoryItemCard(item: ItemDto, navController: NavController) {
     Card(
+        onClick = { navController.navigate(NavRoutes.InventoryDetail.createRoute(item.id))},
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
