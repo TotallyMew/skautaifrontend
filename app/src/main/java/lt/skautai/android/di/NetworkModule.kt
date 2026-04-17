@@ -13,6 +13,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.UserApiService
 import lt.skautai.android.util.TokenManager
 @Module
@@ -63,5 +64,11 @@ object NetworkModule {
     @Singleton
     fun provideUserApiService(retrofit: Retrofit): UserApiService {
         return retrofit.create(UserApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideItemApiService(retrofit: Retrofit): ItemApiService {
+        return retrofit.create(ItemApiService::class.java)
     }
 }
