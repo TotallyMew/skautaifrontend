@@ -14,7 +14,12 @@ import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Singleton
-
+import lt.skautai.android.data.remote.MemberApiService
+import lt.skautai.android.data.remote.RoleApiService
+import lt.skautai.android.data.remote.InvitationApiService
+import lt.skautai.android.data.repository.MemberRepository
+import lt.skautai.android.data.repository.RoleRepository
+import lt.skautai.android.data.repository.InvitationRepository
 @Module
 @InstallIn(SingletonComponent::class)
 object RepositoryModule {
@@ -53,5 +58,32 @@ object RepositoryModule {
         tokenManager: TokenManager
     ): OrganizationalUnitRepository {
         return OrganizationalUnitRepository(orgUnitApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMemberRepository(
+        memberApiService: MemberApiService,
+        tokenManager: TokenManager
+    ): MemberRepository {
+        return MemberRepository(memberApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRoleRepository(
+        roleApiService: RoleApiService,
+        tokenManager: TokenManager
+    ): RoleRepository {
+        return RoleRepository(roleApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideInvitationRepository(
+        invitationApiService: InvitationApiService,
+        tokenManager: TokenManager
+    ): InvitationRepository {
+        return InvitationRepository(invitationApiService, tokenManager)
     }
 }

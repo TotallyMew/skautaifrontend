@@ -11,6 +11,8 @@ sealed class NavRoutes(val route: String) {
     object Register : NavRoutes("register")
     object RegisterInvite : NavRoutes("register_invite")
 
+    object InviteCreate : NavRoutes("invite_create")
+
     // Inventory
     object InventoryList : NavRoutes("inventory_list")
     object InventoryDetail : NavRoutes("inventory_detail/{itemId}") {

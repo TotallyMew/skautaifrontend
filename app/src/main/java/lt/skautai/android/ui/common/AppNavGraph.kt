@@ -25,6 +25,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import lt.skautai.android.ui.members.MemberListScreen
+import lt.skautai.android.ui.members.MemberDetailScreen
+import lt.skautai.android.ui.members.InviteCreateScreen
+
+
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -127,7 +132,14 @@ fun AppNavGraph(
                     }
                 }
             ) {
-                // MemberListScreen(navController)
+                MemberListScreen(
+                    onMemberClick = { userId ->
+                        navController.navigate(NavRoutes.MemberDetail.createRoute(userId))
+                    },
+                    onInviteClick = {
+                        navController.navigate(NavRoutes.InviteCreate.route)
+                    }
+                )
             }
         }
         composable(NavRoutes.EventList.route) {
@@ -187,8 +199,19 @@ fun AppNavGraph(
             route = NavRoutes.MemberDetail.route,
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
-            // MemberDetailScreen(navController, it.arguments?.getInt("userId")!!)
+            val userId = it.arguments?.getString("userId")!!
+            MemberDetailScreen(
+                userId = userId,
+                onBack = { navController.popBackStack() }
+            )
         }
+
+        composable(NavRoutes.InviteCreate.route) {
+            InviteCreateScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(NavRoutes.UnitList.route) {
             // UnitListScreen(navController)
         }
