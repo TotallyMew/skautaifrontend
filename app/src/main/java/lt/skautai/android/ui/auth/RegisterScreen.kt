@@ -49,7 +49,7 @@ fun RegisterScreen(
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
-            navController.navigate(NavRoutes.InventoryList.route) {
+            navController.navigate(NavRoutes.TuntasSelect.route) {
                 popUpTo(NavRoutes.Login.route) { inclusive = true }
             }
         }

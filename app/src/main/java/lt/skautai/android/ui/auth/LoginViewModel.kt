@@ -15,7 +15,8 @@ data class LoginUiState(
     val password: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isLoginSuccessful: Boolean = false
+    val isLoginSuccessful: Boolean = false,
+    val tuntaiCount: Int = 0
 )
 
 @HiltViewModel
@@ -45,10 +46,11 @@ class LoginViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = state.copy(isLoading = true, error = null)
             authRepository.login(state.email, state.password)
-                .onSuccess {
+                .onSuccess { response ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        isLoginSuccessful = true
+                        isLoginSuccessful = true,
+                        tuntaiCount = response.tuntai.size
                     )
                 }
                 .onFailure { e ->

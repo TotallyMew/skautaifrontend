@@ -17,6 +17,9 @@ import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.TokenManager
 import androidx.hilt.navigation.compose.hiltViewModel
+import lt.skautai.android.ui.tuntas.TuntasSelectScreen
+
+
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -185,7 +188,7 @@ fun AppNavGraph(
             // EventAddEditScreen(navController, it.arguments?.getInt("eventId"))
         }
         composable(NavRoutes.TuntasSelect.route) {
-            // TuntasSelectScreen(navController)
+            TuntasSelectScreen(navController)
         }
     }
 }

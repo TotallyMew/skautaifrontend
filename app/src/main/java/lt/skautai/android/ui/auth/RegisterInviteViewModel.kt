@@ -19,7 +19,8 @@ data class RegisterInviteUiState(
     val inviteCode: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
-    val isSuccess: Boolean = false
+    val isSuccess: Boolean = false,
+    val tuntaiCount: Int = 0
 )
 
 @HiltViewModel
@@ -62,8 +63,8 @@ class RegisterInviteViewModel @Inject constructor(
                 password = state.password,
                 phone = state.phone.ifBlank { null },
                 inviteCode = state.inviteCode
-            ).onSuccess {
-                _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true)
+            ).onSuccess { response ->
+                _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true, tuntaiCount = response.tuntai.size)
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
