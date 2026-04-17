@@ -191,6 +191,10 @@ private fun ItemDetailContent(item: ItemDto) {
         HorizontalDivider()
         Spacer(modifier = Modifier.height(16.dp))
 
+        item.description?.let {
+            if (it.isNotBlank()) DetailRow(label = "Aprašymas", value = it)
+        }
+
         DetailRow(label = "Kategorija", value = when (item.category) {
             "COLLECTIVE" -> "Bendras"
             "ASSIGNED" -> "Priskirtas"

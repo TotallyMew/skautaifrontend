@@ -56,7 +56,7 @@ fun InventoryListScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()

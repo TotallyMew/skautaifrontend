@@ -41,6 +41,7 @@ fun MainScaffold(
     navController: NavController,
     tokenManager: TokenManager,
     onLogout: () -> Unit,
+    floatingActionButton: @Composable () -> Unit = {},
     content: @Composable () -> Unit
 ) {
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -157,7 +158,8 @@ fun MainScaffold(
                         )
                     }
                 }
-            }
+            },
+           floatingActionButton = floatingActionButton
         ) { innerPadding ->
             Box(modifier = Modifier.padding(innerPadding)) {
                 content()

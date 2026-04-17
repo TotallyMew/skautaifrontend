@@ -14,6 +14,7 @@ import javax.inject.Singleton
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
 import lt.skautai.android.data.remote.ItemApiService
+import lt.skautai.android.data.remote.OrganizationalUnitApiService
 import lt.skautai.android.data.remote.UserApiService
 import lt.skautai.android.util.TokenManager
 @Module
@@ -71,4 +72,11 @@ object NetworkModule {
     fun provideItemApiService(retrofit: Retrofit): ItemApiService {
         return retrofit.create(ItemApiService::class.java)
     }
+
+    @Provides
+    @Singleton
+    fun provideOrganizationalUnitApiService(retrofit: Retrofit): OrganizationalUnitApiService {
+        return retrofit.create(OrganizationalUnitApiService::class.java)
+    }
+
 }

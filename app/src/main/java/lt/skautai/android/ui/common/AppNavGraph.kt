@@ -17,9 +17,14 @@ import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.TokenManager
 import androidx.hilt.navigation.compose.hiltViewModel
+import lt.skautai.android.ui.inventory.InventoryAddEditScreen
 import lt.skautai.android.ui.tuntas.TuntasSelectScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -62,6 +67,18 @@ fun AppNavGraph(
                         navController.navigate(NavRoutes.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
+                    }
+                },
+                floatingActionButton = {
+                    androidx.compose.material3.FloatingActionButton(
+                        onClick = {
+                            navController.navigate(NavRoutes.InventoryAddEdit.createRoute(null))
+                        }
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                            contentDescription = "Pridėti daiktą"
+                        )
                     }
                 }
             ) {
@@ -144,10 +161,15 @@ fun AppNavGraph(
             route = NavRoutes.InventoryAddEdit.route,
             arguments = listOf(navArgument("itemId") {
                 type = NavType.StringType
-                defaultValue = -1
+                defaultValue = null
+                nullable = true
             })
         ) {
-            // InventoryAddEditScreen(navController, it.arguments?.getInt("itemId"))
+            val itemId = it.arguments?.getString("itemId")
+            InventoryAddEditScreen(
+                itemId = itemId,
+                navController = navController
+            )
         }
         composable(NavRoutes.ReservationCreate.route) {
             // ReservationCreateScreen(navController)
