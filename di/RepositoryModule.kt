@@ -14,6 +14,16 @@ import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Singleton
+import lt.skautai.android.data.remote.MemberApiService
+import lt.skautai.android.data.remote.RoleApiService
+import lt.skautai.android.data.remote.InvitationApiService
+import lt.skautai.android.data.remote.RequestApiService
+import lt.skautai.android.data.remote.ReservationApiService
+import lt.skautai.android.data.repository.MemberRepository
+import lt.skautai.android.data.repository.RoleRepository
+import lt.skautai.android.data.repository.InvitationRepository
+import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.data.repository.ReservationRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -53,5 +63,50 @@ object RepositoryModule {
         tokenManager: TokenManager
     ): OrganizationalUnitRepository {
         return OrganizationalUnitRepository(orgUnitApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMemberRepository(
+        memberApiService: MemberApiService,
+        tokenManager: TokenManager
+    ): MemberRepository {
+        return MemberRepository(memberApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRoleRepository(
+        roleApiService: RoleApiService,
+        tokenManager: TokenManager
+    ): RoleRepository {
+        return RoleRepository(roleApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideInvitationRepository(
+        invitationApiService: InvitationApiService,
+        tokenManager: TokenManager
+    ): InvitationRepository {
+        return InvitationRepository(invitationApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideReservationRepository(
+        reservationApiService: ReservationApiService,
+        tokenManager: TokenManager
+    ): ReservationRepository {
+        return ReservationRepository(reservationApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRequestRepository(
+        requestApiService: RequestApiService,
+        tokenManager: TokenManager
+    ): RequestRepository {
+        return RequestRepository(requestApiService, tokenManager)
     }
 }

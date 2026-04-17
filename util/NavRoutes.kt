@@ -11,6 +11,8 @@ sealed class NavRoutes(val route: String) {
     object Register : NavRoutes("register")
     object RegisterInvite : NavRoutes("register_invite")
 
+    object InviteCreate : NavRoutes("invite_create")
+
     // Inventory
     object InventoryList : NavRoutes("inventory_list")
     object InventoryDetail : NavRoutes("inventory_detail/{itemId}") {
@@ -31,6 +33,13 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(requestId: String) = "request_detail/$requestId"
     }
     object RequestCreate : NavRoutes("request_create")
+
+
+
+    object ReservationDetail : NavRoutes("reservation_detail/{reservationId}") {
+        fun createRoute(reservationId: String) = "reservation_detail/$reservationId"
+    }
+
 
     // Members
     object MemberList : NavRoutes("member_list")

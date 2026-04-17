@@ -25,6 +25,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import lt.skautai.android.ui.members.MemberListScreen
+import lt.skautai.android.ui.members.MemberDetailScreen
+import lt.skautai.android.ui.members.InviteCreateScreen
+import lt.skautai.android.ui.reservations.ReservationListScreen
+import lt.skautai.android.ui.reservations.ReservationDetailScreen
+import lt.skautai.android.ui.reservations.ReservationCreateScreen
+import lt.skautai.android.ui.requests.RequestListScreen
+import lt.skautai.android.ui.requests.RequestDetailScreen
+import lt.skautai.android.ui.requests.RequestCreateScreen
+
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -97,7 +107,14 @@ fun AppNavGraph(
                     }
                 }
             ) {
-                // ReservationListScreen(navController)
+                ReservationListScreen(
+                    onReservationClick = { id ->
+                        navController.navigate(NavRoutes.ReservationDetail.createRoute(id))
+                    },
+                    onCreateClick = {
+                        navController.navigate(NavRoutes.ReservationCreate.route)
+                    }
+                )
             }
         }
         composable(NavRoutes.RequestList.route) {
@@ -112,7 +129,14 @@ fun AppNavGraph(
                     }
                 }
             ) {
-                // RequestListScreen(navController)
+                RequestListScreen(
+                    onRequestClick = { id ->
+                        navController.navigate(NavRoutes.RequestDetail.createRoute(id))
+                    },
+                    onCreateClick = {
+                        navController.navigate(NavRoutes.RequestCreate.route)
+                    }
+                )
             }
         }
         composable(NavRoutes.MemberList.route) {
@@ -127,7 +151,14 @@ fun AppNavGraph(
                     }
                 }
             ) {
-                // MemberListScreen(navController)
+                MemberListScreen(
+                    onMemberClick = { userId ->
+                        navController.navigate(NavRoutes.MemberDetail.createRoute(userId))
+                    },
+                    onInviteClick = {
+                        navController.navigate(NavRoutes.InviteCreate.route)
+                    }
+                )
             }
         }
         composable(NavRoutes.EventList.route) {
@@ -172,23 +203,55 @@ fun AppNavGraph(
             )
         }
         composable(NavRoutes.ReservationCreate.route) {
-            // ReservationCreateScreen(navController)
+            ReservationCreateScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             route = NavRoutes.RequestDetail.route,
             arguments = listOf(navArgument("requestId") { type = NavType.StringType })
         ) {
-            // RequestDetailScreen(navController, it.arguments?.getInt("requestId")!!)
+            val requestId = it.arguments?.getString("requestId")!!
+            RequestDetailScreen(
+                requestId = requestId,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(NavRoutes.RequestCreate.route) {
-            // RequestCreateScreen(navController)
+            RequestCreateScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
+
+        composable(
+            route = NavRoutes.ReservationDetail.route,
+            arguments = listOf(navArgument("reservationId") { type = NavType.StringType })
+        ) {
+            val reservationId = it.arguments?.getString("reservationId")!!
+            ReservationDetailScreen(
+                reservationId = reservationId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+
         composable(
             route = NavRoutes.MemberDetail.route,
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
-            // MemberDetailScreen(navController, it.arguments?.getInt("userId")!!)
+            val userId = it.arguments?.getString("userId")!!
+            MemberDetailScreen(
+                userId = userId,
+                onBack = { navController.popBackStack() }
+            )
         }
+
+        composable(NavRoutes.InviteCreate.route) {
+            InviteCreateScreen(
+                onBack = { navController.popBackStack() }
+            )
+        }
+
         composable(NavRoutes.UnitList.route) {
             // UnitListScreen(navController)
         }
