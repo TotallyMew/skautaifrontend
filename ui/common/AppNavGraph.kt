@@ -17,6 +17,14 @@ import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.TokenManager
 import androidx.hilt.navigation.compose.hiltViewModel
+import lt.skautai.android.ui.inventory.InventoryAddEditScreen
+import lt.skautai.android.ui.tuntas.TuntasSelectScreen
+import lt.skautai.android.ui.inventory.InventoryListScreen
+import lt.skautai.android.ui.inventory.InventoryDetailScreen
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
 @Composable
 fun AppNavGraph(
     navController: NavHostController,
@@ -60,9 +68,21 @@ fun AppNavGraph(
                             popUpTo(0) { inclusive = true }
                         }
                     }
+                },
+                floatingActionButton = {
+                    androidx.compose.material3.FloatingActionButton(
+                        onClick = {
+                            navController.navigate(NavRoutes.InventoryAddEdit.createRoute(null))
+                        }
+                    ) {
+                        Icon(
+                            imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                            contentDescription = "Pridėti daiktą"
+                        )
+                    }
                 }
             ) {
-                // InventoryListScreen(navController)
+                InventoryListScreen(navController)
             }
         }
         composable(NavRoutes.ReservationList.route) {
@@ -129,25 +149,34 @@ fun AppNavGraph(
         // Detail screens
         composable(
             route = NavRoutes.InventoryDetail.route,
-            arguments = listOf(navArgument("itemId") { type = NavType.IntType })
+            arguments = listOf(navArgument("itemId") { type = NavType.StringType })
         ) {
-            // InventoryDetailScreen(navController, it.arguments?.getInt("itemId")!!)
+            val itemId = it.arguments?.getString("itemId")!!
+            InventoryDetailScreen(
+                itemId = itemId,
+                navController = navController
+            )
         }
         composable(
             route = NavRoutes.InventoryAddEdit.route,
             arguments = listOf(navArgument("itemId") {
-                type = NavType.IntType
-                defaultValue = -1
+                type = NavType.StringType
+                defaultValue = null
+                nullable = true
             })
         ) {
-            // InventoryAddEditScreen(navController, it.arguments?.getInt("itemId"))
+            val itemId = it.arguments?.getString("itemId")
+            InventoryAddEditScreen(
+                itemId = itemId,
+                navController = navController
+            )
         }
         composable(NavRoutes.ReservationCreate.route) {
             // ReservationCreateScreen(navController)
         }
         composable(
             route = NavRoutes.RequestDetail.route,
-            arguments = listOf(navArgument("requestId") { type = NavType.IntType })
+            arguments = listOf(navArgument("requestId") { type = NavType.StringType })
         ) {
             // RequestDetailScreen(navController, it.arguments?.getInt("requestId")!!)
         }
@@ -156,7 +185,7 @@ fun AppNavGraph(
         }
         composable(
             route = NavRoutes.MemberDetail.route,
-            arguments = listOf(navArgument("userId") { type = NavType.IntType })
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
         ) {
             // MemberDetailScreen(navController, it.arguments?.getInt("userId")!!)
         }
@@ -165,27 +194,27 @@ fun AppNavGraph(
         }
         composable(
             route = NavRoutes.UnitDetail.route,
-            arguments = listOf(navArgument("unitId") { type = NavType.IntType })
+            arguments = listOf(navArgument("unitId") { type = NavType.StringType })
         ) {
             // UnitDetailScreen(navController, it.arguments?.getInt("unitId")!!)
         }
         composable(
             route = NavRoutes.EventDetail.route,
-            arguments = listOf(navArgument("eventId") { type = NavType.IntType })
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
         ) {
             // EventDetailScreen(navController, it.arguments?.getInt("eventId")!!)
         }
         composable(
             route = NavRoutes.EventAddEdit.route,
             arguments = listOf(navArgument("eventId") {
-                type = NavType.IntType
+                type = NavType.StringType
                 defaultValue = -1
             })
         ) {
             // EventAddEditScreen(navController, it.arguments?.getInt("eventId"))
         }
         composable(NavRoutes.TuntasSelect.route) {
-            // TuntasSelectScreen(navController)
+            TuntasSelectScreen(navController)
         }
     }
 }

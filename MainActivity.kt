@@ -14,7 +14,7 @@ import lt.skautai.android.ui.theme.SkautuInventoriusTheme
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
-
+import kotlinx.coroutines.flow.first
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -32,11 +32,20 @@ class MainActivity : ComponentActivity() {
             SkautuInventoriusTheme {
                 val navController = rememberNavController()
                 val token by tokenManager.token.collectAsState(initial = null)
+                val activeTuntasId by tokenManager.activeTuntasId.collectAsState(initial = null)
 
-                LaunchedEffect(token) {
-                    if (!isSuperAdminDeepLink && token != null) {
-                        navController.navigate(NavRoutes.InventoryList.route) {
-                            popUpTo(NavRoutes.Login.route) { inclusive = true }
+                LaunchedEffect(Unit) {
+                    val currentToken = tokenManager.token.first()
+                    val currentTuntasId = tokenManager.activeTuntasId.first()
+                    if (!isSuperAdminDeepLink && currentToken != null) {
+                        if (currentTuntasId != null) {
+                            navController.navigate(NavRoutes.InventoryList.route) {
+                                popUpTo(NavRoutes.Login.route) { inclusive = true }
+                            }
+                        } else {
+                            navController.navigate(NavRoutes.TuntasSelect.route) {
+                                popUpTo(NavRoutes.Login.route) { inclusive = true }
+                            }
                         }
                     }
                 }

@@ -30,7 +30,8 @@ data class TokenResponseDto(
     val userId: String,
     val email: String,
     val name: String,
-    val type: String = "user"
+    val type: String = "user",
+    val tuntai: List<UserTuntasDto> = emptyList()
 )
 
 data class ErrorResponseDto(

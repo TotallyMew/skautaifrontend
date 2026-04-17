@@ -44,8 +44,14 @@ fun LoginScreen(
 
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
-            navController.navigate(NavRoutes.InventoryList.route) {
-                popUpTo(NavRoutes.Login.route) { inclusive = true }
+            if (uiState.tuntaiCount == 1) {
+                navController.navigate(NavRoutes.InventoryList.route) {
+                    popUpTo(NavRoutes.Login.route) { inclusive = true }
+                }
+            } else {
+                navController.navigate(NavRoutes.TuntasSelect.route) {
+                    popUpTo(NavRoutes.Login.route) { inclusive = true }
+                }
             }
         }
     }

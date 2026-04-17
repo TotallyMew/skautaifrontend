@@ -27,7 +27,11 @@ class AuthRepository @Inject constructor(
                     email = body.email,
                     type = body.type
                 )
+                if (body.tuntai.size == 1) {
+                    tokenManager.setActiveTuntas(body.tuntai.first().id)
+                }
                 Result.success(body)
+
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Login failed"))
             }
@@ -105,6 +109,9 @@ class AuthRepository @Inject constructor(
                     email = body.email,
                     type = body.type
                 )
+                if (body.tuntai.size == 1) {
+                    tokenManager.setActiveTuntas(body.tuntai.first().id)
+                }
                 Result.success(body)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
