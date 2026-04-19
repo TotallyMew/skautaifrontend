@@ -35,7 +35,9 @@ class InventoryListViewModel @Inject constructor(
 
     fun loadItems() {
         viewModelScope.launch {
-            _uiState.value = InventoryListUiState.Loading
+            if (_uiState.value !is InventoryListUiState.Success) {
+                _uiState.value = InventoryListUiState.Loading
+            }
             itemRepository.getItems()
                 .onSuccess { items ->
                     _uiState.value = if (items.isEmpty()) {

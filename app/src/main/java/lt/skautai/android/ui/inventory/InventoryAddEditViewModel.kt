@@ -25,8 +25,8 @@ data class InventoryAddEditUiState(
     val description: String = "",
     val category: String = "COLLECTIVE",
     val condition: String = "GOOD",
-    val ownerType: String = "TUNTAS",
-    val ownerId: String = "",
+    val custodianId: String? = null,
+    val origin: String = "UNIT_ACQUIRED",
     val quantity: String = "1",
     val notes: String = "",
     val purchaseDate: String = "",
@@ -49,15 +49,13 @@ class InventoryAddEditViewModel @Inject constructor(
     fun init(itemId: String?) {
         viewModelScope.launch {
             val tuntasId = tokenManager.activeTuntasId.first() ?: ""
-            _uiState.value = _uiState.value.copy(tuntasId = tuntasId, ownerId = tuntasId)
+            _uiState.value = _uiState.value.copy(tuntasId = tuntasId)
 
-            // Load org units for draugove selection
             orgUnitRepository.getUnits()
                 .onSuccess { units ->
                     _uiState.value = _uiState.value.copy(orgUnits = units)
                 }
 
-            // If editing, load existing item
             if (itemId != null) {
                 _uiState.value = _uiState.value.copy(isLoading = true)
                 itemRepository.getItem(itemId)
@@ -68,13 +66,13 @@ class InventoryAddEditViewModel @Inject constructor(
                             description = item.description ?: "",
                             category = item.category,
                             condition = item.condition,
-                            ownerType = item.ownerType,
-                            ownerId = item.ownerId,
+                            custodianId = item.custodianId,
+                            origin = item.origin,
                             quantity = item.quantity.toString(),
                             notes = item.notes ?: "",
                             purchaseDate = item.purchaseDate ?: "",
                             purchasePrice = item.purchasePrice?.toString() ?: "",
-                            selectedOrgUnitId = if (item.ownerType == "DRAUGOVE") item.ownerId else ""
+                            selectedOrgUnitId = item.custodianId ?: ""
                         )
                     }
                     .onFailure { error ->
@@ -102,21 +100,14 @@ class InventoryAddEditViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(condition = value)
     }
 
-    fun onOwnerTypeChange(value: String) {
-        val state = _uiState.value
-        val newOwnerId = when (value) {
-            "TUNTAS" -> state.tuntasId
-            "DRAUGOVE" -> state.selectedOrgUnitId
-            "INDIVIDUAL" -> state.tuntasId
-            else -> state.tuntasId
-        }
-        _uiState.value = state.copy(ownerType = value, ownerId = newOwnerId)
+    fun onOriginChange(value: String) {
+        _uiState.value = _uiState.value.copy(origin = value)
     }
 
-    fun onOrgUnitChange(unitId: String) {
+    fun onOrgUnitChange(unitId: String?) {
         _uiState.value = _uiState.value.copy(
-            selectedOrgUnitId = unitId,
-            ownerId = unitId
+            selectedOrgUnitId = unitId ?: "",
+            custodianId = unitId
         )
     }
 
@@ -136,24 +127,18 @@ class InventoryAddEditViewModel @Inject constructor(
             return
         }
 
-        if (state.ownerType == "DRAUGOVE" && state.selectedOrgUnitId.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite draugovę")
-            return
-        }
-
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
 
             val price = state.purchasePrice.toDoubleOrNull()
 
             if (itemId == null) {
-                // Create
                 val request = CreateItemRequestDto(
                     name = state.name,
                     description = state.description.ifBlank { null },
                     category = state.category,
-                    ownerType = state.ownerType,
-                    ownerId = state.ownerId,
+                    custodianId = state.custodianId,
+                    origin = state.origin,
                     quantity = qty,
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
@@ -170,13 +155,13 @@ class InventoryAddEditViewModel @Inject constructor(
                         )
                     }
             } else {
-                // Update
                 val request = UpdateItemRequestDto(
                     name = state.name,
                     description = state.description.ifBlank { null },
                     category = state.category,
                     condition = state.condition,
                     quantity = qty,
+                    custodianId = state.custodianId,
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
                     purchasePrice = price

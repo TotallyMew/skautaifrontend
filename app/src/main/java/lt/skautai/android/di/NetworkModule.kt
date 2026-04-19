@@ -20,7 +20,8 @@ import lt.skautai.android.util.TokenManager
 import lt.skautai.android.data.remote.MemberApiService
 import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.InvitationApiService
-
+import lt.skautai.android.data.remote.RequestApiService
+import lt.skautai.android.data.remote.ReservationApiService
 
 
 @Module
@@ -101,4 +102,19 @@ object NetworkModule {
     fun provideInvitationApiService(retrofit: Retrofit): InvitationApiService {
         return retrofit.create(InvitationApiService::class.java)
     }
+
+
+    @Provides
+    @Singleton
+    fun provideReservationApiService(retrofit: Retrofit): ReservationApiService {
+        return retrofit.create(ReservationApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideRequestApiService(retrofit: Retrofit): RequestApiService {
+        return retrofit.create(RequestApiService::class.java)
+    }
+
+
 }

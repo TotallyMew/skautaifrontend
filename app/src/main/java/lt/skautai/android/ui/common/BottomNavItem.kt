@@ -1,7 +1,7 @@
 package lt.skautai.android.ui.common
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ListAlt
@@ -34,13 +34,13 @@ sealed class BottomNavItem(
         label = "Nariai",
         icon = Icons.Default.Group
     )
-    data object Events : BottomNavItem(
-        route = NavRoutes.EventList.route,
-        label = "Renginiai",
-        icon = Icons.Default.CalendarMonth
+    data object Units : BottomNavItem(
+        route = NavRoutes.UnitList.route,
+        label = "Vienetai",
+        icon = Icons.Default.AccountTree
     )
 
     companion object {
-        val all = listOf(Inventory, Reservations, Requests, Members, Events)
+        val all = listOf(Inventory, Reservations, Requests, Members, Units)
     }
 }

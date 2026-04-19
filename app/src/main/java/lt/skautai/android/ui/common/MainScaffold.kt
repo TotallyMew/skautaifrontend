@@ -58,6 +58,7 @@ fun MainScaffold(
         NavRoutes.RequestList.route -> "Prašymai"
         NavRoutes.MemberList.route -> "Nariai"
         NavRoutes.EventList.route -> "Renginiai"
+        NavRoutes.UnitList.route -> "Vienetai"
         else -> "Skautų Inventorius"
     }
 

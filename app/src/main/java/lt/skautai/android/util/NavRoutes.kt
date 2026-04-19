@@ -34,6 +34,13 @@ sealed class NavRoutes(val route: String) {
     }
     object RequestCreate : NavRoutes("request_create")
 
+
+
+    object ReservationDetail : NavRoutes("reservation_detail/{reservationId}") {
+        fun createRoute(reservationId: String) = "reservation_detail/$reservationId"
+    }
+
+
     // Members
     object MemberList : NavRoutes("member_list")
     object MemberDetail : NavRoutes("member_detail/{userId}") {
@@ -42,8 +49,12 @@ sealed class NavRoutes(val route: String) {
 
     // Organizational Units
     object UnitList : NavRoutes("unit_list")
+    object UnitCreate : NavRoutes("unit_create")
     object UnitDetail : NavRoutes("unit_detail/{unitId}") {
         fun createRoute(unitId: String) = "unit_detail/$unitId"
+    }
+    object UnitEdit : NavRoutes("unit_edit/{unitId}") {
+        fun createRoute(unitId: String) = "unit_edit/$unitId"
     }
 
     object TuntasSelect : NavRoutes("tuntas_select")

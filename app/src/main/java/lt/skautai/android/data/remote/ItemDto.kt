@@ -3,8 +3,9 @@ package lt.skautai.android.data.remote
 data class ItemDto(
     val id: String,
     val tuntasId: String,
-    val ownerType: String,
-    val ownerId: String,
+    val custodianId: String?,
+    val custodianName: String?,
+    val origin: String,
     val name: String,
     val description: String?,
     val category: String,
@@ -25,12 +26,13 @@ data class ItemListResponseDto(
     val items: List<ItemDto>,
     val total: Int
 )
+
 data class CreateItemRequestDto(
     val name: String,
     val description: String? = null,
     val category: String,
-    val ownerType: String,
-    val ownerId: String,
+    val custodianId: String? = null,
+    val origin: String = "UNIT_ACQUIRED",
     val quantity: Int = 1,
     val locationId: String? = null,
     val responsibleUserId: String? = null,
@@ -46,6 +48,7 @@ data class UpdateItemRequestDto(
     val category: String? = null,
     val condition: String? = null,
     val quantity: Int? = null,
+    val custodianId: String? = null,
     val locationId: String? = null,
     val responsibleUserId: String? = null,
     val photoUrl: String? = null,

@@ -28,7 +28,16 @@ import androidx.compose.material3.Icon
 import lt.skautai.android.ui.members.MemberListScreen
 import lt.skautai.android.ui.members.MemberDetailScreen
 import lt.skautai.android.ui.members.InviteCreateScreen
-
+import lt.skautai.android.ui.reservations.ReservationListScreen
+import lt.skautai.android.ui.reservations.ReservationDetailScreen
+import lt.skautai.android.ui.reservations.ReservationCreateScreen
+import lt.skautai.android.ui.requests.RequestListScreen
+import lt.skautai.android.ui.requests.RequestDetailScreen
+import lt.skautai.android.ui.requests.RequestCreateScreen
+import lt.skautai.android.ui.units.UnitListScreen
+import lt.skautai.android.ui.units.UnitCreateScreen
+import lt.skautai.android.ui.units.UnitDetailScreen
+import lt.skautai.android.ui.units.UnitEditScreen
 
 @Composable
 fun AppNavGraph(
@@ -102,7 +111,14 @@ fun AppNavGraph(
                     }
                 }
             ) {
-                // ReservationListScreen(navController)
+                ReservationListScreen(
+                    onReservationClick = { id ->
+                        navController.navigate(NavRoutes.ReservationDetail.createRoute(id))
+                    },
+                    onCreateClick = {
+                        navController.navigate(NavRoutes.ReservationCreate.route)
+                    }
+                )
             }
         }
         composable(NavRoutes.RequestList.route) {
@@ -117,7 +133,14 @@ fun AppNavGraph(
                     }
                 }
             ) {
-                // RequestListScreen(navController)
+                RequestListScreen(
+                    onRequestClick = { id ->
+                        navController.navigate(NavRoutes.RequestDetail.createRoute(id))
+                    },
+                    onCreateClick = {
+                        navController.navigate(NavRoutes.RequestCreate.route)
+                    }
+                )
             }
         }
         composable(NavRoutes.MemberList.route) {
@@ -184,17 +207,38 @@ fun AppNavGraph(
             )
         }
         composable(NavRoutes.ReservationCreate.route) {
-            // ReservationCreateScreen(navController)
+            ReservationCreateScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             route = NavRoutes.RequestDetail.route,
             arguments = listOf(navArgument("requestId") { type = NavType.StringType })
         ) {
-            // RequestDetailScreen(navController, it.arguments?.getInt("requestId")!!)
+            val requestId = it.arguments?.getString("requestId")!!
+            RequestDetailScreen(
+                requestId = requestId,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(NavRoutes.RequestCreate.route) {
-            // RequestCreateScreen(navController)
+            RequestCreateScreen(
+                onBack = { navController.popBackStack() }
+            )
         }
+
+        composable(
+            route = NavRoutes.ReservationDetail.route,
+            arguments = listOf(navArgument("reservationId") { type = NavType.StringType })
+        ) {
+            val reservationId = it.arguments?.getString("reservationId")!!
+            ReservationDetailScreen(
+                reservationId = reservationId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+
         composable(
             route = NavRoutes.MemberDetail.route,
             arguments = listOf(navArgument("userId") { type = NavType.StringType })
@@ -213,13 +257,53 @@ fun AppNavGraph(
         }
 
         composable(NavRoutes.UnitList.route) {
-            // UnitListScreen(navController)
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
+                floatingActionButton = {
+                    FloatingActionButton(
+                        onClick = { navController.navigate(NavRoutes.UnitCreate.route) }
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Pridėti vienetą")
+                    }
+                }
+            ) {
+                UnitListScreen(
+                    onCreateClick = { navController.navigate(NavRoutes.UnitCreate.route) },
+                    onUnitClick = { unitId -> navController.navigate(NavRoutes.UnitDetail.createRoute(unitId)) }
+                )
+            }
+        }
+        composable(NavRoutes.UnitCreate.route) {
+            UnitCreateScreen(onBack = { navController.popBackStack() })
         }
         composable(
             route = NavRoutes.UnitDetail.route,
             arguments = listOf(navArgument("unitId") { type = NavType.StringType })
         ) {
-            // UnitDetailScreen(navController, it.arguments?.getInt("unitId")!!)
+            val unitId = it.arguments?.getString("unitId")!!
+            UnitDetailScreen(
+                unitId = unitId,
+                onBack = { navController.popBackStack() },
+                onEditClick = { id -> navController.navigate(NavRoutes.UnitEdit.createRoute(id)) }
+            )
+        }
+        composable(
+            route = NavRoutes.UnitEdit.route,
+            arguments = listOf(navArgument("unitId") { type = NavType.StringType })
+        ) {
+            val unitId = it.arguments?.getString("unitId")!!
+            UnitEditScreen(
+                unitId = unitId,
+                onBack = { navController.popBackStack() }
+            )
         }
         composable(
             route = NavRoutes.EventDetail.route,

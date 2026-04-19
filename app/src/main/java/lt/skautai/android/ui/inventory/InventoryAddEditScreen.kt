@@ -144,33 +144,30 @@ fun InventoryAddEditScreen(
                         )
                     }
 
-                    // Owner type dropdown
+                    // Origin dropdown
                     DropdownField(
-                        label = "Savininko tipas",
-                        selected = uiState.ownerType,
+                        label = "Kilmė",
+                        selected = uiState.origin,
                         options = listOf(
-                            "TUNTAS" to "Tuntas",
-                            "DRAUGOVE" to "Draugovė",
-                            "INDIVIDUAL" to "Asmeninis"
+                            "UNIT_ACQUIRED" to "Įsigytas",
+                            "TRANSFERRED_FROM_TUNTAS" to "Perduotas iš tunto"
                         ),
-                        onSelected = { viewModel.onOwnerTypeChange(it) }
+                        onSelected = { viewModel.onOriginChange(it) }
                     )
 
-                    // Org unit dropdown (only when DRAUGOVE)
-                    if (uiState.ownerType == "DRAUGOVE") {
-                        if (uiState.orgUnits.isEmpty()) {
-                            Text(
-                                text = "Nėra draugovių šiame tunte",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            OrgUnitDropdown(
-                                units = uiState.orgUnits,
-                                selectedId = uiState.selectedOrgUnitId,
-                                onSelected = { viewModel.onOrgUnitChange(it) }
-                            )
-                        }
+                    // Org unit dropdown
+                    if (uiState.orgUnits.isEmpty()) {
+                        Text(
+                            text = "Nėra draugovių šiame tunte",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        OrgUnitDropdown(
+                            units = uiState.orgUnits,
+                            selectedId = uiState.selectedOrgUnitId,
+                            onSelected = { viewModel.onOrgUnitChange(it) }
+                        )
                     }
 
                     // Quantity

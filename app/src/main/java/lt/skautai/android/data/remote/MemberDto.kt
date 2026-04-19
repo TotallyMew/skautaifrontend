@@ -40,3 +40,15 @@ data class MemberListDto(
     @SerializedName("members") val members: List<MemberDto>,
     @SerializedName("total") val total: Int
 )
+
+data class AssignLeadershipRoleRequestDto(
+    @SerializedName("roleId") val roleId: String,
+    @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null,
+    @SerializedName("startsAt") val startsAt: String? = null,
+    @SerializedName("expiresAt") val expiresAt: String? = null,
+    @SerializedName("termNumber") val termNumber: Int = 1
+)
+
+data class AssignRankRequestDto(
+    @SerializedName("roleId") val roleId: String
+)

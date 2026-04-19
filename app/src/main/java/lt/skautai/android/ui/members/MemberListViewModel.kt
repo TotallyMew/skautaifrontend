@@ -31,7 +31,9 @@ class MemberListViewModel @Inject constructor(
 
     fun loadMembers() {
         viewModelScope.launch {
-            _uiState.value = MemberListUiState.Loading
+            if (_uiState.value !is MemberListUiState.Success) {
+                _uiState.value = MemberListUiState.Loading
+            }
             memberRepository.getMembers()
                 .onSuccess { response ->
                     _uiState.value = MemberListUiState.Success(response.members)

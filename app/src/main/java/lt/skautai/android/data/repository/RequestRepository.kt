@@ -1,126 +1,150 @@
 package lt.skautai.android.data.repository
 
-import lt.skautai.android.data.remote.ItemApiService
-import lt.skautai.android.data.remote.ItemDto
-import lt.skautai.android.util.TokenManager
 import kotlinx.coroutines.flow.first
-import lt.skautai.android.data.remote.CreateItemRequestDto
-import lt.skautai.android.data.remote.UpdateItemRequestDto
+import lt.skautai.android.data.remote.BendrasRequestDto
+import lt.skautai.android.data.remote.BendrasRequestListDto
+import lt.skautai.android.data.remote.CreateBendrasRequestDto
+import lt.skautai.android.data.remote.RequestApiService
+import lt.skautai.android.data.remote.ReviewRequestDto
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class ItemRepository @Inject constructor(
-    private val itemApiService: ItemApiService,
+class RequestRepository @Inject constructor(
+    private val requestApiService: RequestApiService,
     private val tokenManager: TokenManager
 ) {
 
-    suspend fun getItems(
-        custodianId: String? = null,
-        category: String? = null,
-        status: String? = "ACTIVE"
-    ): Result<List<ItemDto>> {
+    suspend fun getRequests(): Result<BendrasRequestListDto> {
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = itemApiService.getItems(
+            val response = requestApiService.getRequests(
                 token = "Bearer $token",
-                tuntasId = tuntasId,
-                custodianId = custodianId,
-                category = category,
-                status = status
-            )
-            if (response.isSuccessful) {
-                Result.success(response.body()!!.items)
-            } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant inventorių"))
-            }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun getItem(itemId: String): Result<ItemDto> {
-        return try {
-            val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = itemApiService.getItem(
-                token = "Bearer $token",
-                tuntasId = tuntasId,
-                itemId = itemId
+                tuntasId = tuntasId
             )
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant daiktą"))
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prašymus"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun deleteItem(itemId: String): Result<Unit> {
+    suspend fun getRequest(id: String): Result<BendrasRequestDto> {
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = itemApiService.deleteItem(
+            val response = requestApiService.getRequest(
                 token = "Bearer $token",
                 tuntasId = tuntasId,
-                itemId = itemId
+                id = id
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prašymą"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createRequest(request: CreateBendrasRequestDto): Result<BendrasRequestDto> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = requestApiService.createRequest(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                request = request
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant prašymą"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun cancelRequest(id: String): Result<Unit> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = requestApiService.cancelRequest(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                id = id
             )
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida trinant daiktą"))
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atšaukiant prašymą"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun createItem(request: CreateItemRequestDto): Result<ItemDto> {
+    suspend fun draugininkasReview(
+        id: String,
+        action: String,
+        rejectionReason: String?
+    ): Result<BendrasRequestDto> {
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = itemApiService.createItem(
+            val response = requestApiService.draugininkasReview(
                 token = "Bearer $token",
                 tuntasId = tuntasId,
-                request = request
+                id = id,
+                request = ReviewRequestDto(action = action, rejectionReason = rejectionReason)
             )
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant daiktą"))
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant peržiūrą"))
             }
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    suspend fun updateItem(itemId: String, request: UpdateItemRequestDto): Result<ItemDto> {
+    suspend fun topLevelReview(
+        id: String,
+        action: String,
+        rejectionReason: String?
+    ): Result<BendrasRequestDto> {
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = itemApiService.updateItem(
+            val response = requestApiService.topLevelReview(
                 token = "Bearer $token",
                 tuntasId = tuntasId,
-                itemId = itemId,
-                request = request
+                id = id,
+                request = ReviewRequestDto(action = action, rejectionReason = rejectionReason)
             )
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atnaujinant daiktą"))
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant peržiūrą"))
             }
         } catch (e: Exception) {
             Result.failure(e)
