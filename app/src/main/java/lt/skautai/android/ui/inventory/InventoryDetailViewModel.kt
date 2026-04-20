@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface InventoryDetailUiState {
@@ -19,11 +22,15 @@ sealed interface InventoryDetailUiState {
 
 @HiltViewModel
 class InventoryDetailViewModel @Inject constructor(
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<InventoryDetailUiState>(InventoryDetailUiState.Loading)
     val uiState: StateFlow<InventoryDetailUiState> = _uiState.asStateFlow()
+
+    val permissions: StateFlow<Set<String>> = tokenManager.permissions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private val _deleted = MutableStateFlow(false)
     val deleted: StateFlow<Boolean> = _deleted.asStateFlow()

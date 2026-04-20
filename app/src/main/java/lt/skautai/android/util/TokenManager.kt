@@ -25,6 +25,7 @@ class TokenManager @Inject constructor(
         val USER_EMAIL_KEY = stringPreferencesKey("user_email")
         val USER_TYPE_KEY = stringPreferencesKey("user_type")
         val ACTIVE_TUNTAS_ID_KEY = stringPreferencesKey("active_tuntas_id")
+        val PERMISSIONS_KEY = stringPreferencesKey("permissions")
     }
 
     val token: Flow<String?> = context.dataStore.data.map { it[TOKEN_KEY] }
@@ -33,6 +34,9 @@ class TokenManager @Inject constructor(
     val userEmail: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL_KEY] }
     val userType: Flow<String?> = context.dataStore.data.map { it[USER_TYPE_KEY] }
     val activeTuntasId: Flow<String?> = context.dataStore.data.map { it[ACTIVE_TUNTAS_ID_KEY] }
+    val permissions: Flow<Set<String>> = context.dataStore.data.map { prefs ->
+        prefs[PERMISSIONS_KEY]?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+    }
 
     suspend fun saveToken(
         token: String,
@@ -54,6 +58,10 @@ class TokenManager @Inject constructor(
         context.dataStore.edit { prefs ->
             prefs[ACTIVE_TUNTAS_ID_KEY] = tuntasId
         }
+    }
+
+    suspend fun savePermissions(perms: List<String>) {
+        context.dataStore.edit { it[PERMISSIONS_KEY] = perms.joinToString(",") }
     }
 
     suspend fun clearAll() {

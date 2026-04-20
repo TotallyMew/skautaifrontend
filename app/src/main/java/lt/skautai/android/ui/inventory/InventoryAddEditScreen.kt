@@ -156,17 +156,16 @@ fun InventoryAddEditScreen(
                     )
 
                     // Org unit dropdown
-                    if (uiState.orgUnits.isEmpty()) {
+                    OrgUnitDropdown(
+                        units = uiState.orgUnits,
+                        selectedId = uiState.selectedOrgUnitId,
+                        onSelected = { viewModel.onOrgUnitChange(it) }
+                    )
+                    if (uiState.selectedOrgUnitId.isEmpty()) {
                         Text(
-                            text = "Nėra draugovių šiame tunte",
+                            text = "Daiktas bus išsiųstas inventorininkui patvirtinti",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    } else {
-                        OrgUnitDropdown(
-                            units = uiState.orgUnits,
-                            selectedId = uiState.selectedOrgUnitId,
-                            onSelected = { viewModel.onOrgUnitChange(it) }
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
 
@@ -276,10 +275,11 @@ private fun DropdownField(
 private fun OrgUnitDropdown(
     units: List<OrganizationalUnitDto>,
     selectedId: String,
-    onSelected: (String) -> Unit
+    onSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkite draugovę"
+    val selectedName = if (selectedId.isEmpty()) "Bendras (tuntas)"
+                       else units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkite draugovę"
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -289,7 +289,7 @@ private fun OrgUnitDropdown(
             value = selectedName,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Draugovė *") },
+            label = { Text("Savininkystė") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -299,6 +299,13 @@ private fun OrgUnitDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
+            DropdownMenuItem(
+                text = { Text("Bendras (tuntas)") },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                }
+            )
             units.forEach { unit ->
                 DropdownMenuItem(
                     text = { Text(unit.name) },

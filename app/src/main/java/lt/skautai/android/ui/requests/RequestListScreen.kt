@@ -126,17 +126,28 @@ fun RequestCard(
                 )
                 RequestStatusChip(status = request.topLevelStatus)
             }
+            request.itemDescription?.let {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
             Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${request.startDate.take(10)} — ${request.endDate.take(10)}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
             Text(
                 text = "Kiekis: ${request.quantity}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            request.neededByDate?.let {
+                Text(
+                    text = "Reikalinga iki: ${it.take(10)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             request.requestingUnitName?.let {
                 Text(
                     text = "Draugovė: $it",

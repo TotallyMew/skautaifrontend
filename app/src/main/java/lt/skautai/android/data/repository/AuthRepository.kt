@@ -12,24 +12,33 @@ import javax.inject.Singleton
 @Singleton
 class AuthRepository @Inject constructor(
     private val authApiService: AuthApiService,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val userRepository: UserRepository
 ) {
+
+    private suspend fun persistSession(body: TokenResponseDto) {
+        tokenManager.saveToken(
+            token = body.token,
+            userId = body.userId,
+            name = body.name,
+            email = body.email,
+            type = body.type
+        )
+
+        if (body.tuntai.size == 1) {
+            val tuntasId = body.tuntai.first().id
+            tokenManager.setActiveTuntas(tuntasId)
+            userRepository.getMyPermissions(tuntasId)
+                .onSuccess { tokenManager.savePermissions(it) }
+        }
+    }
 
     suspend fun login(email: String, password: String): Result<TokenResponseDto> {
         return try {
             val response = authApiService.login(LoginRequestDto(email, password))
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveToken(
-                    token = body.token,
-                    userId = body.userId,
-                    name = body.name,
-                    email = body.email,
-                    type = body.type
-                )
-                if (body.tuntai.size == 1) {
-                    tokenManager.setActiveTuntas(body.tuntai.first().id)
-                }
+                persistSession(body)
                 Result.success(body)
 
             } else {
@@ -65,13 +74,7 @@ class AuthRepository @Inject constructor(
             )
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveToken(
-                    token = body.token,
-                    userId = body.userId,
-                    name = body.name,
-                    email = body.email,
-                    type = body.type
-                )
+                persistSession(body)
                 Result.success(body)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
@@ -102,16 +105,7 @@ class AuthRepository @Inject constructor(
             )
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveToken(
-                    token = body.token,
-                    userId = body.userId,
-                    name = body.name,
-                    email = body.email,
-                    type = body.type
-                )
-                if (body.tuntai.size == 1) {
-                    tokenManager.setActiveTuntas(body.tuntai.first().id)
-                }
+                persistSession(body)
                 Result.success(body)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))

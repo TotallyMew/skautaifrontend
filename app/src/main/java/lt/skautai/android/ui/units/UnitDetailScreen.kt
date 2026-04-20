@@ -29,6 +29,9 @@ fun UnitDetailScreen(
     viewModel: UnitDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val canManageUnit = "organizational_units.manage" in permissions
+    val canManageMembers = "unit.members.manage" in permissions
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(unitId) { viewModel.loadUnit(unitId) }
@@ -84,7 +87,7 @@ fun UnitDetailScreen(
                     }
                 },
                 actions = {
-                    if (uiState.unit != null) {
+                    if (uiState.unit != null && canManageUnit) {
                         IconButton(onClick = { onEditClick(unitId) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
                         }
@@ -97,7 +100,7 @@ fun UnitDetailScreen(
             )
         },
         floatingActionButton = {
-            if (uiState.unit != null) {
+            if (uiState.unit != null && canManageMembers) {
                 FloatingActionButton(onClick = viewModel::openAssignMemberDialog) {
                     Icon(Icons.Default.PersonAdd, contentDescription = "Priskirti narį")
                 }
@@ -156,6 +159,7 @@ fun UnitDetailScreen(
                         items(uiState.members) { membership ->
                             UnitMemberCard(
                                 membership = membership,
+                                canManageMembers = canManageMembers,
                                 onRemove = { viewModel.removeUnitMember(unitId, membership.userId) },
                                 isRemoving = uiState.isSaving
                             )
@@ -170,6 +174,7 @@ fun UnitDetailScreen(
 @Composable
 private fun UnitMemberCard(
     membership: UnitMembershipDto,
+    canManageMembers: Boolean,
     onRemove: () -> Unit,
     isRemoving: Boolean
 ) {
@@ -193,9 +198,11 @@ private fun UnitMemberCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
-            IconButton(onClick = onRemove, enabled = !isRemoving) {
-                Icon(Icons.Default.PersonRemove, contentDescription = "Šalinti narį",
-                    tint = MaterialTheme.colorScheme.error)
+            if (canManageMembers) {
+                IconButton(onClick = onRemove, enabled = !isRemoving) {
+                    Icon(Icons.Default.PersonRemove, contentDescription = "Šalinti narį",
+                        tint = MaterialTheme.colorScheme.error)
+                }
             }
         }
     }

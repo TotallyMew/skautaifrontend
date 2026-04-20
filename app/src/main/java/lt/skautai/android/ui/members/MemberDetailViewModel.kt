@@ -5,12 +5,15 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import lt.skautai.android.data.remote.*
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RoleRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 data class MemberDetailUiState(
@@ -35,11 +38,15 @@ data class MemberDetailUiState(
 class MemberDetailViewModel @Inject constructor(
     private val memberRepository: MemberRepository,
     private val roleRepository: RoleRepository,
-    private val orgUnitRepository: OrganizationalUnitRepository
+    private val orgUnitRepository: OrganizationalUnitRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MemberDetailUiState())
     val uiState: StateFlow<MemberDetailUiState> = _uiState.asStateFlow()
+
+    val permissions: StateFlow<Set<String>> = tokenManager.permissions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     fun loadMember(userId: String) {
         viewModelScope.launch {

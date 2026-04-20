@@ -26,6 +26,7 @@ import lt.skautai.android.data.remote.MemberDto
 fun MemberListScreen(
     onMemberClick: (String) -> Unit,
     onInviteClick: () -> Unit,
+    canInvite: Boolean = false,
     viewModel: MemberListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -89,13 +90,15 @@ fun MemberListScreen(
                     }
                 }
 
-                FloatingActionButton(
-                    onClick = onInviteClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Pakviesti narį")
+                if (canInvite) {
+                    FloatingActionButton(
+                        onClick = onInviteClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Pakviesti narį")
+                    }
                 }
             }
         }

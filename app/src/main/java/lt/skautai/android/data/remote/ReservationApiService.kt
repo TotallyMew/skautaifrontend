@@ -13,6 +13,14 @@ interface ReservationApiService {
         @Query("status") status: String? = null
     ): Response<ReservationListDto>
 
+    @GET("api/reservations/availability")
+    suspend fun getAvailability(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("startDate") startDate: String,
+        @Query("endDate") endDate: String
+    ): Response<ReservationAvailabilityDto>
+
     @GET("api/reservations/{id}")
     suspend fun getReservation(
         @Header("Authorization") token: String,

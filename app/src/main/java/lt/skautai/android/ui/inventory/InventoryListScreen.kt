@@ -14,11 +14,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -128,19 +131,36 @@ fun InventoryListScreen(
 
             is InventoryListUiState.Success -> {
                 val filtered = viewModel.filteredItems(state.items)
-                if (filtered.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        Text(
-                            text = "Nerasta daiktų pagal paiešką.",
-                            modifier = Modifier.align(Alignment.Center),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (state.pendingItems.isNotEmpty()) {
+                        item {
+                            Text(
+                                text = "Laukia patvirtinimo",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                        items(state.pendingItems, key = { "pending_${it.id}" }) { item ->
+                            PendingItemCard(
+                                item = item,
+                                onApprove = { viewModel.approveItem(item.id) },
+                                onReject = { viewModel.rejectItem(item.id) }
+                            )
+                        }
+                        item { HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp)) }
                     }
-                } else {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    if (filtered.isEmpty()) {
+                        item {
+                            Text(
+                                text = if (state.items.isEmpty()) "Inventorius tuščias"
+                                       else "Nerasta daiktų pagal paiešką.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        }
+                    } else {
                         items(filtered, key = { it.id }) { item ->
                             InventoryItemCard(item = item, navController = navController)
                         }
@@ -191,6 +211,52 @@ private fun InventoryItemCard(item: ItemDto, navController: NavController) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 CategoryChip(item.category)
                 ConditionChip(item.condition)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PendingItemCard(
+    item: ItemDto,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    text = "×${item.quantity}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = onApprove, modifier = Modifier.weight(1f)) {
+                    Text("Patvirtinti")
+                }
+                OutlinedButton(
+                    onClick = onReject,
+                    modifier = Modifier.weight(1f),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Atmesti")
+                }
             }
         }
     }

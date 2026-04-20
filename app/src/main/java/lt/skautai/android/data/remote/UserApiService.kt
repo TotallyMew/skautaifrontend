@@ -4,10 +4,18 @@ import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Header
 
+data class PermissionsResponseDto(val permissions: List<String>)
+
 interface UserApiService {
 
     @GET("api/users/me/tuntai")
     suspend fun getMyTuntai(
         @Header("Authorization") token: String
     ): Response<List<UserTuntasDto>>
+
+    @GET("api/users/me/permissions")
+    suspend fun getMyPermissions(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String
+    ): Response<PermissionsResponseDto>
 }

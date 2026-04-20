@@ -23,6 +23,7 @@ fun RequestDetailScreen(
     viewModel: RequestDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showRejectDialog by remember { mutableStateOf(false) }
@@ -148,6 +149,8 @@ fun RequestDetailScreen(
                     RequestDetailContent(
                         request = state.request,
                         isActioning = state.isActioning,
+                        canForwardReview = "items.request.forward.bendras" in permissions,
+                        canApproveReview = "items.request.approve.bendras" in permissions,
                         onCancel = { showCancelDialog = true },
                         onDraugininkasForward = { viewModel.draugininkasForward(requestId) },
                         onDraugininkasReject = {
@@ -170,6 +173,8 @@ fun RequestDetailScreen(
 private fun RequestDetailContent(
     request: BendrasRequestDto,
     isActioning: Boolean,
+    canForwardReview: Boolean,
+    canApproveReview: Boolean,
     onCancel: () -> Unit,
     onDraugininkasForward: () -> Unit,
     onDraugininkasReject: () -> Unit,
@@ -211,11 +216,11 @@ private fun RequestDetailContent(
                     fontWeight = FontWeight.SemiBold
                 )
                 HorizontalDivider()
+                request.itemDescription?.let { RequestInfoRow("Aprašymas", it) }
                 RequestInfoRow("Kiekis", request.quantity.toString())
-                RequestInfoRow("Pradžia", request.startDate.take(10))
-                RequestInfoRow("Pabaiga", request.endDate.take(10))
+                request.neededByDate?.let { RequestInfoRow("Reikalinga iki", it.take(10)) }
                 request.requestingUnitName?.let { RequestInfoRow("Draugovė", it) }
-                request.notes?.let { RequestInfoRow("Pastabos", it) }
+                request.notes?.let { RequestInfoRow("Pagrindimas", it) }
                 RequestInfoRow("Sukurta", request.createdAt.take(10))
             }
         }
@@ -248,7 +253,7 @@ private fun RequestDetailContent(
                         RequestInfoRow("Atmetimo priežastis", it)
                     }
 
-                    if (request.draugininkasStatus == "PENDING") {
+                    if (request.draugininkasStatus == "PENDING" && canForwardReview) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -276,7 +281,8 @@ private fun RequestDetailContent(
             }
         }
 
-        if (request.topLevelStatus == "PENDING" &&
+        if (canApproveReview &&
+            request.topLevelStatus == "PENDING" &&
             (!request.needsDraugininkasApproval || request.draugininkasStatus == "FORWARDED")
         ) {
             Card(

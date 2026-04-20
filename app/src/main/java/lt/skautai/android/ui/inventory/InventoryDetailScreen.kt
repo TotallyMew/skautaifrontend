@@ -56,6 +56,7 @@ fun InventoryDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
     val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -86,17 +87,27 @@ fun InventoryDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = {
-                        navController.navigate(NavRoutes.InventoryAddEdit.createRoute(itemId))
-                    }) {
-                        Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
+                    val currentItem = (uiState as? InventoryDetailUiState.Success)?.item
+                    val canManageShared = "items.transfer" in permissions
+                    val isTransferredFromTuntas = currentItem?.origin == "TRANSFERRED_FROM_TUNTAS"
+                    val canEdit = "items.update" in permissions && (!isTransferredFromTuntas || canManageShared)
+                    val canDelete = "items.delete" in permissions && (!isTransferredFromTuntas || canManageShared)
+
+                    if (canEdit) {
+                        IconButton(onClick = {
+                            navController.navigate(NavRoutes.InventoryAddEdit.createRoute(itemId))
+                        }) {
+                            Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
+                        }
                     }
-                    IconButton(onClick = { showDeleteDialog = true }) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Ištrinti",
-                            tint = MaterialTheme.colorScheme.error
-                        )
+                    if (canDelete) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Ištrinti",
+                                tint = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             )

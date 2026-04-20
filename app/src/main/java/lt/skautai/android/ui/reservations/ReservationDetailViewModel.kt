@@ -4,12 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.UpdateReservationStatusRequestDto
 import lt.skautai.android.data.repository.ReservationRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface ReservationDetailUiState {
@@ -25,11 +28,15 @@ sealed interface ReservationDetailUiState {
 
 @HiltViewModel
 class ReservationDetailViewModel @Inject constructor(
-    private val reservationRepository: ReservationRepository
+    private val reservationRepository: ReservationRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<ReservationDetailUiState>(ReservationDetailUiState.Loading)
     val uiState: StateFlow<ReservationDetailUiState> = _uiState.asStateFlow()
+
+    val permissions: StateFlow<Set<String>> = tokenManager.permissions
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     fun loadReservation(id: String) {
         viewModelScope.launch {

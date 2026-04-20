@@ -47,6 +47,7 @@ fun AppNavGraph(
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     val activeTuntasId by tokenManager.activeTuntasId.collectAsState(initial = null)
+    val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
 
     NavHost(
         navController = navController,
@@ -84,15 +85,17 @@ fun AppNavGraph(
                     }
                 },
                 floatingActionButton = {
-                    androidx.compose.material3.FloatingActionButton(
-                        onClick = {
-                            navController.navigate(NavRoutes.InventoryAddEdit.createRoute(null))
+                    if ("items.create" in permissions) {
+                        androidx.compose.material3.FloatingActionButton(
+                            onClick = {
+                                navController.navigate(NavRoutes.InventoryAddEdit.createRoute(null))
+                            }
+                        ) {
+                            Icon(
+                                imageVector = androidx.compose.material.icons.Icons.Default.Add,
+                                contentDescription = "Pridėti daiktą"
+                            )
                         }
-                    ) {
-                        Icon(
-                            imageVector = androidx.compose.material.icons.Icons.Default.Add,
-                            contentDescription = "Pridėti daiktą"
-                        )
                     }
                 }
             ) {
@@ -161,26 +164,11 @@ fun AppNavGraph(
                     },
                     onInviteClick = {
                         navController.navigate(NavRoutes.InviteCreate.route)
-                    }
+                    },
+                    canInvite = "invitations.create" in permissions
                 )
             }
         }
-        composable(NavRoutes.EventList.route) {
-            MainScaffold(
-                navController = navController,
-                tokenManager = tokenManager,
-                onLogout = {
-                    mainViewModel.logout {
-                        navController.navigate(NavRoutes.Login.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                }
-            ) {
-                // EventListScreen(navController)
-            }
-        }
-
         // Detail screens
         composable(
             route = NavRoutes.InventoryDetail.route,
@@ -268,10 +256,12 @@ fun AppNavGraph(
                     }
                 },
                 floatingActionButton = {
-                    FloatingActionButton(
-                        onClick = { navController.navigate(NavRoutes.UnitCreate.route) }
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Pridėti vienetą")
+                    if ("organizational_units.manage" in permissions) {
+                        FloatingActionButton(
+                            onClick = { navController.navigate(NavRoutes.UnitCreate.route) }
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Pridėti vienetą")
+                        }
                     }
                 }
             ) {
@@ -304,21 +294,6 @@ fun AppNavGraph(
                 unitId = unitId,
                 onBack = { navController.popBackStack() }
             )
-        }
-        composable(
-            route = NavRoutes.EventDetail.route,
-            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
-        ) {
-            // EventDetailScreen(navController, it.arguments?.getInt("eventId")!!)
-        }
-        composable(
-            route = NavRoutes.EventAddEdit.route,
-            arguments = listOf(navArgument("eventId") {
-                type = NavType.StringType
-                defaultValue = -1
-            })
-        ) {
-            // EventAddEditScreen(navController, it.arguments?.getInt("eventId"))
         }
         composable(NavRoutes.TuntasSelect.route) {
             TuntasSelectScreen(navController)

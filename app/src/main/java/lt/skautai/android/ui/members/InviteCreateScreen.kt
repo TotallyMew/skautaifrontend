@@ -107,7 +107,18 @@ private fun InviteFormContent(
             onRoleSelected = onRoleSelected
         )
 
-        if (uiState.selectedRoleType == "LEADERSHIP" && uiState.orgUnits.isNotEmpty()) {
+        if (!uiState.lockedOrgUnitName.isNullOrBlank()) {
+            OutlinedTextField(
+                value = uiState.lockedOrgUnitName,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Draugovė") },
+                supportingText = { Text("Pakvietimas bus priskirtas jūsų vienetui") },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        if (uiState.canChooseOrgUnit && uiState.selectedRoleType == "LEADERSHIP" && uiState.orgUnits.isNotEmpty()) {
             OrgUnitDropdown(
                 orgUnits = uiState.orgUnits,
                 selectedOrgUnitId = uiState.selectedOrgUnitId,

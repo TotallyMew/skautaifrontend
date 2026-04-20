@@ -43,8 +43,10 @@ class TuntasSelectViewModel @Inject constructor(
                     when {
                         tuntai.isEmpty() -> _uiState.value = TuntasSelectUiState.Empty
                         tuntai.size == 1 -> {
-                            // Auto-select if only one tuntas
-                            tokenManager.setActiveTuntas(tuntai.first().id)
+                            val id = tuntai.first().id
+                            tokenManager.setActiveTuntas(id)
+                            userRepository.getMyPermissions(id)
+                                .onSuccess { tokenManager.savePermissions(it) }
                             _navigateToInventory.value = true
                         }
                         else -> _uiState.value = TuntasSelectUiState.Success(tuntai)
@@ -61,6 +63,8 @@ class TuntasSelectViewModel @Inject constructor(
     fun selectTuntas(tuntasId: String) {
         viewModelScope.launch {
             tokenManager.setActiveTuntas(tuntasId)
+            userRepository.getMyPermissions(tuntasId)
+                .onSuccess { tokenManager.savePermissions(it) }
             _navigateToInventory.value = true
         }
     }

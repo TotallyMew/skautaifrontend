@@ -24,6 +24,7 @@ fun MemberDetailScreen(
     viewModel: MemberDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(userId) { viewModel.loadMember(userId) }
@@ -93,7 +94,7 @@ fun MemberDetailScreen(
                 IconButton(onClick = onBack) {
                     Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Grįžti")
                 }
-                if (uiState.member != null) {
+                if (uiState.member != null && "members.remove" in permissions) {
                     IconButton(onClick = viewModel::showRemoveMemberDialog) {
                         Icon(Icons.Default.PersonRemove, contentDescription = "Šalinti narį",
                             tint = MaterialTheme.colorScheme.error)
@@ -116,6 +117,7 @@ fun MemberDetailScreen(
                 uiState.member != null -> MemberDetailContent(
                     member = uiState.member!!,
                     isSaving = uiState.isSaving,
+                    canManageRoles = "roles.assign" in permissions,
                     onAssignRole = viewModel::openAssignRoleDialog,
                     onRemoveRole = { assignmentId -> viewModel.removeLeadershipRole(userId, assignmentId) },
                     onAssignRank = viewModel::openAssignRankDialog,
@@ -130,6 +132,7 @@ fun MemberDetailScreen(
 private fun MemberDetailContent(
     member: MemberDto,
     isSaving: Boolean,
+    canManageRoles: Boolean,
     onAssignRole: () -> Unit,
     onRemoveRole: (String) -> Unit,
     onAssignRank: () -> Unit,
@@ -153,6 +156,7 @@ private fun MemberDetailContent(
         MemberRolesSection(
             roles = member.leadershipRoles,
             isSaving = isSaving,
+            canManageRoles = canManageRoles,
             onAssignRole = onAssignRole,
             onRemoveRole = onRemoveRole
         )
@@ -160,6 +164,7 @@ private fun MemberDetailContent(
         MemberRanksSection(
             ranks = member.ranks,
             isSaving = isSaving,
+            canManageRoles = canManageRoles,
             onAssignRank = onAssignRank,
             onRemoveRank = onRemoveRank
         )
@@ -183,6 +188,7 @@ private fun MemberInfoSection(member: MemberDto) {
 private fun MemberRolesSection(
     roles: List<MemberLeadershipRoleDto>,
     isSaving: Boolean,
+    canManageRoles: Boolean,
     onAssignRole: () -> Unit,
     onRemoveRole: (String) -> Unit
 ) {
@@ -194,7 +200,9 @@ private fun MemberRolesSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Pareigos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = onAssignRole, enabled = !isSaving) { Text("+ Pridėti") }
+                if (canManageRoles) {
+                    TextButton(onClick = onAssignRole, enabled = !isSaving) { Text("+ Pridėti") }
+                }
             }
             HorizontalDivider()
             if (roles.isEmpty()) {
@@ -221,9 +229,11 @@ private fun MemberRolesSection(
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        IconButton(onClick = { onRemoveRole(role.id) }, enabled = !isSaving) {
-                            Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas",
-                                tint = MaterialTheme.colorScheme.error)
+                        if (canManageRoles) {
+                            IconButton(onClick = { onRemoveRole(role.id) }, enabled = !isSaving) {
+                                Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas",
+                                    tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                     if (role != roles.last()) HorizontalDivider()
@@ -237,6 +247,7 @@ private fun MemberRolesSection(
 private fun MemberRanksSection(
     ranks: List<MemberRankDto>,
     isSaving: Boolean,
+    canManageRoles: Boolean,
     onAssignRank: () -> Unit,
     onRemoveRank: (String) -> Unit
 ) {
@@ -248,7 +259,9 @@ private fun MemberRanksSection(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text("Laipsniai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = onAssignRank, enabled = !isSaving) { Text("+ Pridėti") }
+                if (canManageRoles) {
+                    TextButton(onClick = onAssignRank, enabled = !isSaving) { Text("+ Pridėti") }
+                }
             }
             HorizontalDivider()
             if (ranks.isEmpty()) {
@@ -262,9 +275,11 @@ private fun MemberRanksSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(rank.roleName, style = MaterialTheme.typography.bodyMedium)
-                        IconButton(onClick = { onRemoveRank(rank.id) }, enabled = !isSaving) {
-                            Icon(Icons.Default.Delete, contentDescription = "Šalinti laipsnį",
-                                tint = MaterialTheme.colorScheme.error)
+                        if (canManageRoles) {
+                            IconButton(onClick = { onRemoveRank(rank.id) }, enabled = !isSaving) {
+                                Icon(Icons.Default.Delete, contentDescription = "Šalinti laipsnį",
+                                    tint = MaterialTheme.colorScheme.error)
+                            }
                         }
                     }
                     if (rank != ranks.last()) HorizontalDivider()

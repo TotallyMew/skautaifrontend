@@ -19,11 +19,13 @@ import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.RequestApiService
 import lt.skautai.android.data.remote.ReservationApiService
+import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.RoleRepository
 import lt.skautai.android.data.repository.InvitationRepository
 import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.ReservationRepository
+import lt.skautai.android.data.repository.EventRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -33,9 +35,10 @@ object RepositoryModule {
     @Singleton
     fun provideAuthRepository(
         authApiService: AuthApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        userRepository: UserRepository
     ): AuthRepository {
-        return AuthRepository(authApiService, tokenManager)
+        return AuthRepository(authApiService, tokenManager, userRepository)
     }
 
     @Provides
@@ -108,5 +111,14 @@ object RepositoryModule {
         tokenManager: TokenManager
     ): RequestRepository {
         return RequestRepository(requestApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideEventRepository(
+        eventApiService: EventApiService,
+        tokenManager: TokenManager
+    ): EventRepository {
+        return EventRepository(eventApiService, tokenManager)
     }
 }

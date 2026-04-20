@@ -22,6 +22,7 @@ import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.RequestApiService
 import lt.skautai.android.data.remote.ReservationApiService
+import lt.skautai.android.data.remote.EventApiService
 
 
 @Module
@@ -116,5 +117,9 @@ object NetworkModule {
         return retrofit.create(RequestApiService::class.java)
     }
 
-
+    @Provides
+    @Singleton
+    fun provideEventApiService(retrofit: Retrofit): EventApiService {
+        return retrofit.create(EventApiService::class.java)
+    }
 }

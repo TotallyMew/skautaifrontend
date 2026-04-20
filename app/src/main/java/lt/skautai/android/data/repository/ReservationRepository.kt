@@ -2,6 +2,7 @@ package lt.skautai.android.data.repository
 
 import kotlinx.coroutines.flow.first
 import lt.skautai.android.data.remote.CreateReservationRequestDto
+import lt.skautai.android.data.remote.ReservationAvailabilityDto
 import lt.skautai.android.data.remote.ReservationApiService
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationListDto
@@ -77,6 +78,28 @@ class ReservationRepository @Inject constructor(
                 Result.success(response.body()!!)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant rezervaciją"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getAvailability(startDate: String, endDate: String): Result<ReservationAvailabilityDto> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = reservationApiService.getAvailability(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                startDate = startDate,
+                endDate = endDate
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prieinama kieki"))
             }
         } catch (e: Exception) {
             Result.failure(e)

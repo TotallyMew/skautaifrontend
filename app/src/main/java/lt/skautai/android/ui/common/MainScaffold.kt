@@ -51,15 +51,23 @@ fun MainScaffold(
 
     val userName by tokenManager.userName.collectAsState(initial = "")
     val activeTuntasId by tokenManager.activeTuntasId.collectAsState(initial = null)
+    val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
 
     val topBarTitle = when (currentRoute) {
         NavRoutes.InventoryList.route -> "Inventorius"
         NavRoutes.ReservationList.route -> "Rezervacijos"
         NavRoutes.RequestList.route -> "Prašymai"
         NavRoutes.MemberList.route -> "Nariai"
-        NavRoutes.EventList.route -> "Renginiai"
         NavRoutes.UnitList.route -> "Vienetai"
         else -> "Skautų Inventorius"
+    }
+
+    val visibleNavItems = BottomNavItem.all.filter { item ->
+        when (item) {
+            is BottomNavItem.Members -> "members.view" in permissions
+            is BottomNavItem.Units -> "unit.members.manage" in permissions || "organizational_units.manage" in permissions
+            else -> true
+        }
     }
 
     ModalNavigationDrawer(
@@ -133,7 +141,7 @@ fun MainScaffold(
             },
             bottomBar = {
                 NavigationBar {
-                    BottomNavItem.all.forEach { item ->
+                    visibleNavItems.forEach { item ->
                         NavigationBarItem(
                             selected = currentRoute == item.route,
                             onClick = {
