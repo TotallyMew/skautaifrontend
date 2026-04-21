@@ -36,6 +36,12 @@ class RequestDetailViewModel @Inject constructor(
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val currentUserId: StateFlow<String?> = tokenManager.userId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val activeOrgUnitId: StateFlow<String?> = tokenManager.activeOrgUnitId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     fun loadRequest(id: String) {
         viewModelScope.launch {
             _uiState.value = RequestDetailUiState.Loading

@@ -11,6 +11,8 @@ data class OrganizationalUnitDto(
     val subtype: String?,
     val acceptedRankId: String?,
     val acceptedRankName: String?,
+    val memberCount: Int = 0,
+    val itemCount: Int = 0,
     val createdAt: String
 )
 

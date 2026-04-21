@@ -26,8 +26,9 @@ class AuthRepository @Inject constructor(
         )
 
         if (body.tuntai.size == 1) {
-            val tuntasId = body.tuntai.first().id
-            tokenManager.setActiveTuntas(tuntasId)
+            val tuntas = body.tuntai.first()
+            val tuntasId = tuntas.id
+            tokenManager.setActiveTuntas(tuntasId, tuntas.name)
             userRepository.getMyPermissions(tuntasId)
                 .onSuccess { tokenManager.savePermissions(it) }
         }

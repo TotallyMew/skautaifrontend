@@ -1,4 +1,4 @@
-package lt.skautai.android.ui.reservations
+package lt.skautai.android.ui.requests
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -15,7 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,23 +35,23 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 
 @Composable
-fun ReservationListScreen(
-    onReservationClick: (String) -> Unit,
+fun RequisitionListScreen(
+    onRequestClick: (String) -> Unit,
     onCreateClick: () -> Unit,
-    viewModel: ReservationListViewModel = hiltViewModel()
+    viewModel: RequisitionListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadReservations()
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadRequests()
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
@@ -59,11 +59,11 @@ fun ReservationListScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (val state = uiState) {
-            is ReservationListUiState.Loading -> {
+            is RequisitionListUiState.Loading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             }
 
-            is ReservationListUiState.Error -> {
+            is RequisitionListUiState.Error -> {
                 Column(
                     modifier = Modifier
                         .align(Alignment.Center)
@@ -76,17 +76,17 @@ fun ReservationListScreen(
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = viewModel::loadReservations) {
+                    Button(onClick = viewModel::loadRequests) {
                         Text("Bandyti dar karta")
                     }
                 }
             }
 
-            is ReservationListUiState.Success -> {
-                if (state.reservations.isEmpty()) {
+            is RequisitionListUiState.Success -> {
+                if (state.requests.isEmpty()) {
                     SkautaiEmptyState(
-                        title = "Rezervaciju dar nera",
-                        subtitle = "Rezervacija skirta uzsakyti jau esama inventoriaus daikta konkreciam laikotarpiui.",
+                        title = "Pirkimo prasymu dar nera",
+                        subtitle = "Cia bus inventoriaus pirkimo ir papildymo prasymai. Jiems nereikia rinktis daikto is bendro tunto sandelio.",
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -95,7 +95,7 @@ fun ReservationListScreen(
                             .fillMaxSize()
                             .padding(horizontal = 16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(vertical = 12.dp)
+                        contentPadding = PaddingValues(vertical = 12.dp, horizontal = 0.dp)
                     ) {
                         item {
                             SkautaiCard(
@@ -107,15 +107,15 @@ fun ReservationListScreen(
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(Icons.Default.EventAvailable, contentDescription = null)
+                                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
                                     Column {
                                         Text(
-                                            text = "Rezervacijos",
+                                            text = "Reikia nupirkti arba papildyti?",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
-                                            text = "Cia rezervuojami jau esami daiktai konkrecioms datoms ar renginiui.",
+                                            text = "Aprasyk daikta, kurio dar nera arba kurio truksta. Cia nereikia rinktis esamo sandelio daikto.",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -123,10 +123,10 @@ fun ReservationListScreen(
                                 }
                             }
                         }
-                        items(state.reservations, key = { it.id }) { reservation ->
-                            ReservationCard(
-                                reservation = reservation,
-                                onClick = { onReservationClick(reservation.id) }
+                        items(state.requests, key = { it.id }) { request ->
+                            RequisitionCard(
+                                request = request,
+                                onClick = { onRequestClick(request.id) }
                             )
                         }
                     }
@@ -138,7 +138,7 @@ fun ReservationListScreen(
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
                 ) {
-                    Icon(Icons.Default.Add, contentDescription = "Nauja rezervacija")
+                    Icon(Icons.Default.Add, contentDescription = "Naujas pirkimo prasymas")
                 }
             }
         }
@@ -146,10 +146,11 @@ fun ReservationListScreen(
 }
 
 @Composable
-fun ReservationCard(
-    reservation: ReservationDto,
+private fun RequisitionCard(
+    request: RequisitionDto,
     onClick: () -> Unit
 ) {
+    val firstItem = request.items.firstOrNull()
     androidx.compose.material3.Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -168,27 +169,31 @@ fun ReservationCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = reservation.title,
+                        text = firstItem?.itemName ?: "Pirkimo prasymas",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "${reservation.startDate.take(10)} - ${reservation.endDate.take(10)}",
+                        text = "${request.items.sumOf { it.quantityRequested }} vnt. prasoma papildyti",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                ReservationStatusChip(status = reservation.status)
+                RequisitionStatusPill(request)
+            }
+            firstItem?.itemDescription?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
             }
             Text(
-                text = "${reservation.totalItems} daiktu rusys / ${reservation.totalQuantity} vnt.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                text = reservation.items.joinToString(limit = 3, truncated = "...") {
-                    "${it.itemName} x${it.quantity}"
-                },
+                text = buildList {
+                    add(request.requestingUnitName ?: "Tuntui")
+                    request.neededByDate?.let { add("reikia iki ${it.take(10)}") }
+                }.joinToString(" / "),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -197,15 +202,32 @@ fun ReservationCard(
 }
 
 @Composable
-fun ReservationStatusChip(status: String) {
-    val (label, container, content) = when (status) {
-        "PENDING" -> Triple("Laukia", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
-        "APPROVED" -> Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        "ACTIVE" -> Triple("Aktyvi", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        "RETURNED" -> Triple("Grazinta", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
-        "CANCELLED" -> Triple("Atsaukta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-        "REJECTED" -> Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-        else -> Triple(status, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+private fun RequisitionStatusPill(request: RequisitionDto) {
+    val (label, container, content) = when {
+        request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" ->
+            Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
+        request.status == "APPROVED" ->
+            Triple("Patvirtinta vienete", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
+        request.unitReviewStatus == "FORWARDED" ->
+            Triple("Perduota", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+        request.unitReviewStatus == "PENDING" ->
+            Triple("Laukia vieneto", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+        request.topLevelReviewStatus == "PENDING" ->
+            Triple("Laukia tunto", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
+        request.status == "REJECTED" ->
+            Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+        else ->
+            Triple("Pateikta", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
     }
     SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
+}
+
+internal fun requisitionStatusLabel(request: RequisitionDto): String = when {
+    request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" -> "Patvirtinta inventorininko / tuntininko"
+    request.status == "APPROVED" -> "Patvirtinta vienete"
+    request.unitReviewStatus == "FORWARDED" -> "Perduota inventorininkui"
+    request.unitReviewStatus == "PENDING" -> "Laukia vieneto sprendimo"
+    request.topLevelReviewStatus == "PENDING" -> "Laukia inventorininko / tuntininko sprendimo"
+    request.status == "REJECTED" -> "Atmesta"
+    else -> "Pateikta"
 }

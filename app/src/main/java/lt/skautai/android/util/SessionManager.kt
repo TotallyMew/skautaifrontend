@@ -14,6 +14,7 @@ class SessionManager @Inject constructor(
     val userEmail: Flow<String?> = tokenManager.userEmail
     val userType: Flow<String?> = tokenManager.userType
     val activeTuntasId: Flow<String?> = tokenManager.activeTuntasId
+    val activeTuntasName: Flow<String?> = tokenManager.activeTuntasName
 
     suspend fun saveSession(
         token: String,
@@ -25,8 +26,8 @@ class SessionManager @Inject constructor(
         tokenManager.saveToken(token, userId, name, email, type)
     }
 
-    suspend fun setActiveTuntas(tuntasId: String) {
-        tokenManager.setActiveTuntas(tuntasId)
+    suspend fun setActiveTuntas(tuntasId: String, tuntasName: String? = null) {
+        tokenManager.setActiveTuntas(tuntasId, tuntasName)
     }
 
     suspend fun clearSession() {

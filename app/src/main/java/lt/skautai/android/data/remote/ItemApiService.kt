@@ -17,6 +17,7 @@ interface ItemApiService {
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String,
         @Query("custodianId") custodianId: String? = null,
+        @Query("type") type: String? = null,
         @Query("category") category: String? = null,
         @Query("status") status: String? = null
     ): Response<ItemListResponseDto>

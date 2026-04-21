@@ -10,17 +10,36 @@ sealed class NavRoutes(val route: String) {
     object Login : NavRoutes("login")
     object Register : NavRoutes("register")
     object RegisterInvite : NavRoutes("register_invite")
+    object Home : NavRoutes("home")
 
     object InviteCreate : NavRoutes("invite_create")
 
     // Inventory
-    object InventoryList : NavRoutes("inventory_list")
+    object InventoryList : NavRoutes("inventory_list?type={type}&category={category}&custodianId={custodianId}") {
+        fun createRoute(type: String? = null, category: String? = null, custodianId: String? = null): String {
+            val params = buildList {
+                if (type != null) add("type=$type")
+                if (category != null) add("category=$category")
+                if (custodianId != null) add("custodianId=$custodianId")
+            }
+            return if (params.isEmpty()) {
+                "inventory_list"
+            } else {
+                "inventory_list?${params.joinToString("&")}"
+            }
+        }
+    }
     object InventoryDetail : NavRoutes("inventory_detail/{itemId}") {
         fun createRoute(itemId: String) = "inventory_detail/$itemId"
     }
-    object InventoryAddEdit : NavRoutes("inventory_add_edit?itemId={itemId}") {
-        fun createRoute(itemId: String? = null) =
-            if (itemId != null) "inventory_add_edit?itemId=$itemId" else "inventory_add_edit"
+    object InventoryAddEdit : NavRoutes("inventory_add_edit?itemId={itemId}&mode={mode}") {
+        fun createRoute(itemId: String? = null, mode: String? = null): String {
+            val params = buildList {
+                if (itemId != null) add("itemId=$itemId")
+                if (mode != null) add("mode=$mode")
+            }
+            return if (params.isEmpty()) "inventory_add_edit" else "inventory_add_edit?${params.joinToString("&")}"
+        }
     }
 
     // Reservations
@@ -33,6 +52,11 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(requestId: String) = "request_detail/$requestId"
     }
     object RequestCreate : NavRoutes("request_create")
+
+    object SharedRequestList : NavRoutes("shared_request_list")
+    object SharedRequestDetail : NavRoutes("shared_request_detail/{requestId}") {
+        fun createRoute(requestId: String) = "shared_request_detail/$requestId"
+    }
 
 
 

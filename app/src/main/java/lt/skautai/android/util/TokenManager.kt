@@ -25,6 +25,8 @@ class TokenManager @Inject constructor(
         val USER_EMAIL_KEY = stringPreferencesKey("user_email")
         val USER_TYPE_KEY = stringPreferencesKey("user_type")
         val ACTIVE_TUNTAS_ID_KEY = stringPreferencesKey("active_tuntas_id")
+        val ACTIVE_TUNTAS_NAME_KEY = stringPreferencesKey("active_tuntas_name")
+        val ACTIVE_ORG_UNIT_ID_KEY = stringPreferencesKey("active_org_unit_id")
         val PERMISSIONS_KEY = stringPreferencesKey("permissions")
     }
 
@@ -34,6 +36,8 @@ class TokenManager @Inject constructor(
     val userEmail: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL_KEY] }
     val userType: Flow<String?> = context.dataStore.data.map { it[USER_TYPE_KEY] }
     val activeTuntasId: Flow<String?> = context.dataStore.data.map { it[ACTIVE_TUNTAS_ID_KEY] }
+    val activeTuntasName: Flow<String?> = context.dataStore.data.map { it[ACTIVE_TUNTAS_NAME_KEY] }
+    val activeOrgUnitId: Flow<String?> = context.dataStore.data.map { it[ACTIVE_ORG_UNIT_ID_KEY] }
     val permissions: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         prefs[PERMISSIONS_KEY]?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
     }
@@ -54,9 +58,24 @@ class TokenManager @Inject constructor(
         }
     }
 
-    suspend fun setActiveTuntas(tuntasId: String) {
+    suspend fun setActiveTuntas(tuntasId: String, tuntasName: String? = null) {
         context.dataStore.edit { prefs ->
             prefs[ACTIVE_TUNTAS_ID_KEY] = tuntasId
+            if (tuntasName.isNullOrBlank()) {
+                prefs.remove(ACTIVE_TUNTAS_NAME_KEY)
+            } else {
+                prefs[ACTIVE_TUNTAS_NAME_KEY] = tuntasName
+            }
+        }
+    }
+
+    suspend fun setActiveOrgUnit(orgUnitId: String?) {
+        context.dataStore.edit { prefs ->
+            if (orgUnitId.isNullOrBlank()) {
+                prefs.remove(ACTIVE_ORG_UNIT_ID_KEY)
+            } else {
+                prefs[ACTIVE_ORG_UNIT_ID_KEY] = orgUnitId
+            }
         }
     }
 

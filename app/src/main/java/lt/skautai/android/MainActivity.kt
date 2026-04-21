@@ -4,9 +4,13 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import lt.skautai.android.ui.common.AppNavGraph
@@ -15,6 +19,7 @@ import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -31,33 +36,31 @@ class MainActivity : ComponentActivity() {
         setContent {
             SkautuInventoriusTheme {
                 val navController = rememberNavController()
-                val token by tokenManager.token.collectAsState(initial = null)
-                val activeTuntasId by tokenManager.activeTuntasId.collectAsState(initial = null)
-
-                LaunchedEffect(Unit) {
-                    val currentToken = tokenManager.token.first()
-                    val currentTuntasId = tokenManager.activeTuntasId.first()
-                    if (!isSuperAdminDeepLink && currentToken != null) {
-                        if (currentTuntasId != null) {
-                            navController.navigate(NavRoutes.InventoryList.route) {
-                                popUpTo(NavRoutes.Login.route) { inclusive = true }
-                            }
-                        } else {
-                            navController.navigate(NavRoutes.TuntasSelect.route) {
-                                popUpTo(NavRoutes.Login.route) { inclusive = true }
-                            }
+                val startDestination by produceState<String?>(initialValue = null, isSuperAdminDeepLink) {
+                    value = if (isSuperAdminDeepLink) {
+                        NavRoutes.SuperAdminLogin.route
+                    } else {
+                        val currentToken = tokenManager.token.first()
+                        val currentTuntasId = tokenManager.activeTuntasId.first()
+                        when {
+                            currentToken == null -> NavRoutes.Login.route
+                            currentTuntasId.isNullOrBlank() -> NavRoutes.TuntasSelect.route
+                            else -> NavRoutes.Home.route
                         }
                     }
                 }
 
-                AppNavGraph(
-                    navController = navController,
-                    tokenManager = tokenManager,
-                    startDestination = if (isSuperAdminDeepLink)
-                        NavRoutes.SuperAdminLogin.route
-                    else
-                        NavRoutes.Login.route
-                )
+                if (startDestination == null) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    AppNavGraph(
+                        navController = navController,
+                        tokenManager = tokenManager,
+                        startDestination = startDestination!!
+                    )
+                }
             }
         }
     }

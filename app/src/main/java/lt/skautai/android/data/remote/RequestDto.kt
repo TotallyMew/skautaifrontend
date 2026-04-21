@@ -2,6 +2,13 @@ package lt.skautai.android.data.remote
 
 import com.google.gson.annotations.SerializedName
 
+data class BendrasRequestItemDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("quantity") val quantity: Int
+)
+
 data class BendrasRequestDto(
     @SerializedName("id") val id: String,
     @SerializedName("tuntasId") val tuntasId: String,
@@ -21,6 +28,7 @@ data class BendrasRequestDto(
     @SerializedName("topLevelReviewedByUserId") val topLevelReviewedByUserId: String?,
     @SerializedName("topLevelRejectionReason") val topLevelRejectionReason: String?,
     @SerializedName("notes") val notes: String?,
+    @SerializedName("items") val items: List<BendrasRequestItemDto>,
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("updatedAt") val updatedAt: String
 )
@@ -30,12 +38,18 @@ data class BendrasRequestListDto(
     @SerializedName("total") val total: Int
 )
 
+data class CreateBendrasRequestItemDto(
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("quantity") val quantity: Int
+)
+
 data class CreateBendrasRequestDto(
-    @SerializedName("itemDescription") val itemDescription: String,
-    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("itemDescription") val itemDescription: String? = null,
+    @SerializedName("quantity") val quantity: Int? = null,
+    @SerializedName("requestingUnitId") val requestingUnitId: String? = null,
     @SerializedName("neededByDate") val neededByDate: String?,
-    @SerializedName("requestingUnitId") val requestingUnitId: String?,
-    @SerializedName("notes") val notes: String?
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("items") val items: List<CreateBendrasRequestItemDto> = emptyList()
 )
 
 data class ReviewRequestDto(

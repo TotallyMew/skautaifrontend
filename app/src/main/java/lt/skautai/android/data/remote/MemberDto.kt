@@ -25,6 +25,14 @@ data class MemberRankDto(
     @SerializedName("assignedAt") val assignedAt: String
 )
 
+data class MemberUnitAssignmentDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("organizationalUnitId") val organizationalUnitId: String,
+    @SerializedName("organizationalUnitName") val organizationalUnitName: String,
+    @SerializedName("assignmentType") val assignmentType: String,
+    @SerializedName("joinedAt") val joinedAt: String
+)
+
 data class MemberDto(
     @SerializedName("userId") val userId: String,
     @SerializedName("name") val name: String,
@@ -32,6 +40,7 @@ data class MemberDto(
     @SerializedName("email") val email: String,
     @SerializedName("phone") val phone: String?,
     @SerializedName("joinedAt") val joinedAt: String,
+    @SerializedName("unitAssignments") val unitAssignments: List<MemberUnitAssignmentDto>? = emptyList(),
     @SerializedName("leadershipRoles") val leadershipRoles: List<MemberLeadershipRoleDto>,
     @SerializedName("ranks") val ranks: List<MemberRankDto>
 )

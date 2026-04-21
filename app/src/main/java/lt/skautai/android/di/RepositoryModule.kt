@@ -18,14 +18,18 @@ import lt.skautai.android.data.remote.MemberApiService
 import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.RequestApiService
+import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.ReservationApiService
 import lt.skautai.android.data.remote.EventApiService
+import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.RoleRepository
 import lt.skautai.android.data.repository.InvitationRepository
 import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.EventRepository
+import lt.skautai.android.data.repository.LocationRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -115,10 +119,28 @@ object RepositoryModule {
 
     @Provides
     @Singleton
+    fun provideRequisitionRepository(
+        requisitionApiService: RequisitionApiService,
+        tokenManager: TokenManager
+    ): RequisitionRepository {
+        return RequisitionRepository(requisitionApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
     fun provideEventRepository(
         eventApiService: EventApiService,
         tokenManager: TokenManager
     ): EventRepository {
         return EventRepository(eventApiService, tokenManager)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationRepository(
+        locationApiService: LocationApiService,
+        tokenManager: TokenManager
+    ): LocationRepository {
+        return LocationRepository(locationApiService, tokenManager)
     }
 }

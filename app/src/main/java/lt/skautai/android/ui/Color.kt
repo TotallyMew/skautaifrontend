@@ -2,24 +2,42 @@ package lt.skautai.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// Primary - Forest Green
-val Green800 = Color(0xFF1B5E20)
-val Green700 = Color(0xFF2E7D32)
-val Green600 = Color(0xFF388E3C)
-val Green400 = Color(0xFF66BB6A)
-val Green200 = Color(0xFFA5D6A7)
+val ForestPrimary = Color(0xFF214D34)
+val ForestOnPrimary = Color(0xFFFFFFFF)
+val ForestPrimaryContainer = Color(0xFFBFD9BF)
+val ForestOnPrimaryContainer = Color(0xFF0C1A11)
 
-// Neutrals
-val Gray900 = Color(0xFF111827)
-val Gray800 = Color(0xFF1F2937)
-val Gray700 = Color(0xFF374151)
-val Gray500 = Color(0xFF6B7280)
-val Gray300 = Color(0xFFD1D5DB)
-val Gray100 = Color(0xFFF3F4F6)
-val Gray50  = Color(0xFFF9FAFB)
+val MossSecondary = Color(0xFF3E5B43)
+val MossOnSecondary = Color(0xFFFFFFFF)
+val MossSecondaryContainer = Color(0xFFD6E4D2)
+val MossOnSecondaryContainer = Color(0xFF102016)
 
-// Semantic
-val ErrorRed = Color(0xFFB71C1C)
-val WarningAmber = Color(0xFFF59E0B)
+val GoldTertiary = Color(0xFF8B6A2B)
+val GoldOnTertiary = Color(0xFFFFFFFF)
+val GoldTertiaryContainer = Color(0xFFF0E0AE)
+val GoldOnTertiaryContainer = Color(0xFF2B1D00)
+
+val AppBackgroundLight = Color(0xFFF1F4EE)
+val AppSurfaceLight = Color(0xFFF8FBF5)
+val AppSurfaceVariantLight = Color(0xFFD8E0D5)
+val AppSurfaceTintLight = Color(0xFF214D34)
+val AppOutlineLight = Color(0xFF68786B)
+val AppOutlineVariantLight = Color(0xFFBCC7BA)
+val AppOnSurfaceLight = Color(0xFF161C17)
+val AppOnSurfaceVariantLight = Color(0xFF3F4A41)
+
+val AppBackgroundDark = Color(0xFF0D120E)
+val AppSurfaceDark = Color(0xFF141A15)
+val AppSurfaceVariantDark = Color(0xFF3F4A41)
+val AppSurfaceTintDark = Color(0xFF9ABAA0)
+val AppOutlineDark = Color(0xFF859487)
+val AppOutlineVariantDark = Color(0xFF3F4A41)
+val AppOnSurfaceDark = Color(0xFFE0E4DD)
+val AppOnSurfaceVariantDark = Color(0xFFBEC9BE)
+
+val ErrorRed = Color(0xFFBA1A1A)
+val OnErrorRed = Color(0xFFFFFFFF)
+val ErrorContainer = Color(0xFFFFDAD6)
+val OnErrorContainer = Color(0xFF410002)
+
 val White = Color(0xFFFFFFFF)
-val Black = Color(0xFF000000)

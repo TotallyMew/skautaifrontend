@@ -42,7 +42,7 @@ fun TuntasSelectScreen(
 
     LaunchedEffect(navigateToInventory) {
         if (navigateToInventory) {
-            navController.navigate(NavRoutes.InventoryList.route) {
+            navController.navigate(NavRoutes.Home.route) {
                 popUpTo(NavRoutes.Login.route) { inclusive = true }
             }
             viewModel.onNavigatedToInventory()
