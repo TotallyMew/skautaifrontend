@@ -25,6 +25,7 @@ import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
+import lt.skautai.android.ui.members.InviteAcceptScreen
 import lt.skautai.android.ui.members.InviteCreateScreen
 import lt.skautai.android.ui.members.MemberDetailScreen
 import lt.skautai.android.ui.members.MemberListScreen
@@ -392,6 +393,16 @@ fun AppNavGraph(
 
         composable(NavRoutes.InviteCreate.route) {
             InviteCreateScreen(onBack = { navController.popBackStack() })
+        }
+
+        composable(NavRoutes.InviteAccept.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout
+            ) {
+                InviteAcceptScreen()
+            }
         }
 
         composable(NavRoutes.UnitCreate.route) {

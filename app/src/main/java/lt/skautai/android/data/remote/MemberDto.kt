@@ -42,6 +42,7 @@ data class MemberDto(
     @SerializedName("joinedAt") val joinedAt: String,
     @SerializedName("unitAssignments") val unitAssignments: List<MemberUnitAssignmentDto>? = emptyList(),
     @SerializedName("leadershipRoles") val leadershipRoles: List<MemberLeadershipRoleDto>,
+    @SerializedName("leadershipRoleHistory") val leadershipRoleHistory: List<MemberLeadershipRoleDto> = emptyList(),
     @SerializedName("ranks") val ranks: List<MemberRankDto>
 )
 

@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,6 +26,7 @@ fun MemberDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(userId) { viewModel.loadMember(userId) }
@@ -43,13 +45,13 @@ fun MemberDetailScreen(
     if (uiState.showRemoveMemberDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideRemoveMemberDialog,
-            title = { Text("Šalinti narį?") },
-            text = { Text("Narys bus pašalintas iš tunto. Šis veiksmas negrįžtamas.") },
+            title = { Text("Šalinti iš tunto?") },
+            text = { Text("Narys bus pašalintas iš tunto. Taip pat bus uždarytos jo pareigos ir vienetų narystės šiame tunte.") },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.removeMember(userId) },
                     enabled = !uiState.isSaving
-                ) { Text("Šalinti", color = MaterialTheme.colorScheme.error) }
+                ) { Text("Šalinti iš tunto", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = viewModel::hideRemoveMemberDialog) { Text("Atšaukti") }
@@ -82,6 +84,17 @@ fun MemberDetailScreen(
         )
     }
 
+    if (uiState.showMoveMemberDialog) {
+        MoveMemberDialog(
+            units = uiState.availableUnits,
+            selectedUnitId = uiState.selectedMoveUnitId,
+            isSaving = uiState.isSaving,
+            onUnitSelected = viewModel::onMoveUnitSelected,
+            onConfirm = { viewModel.moveMember(userId) },
+            onDismiss = viewModel::hideMoveMemberDialog
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
@@ -96,7 +109,7 @@ fun MemberDetailScreen(
                 }
                 if (uiState.member != null && "members.remove" in permissions) {
                     IconButton(onClick = viewModel::showRemoveMemberDialog) {
-                        Icon(Icons.Default.PersonRemove, contentDescription = "Šalinti narį",
+                        Icon(Icons.Default.PersonRemove, contentDescription = "Šalinti iš tunto",
                             tint = MaterialTheme.colorScheme.error)
                     }
                 }
@@ -117,8 +130,12 @@ fun MemberDetailScreen(
                 uiState.member != null -> MemberDetailContent(
                     member = uiState.member!!,
                     isSaving = uiState.isSaving,
+                    isCurrentUser = currentUserId == userId,
                     canManageRoles = "roles.assign" in permissions,
+                    canMoveMember = "unit.members.manage:ALL" in permissions,
+                    onMoveMember = viewModel::openMoveMemberDialog,
                     onAssignRole = viewModel::openAssignRoleDialog,
+                    onStepDownRole = { assignmentId -> viewModel.stepDownLeadershipRole(userId, assignmentId) },
                     onRemoveRole = { assignmentId -> viewModel.removeLeadershipRole(userId, assignmentId) },
                     onAssignRank = viewModel::openAssignRankDialog,
                     onRemoveRank = { rankId -> viewModel.removeRank(userId, rankId) }
@@ -132,8 +149,12 @@ fun MemberDetailScreen(
 private fun MemberDetailContent(
     member: MemberDto,
     isSaving: Boolean,
+    isCurrentUser: Boolean,
     canManageRoles: Boolean,
+    canMoveMember: Boolean,
+    onMoveMember: () -> Unit,
     onAssignRole: () -> Unit,
+    onStepDownRole: (String) -> Unit,
     onRemoveRole: (String) -> Unit,
     onAssignRank: () -> Unit,
     onRemoveRank: (String) -> Unit
@@ -153,13 +174,34 @@ private fun MemberDetailContent(
 
         MemberInfoSection(member = member)
 
+        if (canMoveMember) {
+            Button(
+                onClick = onMoveMember,
+                enabled = !isSaving,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SwapHoriz,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Perkelti i kita vieneta")
+            }
+        }
+
+        MemberUnitsSection(assignments = member.unitAssignments.orEmpty())
+
         MemberRolesSection(
             roles = member.leadershipRoles,
             isSaving = isSaving,
+            isCurrentUser = isCurrentUser,
             canManageRoles = canManageRoles,
             onAssignRole = onAssignRole,
+            onStepDownRole = onStepDownRole,
             onRemoveRole = onRemoveRole
         )
+
+        MemberLeadershipHistorySection(history = member.leadershipRoleHistory)
 
         MemberRanksSection(
             ranks = member.ranks,
@@ -168,6 +210,43 @@ private fun MemberDetailContent(
             onAssignRank = onAssignRank,
             onRemoveRank = onRemoveRank
         )
+    }
+}
+
+@Composable
+private fun MemberUnitsSection(assignments: List<MemberUnitAssignmentDto>) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Vienetai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            HorizontalDivider()
+            if (assignments.isEmpty()) {
+                Text(
+                    "Aktyviu vienetu nera",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                assignments.forEach { assignment ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = assignment.organizationalUnitName,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = when (assignment.assignmentType) {
+                                "MEMBER" -> "Narys"
+                                "VADOVO_PADEJEJAS" -> "Vadovo padejejas"
+                                else -> assignment.assignmentType
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (assignment != assignments.last()) HorizontalDivider()
+                }
+            }
+        }
     }
 }
 
@@ -188,8 +267,10 @@ private fun MemberInfoSection(member: MemberDto) {
 private fun MemberRolesSection(
     roles: List<MemberLeadershipRoleDto>,
     isSaving: Boolean,
+    isCurrentUser: Boolean,
     canManageRoles: Boolean,
     onAssignRole: () -> Unit,
+    onStepDownRole: (String) -> Unit,
     onRemoveRole: (String) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
@@ -229,14 +310,54 @@ private fun MemberRolesSection(
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        if (canManageRoles) {
-                            IconButton(onClick = { onRemoveRole(role.id) }, enabled = !isSaving) {
-                                Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas",
-                                    tint = MaterialTheme.colorScheme.error)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isCurrentUser && role.termStatus == "ACTIVE") {
+                                TextButton(onClick = { onStepDownRole(role.id) }, enabled = !isSaving) {
+                                    Text("Atsistatydinti")
+                                }
+                            }
+                            if (canManageRoles) {
+                                IconButton(onClick = { onRemoveRole(role.id) }, enabled = !isSaving) {
+                                    Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas",
+                                        tint = MaterialTheme.colorScheme.error)
+                                }
                             }
                         }
                     }
                     if (role != roles.last()) HorizontalDivider()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto>) {
+    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Pareigu istorija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            HorizontalDivider()
+            if (history.isEmpty()) {
+                Text(
+                    "Buvusiu pareigu nera",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                history.forEach { role ->
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(role.roleName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        role.organizationalUnitName?.let {
+                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        val endedAt = role.leftAt?.take(10)
+                        Text(
+                            text = listOfNotNull(role.termStatus, endedAt).joinToString(" - "),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    if (role != history.last()) HorizontalDivider()
                 }
             }
         }
@@ -408,6 +529,61 @@ private fun AssignRankDialog(
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Atšaukti") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MoveMemberDialog(
+    units: List<OrganizationalUnitDto>,
+    selectedUnitId: String,
+    isSaving: Boolean,
+    onUnitSelected: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedUnit = units.find { it.id == selectedUnitId }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Perkelti nari") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Bus pakeista tik pagrindine nario naryste to paties vieneto tipo ribose. Pareigos ir laipsniai nebus keiciami.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                    OutlinedTextField(
+                        value = selectedUnit?.name ?: "Pasirinkite vieneta",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Naujas vienetas") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        units.forEach { unit ->
+                            DropdownMenuItem(
+                                text = { Text(unit.name) },
+                                onClick = {
+                                    onUnitSelected(unit.id)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = selectedUnitId.isNotBlank() && !isSaving) {
+                Text("Perkelti")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }
     )
 }
 

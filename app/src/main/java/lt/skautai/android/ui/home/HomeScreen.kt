@@ -610,7 +610,7 @@ private fun ReservationOverviewGrid(
         ReservationOverviewTile(
             title = "Prašymai",
             count = assignedCount,
-            subtitle = "Laukia tavo sprendimo",
+            subtitle = "Laukia tavo sokprendimo",
             icon = Icons.Default.Inbox,
             tone = HomeLichen,
             onClick = onOpenAssignedReservations

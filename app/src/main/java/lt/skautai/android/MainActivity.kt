@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
+import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.ui.common.AppNavGraph
 import lt.skautai.android.ui.theme.SkautuInventoriusTheme
 import lt.skautai.android.util.NavRoutes
@@ -25,6 +26,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var tokenManager: TokenManager
+
+    @Inject
+    lateinit var userRepository: UserRepository
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,6 +46,16 @@ class MainActivity : ComponentActivity() {
                     } else {
                         val currentToken = tokenManager.token.first()
                         val currentTuntasId = tokenManager.activeTuntasId.first()
+                        val currentTuntasName = tokenManager.activeTuntasName.first()
+                        if (currentToken != null &&
+                            !currentTuntasId.isNullOrBlank() &&
+                            currentTuntasName.isNullOrBlank()
+                        ) {
+                            userRepository.getMyTuntai()
+                                .getOrNull()
+                                ?.firstOrNull { it.id == currentTuntasId }
+                                ?.let { tokenManager.setActiveTuntas(it.id, it.name) }
+                        }
                         when {
                             currentToken == null -> NavRoutes.Login.route
                             currentTuntasId.isNullOrBlank() -> NavRoutes.TuntasSelect.route

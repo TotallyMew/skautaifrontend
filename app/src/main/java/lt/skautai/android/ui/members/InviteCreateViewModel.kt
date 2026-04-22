@@ -65,14 +65,20 @@ class InviteCreateViewModel @Inject constructor(
             val rolesResult = roleRepository.getRoles()
             val orgUnitsResult = orgUnitRepository.getUnits()
             val currentUserId = tokenManager.userId.first()
+            val permissions = tokenManager.permissions.first()
             val currentUserResult = currentUserId?.let { memberRepository.getMember(it) }
 
             rolesResult.onSuccess { roles ->
                 val units = orgUnitsResult.getOrDefault(emptyList())
                 val assignedUnitId = currentUserId?.let { findAssignedUnitId(it, units) }
-                val restrictedConfig = currentUserResult
-                    ?.getOrNull()
-                    ?.let { deriveRestrictedInviteConfig(it, units, roles, assignedUnitId) }
+                val hasGlobalInviteScope = "invitations.create:ALL" in permissions
+                val restrictedConfig = if (hasGlobalInviteScope) {
+                    null
+                } else {
+                    currentUserResult
+                        ?.getOrNull()
+                        ?.let { deriveRestrictedInviteConfig(it, units, roles, assignedUnitId) }
+                }
 
                 val visibleRoles = restrictedConfig?.let { config ->
                     roles.filter { it.id in config.allowedRoleIds }

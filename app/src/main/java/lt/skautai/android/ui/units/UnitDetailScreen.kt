@@ -7,6 +7,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material3.*
@@ -31,7 +32,8 @@ fun UnitDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val canManageUnit = "organizational_units.manage" in permissions
-    val canManageMembers = "unit.members.manage" in permissions
+    val canManageMembers = "unit.members.manage:ALL" in permissions ||
+        ("unit.members.manage:OWN_UNIT" in permissions && uiState.canCurrentUserManageThisUnit)
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(unitId) { viewModel.loadUnit(unitId) }
@@ -60,6 +62,23 @@ fun UnitDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = viewModel::hideDeleteDialog) { Text("Atšaukti") }
+            }
+        )
+    }
+
+    if (uiState.showLeaveDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::hideLeaveDialog,
+            title = { Text("Palikti vieneta?") },
+            text = { Text("Paliksi si vieneta, bet liksi tunto nariu. Su siuo vienetu susieti nario priskyrimai bus uzdaryti.") },
+            confirmButton = {
+                TextButton(
+                    onClick = { viewModel.leaveUnit(unitId) },
+                    enabled = !uiState.isSaving
+                ) { Text("Palikti", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::hideLeaveDialog) { Text("Atsaukti") }
             }
         )
     }
@@ -94,6 +113,11 @@ fun UnitDetailScreen(
                         IconButton(onClick = viewModel::showDeleteDialog) {
                             Icon(Icons.Default.Delete, contentDescription = "Trinti",
                                 tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                    if (uiState.unit != null && uiState.canCurrentUserLeaveThisUnit) {
+                        IconButton(onClick = viewModel::showLeaveDialog) {
+                            Icon(Icons.Default.ExitToApp, contentDescription = "Palikti vieneta")
                         }
                     }
                 }

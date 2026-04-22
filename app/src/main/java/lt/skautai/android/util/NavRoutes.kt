@@ -13,6 +13,7 @@ sealed class NavRoutes(val route: String) {
     object Home : NavRoutes("home")
 
     object InviteCreate : NavRoutes("invite_create")
+    object InviteAccept : NavRoutes("invite_accept")
 
     // Inventory
     object InventoryList : NavRoutes("inventory_list?type={type}&category={category}&custodianId={custodianId}") {

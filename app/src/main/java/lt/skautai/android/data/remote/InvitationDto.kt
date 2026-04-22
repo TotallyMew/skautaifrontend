@@ -8,9 +8,15 @@ data class CreateInvitationRequestDto(
     @SerializedName("expiresInHours") val expiresInHours: Int = 72
 )
 
+data class AcceptInvitationRequestDto(
+    @SerializedName("code") val code: String
+)
+
 data class InvitationResponseDto(
     @SerializedName("code") val code: String,
     @SerializedName("roleName") val roleName: String,
     @SerializedName("tuntasName") val tuntasName: String,
-    @SerializedName("expiresAt") val expiresAt: String
+    @SerializedName("expiresAt") val expiresAt: String,
+    @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null,
+    @SerializedName("organizationalUnitName") val organizationalUnitName: String? = null
 )

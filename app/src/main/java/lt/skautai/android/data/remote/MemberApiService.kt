@@ -34,6 +34,13 @@ interface MemberApiService {
         @Path("assignmentId") assignmentId: String
     ): Response<Void>
 
+    @POST("api/members/me/leadership-roles/{assignmentId}/step-down")
+    suspend fun stepDownLeadershipRole(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("assignmentId") assignmentId: String
+    ): Response<Void>
+
     @POST("api/members/{userId}/ranks")
     suspend fun assignRank(
         @Header("Authorization") token: String,

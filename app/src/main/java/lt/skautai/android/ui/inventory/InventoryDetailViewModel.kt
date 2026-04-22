@@ -3,6 +3,7 @@ package lt.skautai.android.ui.inventory
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -44,19 +45,36 @@ class InventoryDetailViewModel @Inject constructor(
 
     private val _deleteError = MutableStateFlow<String?>(null)
     val deleteError: StateFlow<String?> = _deleteError.asStateFlow()
+    private var itemObserverJob: Job? = null
 
     fun loadItem(itemId: String) {
+        itemObserverJob?.cancel()
+        itemObserverJob = viewModelScope.launch {
+            itemRepository.observeItem(itemId).collect { item ->
+                if (item != null) {
+                    val reservations = (_uiState.value as? InventoryDetailUiState.Success)?.reservations.orEmpty()
+                    _uiState.value = InventoryDetailUiState.Success(item, reservations)
+                }
+            }
+        }
+
         viewModelScope.launch {
-            _uiState.value = InventoryDetailUiState.Loading
-            itemRepository.getItem(itemId)
-                .onSuccess { item ->
-                    _uiState.value = InventoryDetailUiState.Success(item)
+            if (_uiState.value !is InventoryDetailUiState.Success) {
+                _uiState.value = InventoryDetailUiState.Loading
+            }
+            itemRepository.refreshItem(itemId)
+                .onSuccess {
                     loadItemReservations(itemId)
                 }
                 .onFailure { error ->
-                    _uiState.value = InventoryDetailUiState.Error(
-                        error.message ?: "Nepavyko gauti daikto"
-                    )
+                    if (_uiState.value !is InventoryDetailUiState.Success) {
+                        itemRepository.getItem(itemId)
+                            .onFailure {
+                                _uiState.value = InventoryDetailUiState.Error(
+                                    error.message ?: "Nepavyko gauti daikto"
+                                )
+                            }
+                    }
                 }
         }
     }

@@ -5,6 +5,14 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import lt.skautai.android.data.remote.AuthApiService
+import lt.skautai.android.data.local.dao.ItemDao
+import lt.skautai.android.data.local.dao.LocationDao
+import lt.skautai.android.data.local.dao.MemberDao
+import lt.skautai.android.data.local.dao.OrganizationalUnitDao
+import lt.skautai.android.data.local.dao.ReservationDao
+import lt.skautai.android.data.local.dao.BendrasRequestDao
+import lt.skautai.android.data.local.dao.RequisitionDao
+import lt.skautai.android.data.local.dao.EventDao
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.OrganizationalUnitApiService
 import lt.skautai.android.data.remote.UserApiService
@@ -58,27 +66,30 @@ object RepositoryModule {
     @Singleton
     fun provideItemRepository(
         itemApiService: ItemApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        itemDao: ItemDao
     ): ItemRepository {
-        return ItemRepository(itemApiService, tokenManager)
+        return ItemRepository(itemApiService, tokenManager, itemDao)
     }
 
     @Provides
     @Singleton
     fun provideOrganizationalUnitRepository(
         orgUnitApiService: OrganizationalUnitApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        organizationalUnitDao: OrganizationalUnitDao
     ): OrganizationalUnitRepository {
-        return OrganizationalUnitRepository(orgUnitApiService, tokenManager)
+        return OrganizationalUnitRepository(orgUnitApiService, tokenManager, organizationalUnitDao)
     }
 
     @Provides
     @Singleton
     fun provideMemberRepository(
         memberApiService: MemberApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        memberDao: MemberDao
     ): MemberRepository {
-        return MemberRepository(memberApiService, tokenManager)
+        return MemberRepository(memberApiService, tokenManager, memberDao)
     }
 
     @Provides
@@ -103,44 +114,49 @@ object RepositoryModule {
     @Singleton
     fun provideReservationRepository(
         reservationApiService: ReservationApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        reservationDao: ReservationDao
     ): ReservationRepository {
-        return ReservationRepository(reservationApiService, tokenManager)
+        return ReservationRepository(reservationApiService, tokenManager, reservationDao)
     }
 
     @Provides
     @Singleton
     fun provideRequestRepository(
         requestApiService: RequestApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        bendrasRequestDao: BendrasRequestDao
     ): RequestRepository {
-        return RequestRepository(requestApiService, tokenManager)
+        return RequestRepository(requestApiService, tokenManager, bendrasRequestDao)
     }
 
     @Provides
     @Singleton
     fun provideRequisitionRepository(
         requisitionApiService: RequisitionApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        requisitionDao: RequisitionDao
     ): RequisitionRepository {
-        return RequisitionRepository(requisitionApiService, tokenManager)
+        return RequisitionRepository(requisitionApiService, tokenManager, requisitionDao)
     }
 
     @Provides
     @Singleton
     fun provideEventRepository(
         eventApiService: EventApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        eventDao: EventDao
     ): EventRepository {
-        return EventRepository(eventApiService, tokenManager)
+        return EventRepository(eventApiService, tokenManager, eventDao)
     }
 
     @Provides
     @Singleton
     fun provideLocationRepository(
         locationApiService: LocationApiService,
-        tokenManager: TokenManager
+        tokenManager: TokenManager,
+        locationDao: LocationDao
     ): LocationRepository {
-        return LocationRepository(locationApiService, tokenManager)
+        return LocationRepository(locationApiService, tokenManager, locationDao)
     }
 }

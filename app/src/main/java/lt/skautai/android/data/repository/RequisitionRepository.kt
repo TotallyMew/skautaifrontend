@@ -1,30 +1,67 @@
 package lt.skautai.android.data.repository
 
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import lt.skautai.android.data.local.dao.RequisitionDao
+import lt.skautai.android.data.local.mapper.toDto
+import lt.skautai.android.data.local.mapper.toEntity
+import lt.skautai.android.data.local.mapper.toRequisitionDtos
+import lt.skautai.android.data.local.mapper.toRequisitionEntities
 import lt.skautai.android.data.remote.CreateRequisitionDto
 import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.remote.RequisitionListDto
 import lt.skautai.android.data.remote.RequisitionReviewDto
 import lt.skautai.android.util.TokenManager
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Singleton
 class RequisitionRepository @Inject constructor(
     private val requisitionApiService: RequisitionApiService,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val requisitionDao: RequisitionDao
 ) {
+    private suspend fun token() = tokenManager.token.first()
+        ?: throw Exception("Nav prisijungta")
 
-    suspend fun getRequests(): Result<RequisitionListDto> {
+    private suspend fun tuntasId() = tokenManager.activeTuntasId.first()
+        ?: throw Exception("Tuntas nepasirinktas")
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeRequests(): Flow<RequisitionListDto> {
+        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+            if (currentTuntasId == null) {
+                flowOf(RequisitionListDto(emptyList(), 0))
+            } else {
+                requisitionDao.observeRequests(currentTuntasId)
+                    .map { requests -> RequisitionListDto(requests.toRequisitionDtos(), requests.size) }
+            }
+        }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun observeRequest(id: String): Flow<RequisitionDto?> {
+        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+            if (currentTuntasId == null) flowOf(null)
+            else requisitionDao.observeRequest(id, currentTuntasId).map { it?.toDto() }
+        }
+    }
+
+    suspend fun refreshRequests(): Result<Unit> {
         return try {
-            val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = requisitionApiService.getRequests("Bearer $token", tuntasId)
+            val currentTuntasId = tuntasId()
+            val response = requisitionApiService.getRequests("Bearer ${token()}", currentTuntasId)
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val requests = response.body()?.requests.orEmpty()
+                val entities = requests.toRequisitionEntities()
+                requisitionDao.deleteForTuntas(currentTuntasId)
+                requisitionDao.upsertAll(entities)
+                Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prasyma"))
             }
@@ -33,81 +70,80 @@ class RequisitionRepository @Inject constructor(
         }
     }
 
-    suspend fun getRequest(id: String): Result<RequisitionDto> {
+    suspend fun refreshRequest(id: String): Result<Unit> {
         return try {
-            val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = requisitionApiService.getRequest("Bearer $token", tuntasId, id)
+            val currentTuntasId = tuntasId()
+            val response = requisitionApiService.getRequest("Bearer ${token()}", currentTuntasId, id)
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                requisitionDao.upsert(response.body()!!.toEntity())
+                Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prasyma"))
             }
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun getRequests(): Result<RequisitionListDto> {
+        val refreshResult = refreshRequests()
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val cachedRequests = currentTuntasId
+            ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
+            .orEmpty()
+        return Result.success(RequisitionListDto(cachedRequests, cachedRequests.size))
+    }
+
+    suspend fun getRequest(id: String): Result<RequisitionDto> {
+        val refreshResult = refreshRequest(id)
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val cachedRequest = currentTuntasId?.let { requisitionDao.getRequest(id, it)?.toDto() }
+        return if (cachedRequest != null) {
+            Result.success(cachedRequest)
+        } else {
+            Result.failure(Exception("Prasymo nepavyko atnaujinti. Prisijunkite prie interneto bent karta, kad jis butu issaugotas offline."))
         }
     }
 
     suspend fun createRequest(request: CreateRequisitionDto): Result<RequisitionDto> {
         return try {
-            val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = requisitionApiService.createRequest("Bearer $token", tuntasId, request)
+            val response = requisitionApiService.createRequest("Bearer ${token()}", tuntasId(), request)
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val created = response.body()!!
+                requisitionDao.upsert(created.toEntity())
+                Result.success(created)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant prasyma"))
             }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
     }
 
-    suspend fun unitReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> {
+    suspend fun unitReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> =
+        reviewOnlineOnly(id, action, rejectionReason, topLevel = false)
+
+    suspend fun topLevelReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> =
+        reviewOnlineOnly(id, action, rejectionReason, topLevel = true)
+
+    private suspend fun reviewOnlineOnly(
+        id: String,
+        action: String,
+        rejectionReason: String?,
+        topLevel: Boolean
+    ): Result<RequisitionDto> {
         return try {
-            val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = requisitionApiService.unitReview(
-                "Bearer $token",
-                tuntasId,
-                id,
-                RequisitionReviewDto(action = action, rejectionReason = rejectionReason)
-            )
-            if (response.isSuccessful) {
-                Result.success(response.body()!!)
+            val request = RequisitionReviewDto(action = action, rejectionReason = rejectionReason)
+            val response = if (topLevel) {
+                requisitionApiService.topLevelReview("Bearer ${token()}", tuntasId(), id, request)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant vieneto perziura"))
+                requisitionApiService.unitReview("Bearer ${token()}", tuntasId(), id, request)
             }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
-    }
-
-    suspend fun topLevelReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> {
-        return try {
-            val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val response = requisitionApiService.topLevelReview(
-                "Bearer $token",
-                tuntasId,
-                id,
-                RequisitionReviewDto(action = action, rejectionReason = rejectionReason)
-            )
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val updated = response.body()!!
+                requisitionDao.upsert(updated.toEntity())
+                Result.success(updated)
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant perziura"))
             }
-        } catch (e: Exception) {
-            Result.failure(e)
-        }
+        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
     }
 }

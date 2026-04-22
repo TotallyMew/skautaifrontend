@@ -63,4 +63,19 @@ interface OrganizationalUnitApiService {
         @Path("id") unitId: String,
         @Path("userId") userId: String
     ): Response<Void>
+
+    @POST("api/organizational-units/{id}/members/me/leave")
+    suspend fun leaveUnit(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") unitId: String
+    ): Response<Void>
+
+    @POST("api/organizational-units/{id}/members/{userId}/move")
+    suspend fun moveUnitMember(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") unitId: String,
+        @Path("userId") userId: String
+    ): Response<UnitMembershipDto>
 }

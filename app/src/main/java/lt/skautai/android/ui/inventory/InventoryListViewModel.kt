@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -63,7 +64,29 @@ class InventoryListViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     init {
+        observeCachedItems()
         loadItems()
+    }
+
+    private fun observeCachedItems() {
+        viewModelScope.launch {
+            combine(
+                itemRepository.observeItems(custodianId = initialCustodianId),
+                itemRepository.observeItems(status = "PENDING_APPROVAL"),
+                permissions
+            ) { activeItems, pendingItems, permissions ->
+                val visiblePendingItems = if ("items.transfer" in permissions) pendingItems else emptyList()
+                if (activeItems.isEmpty() && visiblePendingItems.isEmpty()) {
+                    InventoryListUiState.Empty
+                } else {
+                    InventoryListUiState.Success(activeItems, visiblePendingItems)
+                }
+            }.collect { state ->
+                if (!_isRefreshing.value || state is InventoryListUiState.Success) {
+                    _uiState.value = state
+                }
+            }
+        }
     }
 
     fun loadItems() {
@@ -73,26 +96,22 @@ class InventoryListViewModel @Inject constructor(
                 _uiState.value = InventoryListUiState.Loading
             }
             try {
-                val itemsResult = itemRepository.getItems(custodianId = initialCustodianId)
+                val itemsResult = itemRepository.refreshItems(custodianId = initialCustodianId)
                 val canApprovePending = "items.transfer" in permissions.value
 
-                val pendingItems = if (canApprovePending) {
-                    itemRepository.getItems(status = "PENDING_APPROVAL").getOrDefault(emptyList())
-                } else emptyList()
+                val pendingItemsResult = if (canApprovePending) {
+                    itemRepository.refreshItems(status = "PENDING_APPROVAL")
+                } else Result.success(Unit)
 
-                itemsResult
-                    .onSuccess { activeItems ->
-                        _uiState.value = if (activeItems.isEmpty() && pendingItems.isEmpty()) {
-                            InventoryListUiState.Empty
-                        } else {
-                            InventoryListUiState.Success(activeItems, pendingItems)
-                        }
-                    }
-                    .onFailure { error ->
+                val error = itemsResult.exceptionOrNull() ?: pendingItemsResult.exceptionOrNull()
+                if (error != null && _uiState.value !is InventoryListUiState.Success) {
+                    val currentState = _uiState.value
+                    if (currentState !is InventoryListUiState.Empty) {
                         _uiState.value = InventoryListUiState.Error(
                             error.message ?: "Nepavyko gauti inventoriaus"
                         )
                     }
+                }
             } finally {
                 _isRefreshing.value = false
             }

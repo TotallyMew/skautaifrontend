@@ -26,7 +26,20 @@ class UnitListViewModel @Inject constructor(
     val uiState: StateFlow<UnitListUiState> = _uiState.asStateFlow()
 
     init {
+        observeCachedUnits()
         loadUnits()
+    }
+
+    private fun observeCachedUnits() {
+        viewModelScope.launch {
+            orgUnitRepository.observeUnits().collect { units ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    units = units,
+                    error = if (units.isNotEmpty()) null else _uiState.value.error
+                )
+            }
+        }
     }
 
     fun loadUnits() {
@@ -34,15 +47,19 @@ class UnitListViewModel @Inject constructor(
             if (_uiState.value.units.isEmpty()) {
                 _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             }
-            orgUnitRepository.getUnits()
-                .onSuccess { units ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, units = units)
+            orgUnitRepository.refreshUnits()
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(isLoading = false, error = null)
                 }
                 .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        error = error.message ?: "Klaida gaunant vienetus"
-                    )
+                    if (_uiState.value.units.isEmpty()) {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = error.message ?: "Klaida gaunant vienetus"
+                        )
+                    } else {
+                        _uiState.value = _uiState.value.copy(isLoading = false)
+                    }
                 }
         }
     }

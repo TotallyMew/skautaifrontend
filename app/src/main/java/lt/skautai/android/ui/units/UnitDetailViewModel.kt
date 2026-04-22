@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -13,6 +14,7 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.*
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
+import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
@@ -20,8 +22,11 @@ data class UnitDetailUiState(
     val isLoading: Boolean = true,
     val unit: OrganizationalUnitDto? = null,
     val members: List<UnitMembershipDto> = emptyList(),
+    val canCurrentUserManageThisUnit: Boolean = false,
+    val canCurrentUserLeaveThisUnit: Boolean = false,
     val error: String? = null,
     val showDeleteDialog: Boolean = false,
+    val showLeaveDialog: Boolean = false,
     val showAssignMemberDialog: Boolean = false,
     val availableTuntasMembers: List<MemberDto> = emptyList(),
     val selectedMemberId: String = "",
@@ -35,6 +40,7 @@ data class UnitDetailUiState(
 class UnitDetailViewModel @Inject constructor(
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val memberRepository: MemberRepository,
+    private val userRepository: UserRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -49,14 +55,30 @@ class UnitDetailViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val unitDeferred = async { orgUnitRepository.getUnit(unitId) }
             val membersDeferred = async { orgUnitRepository.getUnitMembers(unitId) }
+            val currentUserId = tokenManager.userId.first()
+            val currentMemberDeferred = currentUserId?.let { async { memberRepository.getMember(it) } }
             val unitResult = unitDeferred.await()
             val membersResult = membersDeferred.await()
+            val currentMember = currentMemberDeferred?.await()?.getOrNull()
+            val hasCurrentUserAssignment = currentMember?.unitAssignments.orEmpty()
+                .any { it.organizationalUnitId == unitId }
+            val hasCurrentUserLeadership = currentMember?.leadershipRoles.orEmpty()
+                .any { it.termStatus == "ACTIVE" && it.organizationalUnitId == unitId }
+            val canManageThisUnit = currentMember?.let { member ->
+                member.leadershipRoles.any {
+                    it.termStatus == "ACTIVE" && it.organizationalUnitId == unitId
+                } || member.unitAssignments.orEmpty().any {
+                    it.organizationalUnitId == unitId
+                }
+            } ?: false
             unitResult
                 .onSuccess { unit ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         unit = unit,
-                        members = membersResult.getOrDefault(emptyList())
+                        members = membersResult.getOrDefault(emptyList()),
+                        canCurrentUserManageThisUnit = canManageThisUnit,
+                        canCurrentUserLeaveThisUnit = hasCurrentUserAssignment && !hasCurrentUserLeadership
                     )
                 }
                 .onFailure { e ->
@@ -70,6 +92,8 @@ class UnitDetailViewModel @Inject constructor(
 
     fun showDeleteDialog() { _uiState.value = _uiState.value.copy(showDeleteDialog = true) }
     fun hideDeleteDialog() { _uiState.value = _uiState.value.copy(showDeleteDialog = false) }
+    fun showLeaveDialog() { _uiState.value = _uiState.value.copy(showLeaveDialog = true) }
+    fun hideLeaveDialog() { _uiState.value = _uiState.value.copy(showLeaveDialog = false) }
 
     fun deleteUnit(unitId: String) {
         viewModelScope.launch {
@@ -138,6 +162,10 @@ class UnitDetailViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
             orgUnitRepository.removeUnitMember(unitId, userId)
                 .onSuccess {
+                    if (tokenManager.userId.first() == userId) {
+                        refreshPermissions()
+                        clearActiveUnitIfNeeded(unitId)
+                    }
                     _uiState.value = _uiState.value.copy(isSaving = false)
                     loadUnit(unitId)
                 }
@@ -148,5 +176,40 @@ class UnitDetailViewModel @Inject constructor(
         }
     }
 
+    fun leaveUnit(unitId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
+            orgUnitRepository.leaveUnit(unitId)
+                .onSuccess {
+                    refreshPermissions()
+                    clearActiveUnitIfNeeded(unitId)
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        showLeaveDialog = false,
+                        isDone = true
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        showLeaveDialog = false,
+                        actionError = e.message ?: "Klaida paliekant vieneta"
+                    )
+                }
+        }
+    }
+
     fun clearActionError() { _uiState.value = _uiState.value.copy(actionError = null) }
+
+    private suspend fun refreshPermissions() {
+        val tuntasId = tokenManager.activeTuntasId.first() ?: return
+        userRepository.getMyPermissions(tuntasId)
+            .onSuccess { tokenManager.savePermissions(it) }
+    }
+
+    private suspend fun clearActiveUnitIfNeeded(unitId: String) {
+        if (tokenManager.activeOrgUnitId.first() == unitId) {
+            tokenManager.setActiveOrgUnit(null)
+        }
+    }
 }

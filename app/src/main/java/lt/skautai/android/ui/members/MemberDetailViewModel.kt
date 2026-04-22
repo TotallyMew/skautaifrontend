@@ -8,11 +8,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import lt.skautai.android.data.remote.*
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RoleRepository
+import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
@@ -26,11 +28,13 @@ data class MemberDetailUiState(
     val showRemoveMemberDialog: Boolean = false,
     val showAssignRoleDialog: Boolean = false,
     val showAssignRankDialog: Boolean = false,
+    val showMoveMemberDialog: Boolean = false,
     val leadershipRoles: List<RoleDto> = emptyList(),
     val rankRoles: List<RoleDto> = emptyList(),
     val availableUnits: List<OrganizationalUnitDto> = emptyList(),
     val selectedRoleId: String = "",
     val selectedUnitId: String? = null,
+    val selectedMoveUnitId: String = "",
     val selectedRankRoleId: String = ""
 )
 
@@ -39,6 +43,7 @@ class MemberDetailViewModel @Inject constructor(
     private val memberRepository: MemberRepository,
     private val roleRepository: RoleRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
+    private val userRepository: UserRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -47,6 +52,9 @@ class MemberDetailViewModel @Inject constructor(
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val currentUserId: StateFlow<String?> = tokenManager.userId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     fun loadMember(userId: String) {
         viewModelScope.launch {
@@ -74,6 +82,58 @@ class MemberDetailViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false, showRemoveMemberDialog = false,
                         actionError = e.message ?: "Klaida šalinant narį")
+                }
+        }
+    }
+
+    fun openMoveMemberDialog() {
+        viewModelScope.launch {
+            orgUnitRepository.getUnits()
+                .onSuccess { units ->
+                    _uiState.value = _uiState.value.copy(
+                        availableUnits = units,
+                        selectedMoveUnitId = "",
+                        showMoveMemberDialog = true
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(actionError = e.message ?: "Klaida gaunant vienetus")
+                }
+        }
+    }
+
+    fun hideMoveMemberDialog() {
+        _uiState.value = _uiState.value.copy(
+            showMoveMemberDialog = false,
+            selectedMoveUnitId = ""
+        )
+    }
+
+    fun onMoveUnitSelected(unitId: String) {
+        _uiState.value = _uiState.value.copy(selectedMoveUnitId = unitId)
+    }
+
+    fun moveMember(userId: String) {
+        val state = _uiState.value
+        if (state.selectedMoveUnitId.isBlank()) return
+
+        viewModelScope.launch {
+            _uiState.value = state.copy(isSaving = true, actionError = null)
+            orgUnitRepository.moveUnitMember(state.selectedMoveUnitId, userId)
+                .onSuccess {
+                    refreshPermissionsIfCurrentUser(userId)
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        showMoveMemberDialog = false,
+                        selectedMoveUnitId = ""
+                    )
+                    loadMember(userId)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        actionError = e.message ?: "Klaida perkeliant nari"
+                    )
                 }
         }
     }
@@ -113,6 +173,7 @@ class MemberDetailViewModel @Inject constructor(
                 )
             )
                 .onSuccess {
+                    refreshPermissionsIfCurrentUser(userId)
                     _uiState.value = _uiState.value.copy(isSaving = false, showAssignRoleDialog = false,
                         selectedRoleId = "", selectedUnitId = null)
                     loadMember(userId)
@@ -129,12 +190,31 @@ class MemberDetailViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
             memberRepository.removeLeadershipRole(userId, assignmentId)
                 .onSuccess {
+                    refreshPermissionsIfCurrentUser(userId)
                     _uiState.value = _uiState.value.copy(isSaving = false)
                     loadMember(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
                         actionError = e.message ?: "Klaida šalinant pareigas")
+                }
+        }
+    }
+
+    fun stepDownLeadershipRole(userId: String, assignmentId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
+            memberRepository.stepDownLeadershipRole(assignmentId)
+                .onSuccess {
+                    refreshPermissions()
+                    _uiState.value = _uiState.value.copy(isSaving = false)
+                    loadMember(userId)
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        actionError = e.message ?: "Klaida atsistatydinant"
+                    )
                 }
         }
     }
@@ -195,4 +275,14 @@ class MemberDetailViewModel @Inject constructor(
     }
 
     fun clearActionError() { _uiState.value = _uiState.value.copy(actionError = null) }
+
+    private suspend fun refreshPermissions() {
+        val tuntasId = tokenManager.activeTuntasId.first() ?: return
+        userRepository.getMyPermissions(tuntasId)
+            .onSuccess { tokenManager.savePermissions(it) }
+    }
+
+    private suspend fun refreshPermissionsIfCurrentUser(userId: String) {
+        if (tokenManager.userId.first() == userId) refreshPermissions()
+    }
 }

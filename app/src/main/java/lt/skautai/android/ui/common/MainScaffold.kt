@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -75,6 +76,7 @@ fun MainScaffold(
         NavRoutes.InventoryList.route -> "Inventorius"
         NavRoutes.ReservationList.route -> "Rezervacijos"
         NavRoutes.RequestList.route -> "Prasymai"
+        NavRoutes.InviteAccept.route -> "Kvietimai"
         NavRoutes.SharedRequestList.route -> "Paemimo prasymai"
         NavRoutes.MemberList.route -> "Nariai"
         NavRoutes.UnitList.route -> "Vienetai"
@@ -86,7 +88,9 @@ fun MainScaffold(
         when (item) {
             is BottomNavItem.Members -> "members.view" in permissions
             is BottomNavItem.Units -> {
-                "unit.members.manage" in permissions || "organizational_units.manage" in permissions
+                "members.view" in permissions ||
+                    "unit.members.manage" in permissions ||
+                    "organizational_units.manage" in permissions
             }
 
             else -> true
@@ -155,6 +159,17 @@ fun MainScaffold(
                     onClick = {
                         scope.launch { drawerState.close() }
                         navController.navigate(NavRoutes.TuntasSelect.route)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Kvietimai") },
+                    icon = { Icon(Icons.Default.MarkEmailUnread, contentDescription = null) },
+                    selected = currentRoute == NavRoutes.InviteAccept.route,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(NavRoutes.InviteAccept.route)
                     },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
