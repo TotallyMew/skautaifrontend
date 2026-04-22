@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.inventory
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,11 +17,13 @@ import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
+import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
 
 data class InventoryAddEditUiState(
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
+    val isUploadingPhoto: Boolean = false,
     val isCreatingLocation: Boolean = false,
     val isSuccess: Boolean = false,
     val error: String? = null,
@@ -35,6 +38,8 @@ data class InventoryAddEditUiState(
     val notes: String = "",
     val purchaseDate: String = "",
     val purchasePrice: String = "",
+    val photoUrl: String = "",
+    val selectedPhotoUri: String = "",
     val temporaryStorageLabel: String = "",
     val orgUnits: List<OrganizationalUnitDto> = emptyList(),
     val selectedOrgUnitId: String = "",
@@ -49,6 +54,7 @@ class InventoryAddEditViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val locationRepository: LocationRepository,
+    private val uploadRepository: UploadRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -102,6 +108,8 @@ class InventoryAddEditViewModel @Inject constructor(
                             notes = item.notes ?: "",
                             purchaseDate = item.purchaseDate ?: "",
                             purchasePrice = item.purchasePrice?.toString() ?: "",
+                            photoUrl = item.photoUrl ?: "",
+                            selectedPhotoUri = "",
                             temporaryStorageLabel = item.temporaryStorageLabel ?: "",
                             selectedOrgUnitId = item.custodianId ?: "",
                             selectedLocationId = item.locationId ?: ""
@@ -125,6 +133,7 @@ class InventoryAddEditViewModel @Inject constructor(
     fun onQuantityChange(value: String) { _uiState.value = _uiState.value.copy(quantity = value) }
     fun onPurchaseDateChange(value: String) { _uiState.value = _uiState.value.copy(purchaseDate = value) }
     fun onPurchasePriceChange(value: String) { _uiState.value = _uiState.value.copy(purchasePrice = value) }
+    fun onPurchaseDateSelected(value: String?) { _uiState.value = _uiState.value.copy(purchaseDate = value.orEmpty()) }
     fun onTypeChange(value: String) { _uiState.value = _uiState.value.copy(type = value) }
     fun onCategoryChange(value: String) { _uiState.value = _uiState.value.copy(category = value) }
     fun onConditionChange(value: String) { _uiState.value = _uiState.value.copy(condition = value) }
@@ -148,6 +157,49 @@ class InventoryAddEditViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    fun uploadPhoto(uri: Uri) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isUploadingPhoto = true,
+                selectedPhotoUri = uri.toString(),
+                error = null
+            )
+            uploadRepository.uploadImage(uri)
+                .onSuccess { url ->
+                    _uiState.value = _uiState.value.copy(
+                        isUploadingPhoto = false,
+                        photoUrl = url
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isUploadingPhoto = false,
+                        error = error.message ?: "Nepavyko ikelti nuotraukos"
+                    )
+                }
+        }
+    }
+
+    fun clearSuccess() {
+        _uiState.value = _uiState.value.copy(isSuccess = false)
+    }
+
+    fun prepareNextItem() {
+        _uiState.value = _uiState.value.copy(
+            isSuccess = false,
+            isSaving = false,
+            name = "",
+            description = "",
+            condition = "GOOD",
+            quantity = "1",
+            notes = "",
+            purchaseDate = "",
+            purchasePrice = "",
+            photoUrl = "",
+            selectedPhotoUri = ""
+        )
     }
 
     fun save(itemId: String?) {
@@ -184,8 +236,10 @@ class InventoryAddEditViewModel @Inject constructor(
                     custodianId = custodianId,
                     origin = state.origin,
                     quantity = qty,
+                    condition = state.condition,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
+                    photoUrl = state.photoUrl.ifBlank { null },
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
                     purchasePrice = price
@@ -211,6 +265,7 @@ class InventoryAddEditViewModel @Inject constructor(
                     custodianId = custodianId,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
+                    photoUrl = state.photoUrl.ifBlank { null },
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
                     purchasePrice = price

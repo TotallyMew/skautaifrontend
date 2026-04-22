@@ -42,6 +42,8 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import lt.skautai.android.ui.theme.ScoutGradients
+import lt.skautai.android.ui.theme.ScoutPalette
 import lt.skautai.android.util.NavRoutes
 
 @Composable
@@ -85,10 +87,7 @@ fun LoginScreen(
                 .imePadding()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(
-                            Color(0xFFF4F5EF),
-                            Color(0xFFE9EEE4)
-                        )
+                        colors = ScoutGradients.LoginBackground
                     )
                 )
                 .padding(horizontal = 20.dp, vertical = 24.dp),
@@ -104,7 +103,7 @@ fun LoginScreen(
                         .fillMaxWidth()
                         .background(
                             brush = Brush.verticalGradient(
-                                colors = listOf(Color(0xFF23452A), Color(0xFF315F38))
+                                colors = ScoutGradients.LoginHero
                             )
                         )
                         .padding(24.dp)
@@ -113,17 +112,17 @@ fun LoginScreen(
                         Text(
                             text = "Skautu inventorius",
                             style = MaterialTheme.typography.labelLarge,
-                            color = Color(0xFFD6E5D3)
+                            color = ScoutGradients.HeroTextMuted
                         )
                         Text(
                             text = "Prisijunk prie savo tunto inventoriaus",
                             style = MaterialTheme.typography.headlineMedium,
-                            color = Color.White
+                            color = ScoutPalette.White
                         )
                         Text(
                             text = "Vienoje vietoje matysi bendra tunto, vieneto ir savo siuloma skolinti inventoriu.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Color.White.copy(alpha = 0.86f)
+                            color = ScoutPalette.White.copy(alpha = 0.86f)
                         )
                     }
                 }

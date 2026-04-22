@@ -37,6 +37,7 @@ import lt.skautai.android.ui.requests.RequisitionListScreen
 import lt.skautai.android.ui.reservations.ReservationCreateScreen
 import lt.skautai.android.ui.reservations.ReservationDetailScreen
 import lt.skautai.android.ui.reservations.ReservationListScreen
+import lt.skautai.android.ui.reservations.ReservationMovementScreen
 import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.ui.superadmin.SuperAdminLoginScreen
 import lt.skautai.android.ui.tuntas.TuntasSelectScreen
@@ -127,6 +128,9 @@ fun AppNavGraph(
                 }
             )
         ) {
+            val refreshReservations by it.savedStateHandle
+                .getStateFlow("refreshReservations", false)
+                .collectAsState()
             MainScaffold(
                 navController = navController,
                 tokenManager = tokenManager,
@@ -149,7 +153,19 @@ fun AppNavGraph(
             }
         }
 
-        composable(NavRoutes.ReservationList.route) {
+        composable(
+            route = NavRoutes.ReservationList.route,
+            arguments = listOf(
+                navArgument("mode") {
+                    type = NavType.StringType
+                    defaultValue = "all"
+                    nullable = true
+                }
+            )
+        ) { backStackEntry ->
+            val refreshReservations by backStackEntry.savedStateHandle
+                .getStateFlow("refreshReservations", false)
+                .collectAsState()
             MainScaffold(
                 navController = navController,
                 tokenManager = tokenManager,
@@ -159,14 +175,30 @@ fun AppNavGraph(
                     onReservationClick = { id ->
                         navController.navigate(NavRoutes.ReservationDetail.createRoute(id))
                     },
-                    onCreateClick = {
-                        navController.navigate(NavRoutes.ReservationCreate.route)
-                    }
-                )
+                      onCreateClick = {
+                          navController.navigate(NavRoutes.ReservationCreate.route)
+                      },
+                      onModeClick = { mode ->
+                          navController.navigate(NavRoutes.ReservationList.createRoute(mode = mode))
+                      },
+                      refreshSignal = refreshReservations,
+                      onRefreshHandled = {
+                          backStackEntry.savedStateHandle["refreshReservations"] = false
+                      }
+                  )
             }
         }
 
-        composable(NavRoutes.RequestList.route) {
+        composable(
+            route = NavRoutes.RequestList.route,
+            arguments = listOf(
+                navArgument("mode") {
+                    type = NavType.StringType
+                    defaultValue = "all"
+                    nullable = true
+                }
+            )
+        ) {
             MainScaffold(
                 navController = navController,
                 tokenManager = tokenManager,
@@ -271,7 +303,10 @@ fun AppNavGraph(
         }
 
         composable(NavRoutes.ReservationCreate.route) {
-            ReservationCreateScreen(onBack = { navController.popBackStack() })
+            ReservationCreateScreen(onBack = {
+                navController.previousBackStackEntry?.savedStateHandle?.set("refreshReservations", true)
+                navController.popBackStack()
+            })
         }
 
         composable(
@@ -281,8 +316,24 @@ fun AppNavGraph(
             val reservationId = it.arguments?.getString("reservationId")!!
             ReservationDetailScreen(
                 reservationId = reservationId,
-                onBack = { navController.popBackStack() }
+                onBack = {
+                    navController.previousBackStackEntry?.savedStateHandle?.set("refreshReservations", true)
+                    navController.popBackStack()
+                },
+                onIssue = { navController.navigate(NavRoutes.ReservationMovement.createRoute(reservationId, "issue")) },
+                onReturn = { navController.navigate(NavRoutes.ReservationMovement.createRoute(reservationId, "return")) },
+                onMarkReturned = { navController.navigate(NavRoutes.ReservationMovement.createRoute(reservationId, "mark_returned")) }
             )
+        }
+
+        composable(
+            route = NavRoutes.ReservationMovement.route,
+            arguments = listOf(
+                navArgument("reservationId") { type = NavType.StringType },
+                navArgument("mode") { type = NavType.StringType }
+            )
+        ) {
+            ReservationMovementScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

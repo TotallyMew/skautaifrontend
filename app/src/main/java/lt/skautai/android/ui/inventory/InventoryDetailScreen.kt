@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,21 +13,20 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,13 +36,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.MetadataRow
+import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiStatusPill
@@ -65,7 +68,6 @@ fun InventoryDetailScreen(
     val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -88,7 +90,7 @@ fun InventoryDetailScreen(
     val canManageShared = "items.transfer" in permissions
     val isTransferredFromTuntas = currentItem?.origin == "TRANSFERRED_FROM_TUNTAS"
     val canEdit = "items.update" in permissions && (!isTransferredFromTuntas || canManageShared)
-    val canDelete = "items.delete" in permissions && (!isTransferredFromTuntas || canManageShared)
+    val canChangeStatus = canEdit
 
     Scaffold(
         topBar = {
@@ -105,15 +107,6 @@ fun InventoryDetailScreen(
                             onClick = { navController.navigate(NavRoutes.InventoryAddEdit.createRoute(itemId)) }
                         ) {
                             Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
-                        }
-                    }
-                    if (canDelete) {
-                        IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(
-                                imageVector = Icons.Default.Delete,
-                                contentDescription = "Istrinti",
-                                tint = MaterialTheme.colorScheme.error
-                            )
                         }
                     }
                 }
@@ -142,49 +135,22 @@ fun InventoryDetailScreen(
                 is InventoryDetailUiState.Success -> {
                     ItemDetailContent(
                         item = state.item,
-                        canEdit = canEdit,
-                        canDelete = canDelete,
-                        onEdit = { navController.navigate(NavRoutes.InventoryAddEdit.createRoute(itemId)) },
-                        onDelete = { showDeleteDialog = true }
+                        reservations = state.reservations,
+                        canChangeStatus = canChangeStatus,
+                        onStatusChange = { status -> viewModel.updateStatus(itemId, status) }
                     )
                 }
             }
         }
-    }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Istrinti daikta?") },
-            text = {
-                Text("Daiktas bus pazymetas kaip neaktyvus. Sis veiksmas neatsaukiamas.")
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        viewModel.deleteItem(itemId)
-                    }
-                ) {
-                    Text("Istrinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Atsaukti")
-                }
-            }
-        )
     }
 }
 
 @Composable
 private fun ItemDetailContent(
     item: ItemDto,
-    canEdit: Boolean,
-    canDelete: Boolean,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
+    reservations: List<ReservationDto>,
+    canChangeStatus: Boolean,
+    onStatusChange: (String) -> Unit
 ) {
     val isSharedTransfer = item.origin == "TRANSFERRED_FROM_TUNTAS"
 
@@ -250,6 +216,17 @@ private fun ItemDetailContent(
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
                 )
             }
+        }
+
+        item.photoUrl?.takeIf { it.isNotBlank() }?.let { photoUrl ->
+            RemoteImage(
+                imageUrl = photoUrl,
+                contentDescription = item.name,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1.45f)
+            )
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -350,26 +327,28 @@ private fun ItemDetailContent(
             }
         }
 
-        if (canEdit || canDelete) {
-            SkautaiCard(
+        if (reservations.isNotEmpty()) {
+            ItemReservationsCard(reservations = reservations)
+        }
+
+        if (canChangeStatus) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
-                tonal = MaterialTheme.colorScheme.surfaceContainerHigh
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Column(
-                    modifier = Modifier.padding(18.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                Button(
+                    onClick = { onStatusChange("ACTIVE") },
+                    enabled = item.status != "ACTIVE",
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Text(text = "Veiksmai", style = MaterialTheme.typography.titleLarge)
-                    if (canEdit) {
-                        Button(onClick = onEdit, modifier = Modifier.fillMaxWidth()) {
-                            Text("Redaguoti daikta")
-                        }
-                    }
-                    if (canDelete) {
-                        Button(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-                            Text("Pazymeti neaktyviu")
-                        }
-                    }
+                    Text("Aktyvus")
+                }
+                OutlinedButton(
+                    onClick = { onStatusChange("INACTIVE") },
+                    enabled = item.status != "INACTIVE",
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Neaktyvus")
                 }
             }
         }
@@ -379,6 +358,67 @@ private fun ItemDetailContent(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+    }
+}
+
+@Composable
+private fun ItemReservationsCard(reservations: List<ReservationDto>) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.DateRange,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Rezervacijos",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            reservations.forEach { reservation ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "${reservation.startDate.take(10)} - ${reservation.endDate.take(10)}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SkautaiStatusPill(
+                            label = if (reservation.status == "ACTIVE") "Aktyvi" else "Patvirtinta",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    val context = listOfNotNull(
+                        reservation.reservedByName?.takeIf { it.isNotBlank() },
+                        reservation.requestingUnitName?.takeIf { it.isNotBlank() }
+                    ).joinToString(" / ")
+                    if (context.isNotBlank()) {
+                        Text(
+                            text = context,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

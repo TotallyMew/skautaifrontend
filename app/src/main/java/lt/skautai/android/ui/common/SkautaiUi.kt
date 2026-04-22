@@ -348,8 +348,8 @@ fun itemStatusLabel(status: String): String = when (status) {
 
 fun itemConditionLabel(condition: String): String = when (condition) {
     "GOOD" -> "Gera"
-    "DAMAGED" -> "Prasta"
-    "WRITTEN_OFF" -> "Nurasyta"
+    "DAMAGED" -> "Vidutine"
+    "WRITTEN_OFF" -> "Bloga"
     else -> condition
 }
 

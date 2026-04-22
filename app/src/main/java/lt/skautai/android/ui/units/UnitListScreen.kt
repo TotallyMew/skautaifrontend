@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -47,48 +46,9 @@ import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiStatusPill
-
-private val PatyreSkautaiRed = UnitPalette(
-    cardTone = Color(0xFFF4D7D2),
-    iconTone = Color(0xFFE9B8B0),
-    accent = Color(0xFF8E2F25)
-)
-private val SkautaiYellow = UnitPalette(
-    cardTone = Color(0xFFF5E7B6),
-    iconTone = Color(0xFFE7CB69),
-    accent = Color(0xFF6F5412)
-)
-private val VilkaiOrange = UnitPalette(
-    cardTone = Color(0xFFF7DDC4),
-    iconTone = Color(0xFFEAB27C),
-    accent = Color(0xFF8A4A16)
-)
-private val GildijaGrey = UnitPalette(
-    cardTone = Color(0xFFE1E5E0),
-    iconTone = Color(0xFFC6CDC4),
-    accent = Color(0xFF465149)
-)
-private val VyrSkautaiPurple = UnitPalette(
-    cardTone = Color(0xFFE6DDF0),
-    iconTone = Color(0xFFCBB7DE),
-    accent = Color(0xFF5C3E76)
-)
-private val VyrSkautesBlue = UnitPalette(
-    cardTone = Color(0xFFD8E1EF),
-    iconTone = Color(0xFFB4C6DD),
-    accent = Color(0xFF263F63)
-)
-private val DefaultUnitPalette = UnitPalette(
-    cardTone = Color(0xFFF1E3C8),
-    iconTone = Color(0xFFF0E0AE),
-    accent = Color(0xFF7A5A2E)
-)
-
-private data class UnitPalette(
-    val cardTone: Color,
-    val iconTone: Color,
-    val accent: Color
-)
+import lt.skautai.android.ui.theme.ScoutPalette
+import lt.skautai.android.ui.theme.ScoutUnitColors
+import lt.skautai.android.ui.theme.ScoutUnitPalette
 
 @Composable
 fun UnitListScreen(
@@ -263,7 +223,7 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
                     SkautaiStatusPill(
                         label = unit.subtype?.let { subtypeLabel(it) } ?: "Vienetas",
                         containerColor = palette.accent,
-                        contentColor = Color.White
+                        contentColor = ScoutPalette.White
                     )
                     unit.acceptedRankName?.let {
                         SkautaiStatusPill(
@@ -279,14 +239,14 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
     }
 }
 
-private fun OrganizationalUnitDto.palette(): UnitPalette = when (type) {
-    "PATYRUSIU_SKAUTU_DRAUGOVE" -> PatyreSkautaiRed
-    "SKAUTU_DRAUGOVE" -> SkautaiYellow
-    "VILKU_DRAUGOVE" -> VilkaiOrange
-    "GILDIJA" -> GildijaGrey
-    "VYR_SKAUTU_VIENETAS" -> VyrSkautaiPurple
-    "VYR_SKAUCIU_VIENETAS" -> VyrSkautesBlue
-    else -> DefaultUnitPalette
+private fun OrganizationalUnitDto.palette(): ScoutUnitPalette = when (type) {
+    "PATYRUSIU_SKAUTU_DRAUGOVE" -> ScoutUnitColors.PatyreSkautai
+    "SKAUTU_DRAUGOVE" -> ScoutUnitColors.Skautai
+    "VILKU_DRAUGOVE" -> ScoutUnitColors.Vilkai
+    "GILDIJA" -> ScoutUnitColors.Gildija
+    "VYR_SKAUTU_VIENETAS" -> ScoutUnitColors.VyrSkautai
+    "VYR_SKAUCIU_VIENETAS" -> ScoutUnitColors.VyrSkautes
+    else -> ScoutUnitColors.Default
 }
 
 fun unitTypeLabel(type: String): String = when (type) {

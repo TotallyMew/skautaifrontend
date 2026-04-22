@@ -176,7 +176,7 @@ fun MainScaffold(
                     selected = currentRoute == NavRoutes.ReservationList.route,
                     onClick = {
                         scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.ReservationList.route)
+                        navController.navigate(NavRoutes.ReservationList.createRoute())
                     },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
@@ -187,7 +187,7 @@ fun MainScaffold(
                     selected = currentRoute == NavRoutes.RequestList.route,
                     onClick = {
                         scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.RequestList.route)
+                        navController.navigate(NavRoutes.RequestList.createRoute())
                     },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )

@@ -45,6 +45,7 @@ data class CreateItemRequestDto(
     val custodianId: String? = null,
     val origin: String = "UNIT_ACQUIRED",
     val quantity: Int = 1,
+    val condition: String = "GOOD",
     val locationId: String? = null,
     val temporaryStorageLabel: String? = null,
     val sourceSharedItemId: String? = null,

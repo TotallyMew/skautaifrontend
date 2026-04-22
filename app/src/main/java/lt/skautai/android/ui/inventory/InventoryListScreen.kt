@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
@@ -62,7 +63,20 @@ import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.inventoryCategoryLabel
+import lt.skautai.android.ui.theme.ScoutPalette
 import lt.skautai.android.util.NavRoutes
+
+private val InventoryForest = ScoutPalette.Forest
+private val InventoryForestSoft = ScoutPalette.ForestMist
+private val KnownInventoryCategories = listOf(
+    "CAMPING",
+    "TOOLS",
+    "COOKING",
+    "FIRST_AID",
+    "UNIFORMS",
+    "BOOKS",
+    "PERSONAL_LOANS"
+)
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -155,7 +169,7 @@ private fun InventorySegmentedTabs(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        color = InventoryForestSoft,
         shape = RoundedCornerShape(18.dp)
     ) {
         Row(
@@ -190,8 +204,8 @@ private fun InventorySegment(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val container = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
-    val content = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+    val container = if (selected) InventoryForest else Color.Transparent
+    val content = if (selected) ScoutPalette.White else InventoryForest
     Surface(
         modifier = modifier
             .heightIn(min = 48.dp)
@@ -278,12 +292,9 @@ private fun InventoryBody(
                 )
             }
             val categoryFilters = remember(state.activeItems) {
-                state.activeItems
-                    .groupingBy { it.category }
-                    .eachCount()
-                    .toList()
-                    .sortedBy { inventoryCategoryLabel(it.first) }
-                    .map { it.first to (inventoryCategoryLabel(it.first) to it.second) }
+                val counts = state.activeItems.groupingBy { it.category }.eachCount()
+                KnownInventoryCategories
+                    .map { category -> category to (inventoryCategoryLabel(category) to (counts[category] ?: 0)) }
             }
 
             if (canApprove && selectedTab == InventoryListTab.APPROVALS) {
@@ -335,42 +346,39 @@ private fun InventoryCatalogContent(
         contentPadding = PaddingValues(bottom = 140.dp)
     ) {
         item {
-            LazyRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(vertical = 2.dp)
-            ) {
-                item {
-                    SkautaiChip(
-                        label = "Visi (${allItems.size})",
-                        selected = selectedType == null && selectedCategory == null,
-                        onClick = onClearFilters
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(vertical = 2.dp)
+                ) {
+                    item {
+                        SkautaiChip(
+                            label = "Visi (${allItems.size})",
+                            selected = selectedType == null && selectedCategory == null,
+                            onClick = onClearFilters
+                        )
+                    }
+                    items(typeFilters, key = { it.first }) { (type, chip) ->
+                        SkautaiChip(
+                            label = "${chip.first} (${chip.second})",
+                            selected = selectedType == type,
+                            onClick = { onTypeSelected(if (selectedType == type) null else type) }
+                        )
+                    }
                 }
-                items(typeFilters, key = { it.first }) { (type, chip) ->
-                    SkautaiChip(
-                        label = "${chip.first} (${chip.second})",
-                        selected = selectedType == type,
-                        onClick = { onTypeSelected(if (selectedType == type) null else type) }
-                    )
-                }
-                items(categoryFilters, key = { "category_${it.first}" }) { (category, chip) ->
-                    SkautaiChip(
-                        label = "${chip.first} (${chip.second})",
-                        selected = selectedCategory == category,
-                        onClick = { onCategorySelected(if (selectedCategory == category) null else category) }
-                    )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 2.dp)
+                ) {
+                    items(categoryFilters, key = { "category_${it.first}" }) { (category, chip) ->
+                        SkautaiChip(
+                            label = "${chip.first} (${chip.second})",
+                            selected = selectedCategory == category,
+                            onClick = { onCategorySelected(if (selectedCategory == category) null else category) }
+                        )
+                    }
                 }
             }
-        }
-
-        item(key = "list_title") {
-            Text(
-                text = inventoryContextListTitle(openedCustodianId, selectedType, selectedCategory),
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 2.dp)
-            )
         }
 
         if (filteredItems.isEmpty()) {
@@ -396,18 +404,16 @@ private fun InventoryCatalogContent(
 
 @Composable
 private fun InventoryGroupHeader(title: String, count: Int) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface
-    ) {
-        Text(
-            text = "$title / $count",
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 10.dp, bottom = 6.dp)
-        )
-    }
+    Text(
+        text = "$title / $count",
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.SemiBold,
+        color = InventoryForest,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(top = 10.dp, bottom = 6.dp)
+    )
 }
 
 @Composable
@@ -483,17 +489,6 @@ private fun inventoryContextTitle(
     else -> "Bendras tunto inventorius"
 }
 
-private fun inventoryContextListTitle(
-    openedCustodianId: String?,
-    selectedType: String?,
-    selectedCategory: String?
-): String = when {
-    openedCustodianId != null -> "Vieneto daiktai"
-    selectedType == "INDIVIDUAL" -> "Asmeniniai skolinami daiktai"
-    selectedCategory != null -> "Kategorijos daiktai"
-    else -> "Katalogas"
-}
-
 private fun inventoryContextEmptySubtitle(
     openedCustodianId: String?,
     selectedType: String?,
@@ -520,11 +515,7 @@ private fun InventoryDenseRow(item: ItemDto, onOpen: () -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(conditionColor(item.condition), CircleShape)
-        )
+        InventoryRowVisual(item = item)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -581,6 +572,7 @@ private fun PendingInventoryRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        InventoryRowVisual(item = item)
         Column(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -626,6 +618,23 @@ private fun PendingInventoryRow(
                 tint = MaterialTheme.colorScheme.primary
             )
         }
+    }
+}
+
+@Composable
+private fun InventoryRowVisual(item: ItemDto) {
+    if (item.photoUrl.isNullOrBlank()) {
+        Box(
+            modifier = Modifier
+                .size(10.dp)
+                .background(conditionColor(item.condition), CircleShape)
+        )
+    } else {
+        RemoteImage(
+            imageUrl = item.photoUrl,
+            contentDescription = item.name,
+            modifier = Modifier.size(44.dp)
+        )
     }
 }
 

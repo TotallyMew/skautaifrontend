@@ -10,19 +10,26 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface InventoryDetailUiState {
     object Loading : InventoryDetailUiState
-    data class Success(val item: ItemDto) : InventoryDetailUiState
+    data class Success(
+        val item: ItemDto,
+        val reservations: List<ReservationDto> = emptyList()
+    ) : InventoryDetailUiState
     data class Error(val message: String) : InventoryDetailUiState
 }
 
 @HiltViewModel
 class InventoryDetailViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
+    private val reservationRepository: ReservationRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -44,6 +51,7 @@ class InventoryDetailViewModel @Inject constructor(
             itemRepository.getItem(itemId)
                 .onSuccess { item ->
                     _uiState.value = InventoryDetailUiState.Success(item)
+                    loadItemReservations(itemId)
                 }
                 .onFailure { error ->
                     _uiState.value = InventoryDetailUiState.Error(
@@ -61,6 +69,32 @@ class InventoryDetailViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _deleteError.value = error.message ?: "Nepavyko ištrinti daikto"
+                }
+        }
+    }
+
+    fun updateStatus(itemId: String, status: String) {
+        viewModelScope.launch {
+            itemRepository.updateItem(itemId, UpdateItemRequestDto(status = status))
+                .onSuccess { item ->
+                    _uiState.value = InventoryDetailUiState.Success(item)
+                    loadItemReservations(itemId)
+                }
+                .onFailure { error ->
+                    _deleteError.value = error.message ?: "Nepavyko pakeisti busenos"
+                }
+        }
+    }
+
+    private fun loadItemReservations(itemId: String) {
+        viewModelScope.launch {
+            reservationRepository.getReservations(itemId = itemId)
+                .onSuccess { response ->
+                    val reservations = response.reservations
+                        .filter { it.status in listOf("APPROVED", "ACTIVE") }
+                        .sortedWith(compareBy<ReservationDto> { it.startDate }.thenBy { it.endDate })
+                    val current = _uiState.value as? InventoryDetailUiState.Success ?: return@onSuccess
+                    _uiState.value = current.copy(reservations = reservations)
                 }
         }
     }

@@ -37,6 +37,7 @@ data class HomeUiState(
     val sharedRequestCount: Int = 0,
     val myReservationCount: Int = 0,
     val assignedReservationCount: Int = 0,
+    val trackedReservationCount: Int = 0,
     val activeReservations: List<ReservationDto> = emptyList(),
     val error: String? = null
 )
@@ -121,7 +122,11 @@ class HomeViewModel @Inject constructor(
             val requisitions = requisitionsResult.getOrNull()?.requests.orEmpty()
             val openRequisitions = requisitions.filter { it.status in listOf("SUBMITTED", "PARTIALLY_APPROVED") }
             val myRequisitions = userId?.let { currentUserId ->
-                openRequisitions.count { it.createdByUserId == currentUserId }
+                requisitions.count {
+                    it.createdByUserId == currentUserId &&
+                        it.status == "APPROVED" &&
+                        it.topLevelReviewStatus == "APPROVED"
+                }
             } ?: 0
             val assignedRequisitions = openRequisitions.count { request ->
                 val waitsForActiveUnit = request.createdByUserId != userId &&
@@ -137,14 +142,26 @@ class HomeViewModel @Inject constructor(
                 items.filter { it.custodianId == activeUnitId && it.type != "INDIVIDUAL" }
             }.orEmpty()
             val myReservations = userId?.let { currentUserId ->
-                allReservations.count { it.reservedByUserId == currentUserId && it.status !in listOf("CANCELLED", "REJECTED", "RETURNED") }
+                allReservations.count { it.reservedByUserId == currentUserId && it.status in listOf("APPROVED", "ACTIVE") }
             } ?: 0
             val assignedReservations = allReservations.count { reservation ->
-                reservation.reservedByUserId != userId &&
-                    reservation.status == "PENDING" &&
+                reservation.status == "PENDING" &&
                     (
-                        ("reservations.approve" in permissions) ||
-                            (reservation.requestingUnitId != null && reservation.requestingUnitId == resolvedUnit?.id)
+                        ("reservations.approve:ALL" in permissions &&
+                            reservation.topLevelReviewStatus == "PENDING" &&
+                            reservation.items.any { it.custodianId == null }) ||
+                            (("reservations.approve:OWN_UNIT" in permissions || "reservations.approve:ALL" in permissions) &&
+                                reservation.unitReviewStatus == "PENDING" &&
+                                reservation.items.any { it.custodianId != null && it.custodianId == resolvedUnit?.id })
+                        )
+            }
+            val trackedReservations = allReservations.count { reservation ->
+                reservation.status in listOf("APPROVED", "ACTIVE") &&
+                    reservation.canBeManagedBy(permissions, resolvedUnit?.id) &&
+                    (
+                        reservation.items.any { it.remainingToIssue > 0 } ||
+                            reservation.items.any { it.remainingToReceive > 0 } ||
+                            reservation.items.any { it.remainingToReturn > 0 }
                         )
             }
             val sharedItems = items.filter { it.custodianId == null && it.type != "INDIVIDUAL" }
@@ -166,6 +183,7 @@ class HomeViewModel @Inject constructor(
                 sharedRequestCount = sharedRequests.count { it.topLevelStatus == "PENDING" },
                 myReservationCount = myReservations,
                 assignedReservationCount = assignedReservations,
+                trackedReservationCount = trackedReservations,
                 activeReservations = activeReservations.take(5),
                 error = listOf(
                     unitsResult.exceptionOrNull(),
@@ -187,3 +205,12 @@ class HomeViewModel @Inject constructor(
         }
     }
 }
+
+private fun ReservationDto.canBeManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
+    items.any { item ->
+        when {
+            item.custodianId == null -> "reservations.approve:ALL" in permissions
+            "reservations.approve:ALL" in permissions -> true
+            else -> "reservations.approve:OWN_UNIT" in permissions && item.custodianId == activeUnitId
+        }
+    }

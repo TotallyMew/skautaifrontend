@@ -43,11 +43,17 @@ sealed class NavRoutes(val route: String) {
     }
 
     // Reservations
-    object ReservationList : NavRoutes("reservation_list")
+    object ReservationList : NavRoutes("reservation_list?mode={mode}") {
+        fun createRoute(mode: String? = null): String =
+            if (mode != null) "reservation_list?mode=$mode" else "reservation_list"
+    }
     object ReservationCreate : NavRoutes("reservation_create")
 
     // Inventory Requests
-    object RequestList : NavRoutes("request_list")
+    object RequestList : NavRoutes("request_list?mode={mode}") {
+        fun createRoute(mode: String? = null): String =
+            if (mode != null) "request_list?mode=$mode" else "request_list"
+    }
     object RequestDetail : NavRoutes("request_detail/{requestId}") {
         fun createRoute(requestId: String) = "request_detail/$requestId"
     }
@@ -62,6 +68,9 @@ sealed class NavRoutes(val route: String) {
 
     object ReservationDetail : NavRoutes("reservation_detail/{reservationId}") {
         fun createRoute(reservationId: String) = "reservation_detail/$reservationId"
+    }
+    object ReservationMovement : NavRoutes("reservation_movement/{reservationId}/{mode}") {
+        fun createRoute(reservationId: String, mode: String) = "reservation_movement/$reservationId/$mode"
     }
 
 

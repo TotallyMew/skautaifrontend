@@ -46,7 +46,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,12 +59,13 @@ import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiSearchBar
+import lt.skautai.android.ui.theme.ScoutPalette
 
 private const val AllFilter = "Visi"
 private const val LeadersFilter = "Vadovai"
 private const val NoUnitLabel = "Be vieneto"
-private val MemberAccent = Color(0xFF214D34)
-private val MemberAvatarTone = Color(0xFFD6E4D2)
+private val MemberAccent = ScoutPalette.Forest
+private val MemberAvatarTone = ScoutPalette.MossSoft
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

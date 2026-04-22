@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Inbox
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -36,19 +38,35 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.theme.ScoutStatusColors
 
 @Composable
 fun ReservationListScreen(
     onReservationClick: (String) -> Unit,
     onCreateClick: () -> Unit,
+    onModeClick: (String) -> Unit,
+    refreshSignal: Boolean = false,
+    onRefreshHandled: () -> Unit = {},
     viewModel: ReservationListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isMyActiveMode = viewModel.mode == "my_active"
+    val isAssignedMode = viewModel.mode == "assigned"
+    val isTrackedMode = viewModel.mode == "tracked"
 
     val lifecycleOwner = LocalLifecycleOwner.current
+
+    androidx.compose.runtime.LaunchedEffect(refreshSignal) {
+        if (refreshSignal) {
+            viewModel.loadReservations()
+            onRefreshHandled()
+        }
+    }
+
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) viewModel.loadReservations()
@@ -85,8 +103,18 @@ fun ReservationListScreen(
             is ReservationListUiState.Success -> {
                 if (state.reservations.isEmpty()) {
                     SkautaiEmptyState(
-                        title = "Rezervaciju dar nera",
-                        subtitle = "Rezervacija skirta uzsakyti jau esama inventoriaus daikta konkreciam laikotarpiui.",
+                        title = when {
+                            isAssignedMode -> "Tvirtinimu nera"
+                            isMyActiveMode -> "Aktyviu rezervaciju nera"
+                            isTrackedMode -> "Sekamu rezervaciju nera"
+                            else -> "Rezervaciju dar nera"
+                        },
+                        subtitle = when {
+                            isAssignedMode -> "Siuo metu nera rezervaciju, kurios lauktu tavo patvirtinimo."
+                            isMyActiveMode -> "Cia matysi tik savo patvirtintas ir aktyvias rezervacijas."
+                            isTrackedMode -> "Cia matysi patvirtintas rezervacijas, kurias reikia isduoti arba priimti."
+                            else -> "Rezervacija skirta uzsakyti jau esama inventoriaus daikta konkreciam laikotarpiui."
+                        },
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -98,30 +126,13 @@ fun ReservationListScreen(
                         contentPadding = PaddingValues(vertical = 12.dp)
                     ) {
                         item {
-                            SkautaiCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                tonal = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.EventAvailable, contentDescription = null)
-                                    Column {
-                                        Text(
-                                            text = "Rezervacijos",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Text(
-                                            text = "Cia rezervuojami jau esami daiktai konkrecioms datoms ar renginiui.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
+                            ReservationModeHeader(
+                                mode = viewModel.mode,
+                                myCount = state.myCount,
+                                assignedCount = state.assignedCount,
+                                trackedCount = state.trackedCount,
+                                onModeClick = onModeClick
+                            )
                         }
                         items(state.reservations, key = { it.id }) { reservation ->
                             ReservationCard(
@@ -132,15 +143,119 @@ fun ReservationListScreen(
                     }
                 }
 
-                FloatingActionButton(
-                    onClick = onCreateClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Nauja rezervacija")
+                if (!isAssignedMode) {
+                    FloatingActionButton(
+                        onClick = onCreateClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Nauja rezervacija")
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ReservationModeHeader(
+    mode: String,
+    myCount: Int,
+    assignedCount: Int,
+    trackedCount: Int,
+    onModeClick: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SkautaiCard(
+            modifier = Modifier.fillMaxWidth(),
+            tonal = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.EventAvailable, contentDescription = null)
+                Column {
+                    Text(
+                        text = when (mode) {
+                            "assigned" -> "Man skirta tvirtinti"
+                            "my_active" -> "Mano rezervacijos"
+                            "tracked" -> "Sekamos rezervacijos"
+                            else -> "Visos rezervacijos"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = when (mode) {
+                            "assigned" -> "Rezervacijos, kurios laukia tavo sprendimo."
+                            "my_active" -> "Tik tavo patvirtintos ir aktyvios rezervacijos."
+                            "tracked" -> "Patvirtintos rezervacijos, kurias reikia isduoti arba priimti."
+                            else -> "Cia matai visa rezervaciju istorija."
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ReservationModeTile(
+                title = "Mano",
+                count = myCount,
+                selected = mode == "my_active",
+                icon = Icons.Default.EventAvailable,
+                onClick = { onModeClick("my_active") },
+                modifier = Modifier.weight(1f)
+            )
+            ReservationModeTile(
+                title = "Man skirta",
+                count = assignedCount,
+                selected = mode == "assigned",
+                icon = Icons.Default.Inbox,
+                onClick = { onModeClick("assigned") },
+                modifier = Modifier.weight(1f)
+            )
+            ReservationModeTile(
+                title = "Sekamos",
+                count = trackedCount,
+                selected = mode == "tracked",
+                icon = Icons.Default.Visibility,
+                onClick = { onModeClick("tracked") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReservationModeTile(
+    title: String,
+    count: Int,
+    selected: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    androidx.compose.material3.Card(
+        modifier = modifier.clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerLow
+            }
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(icon, contentDescription = null)
+            Text(count.toString(), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(title, style = MaterialTheme.typography.labelMedium)
         }
     }
 }
@@ -180,6 +295,7 @@ fun ReservationCard(
                 }
                 ReservationStatusChip(status = reservation.status)
             }
+            ReservationPhysicalStatusPill(status = reservation.items.physicalStatus())
             Text(
                 text = "${reservation.totalItems} daiktu rusys / ${reservation.totalQuantity} vnt.",
                 style = MaterialTheme.typography.bodySmall,
@@ -197,9 +313,63 @@ fun ReservationCard(
 }
 
 @Composable
+fun ReservationPhysicalStatusPill(status: ReservationPhysicalStatus) {
+    val (label, container, content) = when (status) {
+        ReservationPhysicalStatus.NOT_ISSUED -> Triple(
+            "Neisduota",
+            MaterialTheme.colorScheme.surfaceContainerHighest,
+            MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        ReservationPhysicalStatus.PARTIALLY_ISSUED -> Triple(
+            "Dalinai isduota",
+            ScoutStatusColors.PendingContainer,
+            ScoutStatusColors.OnPendingContainer
+        )
+        ReservationPhysicalStatus.ISSUED -> Triple(
+            "Isduota",
+            MaterialTheme.colorScheme.primaryContainer,
+            MaterialTheme.colorScheme.onPrimaryContainer
+        )
+        ReservationPhysicalStatus.MARKED_RETURNED -> Triple(
+            "Grazinta, laukia gavimo",
+            ScoutStatusColors.PendingContainer,
+            ScoutStatusColors.OnPendingContainer
+        )
+        ReservationPhysicalStatus.RECEIVED -> Triple(
+            "Gauta",
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+    }
+    SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
+}
+
+enum class ReservationPhysicalStatus {
+    NOT_ISSUED,
+    PARTIALLY_ISSUED,
+    ISSUED,
+    MARKED_RETURNED,
+    RECEIVED
+}
+
+fun List<ReservationItemDto>.physicalStatus(): ReservationPhysicalStatus {
+    val total = sumOf { it.quantity }
+    val issued = sumOf { it.issuedQuantity }
+    val markedReturned = sumOf { it.markedReturnedQuantity }
+    val received = sumOf { it.returnedQuantity }
+    return when {
+        total == 0 || issued == 0 -> ReservationPhysicalStatus.NOT_ISSUED
+        received >= total -> ReservationPhysicalStatus.RECEIVED
+        markedReturned > received -> ReservationPhysicalStatus.MARKED_RETURNED
+        issued < total -> ReservationPhysicalStatus.PARTIALLY_ISSUED
+        else -> ReservationPhysicalStatus.ISSUED
+    }
+}
+
+@Composable
 fun ReservationStatusChip(status: String) {
     val (label, container, content) = when (status) {
-        "PENDING" -> Triple("Laukia", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+        "PENDING" -> Triple("Laukia", ScoutStatusColors.PendingContainer, ScoutStatusColors.OnPendingContainer)
         "APPROVED" -> Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         "ACTIVE" -> Triple("Aktyvi", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         "RETURNED" -> Triple("Grazinta", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)

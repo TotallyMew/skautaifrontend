@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material.icons.filled.WorkspacePremium
 import androidx.compose.material3.Button
@@ -61,14 +62,17 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.theme.ScoutGradients
+import lt.skautai.android.ui.theme.ScoutPalette
 import lt.skautai.android.util.NavRoutes
 
-private val HomeForest = Color(0xFF1F4A2E)
-private val HomeForestSoft = Color(0xFFE4EEDF)
-private val HomeMoss = Color(0xFFD8E7CF)
-private val HomeSage = Color(0xFFEAF1E6)
-private val HomeLichen = Color(0xFFE1EAD1)
-private val HomeSand = Color(0xFFF2E2BE)
+private val HomeForest = ScoutPalette.Forest
+private val HomeForestSoft = ScoutPalette.ForestMist
+private val HomeMoss = ScoutPalette.MossSoft
+private val HomeSage = ScoutPalette.MossMist
+private val HomeLichen = ScoutPalette.Lichen
+private val HomeSand = ScoutPalette.GoldSoft
+private val HomeClay = ScoutPalette.Earth
 
 @Composable
 fun HomeScreen(
@@ -122,30 +126,32 @@ fun HomeScreen(
             }
         }
 
-        item {
-            InventoryContextCard(
-                title = uiState.activeUnitName ?: "Tavo vieneto inventorius",
-                count = uiState.activeUnitItemCount,
-                subtitle = if (uiState.activeUnitFromSharedCount > 0) {
-                    "${uiState.activeUnitItemCount} irasai / ${uiState.activeUnitFromSharedCount} is tunto"
-                } else {
-                    "${uiState.activeUnitItemCount} irasai"
-                },
-                icon = Icons.Default.Group,
-                emptyTitle = "Vieneto inventorius tuscias",
-                accent = MaterialTheme.colorScheme.onPrimaryContainer,
-                background = MaterialTheme.colorScheme.primaryContainer,
-                prominent = true,
-                onOpen = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute(custodianId = uiState.activeUnitId))
-                },
-                addLabel = "Prideti nauja",
-                onAdd = {
-                    navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
-                },
-                tertiaryLabel = "Paimti is tunto",
-                onTertiary = { navController.navigate(NavRoutes.InventoryList.createRoute()) }
-            )
+        if (uiState.activeUnitId != null) {
+            item {
+                InventoryContextCard(
+                    title = uiState.activeUnitName ?: "Tavo vieneto inventorius",
+                    count = uiState.activeUnitItemCount,
+                    subtitle = if (uiState.activeUnitFromSharedCount > 0) {
+                        "${uiState.activeUnitItemCount} irasai / ${uiState.activeUnitFromSharedCount} is tunto"
+                    } else {
+                        "${uiState.activeUnitItemCount} irasai"
+                    },
+                    icon = Icons.Default.Group,
+                    emptyTitle = "Vieneto inventorius tuscias",
+                    accent = MaterialTheme.colorScheme.onPrimaryContainer,
+                    background = MaterialTheme.colorScheme.primaryContainer,
+                    prominent = true,
+                    onOpen = {
+                        navController.navigate(NavRoutes.InventoryList.createRoute(custodianId = uiState.activeUnitId))
+                    },
+                    addLabel = "Prideti nauja",
+                    onAdd = {
+                        navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
+                    },
+                    tertiaryLabel = "Paimti is tunto",
+                    onTertiary = { navController.navigate(NavRoutes.InventoryList.createRoute()) }
+                )
+            }
         }
 
         item {
@@ -161,8 +167,10 @@ fun HomeScreen(
                 emptyTitle = "Tunto sandelis tuscias",
                 accent = MaterialTheme.colorScheme.onTertiaryContainer,
                 background = MaterialTheme.colorScheme.tertiaryContainer,
+                prominent = uiState.activeUnitId == null,
                 onOpen = { navController.navigate(NavRoutes.InventoryList.createRoute()) },
-                addLabel = "Prideti i tunta",
+                addLabel = "Prideti",
+                preferAddAsPrimary = true,
                 onAdd = {
                     navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
                 }
@@ -202,7 +210,7 @@ fun HomeScreen(
             SkautaiSectionHeader(
                 title = "Rezervacijos",
                 actionLabel = "Visos",
-                onAction = { navController.navigate(NavRoutes.ReservationList.route) }
+                onAction = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
             )
         }
 
@@ -210,7 +218,16 @@ fun HomeScreen(
             ReservationOverviewGrid(
                 myCount = uiState.myReservationCount,
                 assignedCount = uiState.assignedReservationCount,
-                onOpenReservations = { navController.navigate(NavRoutes.ReservationList.route) }
+                trackedCount = uiState.trackedReservationCount,
+                onOpenMyReservations = {
+                    navController.navigate(NavRoutes.ReservationList.createRoute(mode = "my_active"))
+                },
+                onOpenAssignedReservations = {
+                    navController.navigate(NavRoutes.ReservationList.createRoute(mode = "assigned"))
+                },
+                onOpenTrackedReservations = {
+                    navController.navigate(NavRoutes.ReservationList.createRoute(mode = "tracked"))
+                }
             )
         }
 
@@ -218,7 +235,7 @@ fun HomeScreen(
             SkautaiSectionHeader(
                 title = "Pirkimo ir papildymo prasymai",
                 actionLabel = "Visi",
-                onAction = { navController.navigate(NavRoutes.RequestList.route) }
+                onAction = { navController.navigate(NavRoutes.RequestList.createRoute()) }
             )
         }
 
@@ -226,7 +243,12 @@ fun HomeScreen(
             RequisitionOverviewGrid(
                 myCount = uiState.myRequisitionCount,
                 assignedCount = uiState.assignedRequisitionCount,
-                onOpenRequests = { navController.navigate(NavRoutes.RequestList.route) }
+                onOpenMyRequests = {
+                    navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active"))
+                },
+                onOpenAssignedRequests = {
+                    navController.navigate(NavRoutes.RequestList.createRoute(mode = "assigned"))
+                }
             )
         }
 
@@ -244,7 +266,7 @@ private fun HeroCard(userName: String) {
                 .fillMaxWidth()
                 .background(
                     brush = Brush.verticalGradient(
-                        colors = listOf(Color(0xFFEAF1E6), Color(0xFFDDE9D4)),
+                        colors = ScoutGradients.HomeHero,
                         startY = 0f,
                         endY = 900f
                     ),
@@ -288,13 +310,30 @@ private fun InventoryContextCard(
     onAdd: () -> Unit,
     tertiaryLabel: String? = null,
     onTertiary: (() -> Unit)? = null,
+    preferAddAsPrimary: Boolean = false,
     prominent: Boolean = false
 ) {
     val isEmpty = count == 0
-    val primaryLabel = if (isEmpty) "Prideti" else "Atidaryti"
-    val primaryAction = if (isEmpty) onAdd else onOpen
-    val secondaryLabel = if (isEmpty) "Atidaryti" else addLabel
-    val secondaryAction = if (isEmpty) onOpen else onAdd
+    val primaryLabel = when {
+        isEmpty -> "Prideti"
+        preferAddAsPrimary -> addLabel
+        else -> "Atidaryti"
+    }
+    val primaryAction = when {
+        isEmpty -> onAdd
+        preferAddAsPrimary -> onAdd
+        else -> onOpen
+    }
+    val secondaryLabel = when {
+        isEmpty -> "Atidaryti"
+        preferAddAsPrimary -> "Atidaryti"
+        else -> addLabel
+    }
+    val secondaryAction = when {
+        isEmpty -> onOpen
+        preferAddAsPrimary -> onOpen
+        else -> onAdd
+    }
     val cardPadding = if (prominent) 18.dp else 16.dp
     val iconBoxSize = if (prominent) 52.dp else 46.dp
     val iconSize = if (prominent) 31.dp else 27.dp
@@ -393,10 +432,10 @@ private fun InventoryContextCard(
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = HomeForest,
-                        contentColor = Color.White
+                        contentColor = ScoutPalette.White
                     )
                 ) {
-                    if (isEmpty) {
+                    if (isEmpty || preferAddAsPrimary) {
                         Icon(
                             imageVector = Icons.Default.Add,
                             contentDescription = null,
@@ -525,7 +564,8 @@ private fun CategoryBrowseGrid(
 private fun RequisitionOverviewGrid(
     myCount: Int,
     assignedCount: Int,
-    onOpenRequests: () -> Unit
+    onOpenMyRequests: () -> Unit,
+    onOpenAssignedRequests: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         RequisitionOverviewTile(
@@ -534,7 +574,7 @@ private fun RequisitionOverviewGrid(
             subtitle = "Kuriuos pats pateikei",
             icon = Icons.Default.Assignment,
             tone = HomeForestSoft,
-            onClick = onOpenRequests,
+            onClick = onOpenMyRequests,
             modifier = Modifier.weight(1f)
         )
         RequisitionOverviewTile(
@@ -543,7 +583,7 @@ private fun RequisitionOverviewGrid(
             subtitle = "Laukia tavo sprendimo",
             icon = Icons.Default.Inbox,
             tone = HomeLichen,
-            onClick = onOpenRequests,
+            onClick = onOpenAssignedRequests,
             modifier = Modifier.weight(1f)
         )
     }
@@ -553,27 +593,102 @@ private fun RequisitionOverviewGrid(
 private fun ReservationOverviewGrid(
     myCount: Int,
     assignedCount: Int,
-    onOpenReservations: () -> Unit
+    trackedCount: Int,
+    onOpenMyReservations: () -> Unit,
+    onOpenAssignedReservations: () -> Unit,
+    onOpenTrackedReservations: () -> Unit
 ) {
-    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        RequisitionOverviewTile(
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ReservationOverviewTile(
             title = "Mano rezervacijos",
             count = myCount,
-            subtitle = "Tavo uzsakyti daiktai",
+            subtitle = "Tavo aktyvios rezervacijos",
             icon = Icons.Default.EventAvailable,
             tone = HomeForestSoft,
-            onClick = onOpenReservations,
-            modifier = Modifier.weight(1f)
+            onClick = onOpenMyReservations
         )
-        RequisitionOverviewTile(
-            title = "Man skirta",
+        ReservationOverviewTile(
+            title = "Prašymai",
             count = assignedCount,
-            subtitle = "Laukia patvirtinimo",
+            subtitle = "Laukia tavo sprendimo",
             icon = Icons.Default.Inbox,
             tone = HomeLichen,
-            onClick = onOpenReservations,
-            modifier = Modifier.weight(1f)
+            onClick = onOpenAssignedReservations
         )
+        ReservationOverviewTile(
+            title = "Sekamos",
+            count = trackedCount,
+            subtitle = "Isduoti arba pazymeti gauta",
+            icon = Icons.Default.Visibility,
+            tone = HomeClay,
+            onClick = onOpenTrackedReservations
+        )
+    }
+}
+
+@Composable
+private fun ReservationOverviewTile(
+    title: String,
+    count: Int,
+    subtitle: String,
+    icon: ImageVector,
+    tone: Color,
+    onClick: () -> Unit
+) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        tonal = tone
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.56f),
+                contentColor = HomeForest,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Box(
+                    modifier = Modifier.size(46.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Text(
+                text = "$count",
+                style = MaterialTheme.typography.headlineSmall,
+                color = HomeForest,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 

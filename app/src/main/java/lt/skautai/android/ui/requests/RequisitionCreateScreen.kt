@@ -17,6 +17,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -31,7 +33,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +51,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -147,12 +154,9 @@ fun RequisitionCreateScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
 
-                OutlinedTextField(
+                RequisitionDatePickerField(
                     value = uiState.neededByDate,
-                    onValueChange = viewModel::onNeededByDateChange,
-                    label = { Text("Reikalinga iki (YYYY-MM-DD)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    onDateSelected = viewModel::onNeededByDateChange
                 )
 
                 RequisitionOrgUnitDropdown(
@@ -191,6 +195,60 @@ fun RequisitionCreateScreen(
             }
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RequisitionDatePickerField(
+    value: String,
+    onDateSelected: (String) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text("Reikalinga iki") },
+        placeholder = { Text("Pasirinkite data") },
+        modifier = Modifier.fillMaxWidth(),
+        trailingIcon = {
+            TextButton(onClick = { showPicker = true }) {
+                Text("Rinktis")
+            }
+        }
+    )
+
+    if (showPicker) {
+        val datePickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            onDateSelected(millis.toIsoDateString())
+                        }
+                        showPicker = false
+                    }
+                ) {
+                    Text("Gerai")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("Atsaukti")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+private fun Long.toIsoDateString(): String {
+    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    return formatter.format(Date(this))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

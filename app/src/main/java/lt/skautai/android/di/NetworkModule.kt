@@ -25,6 +25,7 @@ import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.ReservationApiService
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.LocationApiService
+import lt.skautai.android.data.remote.UploadApiService
 
 
 @Module
@@ -135,5 +136,11 @@ object NetworkModule {
     @Singleton
     fun provideLocationApiService(retrofit: Retrofit): LocationApiService {
         return retrofit.create(LocationApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideUploadApiService(retrofit: Retrofit): UploadApiService {
+        return retrofit.create(UploadApiService::class.java)
     }
 }

@@ -1,22 +1,34 @@
 package lt.skautai.android.ui.inventory
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +42,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -48,10 +62,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
+import java.time.Instant
+import java.time.ZoneOffset
 
 private const val STEP_CONTEXT = 0
 private const val STEP_INFO = 1
@@ -68,6 +86,8 @@ fun InventoryAddEditScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var currentStep by remember(itemId) { mutableIntStateOf(STEP_CONTEXT) }
+    var saveImmediately by remember(itemId) { mutableStateOf(true) }
+    var saveAndAddAnother by remember(itemId) { mutableStateOf(false) }
     val isCreateFlow = itemId == null
 
     LaunchedEffect(Unit) {
@@ -75,7 +95,16 @@ fun InventoryAddEditScreen(
     }
 
     LaunchedEffect(uiState.isSuccess) {
-        if (uiState.isSuccess) navController.popBackStack()
+        if (uiState.isSuccess) {
+            if (saveAndAddAnother && isCreateFlow) {
+                snackbarHostState.showSnackbar("Issaugota. Gali prideti kita daikta.")
+                viewModel.prepareNextItem()
+                currentStep = STEP_INFO
+            } else {
+                viewModel.clearSuccess()
+                navController.popBackStack()
+            }
+        }
     }
 
     LaunchedEffect(uiState.error) {
@@ -149,12 +178,14 @@ fun InventoryAddEditScreen(
                                 onClick = {
                                     when (currentStep) {
                                         STEP_CONTEXT -> if (validateContextStep(uiState, viewModel)) currentStep = STEP_INFO
-                                        STEP_INFO -> if (validateInfoStep(uiState, viewModel)) currentStep = STEP_REVIEW
+                                        STEP_INFO -> if (validateInfoStep(uiState, viewModel)) {
+                                            if (saveImmediately) viewModel.save(null) else currentStep = STEP_REVIEW
+                                        }
                                         else -> viewModel.save(null)
                                     }
                                 },
                                 modifier = Modifier.weight(1f),
-                                enabled = !uiState.isSaving
+                                enabled = !uiState.isSaving && !uiState.isUploadingPhoto
                             ) {
                                 if (uiState.isSaving) {
                                     CircularProgressIndicator()
@@ -162,17 +193,37 @@ fun InventoryAddEditScreen(
                                     Text(
                                         when (currentStep) {
                                             STEP_CONTEXT -> "Toliau"
-                                            STEP_INFO -> "Perziureti"
+                                            STEP_INFO -> if (saveImmediately) "Issaugoti" else "Perziureti"
                                             else -> "Issaugoti"
                                         }
                                     )
                                 }
                             }
                         }
+                        if (currentStep == STEP_INFO) {
+                            SaveFlowOptions(
+                                saveImmediately = saveImmediately,
+                                onSaveImmediatelyChange = { saveImmediately = it },
+                                saveAndAddAnother = saveAndAddAnother,
+                                onSaveAndAddAnotherChange = { saveAndAddAnother = it }
+                            )
+                        }
+                        if (currentStep == STEP_REVIEW) {
+                            OutlinedButton(
+                                onClick = {
+                                    saveAndAddAnother = true
+                                    viewModel.save(null)
+                                },
+                                enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Issaugoti ir prideti kita")
+                            }
+                        }
                     } else {
                         Button(
                             onClick = { viewModel.save(itemId) },
-                            enabled = !uiState.isSaving,
+                            enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             if (uiState.isSaving) CircularProgressIndicator() else Text("Issaugoti pakeitimus")
@@ -238,18 +289,13 @@ private fun ContextStep(
             onSelected = viewModel::onCategoryChange
         )
 
-        ReadOnlyInfo(
-            label = "Kilme",
-            value = originLabelForMode(uiState.mode)
-        )
-
         if (uiState.mode == "UNIT_OWN") {
             SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
                 tonal = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Text(
-                    text = "Jei vienetas nori gauti daikta is bendro tunto inventoriaus, nekurk jo ranka. Naudok paemimo is tunto prasyma, kad inventorininkas patvirtintu perdavima.",
+                    text = "Kuriamas naujas vieneto daiktas; paemimui is tunto naudok prasyma.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -280,17 +326,11 @@ private fun ContextStep(
             )
         }
 
-        SkautaiCard(
-            modifier = Modifier.fillMaxWidth(),
-            tonal = MaterialTheme.colorScheme.surfaceContainerLow
-        ) {
-            Text(
-                text = approvalMessage(uiState),
-                modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+        Text(
+            text = approvalMessage(uiState),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -302,6 +342,8 @@ private fun ItemInfoStep(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SkautaiSectionHeader(title = "Daikto informacija")
+
+        PhotoField(uiState = uiState, viewModel = viewModel)
 
         OutlinedTextField(
             value = uiState.name,
@@ -320,27 +362,15 @@ private fun ItemInfoStep(
             maxLines = 4
         )
 
-        OutlinedTextField(
-            value = uiState.quantity,
-            onValueChange = viewModel::onQuantityChange,
-            label = { Text("Kiekis *") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        QuantityStepper(
+            quantity = uiState.quantity,
+            onQuantityChange = viewModel::onQuantityChange
         )
 
-        if (isEditing) {
-            DropdownField(
-                label = "Bukle",
-                selected = uiState.condition,
-                options = listOf(
-                    "GOOD" to "Gera",
-                    "DAMAGED" to "Pazeista",
-                    "WRITTEN_OFF" to "Nurasyta"
-                ),
-                onSelected = viewModel::onConditionChange
-            )
-        }
+        ConditionSelector(
+            selected = uiState.condition,
+            onSelected = viewModel::onConditionChange
+        )
 
         OutlinedTextField(
             value = uiState.notes,
@@ -351,12 +381,9 @@ private fun ItemInfoStep(
             maxLines = 4
         )
 
-        OutlinedTextField(
+        PurchaseDateField(
             value = uiState.purchaseDate,
-            onValueChange = viewModel::onPurchaseDateChange,
-            label = { Text("Pirkimo data (YYYY-MM-DD)") },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            onSelected = viewModel::onPurchaseDateSelected
         )
 
         OutlinedTextField(
@@ -395,8 +422,246 @@ private fun ReviewStep(uiState: InventoryAddEditUiState) {
                 ReviewRow("Atsakingas vienetas", selectedUnit?.name ?: "Bendras tunto saugojimas")
                 ReviewRow("Kilme", originLabelForMode(uiState.mode))
                 ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
+                ReviewRow("Bukle", itemConditionLabel(uiState.condition))
+                uiState.photoUrl.takeIf { it.isNotBlank() }?.let {
+                    ReviewRow("Nuotrauka", "Prideta")
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun PhotoField(
+    uiState: InventoryAddEditUiState,
+    viewModel: InventoryAddEditViewModel
+) {
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let { viewModel.uploadPhoto(it) }
+    }
+
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.AddAPhoto,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Prideti nuotrauka")
+            }
+            if (uiState.isUploadingPhoto) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        text = "Nuotrauka ikeliama...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else if (uiState.photoUrl.isNotBlank()) {
+                RemoteImage(
+                    imageUrl = uiState.photoUrl,
+                    contentDescription = "Pasirinkta nuotrauka",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.7f)
+                )
+                Text(
+                    text = "Nuotrauka ikelta",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PurchaseDateField(
+    value: String,
+    onSelected: (String?) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = value.toEpochMillisOrNull()
+    )
+
+    OutlinedButton(
+        onClick = { showPicker = true },
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+    ) {
+        Text(if (value.isBlank()) "Pasirinkti pirkimo data" else "Pirkimo data: $value")
+    }
+
+    if (showPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onSelected(datePickerState.selectedDateMillis?.toIsoDate())
+                        showPicker = false
+                    }
+                ) {
+                    Text("Pasirinkti")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("Atsaukti")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun QuantityStepper(
+    quantity: String,
+    onQuantityChange: (String) -> Unit
+) {
+    val numeric = quantity.toIntOrNull() ?: 1
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedButton(
+            onClick = { onQuantityChange((numeric - 1).coerceAtLeast(1).toString()) },
+            modifier = Modifier.size(width = 56.dp, height = 56.dp)
+        ) {
+            androidx.compose.material3.Icon(Icons.Default.Remove, contentDescription = "Mazinti")
+        }
+        OutlinedTextField(
+            value = quantity,
+            onValueChange = onQuantityChange,
+            label = { Text("Kiekis *") },
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+        Button(
+            onClick = { onQuantityChange((numeric + 1).toString()) },
+            modifier = Modifier.size(width = 56.dp, height = 56.dp)
+        ) {
+            androidx.compose.material3.Icon(Icons.Default.Add, contentDescription = "Didinti")
+        }
+    }
+}
+
+private fun Long.toIsoDate(): String =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate().toString()
+
+private fun String.toEpochMillisOrNull(): Long? =
+    runCatching {
+        java.time.LocalDate.parse(this)
+            .atStartOfDay()
+            .toInstant(ZoneOffset.UTC)
+            .toEpochMilli()
+    }.getOrNull()
+
+@Composable
+private fun ConditionSelector(
+    selected: String,
+    onSelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Bukle",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            conditionOptions().forEach { (value, label) ->
+                val isSelected = selected == value
+                if (isSelected) {
+                    Button(
+                        onClick = { onSelected(value) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text(label)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { onSelected(value) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text(label)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaveFlowOptions(
+    saveImmediately: Boolean,
+    onSaveImmediatelyChange: (Boolean) -> Unit,
+    saveAndAddAnother: Boolean,
+    onSaveAndAddAnotherChange: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        CheckboxRow(
+            checked = saveImmediately,
+            onCheckedChange = onSaveImmediatelyChange,
+            label = "Issaugoti iskart"
+        )
+        CheckboxRow(
+            checked = saveAndAddAnother,
+            onCheckedChange = onSaveAndAddAnotherChange,
+            label = "Issaugoti ir prideti kita"
+        )
+    }
+}
+
+@Composable
+private fun CheckboxRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 
@@ -550,6 +815,12 @@ private fun inventoryCategoryOptions(): List<Pair<String, String>> = listOf(
     "PERSONAL_LOANS" to "Personal loans"
 )
 
+private fun conditionOptions(): List<Pair<String, String>> = listOf(
+    "GOOD" to "Gera",
+    "DAMAGED" to "Vidutine",
+    "WRITTEN_OFF" to "Bloga"
+)
+
 private fun createTitle(mode: String): String = when (mode) {
     "UNIT_OWN" -> "Naujas vieneto daiktas"
     "PERSONAL" -> "Mano siulomas skolinti"
@@ -563,9 +834,9 @@ private fun contextTitle(mode: String): String = when (mode) {
 }
 
 private fun contextDescription(mode: String): String = when (mode) {
-    "UNIT_OWN" -> "Cia kuriamas naujas tavo vieneto daiktas. Jei reikia paimti is bendro inventoriaus, naudok atskira prasymo krepseli."
-    "PERSONAL" -> "Sis daiktas iskart atsiras kaip tavo siulomas skolinti inventorius."
-    else -> "Tai bendro tunto sandelio inventorius."
+    "UNIT_OWN" -> "Naujas tavo aktyvaus vieneto inventoriaus irasas."
+    "PERSONAL" -> "Asmeninis daiktas, kuri gali skolinti kitiems."
+    else -> "Bendro tunto sandelio inventoriaus irasas."
 }
 
 private fun originLabelForMode(mode: String): String = when (mode) {

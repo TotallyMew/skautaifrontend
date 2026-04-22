@@ -47,6 +47,8 @@ fun RequisitionListScreen(
     viewModel: RequisitionListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isMyActiveMode = viewModel.mode == "my_active"
+    val isAssignedMode = viewModel.mode == "assigned"
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -85,8 +87,16 @@ fun RequisitionListScreen(
             is RequisitionListUiState.Success -> {
                 if (state.requests.isEmpty()) {
                     SkautaiEmptyState(
-                        title = "Pirkimo prasymu dar nera",
-                        subtitle = "Cia bus inventoriaus pirkimo ir papildymo prasymai. Jiems nereikia rinktis daikto is bendro tunto sandelio.",
+                        title = when {
+                            isAssignedMode -> "Tvirtinimu nera"
+                            isMyActiveMode -> "Patvirtintu prasymu nera"
+                            else -> "Pirkimo prasymu dar nera"
+                        },
+                        subtitle = when {
+                            isAssignedMode -> "Siuo metu nera prasymu, kurie lauktu tavo sprendimo."
+                            isMyActiveMode -> "Cia matysi tik savo patvirtintus pirkimo ir papildymo prasymus."
+                            else -> "Cia bus inventoriaus pirkimo ir papildymo prasymai."
+                        },
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -110,12 +120,20 @@ fun RequisitionListScreen(
                                     Icon(Icons.Default.ShoppingCart, contentDescription = null)
                                     Column {
                                         Text(
-                                            text = "Reikia nupirkti arba papildyti?",
+                                            text = when {
+                                                isAssignedMode -> "Man skirti tvirtinti"
+                                                isMyActiveMode -> "Mano patvirtinti prasymai"
+                                                else -> "Visi pirkimo ir papildymo prasymai"
+                                            },
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
-                                            text = "Aprasyk daikta, kurio dar nera arba kurio truksta. Cia nereikia rinktis esamo sandelio daikto.",
+                                            text = when {
+                                                isAssignedMode -> "Prasymai, kurie laukia tavo sprendimo."
+                                                isMyActiveMode -> "Tik tavo galutinai patvirtinti prasymai."
+                                                else -> "Visa prasymu istorija: laukiantys, patvirtinti ir atmesti."
+                                            },
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
@@ -132,13 +150,15 @@ fun RequisitionListScreen(
                     }
                 }
 
-                FloatingActionButton(
-                    onClick = onCreateClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Naujas pirkimo prasymas")
+                if (!isAssignedMode) {
+                    FloatingActionButton(
+                        onClick = onCreateClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Naujas pirkimo prasymas")
+                    }
                 }
             }
         }

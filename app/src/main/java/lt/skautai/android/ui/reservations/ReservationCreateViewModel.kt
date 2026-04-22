@@ -6,12 +6,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateReservationItemRequestDto
 import lt.skautai.android.data.remote.CreateReservationRequestDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.ReservationRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 data class ReservationDraftItem(
@@ -33,13 +35,15 @@ data class ReservationCreateUiState(
     val startDate: String = "",
     val endDate: String = "",
     val notes: String = "",
-    val availabilityByItemId: Map<String, Int> = emptyMap()
+    val availabilityByItemId: Map<String, Int> = emptyMap(),
+    val activeOrgUnitId: String? = null
 )
 
 @HiltViewModel
 class ReservationCreateViewModel @Inject constructor(
     private val reservationRepository: ReservationRepository,
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReservationCreateUiState())
@@ -52,11 +56,15 @@ class ReservationCreateViewModel @Inject constructor(
     private fun loadItems() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingItems = true, error = null)
+            val activeOrgUnitId = tokenManager.activeOrgUnitId.first()
             itemRepository.getItems(status = "ACTIVE")
                 .onSuccess { items ->
                     _uiState.value = _uiState.value.copy(
                         isLoadingItems = false,
-                        items = items.sortedBy { it.name.lowercase() }
+                        activeOrgUnitId = activeOrgUnitId,
+                        items = items
+                            .filter { item -> item.custodianId == null || item.custodianId == activeOrgUnitId }
+                            .sortedBy { it.name.lowercase() }
                     )
                 }
                 .onFailure { error ->
@@ -182,6 +190,7 @@ class ReservationCreateViewModel @Inject constructor(
                     },
                     startDate = state.startDate,
                     endDate = state.endDate,
+                    requestingUnitId = selectedRequestingUnitId(state),
                     notes = state.notes.ifBlank { null }
                 )
             )
@@ -251,4 +260,12 @@ class ReservationCreateViewModel @Inject constructor(
 
     private fun datesAreReady(state: ReservationCreateUiState): Boolean =
         state.startDate.isNotBlank() && state.endDate.isNotBlank()
+
+    private fun selectedRequestingUnitId(state: ReservationCreateUiState): String? {
+        val selectedIds = state.selectedItems.map { it.itemId }.toSet()
+        return state.items
+            .firstOrNull { it.id in selectedIds && it.custodianId != null }
+            ?.custodianId
+            ?: state.activeOrgUnitId
+    }
 }

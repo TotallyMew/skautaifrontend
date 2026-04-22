@@ -6,14 +6,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -27,6 +31,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -48,11 +53,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.ui.common.RemoteImage
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -81,6 +88,13 @@ fun ReservationCreateScreen(
     val selectedQuantities = remember(uiState.selectedItems) {
         uiState.selectedItems.associate { it.itemId to it.quantity }
     }
+    val sharedItems = remember(filteredItems) { filteredItems.filter { it.custodianId == null } }
+    val unitItems = remember(filteredItems, uiState.activeOrgUnitId) {
+        filteredItems.filter { it.custodianId == uiState.activeOrgUnitId && it.custodianId != null }
+    }
+    val density = LocalDensity.current
+    val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
+    val datesSelected = uiState.startDate.isNotBlank() && uiState.endDate.isNotBlank()
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) onBack()
@@ -106,31 +120,33 @@ fun ReservationCreateScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            Surface(shadowElevation = 8.dp) {
-                Column(
-                    modifier = Modifier
-                        .navigationBarsPadding()
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = "Pasirinkta daiktu: ${uiState.selectedItems.sumOf { it.quantity }}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = viewModel::createReservation,
-                        enabled = !uiState.isSaving,
-                        modifier = Modifier.fillMaxWidth()
+            if (!isKeyboardVisible) {
+                Surface(shadowElevation = 8.dp) {
+                    Column(
+                        modifier = Modifier
+                            .navigationBarsPadding()
+                            .padding(16.dp)
                     ) {
-                        if (uiState.isSaving) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
+                        Text(
+                            text = "Pasirinkta daiktu: ${uiState.selectedItems.sumOf { it.quantity }}",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = viewModel::createReservation,
+                            enabled = !uiState.isSaving && datesSelected,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.isSaving) {
+                                CircularProgressIndicator(
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                    strokeWidth = 2.dp,
                                 modifier = Modifier.size(20.dp)
                             )
                         } else {
-                            Text("Sukurti rezervacija")
+                                Text(if (datesSelected) "Sukurti rezervacija" else "Pasirinkite datas")
+                            }
                         }
                     }
                 }
@@ -147,116 +163,156 @@ fun ReservationCreateScreen(
                 CircularProgressIndicator()
             }
         } else {
-            Column(
+            LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(horizontal = 16.dp)
+                    .imePadding()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
             ) {
-                Spacer(modifier = Modifier.height(12.dp))
-
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                item {
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
                     ) {
-                        Text(
-                            text = "Rezervuok esama inventoriu",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Text(
-                            text = "Pasirink datas ir daiktus, kuriuos nori uzsakyti tam laikotarpiui. Jei daikto dar nera, naudok pirkimo / papildymo prasyma.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "Rezervuok esama inventoriu",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = "Pasirink datas ir daiktus, kuriuos nori uzsakyti tam laikotarpiui.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(12.dp))
+                item {
+                    OutlinedTextField(
+                        value = uiState.title,
+                        onValueChange = viewModel::onTitleChange,
+                        label = { Text("Rezervacijos pavadinimas") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
 
-                OutlinedTextField(
-                    value = uiState.title,
-                    onValueChange = viewModel::onTitleChange,
-                    label = { Text("Rezervacijos pavadinimas") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                item {
+                    DatePickerField(
+                        label = "Pradzios data",
+                        value = uiState.startDate,
+                        onDateSelected = viewModel::onStartDateChange
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                DatePickerField(
-                    label = "Pradzios data",
-                    value = uiState.startDate,
-                    onDateSelected = viewModel::onStartDateChange
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                DatePickerField(
-                    label = "Pabaigos data",
-                    value = uiState.endDate,
-                    onDateSelected = viewModel::onEndDateChange
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
+                item {
+                    DatePickerField(
+                        label = "Pabaigos data",
+                        value = uiState.endDate,
+                        onDateSelected = viewModel::onEndDateChange
+                    )
+                }
 
                 if (uiState.isLoadingAvailability) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    Spacer(modifier = Modifier.height(8.dp))
+                    item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
                 }
 
-                OutlinedTextField(
-                    value = uiState.searchQuery,
-                    onValueChange = viewModel::onSearchQueryChange,
-                    label = { Text("Ieskoti daikto") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
-                )
+                item {
+                    OutlinedTextField(
+                        value = uiState.searchQuery,
+                        onValueChange = viewModel::onSearchQueryChange,
+                        label = { Text("Ieskoti daikto") },
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                }
 
-                Spacer(modifier = Modifier.height(12.dp))
-
-                OutlinedTextField(
-                    value = uiState.notes,
-                    onValueChange = viewModel::onNotesChange,
-                    label = { Text("Pastabos") },
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 3
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
+                item {
+                    OutlinedTextField(
+                        value = uiState.notes,
+                        onValueChange = viewModel::onNotesChange,
+                        label = { Text("Pastabos") },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 3
+                    )
+                }
 
                 if (uiState.selectedItems.isNotEmpty()) {
-                    SelectedItemsSummary(selectedItems = uiState.selectedItems)
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
-
-                Text(
-                    text = "Daiktai",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-
-                LazyColumn(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 16.dp)
-                ) {
-                    items(filteredItems, key = { it.id }) { item ->
-                        ReservationItemCard(
-                            item = item,
-                            selectedQuantity = selectedQuantities[item.id] ?: 0,
-                            availableQuantity = uiState.availabilityByItemId[item.id] ?: item.quantity,
-                            onIncrease = { viewModel.increaseItem(item.id) },
-                            onDecrease = { viewModel.decreaseItem(item.id) }
+                    item {
+                        SelectedItemsSummary(
+                            selectedItems = uiState.selectedItems,
+                            allItems = uiState.items
                         )
                     }
+                }
+
+                item {
+                    ReservationSectionHeader(
+                        title = "Tunto inventorius",
+                        subtitle = "Tvirtina inventorininkas arba tuntininkas"
+                    )
+                }
+
+                if (sharedItems.isEmpty()) {
+                    item {
+                        EmptyInventorySection(
+                            message = if (uiState.searchQuery.isBlank()) {
+                                "Tunto inventorius tuscias"
+                            } else {
+                                "Tunto inventoriuje nieko nerasta pagal paieska"
+                            }
+                        )
+                    }
+                }
+
+                items(sharedItems, key = { "shared-${it.id}" }) { item ->
+                    ReservationItemCard(
+                        item = item,
+                        selectedQuantity = selectedQuantities[item.id] ?: 0,
+                        availableQuantity = uiState.availabilityByItemId[item.id] ?: item.quantity,
+                        onIncrease = { viewModel.increaseItem(item.id) },
+                        onDecrease = { viewModel.decreaseItem(item.id) }
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+
+                item {
+                    ReservationSectionHeader(
+                        title = "Tavo vieneto inventorius",
+                        subtitle = "Tvirtina vieneto vadovas"
+                    )
+                }
+
+                if (unitItems.isEmpty()) {
+                    item {
+                        EmptyInventorySection(
+                            message = if (uiState.searchQuery.isBlank()) {
+                                "Vieneto inventorius tuscias"
+                            } else {
+                                "Vieneto inventoriuje nieko nerasta pagal paieska"
+                            }
+                        )
+                    }
+                }
+
+                items(unitItems, key = { "unit-${it.id}" }) { item ->
+                    ReservationItemCard(
+                        item = item,
+                        selectedQuantity = selectedQuantities[item.id] ?: 0,
+                        availableQuantity = uiState.availabilityByItemId[item.id] ?: item.quantity,
+                        onIncrease = { viewModel.increaseItem(item.id) },
+                        onDecrease = { viewModel.decreaseItem(item.id) }
+                    )
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
         }
@@ -264,7 +320,30 @@ fun ReservationCreateScreen(
 }
 
 @Composable
-private fun SelectedItemsSummary(selectedItems: List<ReservationDraftItem>) {
+private fun EmptyInventorySection(message: String) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+@Composable
+private fun SelectedItemsSummary(
+    selectedItems: List<ReservationDraftItem>,
+    allItems: List<ItemDto>
+) {
+    val itemsById = allItems.associateBy { it.id }
+    val sharedItems = selectedItems.filter { itemsById[it.itemId]?.custodianId == null }
+    val unitItems = selectedItems.filter { itemsById[it.itemId]?.custodianId != null }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -275,24 +354,59 @@ private fun SelectedItemsSummary(selectedItems: List<ReservationDraftItem>) {
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
-            selectedItems.sortedBy { it.itemName.lowercase() }.forEach { item ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = item.itemName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Text(
-                        text = "x${item.quantity}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
+            BasketGroup(title = "Tunto inventorius", items = sharedItems)
+            BasketGroup(title = "Tavo vieneto inventorius", items = unitItems)
         }
+    }
+}
+
+@Composable
+private fun BasketGroup(
+    title: String,
+    items: List<ReservationDraftItem>
+) {
+    if (items.isEmpty()) return
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.SemiBold,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    items.sortedBy { it.itemName.lowercase() }.forEach { item ->
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = item.itemName,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            Text(
+                text = "x${item.quantity}",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReservationSectionHeader(
+    title: String,
+    subtitle: String
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
@@ -354,66 +468,90 @@ private fun ReservationItemCard(
     onIncrease: () -> Unit,
     onDecrease: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
+    val remainingQuantity = (availableQuantity - selectedQuantity).coerceAtLeast(0)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (item.photoUrl.isNullOrBlank()) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = item.name.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        } else {
+            RemoteImage(
+                imageUrl = item.photoUrl,
+                contentDescription = item.name,
+                modifier = Modifier.size(42.dp)
+            )
+        }
+
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
             Text(
                 text = item.name,
                 style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
             )
-
-            item.description?.takeIf { it.isNotBlank() }?.let { description ->
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = description,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
             Text(
-                text = "Laisva pasirinktam laikui: $availableQuantity is ${item.quantity}",
+                text = "Laisva: $remainingQuantity / ${item.quantity}",
                 style = MaterialTheme.typography.bodySmall,
-                color = if (availableQuantity > 0) {
+                color = if (remainingQuantity > 0) {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 } else {
                     MaterialTheme.colorScheme.error
                 }
             )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            item.description?.takeIf { it.isNotBlank() }?.let { description ->
                 Text(
-                    text = "Pasirinkta: $selectedQuantity",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
                 )
+            }
+        }
 
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilledTonalIconButton(
-                        onClick = onDecrease,
-                        enabled = selectedQuantity > 0
-                    ) {
-                        Icon(Icons.Default.Remove, contentDescription = "Mazinti")
-                    }
-
-                    FilledIconButton(
-                        onClick = onIncrease,
-                        enabled = availableQuantity > selectedQuantity
-                    ) {
-                        Icon(Icons.Default.Add, contentDescription = "Didinti")
-                    }
-                }
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalIconButton(
+                onClick = onDecrease,
+                enabled = selectedQuantity > 0,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Mazinti")
+            }
+            Text(
+                text = "$selectedQuantity",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.padding(horizontal = 2.dp)
+            )
+            FilledIconButton(
+                onClick = onIncrease,
+                enabled = availableQuantity > selectedQuantity,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Didinti")
             }
         }
     }
