@@ -1,5 +1,8 @@
 package lt.skautai.android.data.repository
 
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,13 +23,19 @@ import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberLeadershipRoleDto
 import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.MemberRankDto
+import lt.skautai.android.data.sync.MemberAssignmentPayload
+import lt.skautai.android.data.sync.MemberRankPayload
+import lt.skautai.android.data.sync.PendingEntityType
+import lt.skautai.android.data.sync.PendingOperationRepository
+import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
 
 @Singleton
 class MemberRepository @Inject constructor(
     private val memberApiService: MemberApiService,
     private val tokenManager: TokenManager,
-    private val memberDao: MemberDao
+    private val memberDao: MemberDao,
+    private val pendingOperationRepository: PendingOperationRepository
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -110,20 +119,76 @@ class MemberRepository @Inject constructor(
         }
     }
 
-    suspend fun assignLeadershipRole(userId: String, request: AssignLeadershipRoleRequestDto): Result<MemberLeadershipRoleDto> {
+    suspend fun assignLeadershipRole(
+        userId: String,
+        request: AssignLeadershipRoleRequestDto
+    ): Result<MemberLeadershipRoleDto> {
         return try {
             val response = memberApiService.assignLeadershipRole("Bearer ${token()}", tuntasId(), userId, request)
-            if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant pareigas"))
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+            if (response.isSuccessful) {
+                val role = response.body()!!
+                refreshMember(userId)
+                Result.success(role)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant pareigas"))
+            }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val role = MemberLeadershipRoleDto(
+                id = "local-${UUID.randomUUID()}",
+                roleId = request.roleId,
+                roleName = request.roleId,
+                organizationalUnitId = request.organizationalUnitId,
+                organizationalUnitName = null,
+                assignedByUserId = null,
+                assignedAt = Instant.now().toString(),
+                startsAt = request.startsAt,
+                expiresAt = request.expiresAt,
+                leftAt = null,
+                termNumber = request.termNumber,
+                termStatus = "ACTIVE"
+            )
+            updateCachedMember(currentTuntasId, userId) { member ->
+                member.copy(leadershipRoles = member.leadershipRoles + role)
+            }
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.MEMBER,
+                entityId = userId,
+                operationType = PendingOperationType.MEMBER_ASSIGN_LEADERSHIP_ROLE,
+                payload = request
+            )
+            Result.success(role)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun removeLeadershipRole(userId: String, assignmentId: String): Result<Unit> {
         return try {
             val response = memberApiService.removeLeadershipRole("Bearer ${token()}", tuntasId(), userId, assignmentId)
-            if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida šalinant pareigas"))
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+            if (response.isSuccessful) {
+                refreshMember(userId)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant pareigas"))
+            }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            updateCachedMember(currentTuntasId, userId) { member ->
+                member.copy(leadershipRoles = member.leadershipRoles.filterNot { it.id == assignmentId })
+            }
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.MEMBER,
+                entityId = userId,
+                operationType = PendingOperationType.MEMBER_REMOVE_LEADERSHIP_ROLE,
+                payload = MemberAssignmentPayload(userId, assignmentId)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun stepDownLeadershipRole(assignmentId: String): Result<Unit> {
@@ -131,23 +196,86 @@ class MemberRepository @Inject constructor(
             val response = memberApiService.stepDownLeadershipRole("Bearer ${token()}", tuntasId(), assignmentId)
             if (response.isSuccessful) Result.success(Unit)
             else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atsistatydinant"))
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val userId = findMemberByLeadershipAssignment(currentTuntasId, assignmentId)
+                ?: return Result.failure(Exception("Nario pareigos nerastos offline cache"))
+            updateCachedMember(currentTuntasId, userId) { member ->
+                member.copy(leadershipRoles = member.leadershipRoles.filterNot { it.id == assignmentId })
+            }
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.MEMBER,
+                entityId = userId,
+                operationType = PendingOperationType.MEMBER_STEP_DOWN_LEADERSHIP_ROLE,
+                payload = MemberAssignmentPayload(userId, assignmentId)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun assignRank(userId: String, request: AssignRankRequestDto): Result<MemberRankDto> {
         return try {
             val response = memberApiService.assignRank("Bearer ${token()}", tuntasId(), userId, request)
-            if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant laipsni"))
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+            if (response.isSuccessful) {
+                val rank = response.body()!!
+                refreshMember(userId)
+                Result.success(rank)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant laipsni"))
+            }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val rank = MemberRankDto(
+                id = "local-${UUID.randomUUID()}",
+                roleId = request.roleId,
+                roleName = request.roleId,
+                assignedByUserId = null,
+                assignedAt = Instant.now().toString()
+            )
+            updateCachedMember(currentTuntasId, userId) { member ->
+                member.copy(ranks = member.ranks + rank)
+            }
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.MEMBER,
+                entityId = userId,
+                operationType = PendingOperationType.MEMBER_ASSIGN_RANK,
+                payload = request
+            )
+            Result.success(rank)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun removeRank(userId: String, rankId: String): Result<Unit> {
         return try {
             val response = memberApiService.removeRank("Bearer ${token()}", tuntasId(), userId, rankId)
-            if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida šalinant laipsni"))
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+            if (response.isSuccessful) {
+                refreshMember(userId)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant laipsni"))
+            }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            updateCachedMember(currentTuntasId, userId) { member ->
+                member.copy(ranks = member.ranks.filterNot { it.id == rankId })
+            }
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.MEMBER,
+                entityId = userId,
+                operationType = PendingOperationType.MEMBER_REMOVE_RANK,
+                payload = MemberRankPayload(userId, rankId)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun removeMember(userId: String): Result<Unit> {
@@ -158,8 +286,40 @@ class MemberRepository @Inject constructor(
                 memberDao.deleteMember(userId, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida šalinant nari"))
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant nari"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            memberDao.deleteMember(userId, currentTuntasId)
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.MEMBER,
+                entityId = userId,
+                operationType = PendingOperationType.MEMBER_REMOVE,
+                payload = mapOf("id" to userId)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    private suspend fun updateCachedMember(
+        currentTuntasId: String,
+        userId: String,
+        update: (MemberDto) -> MemberDto
+    ) {
+        val cached = memberDao.getMember(userId, currentTuntasId)?.toDto() ?: return
+        memberDao.upsert(update(cached).toEntity(currentTuntasId))
+    }
+
+    private suspend fun findMemberByLeadershipAssignment(
+        currentTuntasId: String,
+        assignmentId: String
+    ): String? {
+        return memberDao.getMembers(currentTuntasId)
+            .map { it.toDto() }
+            .firstOrNull { member -> member.leadershipRoles.any { it.id == assignmentId } }
+            ?.userId
     }
 }

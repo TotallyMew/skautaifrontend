@@ -38,6 +38,7 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.LocationRepository
+import lt.skautai.android.data.sync.PendingOperationRepository
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -67,9 +68,10 @@ object RepositoryModule {
     fun provideItemRepository(
         itemApiService: ItemApiService,
         tokenManager: TokenManager,
-        itemDao: ItemDao
+        itemDao: ItemDao,
+        pendingOperationRepository: PendingOperationRepository
     ): ItemRepository {
-        return ItemRepository(itemApiService, tokenManager, itemDao)
+        return ItemRepository(itemApiService, tokenManager, itemDao, pendingOperationRepository)
     }
 
     @Provides
@@ -77,9 +79,10 @@ object RepositoryModule {
     fun provideOrganizationalUnitRepository(
         orgUnitApiService: OrganizationalUnitApiService,
         tokenManager: TokenManager,
-        organizationalUnitDao: OrganizationalUnitDao
+        organizationalUnitDao: OrganizationalUnitDao,
+        pendingOperationRepository: PendingOperationRepository
     ): OrganizationalUnitRepository {
-        return OrganizationalUnitRepository(orgUnitApiService, tokenManager, organizationalUnitDao)
+        return OrganizationalUnitRepository(orgUnitApiService, tokenManager, organizationalUnitDao, pendingOperationRepository)
     }
 
     @Provides
@@ -87,9 +90,10 @@ object RepositoryModule {
     fun provideMemberRepository(
         memberApiService: MemberApiService,
         tokenManager: TokenManager,
-        memberDao: MemberDao
+        memberDao: MemberDao,
+        pendingOperationRepository: PendingOperationRepository
     ): MemberRepository {
-        return MemberRepository(memberApiService, tokenManager, memberDao)
+        return MemberRepository(memberApiService, tokenManager, memberDao, pendingOperationRepository)
     }
 
     @Provides
@@ -115,9 +119,10 @@ object RepositoryModule {
     fun provideReservationRepository(
         reservationApiService: ReservationApiService,
         tokenManager: TokenManager,
-        reservationDao: ReservationDao
+        reservationDao: ReservationDao,
+        pendingOperationRepository: PendingOperationRepository
     ): ReservationRepository {
-        return ReservationRepository(reservationApiService, tokenManager, reservationDao)
+        return ReservationRepository(reservationApiService, tokenManager, reservationDao, pendingOperationRepository)
     }
 
     @Provides
@@ -125,9 +130,10 @@ object RepositoryModule {
     fun provideRequestRepository(
         requestApiService: RequestApiService,
         tokenManager: TokenManager,
-        bendrasRequestDao: BendrasRequestDao
+        bendrasRequestDao: BendrasRequestDao,
+        pendingOperationRepository: PendingOperationRepository
     ): RequestRepository {
-        return RequestRepository(requestApiService, tokenManager, bendrasRequestDao)
+        return RequestRepository(requestApiService, tokenManager, bendrasRequestDao, pendingOperationRepository)
     }
 
     @Provides
@@ -135,9 +141,10 @@ object RepositoryModule {
     fun provideRequisitionRepository(
         requisitionApiService: RequisitionApiService,
         tokenManager: TokenManager,
-        requisitionDao: RequisitionDao
+        requisitionDao: RequisitionDao,
+        pendingOperationRepository: PendingOperationRepository
     ): RequisitionRepository {
-        return RequisitionRepository(requisitionApiService, tokenManager, requisitionDao)
+        return RequisitionRepository(requisitionApiService, tokenManager, requisitionDao, pendingOperationRepository)
     }
 
     @Provides
@@ -145,9 +152,10 @@ object RepositoryModule {
     fun provideEventRepository(
         eventApiService: EventApiService,
         tokenManager: TokenManager,
-        eventDao: EventDao
+        eventDao: EventDao,
+        pendingOperationRepository: PendingOperationRepository
     ): EventRepository {
-        return EventRepository(eventApiService, tokenManager, eventDao)
+        return EventRepository(eventApiService, tokenManager, eventDao, pendingOperationRepository)
     }
 
     @Provides
@@ -155,8 +163,9 @@ object RepositoryModule {
     fun provideLocationRepository(
         locationApiService: LocationApiService,
         tokenManager: TokenManager,
-        locationDao: LocationDao
+        locationDao: LocationDao,
+        pendingOperationRepository: PendingOperationRepository
     ): LocationRepository {
-        return LocationRepository(locationApiService, tokenManager, locationDao)
+        return LocationRepository(locationApiService, tokenManager, locationDao, pendingOperationRepository)
     }
 }

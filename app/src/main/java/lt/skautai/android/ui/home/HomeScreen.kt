@@ -29,6 +29,7 @@ import androidx.compose.material.icons.filled.LocalHospital
 import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material.icons.filled.WorkspacePremium
@@ -64,6 +65,7 @@ import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.theme.ScoutGradients
 import lt.skautai.android.ui.theme.ScoutPalette
+import lt.skautai.android.util.LithuanianNameVocativeFormatter
 import lt.skautai.android.util.NavRoutes
 
 private val HomeForest = ScoutPalette.Forest
@@ -77,11 +79,13 @@ private val HomeClay = ScoutPalette.Earth
 @Composable
 fun HomeScreen(
     navController: NavController,
+    permissions: Set<String> = emptySet(),
     viewModel: HomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userName by viewModel.userName.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
+    val canCreateItems = "items.create" in permissions
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -105,7 +109,8 @@ fun HomeScreen(
     ) {
         item {
             HeroCard(
-                userName = userName?.substringBefore(" ") ?: "skautai"
+                userName = LithuanianNameVocativeFormatter.firstNameVocative(userName),
+                onManageTuntai = { navController.navigate(NavRoutes.TuntasSelect.route) }
             )
         }
 
@@ -145,6 +150,7 @@ fun HomeScreen(
                         navController.navigate(NavRoutes.InventoryList.createRoute(custodianId = uiState.activeUnitId))
                     },
                     addLabel = "Prideti nauja",
+                    showAddAction = canCreateItems,
                     onAdd = {
                         navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
                     },
@@ -170,6 +176,7 @@ fun HomeScreen(
                 prominent = uiState.activeUnitId == null,
                 onOpen = { navController.navigate(NavRoutes.InventoryList.createRoute()) },
                 addLabel = "Prideti",
+                showAddAction = canCreateItems,
                 preferAddAsPrimary = true,
                 onAdd = {
                     navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
@@ -188,6 +195,7 @@ fun HomeScreen(
                 background = MaterialTheme.colorScheme.surfaceVariant,
                 onOpen = { navController.navigate(NavRoutes.InventoryList.createRoute(type = "INDIVIDUAL")) },
                 addLabel = "Prideti savo",
+                showAddAction = canCreateItems,
                 onAdd = {
                     navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "PERSONAL"))
                 }
@@ -256,7 +264,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HeroCard(userName: String) {
+private fun HeroCard(userName: String, onManageTuntai: () -> Unit) {
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
         tonal = HomeSage
@@ -292,6 +300,17 @@ private fun HeroCard(userName: String) {
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            OutlinedButton(
+                onClick = onManageTuntai,
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SwapHoriz,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Keisti tunta")
+            }
         }
     }
 }
@@ -308,6 +327,7 @@ private fun InventoryContextCard(
     onOpen: () -> Unit,
     addLabel: String,
     onAdd: () -> Unit,
+    showAddAction: Boolean = true,
     tertiaryLabel: String? = null,
     onTertiary: (() -> Unit)? = null,
     preferAddAsPrimary: Boolean = false,
@@ -315,21 +335,25 @@ private fun InventoryContextCard(
 ) {
     val isEmpty = count == 0
     val primaryLabel = when {
+        !showAddAction -> "Atidaryti"
         isEmpty -> "Prideti"
         preferAddAsPrimary -> addLabel
         else -> "Atidaryti"
     }
     val primaryAction = when {
+        !showAddAction -> onOpen
         isEmpty -> onAdd
         preferAddAsPrimary -> onAdd
         else -> onOpen
     }
     val secondaryLabel = when {
+        !showAddAction -> null
         isEmpty -> "Atidaryti"
         preferAddAsPrimary -> "Atidaryti"
         else -> addLabel
     }
     val secondaryAction = when {
+        !showAddAction -> null
         isEmpty -> onOpen
         preferAddAsPrimary -> onOpen
         else -> onAdd
@@ -450,19 +474,21 @@ private fun InventoryContextCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedButton(
-                        onClick = secondaryAction,
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.5.dp, accent.copy(alpha = 0.82f)),
-                        colors = ButtonDefaults.outlinedButtonColors(
-                            containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
-                            contentColor = accent
-                        )
-                    ) {
-                        Text(secondaryLabel, fontWeight = FontWeight.SemiBold)
+                    if (secondaryLabel != null && secondaryAction != null) {
+                        OutlinedButton(
+                            onClick = secondaryAction,
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp),
+                            shape = RoundedCornerShape(14.dp),
+                            border = BorderStroke(1.5.dp, accent.copy(alpha = 0.82f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.68f),
+                                contentColor = accent
+                            )
+                        ) {
+                            Text(secondaryLabel, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                     if (tertiaryLabel != null && onTertiary != null) {
                         OutlinedButton(

@@ -17,6 +17,7 @@ import lt.skautai.android.data.local.dao.ItemDao
 import lt.skautai.android.data.local.dao.LocationDao
 import lt.skautai.android.data.local.dao.MemberDao
 import lt.skautai.android.data.local.dao.OrganizationalUnitDao
+import lt.skautai.android.data.local.dao.PendingOperationDao
 import lt.skautai.android.data.local.dao.RequisitionDao
 import lt.skautai.android.data.local.dao.ReservationDao
 
@@ -60,13 +61,27 @@ object DatabaseModule {
                 )
             }
         }
+        val migration2To3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `pending_operations` (`id` TEXT NOT NULL, `tuntasId` TEXT NOT NULL, `entityType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `operationType` TEXT NOT NULL, `payloadJson` TEXT NOT NULL, `createdAt` TEXT NOT NULL, `attemptCount` INTEGER NOT NULL, `lastError` TEXT, `status` TEXT NOT NULL, PRIMARY KEY(`id`))
+                    """.trimIndent()
+                )
+            }
+        }
+        val migration3To4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `pending_operations` ADD COLUMN `userId` TEXT NOT NULL DEFAULT ''")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             "skautai_inventory.db"
         )
-            .addMigrations(migration1To2)
+            .addMigrations(migration1To2, migration2To3, migration3To4)
             .build()
     }
 
@@ -95,4 +110,8 @@ object DatabaseModule {
 
     @Provides
     fun provideEventDao(database: AppDatabase): EventDao = database.eventDao()
+
+    @Provides
+    fun providePendingOperationDao(database: AppDatabase): PendingOperationDao =
+        database.pendingOperationDao()
 }

@@ -29,4 +29,7 @@ interface RequisitionDao {
 
     @Query("DELETE FROM requisitions WHERE tuntasId = :tuntasId")
     suspend fun deleteForTuntas(tuntasId: String)
+
+    @Query("DELETE FROM requisitions WHERE id = :requestId AND tuntasId = :tuntasId")
+    suspend fun deleteRequest(requestId: String, tuntasId: String)
 }

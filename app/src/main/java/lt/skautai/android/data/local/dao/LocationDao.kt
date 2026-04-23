@@ -26,4 +26,7 @@ interface LocationDao {
 
     @Query("DELETE FROM locations WHERE tuntasId = :tuntasId")
     suspend fun deleteForTuntas(tuntasId: String)
+
+    @Query("DELETE FROM locations WHERE id = :locationId AND tuntasId = :tuntasId")
+    suspend fun deleteLocation(locationId: String, tuntasId: String)
 }

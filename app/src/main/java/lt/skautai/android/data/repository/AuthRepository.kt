@@ -25,8 +25,9 @@ class AuthRepository @Inject constructor(
             type = body.type
         )
 
-        if (body.tuntai.size == 1) {
-            val tuntas = body.tuntai.first()
+        val tuntai = body.tuntai.orEmpty()
+        if (tuntai.size == 1) {
+            val tuntas = tuntai.first()
             val tuntasId = tuntas.id
             tokenManager.setActiveTuntas(tuntasId, tuntas.name)
             userRepository.getMyPermissions(tuntasId)
@@ -57,8 +58,7 @@ class AuthRepository @Inject constructor(
         password: String,
         phone: String?,
         tuntasName: String,
-        tuntasKrastas: String?,
-        tuntasContactEmail: String?
+        tuntasKrastas: String?
     ): Result<TokenResponseDto> {
         return try {
             val response = authApiService.registerTuntininkas(
@@ -69,8 +69,7 @@ class AuthRepository @Inject constructor(
                     password = password,
                     phone = phone,
                     tuntasName = tuntasName,
-                    tuntasKrastas = tuntasKrastas,
-                    tuntasContactEmail = tuntasContactEmail
+                    tuntasKrastas = tuntasKrastas
                 )
             )
             if (response.isSuccessful) {

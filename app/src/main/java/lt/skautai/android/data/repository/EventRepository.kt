@@ -1,5 +1,8 @@
 package lt.skautai.android.data.repository
 
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -17,14 +20,19 @@ import lt.skautai.android.data.remote.CreateEventRequestDto
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventListDto
+import lt.skautai.android.data.remote.StovyklaDetailsDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
+import lt.skautai.android.data.sync.PendingEntityType
+import lt.skautai.android.data.sync.PendingOperationRepository
+import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
 
 @Singleton
 class EventRepository @Inject constructor(
     private val eventApiService: EventApiService,
     private val tokenManager: TokenManager,
-    private val eventDao: EventDao
+    private val eventDao: EventDao,
+    private val pendingOperationRepository: PendingOperationRepository
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -118,7 +126,49 @@ class EventRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val eventId = "local-${UUID.randomUUID()}"
+            val event = EventDto(
+                id = eventId,
+                tuntasId = currentTuntasId,
+                name = request.name,
+                type = request.type,
+                startDate = request.startDate,
+                endDate = request.endDate,
+                locationId = null,
+                organizationalUnitId = null,
+                createdByUserId = null,
+                status = "ACTIVE",
+                notes = request.notes,
+                createdAt = Instant.now().toString(),
+                eventRoles = emptyList(),
+                stovyklaDetails = if (
+                    request.registrationDeadline != null ||
+                    request.expectedParticipants != null
+                ) {
+                    StovyklaDetailsDto(
+                        id = "local-details-$eventId",
+                        registrationDeadline = request.registrationDeadline,
+                        expectedParticipants = request.expectedParticipants,
+                        actualParticipants = null
+                    )
+                } else {
+                    null
+                }
+            )
+            eventDao.upsert(event.toEntity())
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.EVENT,
+                entityId = event.id,
+                operationType = PendingOperationType.EVENT_CREATE,
+                payload = request
+            )
+            Result.success(event)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun updateEvent(id: String, request: UpdateEventRequestDto): Result<EventDto> {
@@ -131,7 +181,27 @@ class EventRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val cached = eventDao.getEvent(id, currentTuntasId)?.toDto()
+                ?: return Result.failure(Exception("Renginys nerastas offline cache"))
+            val updated = cached.copy(
+                name = request.name ?: cached.name,
+                status = request.status ?: cached.status,
+                notes = request.notes ?: cached.notes
+            )
+            eventDao.upsert(updated.toEntity())
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.EVENT,
+                entityId = id,
+                operationType = PendingOperationType.EVENT_UPDATE,
+                payload = request
+            )
+            Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     suspend fun cancelEvent(id: String): Result<Unit> {
@@ -144,6 +214,19 @@ class EventRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            eventDao.deleteEvent(id, currentTuntasId)
+            pendingOperationRepository.enqueue(
+                tuntasId = currentTuntasId,
+                entityType = PendingEntityType.EVENT,
+                entityId = id,
+                operationType = PendingOperationType.EVENT_CANCEL,
+                payload = mapOf("id" to id)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 }

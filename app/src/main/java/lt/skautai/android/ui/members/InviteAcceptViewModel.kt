@@ -50,9 +50,17 @@ class InviteAcceptViewModel @Inject constructor(
             _uiState.value = state.copy(isSaving = true, error = null)
             invitationRepository.acceptInvitation(state.code)
                 .onSuccess { response ->
-                    tokenManager.activeTuntasId.first()?.let { tuntasId ->
-                        userRepository.getMyPermissions(tuntasId)
+                    val responseTuntasId = response.tuntasId
+                    if (responseTuntasId != null) {
+                        tokenManager.setActiveTuntas(responseTuntasId, response.tuntasName)
+                        tokenManager.setActiveOrgUnit(response.organizationalUnitId)
+                        userRepository.getMyPermissions(responseTuntasId)
                             .onSuccess { tokenManager.savePermissions(it) }
+                    } else {
+                        tokenManager.activeTuntasId.first()?.let { tuntasId ->
+                            userRepository.getMyPermissions(tuntasId)
+                                .onSuccess { tokenManager.savePermissions(it) }
+                        }
                     }
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,

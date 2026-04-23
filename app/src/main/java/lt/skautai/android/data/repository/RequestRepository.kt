@@ -1,5 +1,8 @@
 package lt.skautai.android.data.repository
 
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,13 +21,18 @@ import lt.skautai.android.data.remote.BendrasRequestListDto
 import lt.skautai.android.data.remote.CreateBendrasRequestDto
 import lt.skautai.android.data.remote.RequestApiService
 import lt.skautai.android.data.remote.ReviewRequestDto
+import lt.skautai.android.data.sync.PendingEntityType
+import lt.skautai.android.data.sync.PendingOperationRepository
+import lt.skautai.android.data.sync.PendingOperationType
+import lt.skautai.android.data.sync.ReviewPayload
 import lt.skautai.android.util.TokenManager
 
 @Singleton
 class RequestRepository @Inject constructor(
     private val requestApiService: RequestApiService,
     private val tokenManager: TokenManager,
-    private val bendrasRequestDao: BendrasRequestDao
+    private val bendrasRequestDao: BendrasRequestDao,
+    private val pendingOperationRepository: PendingOperationRepository
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -115,7 +123,37 @@ class RequestRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant prasyma"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val now = Instant.now().toString()
+            val local = BendrasRequestDto(
+                id = "local-${UUID.randomUUID()}",
+                tuntasId = currentTuntasId,
+                requestedByUserId = tokenManager.userId.first().orEmpty(),
+                itemId = null,
+                itemName = request.itemDescription ?: request.items.firstOrNull()?.itemId ?: "Prasymas",
+                itemDescription = request.itemDescription,
+                quantity = request.quantity ?: request.items.sumOf { it.quantity },
+                neededByDate = request.neededByDate,
+                requestingUnitId = request.requestingUnitId,
+                requestingUnitName = null,
+                needsDraugininkasApproval = request.requestingUnitId != null,
+                draugininkasStatus = if (request.requestingUnitId != null) "PENDING" else null,
+                draugininkasReviewedByUserId = null,
+                draugininkasRejectionReason = null,
+                topLevelStatus = "PENDING",
+                topLevelReviewedByUserId = null,
+                topLevelRejectionReason = null,
+                notes = request.notes,
+                items = emptyList(),
+                createdAt = now,
+                updatedAt = now
+            )
+            bendrasRequestDao.upsert(local.toEntity())
+            pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.BENDRAS_REQUEST, local.id, PendingOperationType.BENDRAS_REQUEST_CREATE, request)
+            Result.success(local)
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun cancelRequest(id: String): Result<Unit> {
@@ -128,7 +166,24 @@ class RequestRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atsaukiant prasyma"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
+                    entityType = PendingEntityType.BENDRAS_REQUEST,
+                    entityId = id,
+                    createOperationType = PendingOperationType.BENDRAS_REQUEST_CREATE
+                )
+            ) {
+                bendrasRequestDao.deleteRequest(id, currentTuntasId)
+                return Result.success(Unit)
+            }
+            bendrasRequestDao.getRequest(id, currentTuntasId)?.toDto()?.let {
+                bendrasRequestDao.upsert(it.copy(topLevelStatus = "CANCELLED", updatedAt = Instant.now().toString()).toEntity())
+            }
+            pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.BENDRAS_REQUEST, id, PendingOperationType.BENDRAS_REQUEST_CANCEL, mapOf("id" to id))
+            Result.success(Unit)
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun draugininkasReview(id: String, action: String, rejectionReason: String?): Result<BendrasRequestDto> =
@@ -157,6 +212,25 @@ class RequestRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant perziura"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val cached = bendrasRequestDao.getRequest(id, currentTuntasId)?.toDto()
+                ?: return Result.failure(Exception("Prasymas nerastas offline cache"))
+            val updated = if (topLevel) {
+                cached.copy(topLevelStatus = action, topLevelRejectionReason = rejectionReason, updatedAt = Instant.now().toString())
+            } else {
+                cached.copy(draugininkasStatus = action, draugininkasRejectionReason = rejectionReason, updatedAt = Instant.now().toString())
+            }
+            bendrasRequestDao.upsert(updated.toEntity())
+            pendingOperationRepository.enqueue(
+                currentTuntasId,
+                PendingEntityType.BENDRAS_REQUEST,
+                id,
+                if (topLevel) PendingOperationType.BENDRAS_REQUEST_REVIEW_TOP_LEVEL else PendingOperationType.BENDRAS_REQUEST_REVIEW_UNIT,
+                ReviewPayload(id, action, rejectionReason)
+            )
+            Result.success(updated)
+        } catch (e: Exception) { Result.failure(e) }
     }
 }

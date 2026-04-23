@@ -3,12 +3,13 @@ package lt.skautai.android.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.repository.AuthRepository
-import javax.inject.Inject
+import lt.skautai.android.util.RegistrationValidation
 
 data class RegisterInviteUiState(
     val name: String = "",
@@ -41,30 +42,36 @@ class RegisterInviteViewModel @Inject constructor(
     fun register() {
         val state = _uiState.value
 
-        if (state.name.isBlank() || state.surname.isBlank() ||
-            state.email.isBlank() || state.password.isBlank() ||
-            state.inviteCode.isBlank()
-        ) {
+        if (state.name.isBlank() || state.surname.isBlank() || state.inviteCode.isBlank()) {
             _uiState.value = state.copy(error = "Užpildykite privalomus laukus")
             return
         }
 
-        if (state.password.length < 6) {
-            _uiState.value = state.copy(error = "Slaptažodis per trumpas (min. 6 simboliai)")
+        RegistrationValidation.emailError(state.email)?.let { error ->
+            _uiState.value = state.copy(error = error)
+            return
+        }
+
+        RegistrationValidation.passwordError(state.password)?.let { error ->
+            _uiState.value = state.copy(error = error)
             return
         }
 
         viewModelScope.launch {
             _uiState.value = state.copy(isLoading = true, error = null)
             authRepository.registerWithInvite(
-                name = state.name,
-                surname = state.surname,
-                email = state.email,
+                name = state.name.trim(),
+                surname = state.surname.trim(),
+                email = RegistrationValidation.normalizeEmail(state.email),
                 password = state.password,
                 phone = state.phone.ifBlank { null },
-                inviteCode = state.inviteCode
+                inviteCode = state.inviteCode.trim()
             ).onSuccess { response ->
-                _uiState.value = _uiState.value.copy(isLoading = false, isSuccess = true, tuntaiCount = response.tuntai.size)
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    isSuccess = true,
+                    tuntaiCount = response.tuntai.orEmpty().size
+                )
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

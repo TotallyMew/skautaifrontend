@@ -69,6 +69,15 @@ class TokenManager @Inject constructor(
         }
     }
 
+    suspend fun clearActiveTuntas() {
+        context.dataStore.edit { prefs ->
+            prefs.remove(ACTIVE_TUNTAS_ID_KEY)
+            prefs.remove(ACTIVE_TUNTAS_NAME_KEY)
+            prefs.remove(ACTIVE_ORG_UNIT_ID_KEY)
+            prefs.remove(PERMISSIONS_KEY)
+        }
+    }
+
     suspend fun setActiveOrgUnit(orgUnitId: String?) {
         context.dataStore.edit { prefs ->
             if (orgUnitId.isNullOrBlank()) {

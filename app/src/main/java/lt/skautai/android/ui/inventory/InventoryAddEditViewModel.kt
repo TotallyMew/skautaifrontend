@@ -80,16 +80,17 @@ class InventoryAddEditViewModel @Inject constructor(
                 .onSuccess { units ->
                     _uiState.value = _uiState.value.copy(orgUnits = units)
                 }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message ?: "Nepavyko gauti vienetu")
+                .onFailure {
+                    // The add/edit form can still save offline; avoid showing raw network errors
+                    // from optional dropdown refreshes.
                 }
 
             locationRepository.getLocations()
                 .onSuccess { locations ->
                     _uiState.value = _uiState.value.copy(locations = locations)
                 }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(error = error.message ?: "Nepavyko gauti lokaciju")
+                .onFailure {
+                    // Cached locations are best-effort for offline item creation.
                 }
 
             if (itemId != null) {

@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.launch
@@ -61,6 +62,8 @@ fun MainScaffold(
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable () -> Unit
 ) {
+    val pendingSyncViewModel: PendingSyncViewModel = hiltViewModel()
+    val syncStatus by pendingSyncViewModel.syncStatus.collectAsState()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -85,16 +88,7 @@ fun MainScaffold(
     }
 
     val visibleNavItems = BottomNavItem.all.filter { item ->
-        when (item) {
-            is BottomNavItem.Members -> "members.view" in permissions
-            is BottomNavItem.Units -> {
-                "members.view" in permissions ||
-                    "unit.members.manage" in permissions ||
-                    "organizational_units.manage" in permissions
-            }
-
-            else -> true
-        }
+        shouldShowBottomNavItem(item, permissions)
     }
 
     ModalNavigationDrawer(
@@ -207,6 +201,19 @@ fun MainScaffold(
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
+                if (syncStatus.failedCount > 0) {
+                    NavigationDrawerItem(
+                        label = { Text("Bandyti sync dar karta") },
+                        icon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
+                        selected = false,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            pendingSyncViewModel.retryFailed()
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+
                 HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
                 NavigationDrawerItem(
@@ -230,9 +237,25 @@ fun MainScaffold(
                         Column {
                             Text(topBarTitle, style = MaterialTheme.typography.titleLarge)
                             Text(
-                                text = "Misko tonu sistema",
+                                text = if (syncStatus.failedCount > 0) {
+                                    "${syncStatus.failedCount} pakeit. nepavyko sinchronizuoti"
+                                } else if (syncStatus.pendingCount > 0) {
+                                    "${syncStatus.pendingCount} pakeit. laukia sinchronizavimo"
+                                } else if (syncStatus.isOffline) {
+                                    "Offline rezimas"
+                                } else {
+                                    "Misko tonu sistema"
+                                },
                                 style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = if (syncStatus.failedCount > 0) {
+                                    MaterialTheme.colorScheme.error
+                                } else if (syncStatus.pendingCount > 0) {
+                                    MaterialTheme.colorScheme.tertiary
+                                } else if (syncStatus.isOffline) {
+                                    MaterialTheme.colorScheme.error
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                }
                             )
                         }
                     },

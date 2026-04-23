@@ -3,6 +3,8 @@ package lt.skautai.android.data.remote
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.POST
+import retrofit2.http.Path
 
 data class PermissionsResponseDto(val permissions: List<String>)
 
@@ -18,4 +20,10 @@ interface UserApiService {
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String
     ): Response<PermissionsResponseDto>
+
+    @POST("api/users/me/tuntai/{tuntasId}/leave")
+    suspend fun leaveTuntas(
+        @Header("Authorization") token: String,
+        @Path("tuntasId") tuntasId: String
+    ): Response<Unit>
 }

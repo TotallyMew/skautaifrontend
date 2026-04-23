@@ -43,4 +43,19 @@ class UserRepository @Inject constructor(
             Result.failure(e)
         }
     }
+
+    suspend fun leaveTuntas(tuntasId: String): Result<Unit> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val response = userApiService.leaveTuntas("Bearer $token", tuntasId)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida paliekant tunta"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }

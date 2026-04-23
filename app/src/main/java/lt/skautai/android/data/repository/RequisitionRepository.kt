@@ -1,5 +1,8 @@
 package lt.skautai.android.data.repository
 
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -18,13 +21,19 @@ import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.remote.RequisitionListDto
 import lt.skautai.android.data.remote.RequisitionReviewDto
+import lt.skautai.android.data.remote.RequisitionItemDto
+import lt.skautai.android.data.sync.PendingEntityType
+import lt.skautai.android.data.sync.PendingOperationRepository
+import lt.skautai.android.data.sync.PendingOperationType
+import lt.skautai.android.data.sync.ReviewPayload
 import lt.skautai.android.util.TokenManager
 
 @Singleton
 class RequisitionRepository @Inject constructor(
     private val requisitionApiService: RequisitionApiService,
     private val tokenManager: TokenManager,
-    private val requisitionDao: RequisitionDao
+    private val requisitionDao: RequisitionDao,
+    private val pendingOperationRepository: PendingOperationRepository
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -115,7 +124,46 @@ class RequisitionRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant prasyma"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val now = Instant.now().toString()
+            val local = RequisitionDto(
+                id = "local-${UUID.randomUUID()}",
+                tuntasId = currentTuntasId,
+                createdByUserId = tokenManager.userId.first().orEmpty(),
+                requestingUnitId = request.requestingUnitId,
+                requestingUnitName = null,
+                status = "PENDING",
+                unitReviewStatus = "PENDING",
+                unitReviewedByUserId = null,
+                unitReviewedAt = null,
+                topLevelReviewStatus = "PENDING",
+                topLevelReviewedByUserId = null,
+                topLevelReviewedAt = null,
+                reviewLevel = "UNIT",
+                lastAction = "CREATED",
+                neededByDate = request.neededByDate,
+                notes = request.notes,
+                items = request.items.map {
+                    RequisitionItemDto(
+                        id = "local-${UUID.randomUUID()}",
+                        itemId = null,
+                        itemName = it.itemName,
+                        itemDescription = it.itemDescription,
+                        quantityRequested = it.quantity,
+                        quantityApproved = null,
+                        rejectionReason = null,
+                        notes = it.notes
+                    )
+                },
+                createdAt = now,
+                updatedAt = now
+            )
+            requisitionDao.upsert(local.toEntity())
+            pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.REQUISITION, local.id, PendingOperationType.REQUISITION_CREATE, request)
+            Result.success(local)
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun unitReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> =
@@ -144,6 +192,25 @@ class RequisitionRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant perziura"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val cached = requisitionDao.getRequest(id, currentTuntasId)?.toDto()
+                ?: return Result.failure(Exception("Prasymas nerastas offline cache"))
+            val updated = if (topLevel) {
+                cached.copy(topLevelReviewStatus = action, lastAction = action, updatedAt = Instant.now().toString())
+            } else {
+                cached.copy(unitReviewStatus = action, lastAction = action, updatedAt = Instant.now().toString())
+            }
+            requisitionDao.upsert(updated.toEntity())
+            pendingOperationRepository.enqueue(
+                currentTuntasId,
+                PendingEntityType.REQUISITION,
+                id,
+                if (topLevel) PendingOperationType.REQUISITION_REVIEW_TOP_LEVEL else PendingOperationType.REQUISITION_REVIEW_UNIT,
+                ReviewPayload(id, action, rejectionReason)
+            )
+            Result.success(updated)
+        } catch (e: Exception) { Result.failure(e) }
     }
 }

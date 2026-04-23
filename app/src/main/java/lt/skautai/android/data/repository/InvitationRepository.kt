@@ -48,11 +48,8 @@ class InvitationRepository @Inject constructor(
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
-            val tuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val response = invitationApiService.acceptInvitation(
                 token = "Bearer $token",
-                tuntasId = tuntasId,
                 request = AcceptInvitationRequestDto(code = code.trim())
             )
             if (response.isSuccessful) {

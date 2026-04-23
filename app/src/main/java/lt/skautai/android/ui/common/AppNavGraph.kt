@@ -105,7 +105,7 @@ fun AppNavGraph(
                 tokenManager = tokenManager,
                 onLogout = onLogout
             ) {
-                HomeScreen(navController = navController)
+                HomeScreen(navController = navController, permissions = permissions)
             }
         }
 

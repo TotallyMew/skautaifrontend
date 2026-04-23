@@ -2,6 +2,9 @@ package lt.skautai.android.data.repository
 
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -17,13 +20,17 @@ import lt.skautai.android.data.remote.CreateItemRequestDto
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
+import lt.skautai.android.data.sync.PendingEntityType
+import lt.skautai.android.data.sync.PendingOperationRepository
+import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
 
 @Singleton
 class ItemRepository @Inject constructor(
     private val itemApiService: ItemApiService,
     private val tokenManager: TokenManager,
-    private val itemDao: ItemDao
+    private val itemDao: ItemDao,
+    private val pendingOperationRepository: PendingOperationRepository
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeItems(
@@ -153,6 +160,27 @@ class ItemRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida trinant daikta"))
             }
+        } catch (e: IOException) {
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (itemId.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
+                    entityType = PendingEntityType.ITEM,
+                    entityId = itemId,
+                    createOperationType = PendingOperationType.ITEM_CREATE
+                )
+            ) {
+                itemDao.deleteItem(itemId, tuntasId)
+                return Result.success(Unit)
+            }
+            itemDao.deleteItem(itemId, tuntasId)
+            pendingOperationRepository.enqueue(
+                tuntasId = tuntasId,
+                entityType = PendingEntityType.ITEM,
+                entityId = itemId,
+                operationType = PendingOperationType.ITEM_DELETE,
+                payload = mapOf("id" to itemId)
+            )
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -176,6 +204,44 @@ class ItemRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant daikta"))
             }
+        } catch (e: IOException) {
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val now = Instant.now().toString()
+            val localItem = ItemDto(
+                id = "local-${UUID.randomUUID()}",
+                tuntasId = tuntasId,
+                custodianId = request.custodianId,
+                custodianName = null,
+                origin = request.origin,
+                name = request.name,
+                description = request.description,
+                type = request.type,
+                category = request.category,
+                condition = request.condition,
+                quantity = request.quantity,
+                locationId = request.locationId,
+                temporaryStorageLabel = request.temporaryStorageLabel,
+                sourceSharedItemId = request.sourceSharedItemId,
+                totalQuantityAcrossCustodians = request.quantity,
+                responsibleUserId = request.responsibleUserId,
+                photoUrl = request.photoUrl,
+                purchaseDate = request.purchaseDate,
+                purchasePrice = request.purchasePrice,
+                notes = request.notes,
+                status = "ACTIVE",
+                createdAt = now,
+                updatedAt = now
+            )
+            itemDao.upsert(localItem.toEntity())
+            pendingOperationRepository.enqueue(
+                tuntasId = tuntasId,
+                entityType = PendingEntityType.ITEM,
+                entityId = localItem.id,
+                operationType = PendingOperationType.ITEM_CREATE,
+                payload = request
+            )
+            Result.success(localItem)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -200,8 +266,72 @@ class ItemRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atnaujinant daikta"))
             }
+        } catch (e: IOException) {
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val cached = itemDao.getItem(itemId, tuntasId)?.toDto()
+                ?: return Result.failure(Exception("Daiktas nerastas offline cache"))
+            val updated = cached.copy(
+                name = request.name ?: cached.name,
+                description = request.description ?: cached.description,
+                type = request.type ?: cached.type,
+                category = request.category ?: cached.category,
+                condition = request.condition ?: cached.condition,
+                quantity = request.quantity ?: cached.quantity,
+                custodianId = request.custodianId ?: cached.custodianId,
+                locationId = request.locationId ?: cached.locationId,
+                temporaryStorageLabel = request.temporaryStorageLabel ?: cached.temporaryStorageLabel,
+                sourceSharedItemId = request.sourceSharedItemId ?: cached.sourceSharedItemId,
+                responsibleUserId = request.responsibleUserId ?: cached.responsibleUserId,
+                photoUrl = request.photoUrl ?: cached.photoUrl,
+                purchaseDate = request.purchaseDate ?: cached.purchaseDate,
+                purchasePrice = request.purchasePrice ?: cached.purchasePrice,
+                notes = request.notes ?: cached.notes,
+                status = request.status ?: cached.status,
+                updatedAt = Instant.now().toString()
+            )
+            itemDao.upsert(updated.toEntity())
+            val mergedIntoCreate = if (itemId.startsWith("local-")) {
+                pendingOperationRepository.replaceCreatePayloadIfPending(
+                    entityType = PendingEntityType.ITEM,
+                    entityId = itemId,
+                    createOperationType = PendingOperationType.ITEM_CREATE,
+                    payload = updated.toCreateRequest()
+                )
+            } else {
+                false
+            }
+            if (!mergedIntoCreate) {
+                pendingOperationRepository.enqueue(
+                    tuntasId = tuntasId,
+                    entityType = PendingEntityType.ITEM,
+                    entityId = itemId,
+                    operationType = PendingOperationType.ITEM_UPDATE,
+                    payload = request
+                )
+            }
+            Result.success(updated)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
+    private fun ItemDto.toCreateRequest(): CreateItemRequestDto = CreateItemRequestDto(
+        name = name,
+        description = description,
+        type = type,
+        category = category,
+        custodianId = custodianId,
+        origin = origin,
+        quantity = quantity,
+        condition = condition,
+        locationId = locationId,
+        temporaryStorageLabel = temporaryStorageLabel,
+        sourceSharedItemId = sourceSharedItemId,
+        responsibleUserId = responsibleUserId,
+        photoUrl = photoUrl,
+        purchaseDate = purchaseDate,
+        purchasePrice = purchasePrice,
+        notes = notes
+    )
 }

@@ -53,12 +53,23 @@ class MainActivity : ComponentActivity() {
                         ) {
                             userRepository.getMyTuntai()
                                 .getOrNull()
-                                ?.firstOrNull { it.id == currentTuntasId }
+                                ?.firstOrNull { it.id == currentTuntasId && it.status == "ACTIVE" }
                                 ?.let { tokenManager.setActiveTuntas(it.id, it.name) }
+                        }
+                        val activeTuntasStillAvailable = if (currentToken != null && !currentTuntasId.isNullOrBlank()) {
+                            userRepository.getMyTuntai()
+                                .getOrNull()
+                                ?.any { it.id == currentTuntasId && it.status == "ACTIVE" }
+                                ?: true
+                        } else {
+                            true
+                        }
+                        if (!activeTuntasStillAvailable) {
+                            tokenManager.clearActiveTuntas()
                         }
                         when {
                             currentToken == null -> NavRoutes.Login.route
-                            currentTuntasId.isNullOrBlank() -> NavRoutes.TuntasSelect.route
+                            currentTuntasId.isNullOrBlank() || !activeTuntasStillAvailable -> NavRoutes.TuntasSelect.route
                             else -> NavRoutes.Home.route
                         }
                     }

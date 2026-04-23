@@ -50,7 +50,7 @@ class LoginViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoginSuccessful = true,
-                        tuntaiCount = response.tuntai.size
+                        tuntaiCount = response.tuntai.orEmpty().size
                     )
                 }
                 .onFailure { e ->

@@ -1,5 +1,9 @@
 package lt.skautai.android.data.repository
 
+import com.google.gson.Gson
+import java.io.IOException
+import java.time.Instant
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -24,14 +28,21 @@ import lt.skautai.android.data.remote.ReviewReservationRequestDto
 import lt.skautai.android.data.remote.UpdateReservationPickupRequestDto
 import lt.skautai.android.data.remote.UpdateReservationReturnTimeRequestDto
 import lt.skautai.android.data.remote.UpdateReservationStatusRequestDto
+import lt.skautai.android.data.sync.PendingEntityType
+import lt.skautai.android.data.sync.PendingOperationRepository
+import lt.skautai.android.data.sync.PendingOperationType
+import lt.skautai.android.data.sync.ReservationMovementSyncPayload
 import lt.skautai.android.util.TokenManager
 
 @Singleton
 class ReservationRepository @Inject constructor(
     private val reservationApiService: ReservationApiService,
     private val tokenManager: TokenManager,
-    private val reservationDao: ReservationDao
+    private val reservationDao: ReservationDao,
+    private val pendingOperationRepository: PendingOperationRepository
 ) {
+    private val gson = Gson()
+
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
 
@@ -135,7 +146,48 @@ class ReservationRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant rezervacija"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val userId = tokenManager.userId.first().orEmpty()
+            val now = Instant.now().toString()
+            val reservation = ReservationDto(
+                id = "local-${UUID.randomUUID()}",
+                title = request.title,
+                tuntasId = currentTuntasId,
+                reservedByUserId = userId,
+                reservedByName = tokenManager.userName.first(),
+                approvedByUserId = null,
+                requestingUnitId = request.requestingUnitId,
+                requestingUnitName = null,
+                eventId = null,
+                totalItems = request.items.size,
+                totalQuantity = request.items.sumOf { it.quantity },
+                startDate = request.startDate,
+                endDate = request.endDate,
+                status = "PENDING",
+                notes = request.notes,
+                createdAt = now,
+                updatedAt = now,
+                items = request.items.map {
+                    lt.skautai.android.data.remote.ReservationItemDto(
+                        itemId = it.itemId,
+                        itemName = it.itemId,
+                        quantity = it.quantity,
+                        remainingAfterReservation = null
+                    )
+                }
+            )
+            reservationDao.upsert(reservation.toEntity())
+            pendingOperationRepository.enqueue(
+                currentTuntasId,
+                PendingEntityType.RESERVATION,
+                reservation.id,
+                PendingOperationType.RESERVATION_CREATE,
+                request
+            )
+            Result.success(reservation)
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun getAvailability(startDate: String, endDate: String): Result<ReservationAvailabilityDto> {
@@ -147,17 +199,17 @@ class ReservationRepository @Inject constructor(
     }
 
     suspend fun updateReservationStatus(id: String, request: UpdateReservationStatusRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, "Klaida atnaujinant rezervacija") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_STATUS, request, "Klaida atnaujinant rezervacija") {
             reservationApiService.updateReservationStatus("Bearer ${token()}", tuntasId(), id, request)
         }
 
     suspend fun updateReservationPickupTime(id: String, request: UpdateReservationPickupRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, "Klaida atnaujinant atsiemimo laika") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_PICKUP, request, "Klaida atnaujinant atsiemimo laika") {
             reservationApiService.updateReservationPickupTime("Bearer ${token()}", tuntasId(), id, request)
         }
 
     suspend fun updateReservationReturnTime(id: String, request: UpdateReservationReturnTimeRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, "Klaida atnaujinant grazinimo laika") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_RETURN, request, "Klaida atnaujinant grazinimo laika") {
             reservationApiService.updateReservationReturnTime("Bearer ${token()}", tuntasId(), id, request)
         }
 
@@ -171,16 +223,39 @@ class ReservationRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atšaukiant rezervacija"))
             }
-        } catch (e: Exception) { Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e)) }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
+                    entityType = PendingEntityType.RESERVATION,
+                    entityId = id,
+                    createOperationType = PendingOperationType.RESERVATION_CREATE
+                )
+            ) {
+                reservationDao.deleteReservation(id, currentTuntasId)
+                return Result.success(Unit)
+            }
+            reservationDao.getReservation(id, currentTuntasId)?.toDto()?.let {
+                reservationDao.upsert(it.copy(status = "CANCELLED", updatedAt = Instant.now().toString()).toEntity())
+            }
+            pendingOperationRepository.enqueue(
+                currentTuntasId,
+                PendingEntityType.RESERVATION,
+                id,
+                PendingOperationType.RESERVATION_CANCEL,
+                mapOf("id" to id)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun reviewUnitReservation(id: String, request: ReviewReservationRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, "Klaida tvirtinant vieneto dali") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_REVIEW_UNIT, request, "Klaida tvirtinant vieneto dali") {
             reservationApiService.reviewUnitReservation("Bearer ${token()}", tuntasId(), id, request)
         }
 
     suspend fun reviewTopLevelReservation(id: String, request: ReviewReservationRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, "Klaida tvirtinant tunto dali") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_REVIEW_TOP_LEVEL, request, "Klaida tvirtinant tunto dali") {
             reservationApiService.reviewTopLevelReservation("Bearer ${token()}", tuntasId(), id, request)
         }
 
@@ -205,7 +280,12 @@ class ReservationRepository @Inject constructor(
         id: String,
         request: ReservationMovementRequestDto,
         movement: String
-    ): Result<ReservationDto> = updateOnlineOnly(id, "Klaida registruojant judejima") {
+    ): Result<ReservationDto> = updateOnlineOnly(
+        id,
+        PendingOperationType.RESERVATION_MOVEMENT,
+        ReservationMovementSyncPayload(movement, gson.toJson(request)),
+        "Klaida registruojant judejima"
+    ) {
         when (movement) {
             "return" -> reservationApiService.returnReservationItems("Bearer ${token()}", tuntasId(), id, request)
             "mark_returned" -> reservationApiService.markReservationItemsReturned("Bearer ${token()}", tuntasId(), id, request)
@@ -215,6 +295,8 @@ class ReservationRepository @Inject constructor(
 
     private suspend fun updateOnlineOnly(
         id: String,
+        operationType: String,
+        payload: Any,
         fallbackMessage: String,
         call: suspend () -> retrofit2.Response<ReservationDto>
     ): Result<ReservationDto> {
@@ -227,8 +309,28 @@ class ReservationRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorBody()?.string() ?: fallbackMessage))
             }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val cached = reservationDao.getReservation(id, currentTuntasId)?.toDto()
+                ?: return Result.failure(Exception("Rezervacija nerasta offline cache"))
+            val updated = when (payload) {
+                is ReviewReservationRequestDto -> cached.copy(
+                    unitReviewStatus = if (operationType == PendingOperationType.RESERVATION_REVIEW_UNIT) payload.status else cached.unitReviewStatus,
+                    topLevelReviewStatus = if (operationType == PendingOperationType.RESERVATION_REVIEW_TOP_LEVEL) payload.status else cached.topLevelReviewStatus,
+                    status = if (payload.status == "REJECTED") "REJECTED" else cached.status,
+                    updatedAt = Instant.now().toString()
+                )
+                is UpdateReservationStatusRequestDto -> cached.copy(status = payload.status, notes = payload.notes ?: cached.notes, updatedAt = Instant.now().toString())
+                is UpdateReservationPickupRequestDto -> cached.copy(pickupAt = payload.pickupAt, pickupProposalStatus = payload.response ?: "PENDING", updatedAt = Instant.now().toString())
+                is UpdateReservationReturnTimeRequestDto -> cached.copy(returnAt = payload.returnAt, returnProposalStatus = payload.response ?: "PENDING", updatedAt = Instant.now().toString())
+                else -> cached.copy(updatedAt = Instant.now().toString())
+            }
+            reservationDao.upsert(updated.toEntity())
+            pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.RESERVATION, id, operationType, payload)
+            Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(Exception("Šis veiksmas galimas tik prisijungus", e))
+            Result.failure(e)
         }
     }
 }

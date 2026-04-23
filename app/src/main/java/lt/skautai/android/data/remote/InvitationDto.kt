@@ -14,6 +14,7 @@ data class AcceptInvitationRequestDto(
 
 data class InvitationResponseDto(
     @SerializedName("code") val code: String,
+    @SerializedName("tuntasId") val tuntasId: String? = null,
     @SerializedName("roleName") val roleName: String,
     @SerializedName("tuntasName") val tuntasName: String,
     @SerializedName("expiresAt") val expiresAt: String,
