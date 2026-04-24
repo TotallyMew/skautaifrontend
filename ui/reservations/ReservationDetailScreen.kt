@@ -30,7 +30,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,6 +53,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationItemDto
+import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.reservations.physicalStatus
 import java.time.Instant
 import java.time.LocalDate
@@ -129,7 +130,7 @@ fun ReservationDetailScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -142,22 +143,11 @@ fun ReservationDetailScreen(
                 }
 
                 is ReservationDetailUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadReservation(reservationId) }) {
-                            Text("Bandyti dar karta")
-                        }
-                    }
+                    SkautaiErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.loadReservation(reservationId) },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
 
                 is ReservationDetailUiState.Success -> {

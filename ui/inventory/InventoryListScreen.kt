@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.inventory
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -10,7 +11,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,8 +21,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
@@ -40,7 +41,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -64,11 +67,8 @@ import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.inventoryCategoryLabel
-import lt.skautai.android.ui.theme.ScoutPalette
 import lt.skautai.android.util.NavRoutes
 
-private val InventoryForest = ScoutPalette.Forest
-private val InventoryForestSoft = ScoutPalette.ForestMist
 private val KnownInventoryCategories = listOf(
     "CAMPING",
     "TOOLS",
@@ -91,10 +91,11 @@ fun InventoryListScreen(
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
-    val selectedTab by viewModel.selectedTab.collectAsStateWithLifecycle()
     val canApprove = "items.transfer" in permissions
     val openedCustodianId = viewModel.openedCustodianId
     val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadItems)
+
+    val pendingItems = (uiState as? InventoryListUiState.Success)?.pendingItems.orEmpty()
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -137,20 +138,22 @@ fun InventoryListScreen(
                 leadingIcon = Icons.Default.Search
             )
 
-            if (canApprove) {
-                InventorySegmentedTabs(
-                    selectedTab = selectedTab,
-                    onTabSelected = viewModel::onTabSelected
+            if (canApprove && pendingItems.isNotEmpty()) {
+                ApprovalBanner(
+                    items = pendingItems,
+                    navController = navController,
+                    onApprove = viewModel::approveItem,
+                    onReject = viewModel::rejectItem,
+                    onApproveAll = viewModel::approveAllPending
                 )
             }
 
             InventoryBody(
                 state = uiState,
-                canApprove = canApprove,
-                selectedTab = selectedTab,
                 selectedType = selectedType,
                 selectedCategory = selectedCategory,
                 openedCustodianId = openedCustodianId,
+                canCreate = "items.create" in permissions,
                 viewModel = viewModel,
                 navController = navController
             )
@@ -164,71 +167,62 @@ fun InventoryListScreen(
 }
 
 @Composable
-private fun InventorySegmentedTabs(
-    selectedTab: InventoryListTab,
-    onTabSelected: (InventoryListTab) -> Unit
+private fun ApprovalBanner(
+    items: List<ItemDto>,
+    navController: NavController,
+    onApprove: (String) -> Unit,
+    onReject: (String) -> Unit,
+    onApproveAll: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = InventoryForestSoft,
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            InventorySegment(
-                label = "Inventorius",
-                icon = Icons.Default.Inventory2,
-                selected = selectedTab == InventoryListTab.INVENTORY,
-                onClick = { onTabSelected(InventoryListTab.INVENTORY) },
-                modifier = Modifier.weight(1f)
-            )
-            InventorySegment(
-                label = "Tvirtinimai",
-                icon = Icons.Default.PendingActions,
-                selected = selectedTab == InventoryListTab.APPROVALS,
-                onClick = { onTabSelected(InventoryListTab.APPROVALS) },
-                modifier = Modifier.weight(1f)
-            )
-        }
-    }
-}
+    var expanded by remember { mutableStateOf(false) }
 
-@Composable
-private fun InventorySegment(
-    label: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val container = if (selected) InventoryForest else Color.Transparent
-    val content = if (selected) ScoutPalette.White else InventoryForest
-    Surface(
-        modifier = modifier
-            .heightIn(min = 48.dp)
-            .clickable(onClick = onClick),
-        color = container,
-        contentColor = content,
-        shape = RoundedCornerShape(14.dp)
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.secondaryContainer
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 11.dp),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp))
-            Text(
-                text = label,
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
-                modifier = Modifier.padding(start = 8.dp)
-            )
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Laukia ${items.size} patvirtinimai",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.weight(1f)
+                )
+                TextButton(
+                    onClick = onApproveAll,
+                    enabled = items.isNotEmpty()
+                ) {
+                    Text("Patvirtinti visus", fontWeight = FontWeight.SemiBold)
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Sutraukti" else "Isskleisti",
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    items.forEach { item ->
+                        PendingInventoryRow(
+                            item = item,
+                            onOpen = { navController.navigate(NavRoutes.InventoryDetail.createRoute(item.id)) },
+                            onApprove = { onApprove(item.id) },
+                            onReject = { onReject(item.id) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
+            }
         }
     }
 }
@@ -236,11 +230,10 @@ private fun InventorySegment(
 @Composable
 private fun InventoryBody(
     state: InventoryListUiState,
-    canApprove: Boolean,
-    selectedTab: InventoryListTab,
     selectedType: String?,
     selectedCategory: String?,
     openedCustodianId: String?,
+    canCreate: Boolean,
     viewModel: InventoryListViewModel,
     navController: NavController
 ) {
@@ -252,13 +245,17 @@ private fun InventoryBody(
         }
 
         is InventoryListUiState.Empty -> {
-            val showApprovals = canApprove && selectedTab == InventoryListTab.APPROVALS
             SkautaiEmptyState(
-                title = if (showApprovals) "Tvirtinimu nera" else "Inventorius tuscias",
-                subtitle = if (showApprovals) {
-                    "Siuo metu nera inventoriaus irasu, laukianciu patvirtinimo."
-                } else {
-                    inventoryContextEmptySubtitle(openedCustodianId, selectedType, selectedCategory)
+                title = "Inventorius tuscias",
+                subtitle = inventoryContextEmptySubtitle(openedCustodianId, selectedType, selectedCategory),
+                icon = Icons.Default.Inventory2,
+                actionLabel = if (canCreate) "Prideti daikta" else "Grizti i pradzia",
+                onAction = {
+                    if (canCreate) {
+                        navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
+                    } else {
+                        navController.navigate(NavRoutes.Home.route)
+                    }
                 },
                 modifier = Modifier.fillMaxWidth()
             )
@@ -289,29 +286,19 @@ private fun InventoryBody(
                     .map { category -> category to (inventoryCategoryLabel(category) to (counts[category] ?: 0)) }
             }
 
-            if (canApprove && selectedTab == InventoryListTab.APPROVALS) {
-                ApprovalContent(
-                    items = state.pendingItems,
-                    navController = navController,
-                    onApprove = viewModel::approveItem,
-                    onReject = viewModel::rejectItem,
-                    onApproveAll = viewModel::approveAllPending
-                )
-            } else {
-                InventoryCatalogContent(
-                    allItems = state.activeItems,
-                    filteredItems = filtered,
-                    selectedType = selectedType,
-                    selectedCategory = selectedCategory,
-                    openedCustodianId = openedCustodianId,
-                    typeFilters = typeFilters,
-                    categoryFilters = categoryFilters,
-                    onClearFilters = viewModel::clearFilters,
-                    onTypeSelected = viewModel::onTypeSelected,
-                    onCategorySelected = viewModel::onCategorySelected,
-                    onOpenItem = { itemId -> navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId)) }
-                )
-            }
+            InventoryCatalogContent(
+                allItems = state.activeItems,
+                filteredItems = filtered,
+                selectedType = selectedType,
+                selectedCategory = selectedCategory,
+                openedCustodianId = openedCustodianId,
+                typeFilters = typeFilters,
+                categoryFilters = categoryFilters,
+                onClearFilters = viewModel::clearFilters,
+                onTypeSelected = viewModel::onTypeSelected,
+                onCategorySelected = viewModel::onCategorySelected,
+                onOpenItem = { itemId -> navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId)) }
+            )
         }
     }
 }
@@ -377,7 +364,8 @@ private fun InventoryCatalogContent(
             item {
                 SkautaiEmptyState(
                     title = "Nieko nerasta",
-                    subtitle = "Pabandyk kita paieskos fraze arba pakeisk inventoriaus tipo filtra."
+                    subtitle = "Pabandyk kita paieskos fraze arba pakeisk inventoriaus tipo filtra.",
+                    icon = Icons.Default.Inventory2
                 )
             }
         } else {
@@ -400,96 +388,12 @@ private fun InventoryGroupHeader(title: String, count: Int) {
         text = "$title / $count",
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.SemiBold,
-        color = InventoryForest,
+        color = MaterialTheme.colorScheme.primary,
         modifier = Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.background)
             .padding(top = 10.dp, bottom = 6.dp)
     )
-}
-
-@Composable
-private fun ApprovalContent(
-    items: List<ItemDto>,
-    navController: NavController,
-    onApprove: (String) -> Unit,
-    onReject: (String) -> Unit,
-    onApproveAll: () -> Unit
-) {
-    LazyColumn(
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        contentPadding = PaddingValues(bottom = 140.dp)
-    ) {
-        item {
-            SkautaiCard(
-                modifier = Modifier.fillMaxWidth(),
-                tonal = MaterialTheme.colorScheme.secondaryContainer
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Laukia ${items.size} patvirtinimai",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                    )
-                    TextButton(
-                        onClick = onApproveAll,
-                        enabled = items.isNotEmpty()
-                    ) {
-                        Text("Patvirtinti visus", fontWeight = FontWeight.SemiBold)
-                    }
-                }
-            }
-        }
-
-        if (items.isEmpty()) {
-            item {
-                SkautaiEmptyState(
-                    title = "Tvirtinimu nera",
-                    subtitle = "Siuo metu nera inventoriaus irasu, laukianciu patvirtinimo."
-                )
-            }
-        } else {
-            items(items, key = { "pending_${it.id}" }) { item ->
-                PendingInventoryRow(
-                    item = item,
-                    onOpen = { navController.navigate(NavRoutes.InventoryDetail.createRoute(item.id)) },
-                    onApprove = { onApprove(item.id) },
-                    onReject = { onReject(item.id) }
-                )
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
-        }
-    }
-}
-
-private fun inventoryContextTitle(
-    openedCustodianId: String?,
-    selectedType: String?,
-    selectedCategory: String?,
-    items: List<ItemDto>
-): String = when {
-    openedCustodianId != null -> items.firstOrNull()?.custodianName ?: "Vieneto inventorius"
-    selectedType == "INDIVIDUAL" -> "Mano siulomas skolinti"
-    selectedCategory != null -> "${inventoryCategoryLabel(selectedCategory)} inventorius"
-    else -> "Bendras tunto inventorius"
-}
-
-private fun inventoryContextEmptySubtitle(
-    openedCustodianId: String?,
-    selectedType: String?,
-    selectedCategory: String?
-): String = when {
-    openedCustodianId != null -> "Sis vienetas dar neturi jam priskirtu ar savo sukurtu inventoriaus irasu."
-    selectedType == "INDIVIDUAL" -> "Dar nera asmeniniu daiktu, siulomu skolinti."
-    selectedCategory != null -> "Sioje kategorijoje dar nera inventoriaus irasu."
-    else -> "Kai atsiras pirmi daiktai, cia matysi bendro tunto inventoriaus kataloga."
 }
 
 @Composable
@@ -660,6 +564,29 @@ private fun conditionContentColor(condition: String): Color = when (condition) {
     "DAMAGED" -> MaterialTheme.colorScheme.onErrorContainer
     "WRITTEN_OFF" -> MaterialTheme.colorScheme.onSurfaceVariant
     else -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
+private fun inventoryContextTitle(
+    openedCustodianId: String?,
+    selectedType: String?,
+    selectedCategory: String?,
+    items: List<ItemDto>
+): String = when {
+    openedCustodianId != null -> items.firstOrNull()?.custodianName ?: "Vieneto inventorius"
+    selectedType == "INDIVIDUAL" -> "Mano siulomas skolinti"
+    selectedCategory != null -> "${inventoryCategoryLabel(selectedCategory)} inventorius"
+    else -> "Bendras tunto inventorius"
+}
+
+private fun inventoryContextEmptySubtitle(
+    openedCustodianId: String?,
+    selectedType: String?,
+    selectedCategory: String?
+): String = when {
+    openedCustodianId != null -> "Sis vienetas dar neturi jam priskirtu ar savo sukurtu inventoriaus irasu."
+    selectedType == "INDIVIDUAL" -> "Dar nera asmeniniu daiktu, siulomu skolinti."
+    selectedCategory != null -> "Sioje kategorijoje dar nera inventoriaus irasu."
+    else -> "Kai atsiras pirmi daiktai, cia matysi bendro tunto inventoriaus kataloga."
 }
 
 private data class InventoryGroup(

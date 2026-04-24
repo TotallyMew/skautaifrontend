@@ -20,6 +20,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.UnitMembershipDto
+import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -130,14 +132,17 @@ fun UnitDetailScreen(
                 }
             }
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
             uiState.error != null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Text(uiState.error!!, color = MaterialTheme.colorScheme.error)
+                SkautaiErrorState(
+                    message = uiState.error!!,
+                    onRetry = { viewModel.loadUnit(unitId) }
+                )
             }
             uiState.unit != null -> {
                 val unit = uiState.unit!!

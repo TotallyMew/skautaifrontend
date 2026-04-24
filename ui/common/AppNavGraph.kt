@@ -229,6 +229,11 @@ fun AppNavGraph(
                     onInviteClick = {
                         navController.navigate(NavRoutes.InviteCreate.route)
                     },
+                    onEmptyActionClick = {
+                        navController.navigate(NavRoutes.Home.route) {
+                            launchSingleTop = true
+                        }
+                    },
                     canInvite = "invitations.create" in permissions
                 )
             }
@@ -453,6 +458,18 @@ fun AppNavGraph(
 
         composable(NavRoutes.TuntasSelect.route) {
             TuntasSelectScreen(navController)
+        }
+
+        composable(NavRoutes.SyncStatus.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                SyncStatusScreen()
+            }
         }
     }
 }

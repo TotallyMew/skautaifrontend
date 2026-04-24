@@ -25,6 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -42,13 +46,15 @@ fun SkautaiCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     tonal: Color = MaterialTheme.colorScheme.surface,
+    shape: Shape = RoundedCornerShape(24.dp),
     content: @Composable () -> Unit
 ) {
     Card(
         modifier = if (onClick != null) modifier.clickable(onClick = onClick) else modifier,
         colors = CardDefaults.cardColors(containerColor = tonal),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        shape = shape,
+        border = CardDefaults.outlinedCardBorder(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         content()
     }
@@ -198,9 +204,26 @@ fun SkautaiErrorState(
 }
 
 @Composable
+fun SkautaiErrorSnackbarHost(
+    hostState: SnackbarHostState,
+    modifier: Modifier = Modifier
+) {
+    SnackbarHost(hostState = hostState, modifier = modifier) { data ->
+        Snackbar(
+            snackbarData = data,
+            containerColor = MaterialTheme.colorScheme.errorContainer,
+            contentColor = MaterialTheme.colorScheme.onErrorContainer
+        )
+    }
+}
+
+@Composable
 fun SkautaiEmptyState(
     title: String,
     subtitle: String,
+    icon: ImageVector,
+    actionLabel: String? = null,
+    onAction: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -214,14 +237,28 @@ fun SkautaiEmptyState(
                 .background(
                     color = MaterialTheme.colorScheme.primaryContainer,
                     shape = CircleShape
-                )
-        )
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                modifier = Modifier.size(34.dp)
+            )
+        }
         Text(text = title, style = MaterialTheme.typography.titleLarge)
         Text(
             text = subtitle,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
         )
+        if (actionLabel != null && onAction != null) {
+            FilledTonalButton(onClick = onAction) {
+                Text(actionLabel)
+            }
+        }
     }
 }
 
@@ -259,7 +296,8 @@ fun SkautaiHeroCard(
 ) {
     SkautaiCard(
         modifier = modifier,
-        tonal = Color.Transparent
+        tonal = Color.Transparent,
+        shape = RoundedCornerShape(28.dp)
     ) {
         Column(
             modifier = Modifier
@@ -374,20 +412,20 @@ fun PreviewMetric(label: String, value: String) {
 fun MetadataRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(120.dp)
+            modifier = Modifier.weight(0.4f)
         )
         Text(
             text = value,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(0.6f)
         )
     }
 }
@@ -414,13 +452,13 @@ fun inventoryTypeLabel(type: String): String = when (type) {
 }
 
 fun inventoryCategoryLabel(category: String): String = when (category) {
-    "CAMPING" -> "Camping"
-    "TOOLS" -> "Tools"
-    "COOKING" -> "Cooking"
-    "FIRST_AID" -> "First aid"
-    "UNIFORMS" -> "Uniforms"
-    "BOOKS" -> "Books"
-    "PERSONAL_LOANS" -> "Personal loans"
+    "CAMPING" -> "Stovyklavimas"
+    "TOOLS" -> "Irankiai"
+    "COOKING" -> "Maistas"
+    "FIRST_AID" -> "Pirmoji pagalba"
+    "UNIFORMS" -> "Uniformos"
+    "BOOKS" -> "Knygos"
+    "PERSONAL_LOANS" -> "Asmeniniai"
     else -> category
 }
 

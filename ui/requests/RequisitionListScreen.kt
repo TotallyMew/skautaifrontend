@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.requests
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -38,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 
 @Composable
@@ -66,22 +68,11 @@ fun RequisitionListScreen(
             }
 
             is RequisitionListUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = viewModel::loadRequests) {
-                        Text("Bandyti dar karta")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadRequests,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
 
             is RequisitionListUiState.Success -> {
@@ -97,6 +88,7 @@ fun RequisitionListScreen(
                             isMyActiveMode -> "Cia matysi tik savo patvirtintus pirkimo ir papildymo prasymus."
                             else -> "Cia bus inventoriaus pirkimo ir papildymo prasymai."
                         },
+                        icon = Icons.Default.ShoppingCart,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -176,7 +168,8 @@ private fun RequisitionCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

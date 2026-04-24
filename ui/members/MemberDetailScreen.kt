@@ -17,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.*
+import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiErrorState
 
 @Composable
 fun MemberDetailScreen(
@@ -96,7 +98,7 @@ fun MemberDetailScreen(
     }
 
     Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding)) {
             Row(
@@ -120,12 +122,10 @@ fun MemberDetailScreen(
                     CircularProgressIndicator()
                 }
                 uiState.error != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(uiState.error!!, color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadMember(userId) }) { Text("Bandyti dar kartą") }
-                    }
+                    SkautaiErrorState(
+                        message = uiState.error!!,
+                        onRetry = { viewModel.loadMember(userId) }
+                    )
                 }
                 uiState.member != null -> MemberDetailContent(
                     member = uiState.member!!,

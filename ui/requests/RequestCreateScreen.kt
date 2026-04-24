@@ -61,7 +61,7 @@ fun RequestCreateScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         if (uiState.isLoadingItems) {
             Box(

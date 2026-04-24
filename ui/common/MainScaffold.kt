@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,11 +13,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
-import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MarkEmailUnread
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -59,6 +63,7 @@ fun MainScaffold(
     onLogout: () -> Unit,
     showBackNavigation: Boolean = false,
     onNavigateBack: (() -> Unit)? = null,
+    topBarActions: @Composable (RowScope.() -> Unit) = {},
     floatingActionButton: @Composable () -> Unit = {},
     content: @Composable () -> Unit
 ) {
@@ -74,18 +79,7 @@ fun MainScaffold(
     val activeTuntasName by tokenManager.activeTuntasName.collectAsState(initial = null)
     val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
 
-    val topBarTitle = when (currentRoute) {
-        NavRoutes.Home.route -> "Pradzia"
-        NavRoutes.InventoryList.route -> "Inventorius"
-        NavRoutes.ReservationList.route -> "Rezervacijos"
-        NavRoutes.RequestList.route -> "Pirkimo prasymai"
-        NavRoutes.InviteAccept.route -> "Kvietimai"
-        NavRoutes.SharedRequestList.route -> "Paemimo prasymai"
-        NavRoutes.MemberList.route -> "Nariai"
-        NavRoutes.UnitList.route -> "Vienetai"
-        NavRoutes.EventList.route -> "Renginiai"
-        else -> "Skautu Inventorius"
-    }
+    val topBarTitle = currentRouteTitle(currentRoute)
 
     val visibleNavItems = BottomNavItem.all.filter { item ->
         shouldShowBottomNavItem(item, permissions)
@@ -96,7 +90,7 @@ fun MainScaffold(
         drawerContent = {
             ModalDrawerSheet(
                 drawerContainerColor = MaterialTheme.colorScheme.surface,
-                drawerShape = RoundedCornerShape(topEnd = 28.dp, bottomEnd = 28.dp)
+                drawerShape = RoundedCornerShape(topEnd = 28.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -180,7 +174,7 @@ fun MainScaffold(
                 )
 
                 NavigationDrawerItem(
-                    label = { Text("Visos rezervacijos") },
+                    label = { Text("Rezervacijos") },
                     icon = { Icon(Icons.Default.EventAvailable, contentDescription = null) },
                     selected = currentRoute == NavRoutes.ReservationList.route,
                     onClick = {
@@ -191,8 +185,8 @@ fun MainScaffold(
                 )
 
                 NavigationDrawerItem(
-                    label = { Text("Pirkimo prasymai") },
-                    icon = { Icon(Icons.Default.Assignment, contentDescription = null) },
+                    label = { Text("Pirkimai") },
+                    icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
                     selected = currentRoute == NavRoutes.RequestList.route,
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -202,8 +196,8 @@ fun MainScaffold(
                 )
 
                 NavigationDrawerItem(
-                    label = { Text("Paemimas is tunto") },
-                    icon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
+                    label = { Text("Paemimai") },
+                    icon = { Icon(Icons.Default.Inbox, contentDescription = null) },
                     selected = currentRoute == NavRoutes.SharedRequestList.route,
                     onClick = {
                         scope.launch { drawerState.close() }
@@ -211,6 +205,37 @@ fun MainScaffold(
                     },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
+
+                if ("members.view" in permissions) {
+                    NavigationDrawerItem(
+                        label = { Text("Nariai") },
+                        icon = { Icon(BottomNavItem.Members.icon, contentDescription = null) },
+                        selected = currentRoute == NavRoutes.MemberList.route,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            navController.navigate(NavRoutes.MemberList.route)
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
+
+                if (
+                    "organizational_units.manage" in permissions ||
+                    "unit.members.manage" in permissions ||
+                    "unit.members.manage:ALL" in permissions ||
+                    "unit.members.manage:OWN_UNIT" in permissions
+                ) {
+                    NavigationDrawerItem(
+                        label = { Text("Vienetai") },
+                        icon = { Icon(Icons.Default.AccountTree, contentDescription = null) },
+                        selected = currentRoute == NavRoutes.UnitList.route,
+                        onClick = {
+                            scope.launch { drawerState.close() }
+                            navController.navigate(NavRoutes.UnitList.route)
+                        },
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                }
 
                 if (syncStatus.failedCount > 0) {
                     NavigationDrawerItem(
@@ -245,30 +270,7 @@ fun MainScaffold(
             topBar = {
                 TopAppBar(
                     title = {
-                        Column {
-                            Text(topBarTitle, style = MaterialTheme.typography.titleLarge)
-                            Text(
-                                text = if (syncStatus.failedCount > 0) {
-                                    "${syncStatus.failedCount} pakeit. nepavyko sinchronizuoti"
-                                } else if (syncStatus.pendingCount > 0) {
-                                    "${syncStatus.pendingCount} pakeit. laukia sinchronizavimo"
-                                } else if (syncStatus.isOffline) {
-                                    "Offline rezimas"
-                                } else {
-                                    "Misko tonu sistema"
-                                },
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (syncStatus.failedCount > 0) {
-                                    MaterialTheme.colorScheme.error
-                                } else if (syncStatus.pendingCount > 0) {
-                                    MaterialTheme.colorScheme.tertiary
-                                } else if (syncStatus.isOffline) {
-                                    MaterialTheme.colorScheme.error
-                                } else {
-                                    MaterialTheme.colorScheme.onSurfaceVariant
-                                }
-                            )
-                        }
+                        Text(topBarTitle, style = MaterialTheme.typography.titleLarge)
                     },
                     navigationIcon = {
                         IconButton(
@@ -290,68 +292,72 @@ fun MainScaffold(
                             )
                         }
                     },
+                    actions = {
+                        if (syncStatus.pendingCount > 0 || syncStatus.failedCount > 0 || syncStatus.isOffline) {
+                            SyncStatusPill(
+                                status = syncStatus,
+                                onClick = { navController.navigate(NavRoutes.SyncStatus.route) }
+                            )
+                        }
+                        topBarActions()
+                    },
                     colors = TopAppBarDefaults.topAppBarColors(
                         containerColor = MaterialTheme.colorScheme.background
                     )
                 )
             },
             bottomBar = {
-                Surface(
-                    tonalElevation = 3.dp,
-                    shadowElevation = 8.dp,
-                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                NavigationBar(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    tonalElevation = 0.dp
                 ) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        tonalElevation = 0.dp
-                    ) {
-                        visibleNavItems.forEach { item ->
-                            val selected = currentRoute == item.route
-                            NavigationBarItem(
-                                selected = selected,
-                                onClick = {
-                                    if (currentRoute != item.route) {
-                                        if (item.route == NavRoutes.Home.route) {
-                                            val poppedToHome = navController.popBackStack(
-                                                route = NavRoutes.Home.route,
-                                                inclusive = false
-                                            )
-                                            if (!poppedToHome) {
-                                                navController.navigate(NavRoutes.Home.route) {
-                                                    popUpTo(0) { inclusive = true }
-                                                    launchSingleTop = true
-                                                }
-                                            }
-                                        } else {
-                                            navController.navigate(item.route) {
-                                                popUpTo(NavRoutes.Home.route) {
-                                                    saveState = true
-                                                }
+                    visibleNavItems.take(4).forEach { item ->
+                        val selected = currentRoute == item.route
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                if (currentRoute != item.route) {
+                                    val destination = bottomNavDestination(item)
+                                    if (item.route == NavRoutes.Home.route) {
+                                        val poppedToHome = navController.popBackStack(
+                                            route = NavRoutes.Home.route,
+                                            inclusive = false
+                                        )
+                                        if (!poppedToHome) {
+                                            navController.navigate(NavRoutes.Home.route) {
+                                                popUpTo(0) { inclusive = true }
                                                 launchSingleTop = true
-                                                restoreState = true
                                             }
                                         }
+                                    } else {
+                                        navController.navigate(destination) {
+                                            popUpTo(NavRoutes.Home.route) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
-                                },
-                                icon = { Icon(item.icon, contentDescription = item.label) },
-                                label = {
-                                    Text(
-                                        text = item.label,
-                                        maxLines = 1,
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-                                        )
+                                }
+                            },
+                            icon = { Icon(item.icon, contentDescription = item.label) },
+                            label = {
+                                Text(
+                                    text = item.label,
+                                    maxLines = 1,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
                                     )
-                                },
-                                colors = NavigationBarItemDefaults.colors(
-                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        }
+                        )
                     }
                 }
             },
@@ -367,3 +373,97 @@ fun MainScaffold(
         }
     }
 }
+
+private fun bottomNavDestination(item: BottomNavItem): String = when (item) {
+    BottomNavItem.Inventory -> NavRoutes.InventoryList.createRoute()
+    BottomNavItem.Reservations -> NavRoutes.ReservationList.createRoute()
+    else -> item.route
+}
+
+@Composable
+private fun SyncStatusPill(
+    status: PendingSyncStatus,
+    onClick: () -> Unit
+) {
+    val (label, icon, containerColor, contentColor) = when {
+        status.failedCount > 0 -> Quadruple(
+            "${status.failedCount} sync klaid.",
+            Icons.Default.SwapHoriz,
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer
+        )
+        status.pendingCount > 0 -> Quadruple(
+            "${status.pendingCount} laukia",
+            Icons.Default.SwapHoriz,
+            MaterialTheme.colorScheme.tertiaryContainer,
+            MaterialTheme.colorScheme.onTertiaryContainer
+        )
+        status.isOffline -> Quadruple(
+            "Offline",
+            Icons.Default.CloudOff,
+            MaterialTheme.colorScheme.errorContainer,
+            MaterialTheme.colorScheme.onErrorContainer
+        )
+        else -> return
+    }
+
+    Surface(
+        onClick = onClick,
+        color = containerColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+private fun currentRouteTitle(currentRoute: String?): String = when (currentRoute) {
+    NavRoutes.Home.route -> "Pradzia"
+    NavRoutes.InventoryList.route -> "Inventorius"
+    NavRoutes.InventoryDetail.route -> "Daikto informacija"
+    NavRoutes.InventoryAddEdit.route -> "Inventoriaus forma"
+    NavRoutes.ReservationList.route -> "Rezervacijos"
+    NavRoutes.ReservationCreate.route -> "Nauja rezervacija"
+    NavRoutes.ReservationDetail.route -> "Rezervacijos informacija"
+    NavRoutes.ReservationMovement.route -> "Issdavimas ir grazinimas"
+    NavRoutes.RequestList.route -> "Pirkimai"
+    NavRoutes.RequestDetail.route -> "Pirkimo informacija"
+    NavRoutes.RequestCreate.route -> "Naujas pirkimas"
+    NavRoutes.InviteCreate.route -> "Naujas kvietimas"
+    NavRoutes.InviteAccept.route -> "Kvietimai"
+    NavRoutes.SharedRequestList.route -> "Paemimai"
+    NavRoutes.SharedRequestDetail.route -> "Paemimo informacija"
+    NavRoutes.MemberList.route -> "Nariai"
+    NavRoutes.MemberDetail.route -> "Nario informacija"
+    NavRoutes.UnitList.route -> "Vienetai"
+    NavRoutes.UnitCreate.route -> "Naujas vienetas"
+    NavRoutes.UnitDetail.route -> "Vieneto informacija"
+    NavRoutes.UnitEdit.route -> "Vieneto redagavimas"
+    NavRoutes.TuntasSelect.route -> "Tunto pasirinkimas"
+    NavRoutes.EventList.route -> "Renginiai"
+    NavRoutes.EventDetail.route -> "Renginio informacija"
+    NavRoutes.EventAddEdit.route -> "Renginio forma"
+    NavRoutes.SyncStatus.route -> "Sinchronizavimas"
+    else -> ""
+}
+
+private data class Quadruple<A, B, C, D>(
+    val first: A,
+    val second: B,
+    val third: C,
+    val fourth: D
+)

@@ -102,4 +102,6 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(eventId: String? = null) =
             if (eventId != null) "event_add_edit?eventId=$eventId" else "event_add_edit"
     }
+
+    object SyncStatus : NavRoutes("sync_status")
 }

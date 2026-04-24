@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -57,22 +56,20 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
-import lt.skautai.android.ui.theme.ScoutPalette
-
 private const val AllFilter = "Visi"
 private const val LeadersFilter = "Vadovai"
 private const val NoUnitLabel = "Be vieneto"
-private val MemberAccent = ScoutPalette.Forest
-private val MemberAvatarTone = ScoutPalette.MossSoft
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MemberListScreen(
     onMemberClick: (String) -> Unit,
     onInviteClick: () -> Unit,
+    onEmptyActionClick: () -> Unit = {},
     canInvite: Boolean = false,
     viewModel: MemberListViewModel = hiltViewModel()
 ) {
@@ -109,6 +106,9 @@ fun MemberListScreen(
                     SkautaiEmptyState(
                         title = "Nariu dar nera",
                         subtitle = "Cia matysi savo vieneto arba tunto narius pagal turimas teises.",
+                        icon = Icons.Default.Groups,
+                        actionLabel = if (canInvite) "Pakviesti nari" else "Grizti i pradzia",
+                        onAction = if (canInvite) onInviteClick else onEmptyActionClick,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -153,7 +153,8 @@ fun MemberListScreen(
                                 item {
                                     SkautaiEmptyState(
                                         title = "Nieko nerasta",
-                                        subtitle = "Pabandyk ieskoti pagal varda, el. pasta, telefona, pareigas ar vieneta."
+                                        subtitle = "Pabandyk ieskoti pagal varda, el. pasta, telefona, pareigas ar vieneta.",
+                                        icon = Icons.Default.Person
                                     )
                                 }
                             }
@@ -235,10 +236,10 @@ private fun MemberToolbar(
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 items(filters, key = { it }) { filter ->
-                    FilterChip(
+                    SkautaiChip(
+                        label = filter,
                         selected = selectedFilter == filter,
-                        onClick = { onFilterSelected(filter) },
-                        label = { Text(filter, maxLines = 1) }
+                        onClick = { onFilterSelected(filter) }
                     )
                 }
             }
@@ -259,7 +260,7 @@ private fun UnitStickyHeader(title: String) {
                 .background(MaterialTheme.colorScheme.background)
                 .padding(top = 12.dp, bottom = 6.dp),
             style = MaterialTheme.typography.labelLarge,
-            color = MemberAccent,
+            color = MaterialTheme.colorScheme.primary,
             fontWeight = FontWeight.SemiBold
         )
     }
@@ -283,8 +284,8 @@ private fun MemberRow(
         Surface(
             modifier = Modifier.size(42.dp),
             shape = CircleShape,
-            color = MemberAvatarTone,
-            contentColor = MemberAccent
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.primary
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
@@ -334,7 +335,7 @@ private fun MemberRow(
                 Icon(
                     imageVector = Icons.Default.Phone,
                     contentDescription = "Skambinti",
-                    tint = MemberAccent
+                    tint = MaterialTheme.colorScheme.primary
                 )
             }
         }

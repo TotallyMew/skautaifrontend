@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.requests
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PlaylistAdd
 import androidx.compose.material3.Button
@@ -77,6 +79,7 @@ fun RequestListScreen(
                     SkautaiEmptyState(
                         title = "Paemimo prasymu nera",
                         subtitle = "Cia bus tavo vieneto prasymai paimti jau esamus daiktus is bendro tunto inventoriaus.",
+                        icon = Icons.Default.Inbox,
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -145,7 +148,8 @@ private fun SharedTransferRequestCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

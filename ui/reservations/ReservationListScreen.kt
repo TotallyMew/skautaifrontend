@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.reservations
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -104,6 +105,18 @@ fun ReservationListScreen(
                             isMyActiveMode -> "Cia matysi tik savo patvirtintas ir aktyvias rezervacijas."
                             isTrackedMode -> "Cia matysi patvirtintas rezervacijas, kurias reikia isduoti arba priimti."
                             else -> "Rezervacija skirta uzsakyti jau esama inventoriaus daikta konkreciam laikotarpiui."
+                        },
+                        icon = Icons.Default.EventAvailable,
+                        actionLabel = when {
+                            isAssignedMode || isTrackedMode -> "Rodyti mano rezervacijas"
+                            else -> "Kurti rezervacija"
+                        },
+                        onAction = {
+                            if (isAssignedMode || isTrackedMode) {
+                                onModeClick("my_active")
+                            } else {
+                                onCreateClick()
+                            }
                         },
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -237,7 +250,9 @@ private fun ReservationModeTile(
             } else {
                 MaterialTheme.colorScheme.surfaceContainerLow
             }
-        )
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -260,7 +275,8 @@ fun ReservationCard(
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

@@ -1,26 +1,46 @@
 package lt.skautai.android.ui.events
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material3.*
+import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.ui.common.SkautaiChip
+import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 
 @Composable
 fun EventListScreen(
@@ -46,22 +66,11 @@ fun EventListScreen(
             }
 
             is EventListUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { viewModel.loadEvents() }) {
-                        Text("Bandyti dar kartą")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadEvents,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
 
             is EventListUiState.Success -> {
@@ -72,14 +81,12 @@ fun EventListScreen(
                     )
 
                     if (state.events.isEmpty()) {
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Text(
-                                text = "Nėra renginių",
-                                modifier = Modifier.align(Alignment.Center),
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                        SkautaiEmptyState(
+                            title = "Renginiu nera",
+                            subtitle = "Cia matysi stovyklas, sueigas ir kitus vieneto renginius.",
+                            icon = Icons.Default.CalendarMonth,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp)
+                        )
                     } else {
                         LazyColumn(
                             modifier = Modifier
@@ -127,10 +134,10 @@ private fun EventTypeFilterRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(filters) { (type, label) ->
-            FilterChip(
+            SkautaiChip(
+                label = label,
                 selected = activeFilter == type,
-                onClick = { onFilterSelected(type) },
-                label = { Text(label) }
+                onClick = { onFilterSelected(type) }
             )
         }
     }
@@ -145,10 +152,11 @@ fun EventCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
+            androidx.compose.foundation.layout.Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
@@ -162,13 +170,13 @@ fun EventCard(
                 EventStatusChip(status = event.status)
             }
             Spacer(modifier = Modifier.height(4.dp))
-            Row(
+            androidx.compose.foundation.layout.Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 EventTypeChip(type = event.type)
                 Text(
-                    text = "${event.startDate.take(10)} — ${event.endDate.take(10)}",
+                    text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -203,8 +211,8 @@ fun EventStatusChip(status: String) {
     val (label, color) = when (status) {
         "PLANNING" -> "Planuojamas" to MaterialTheme.colorScheme.tertiary
         "ACTIVE" -> "Aktyvus" to MaterialTheme.colorScheme.primary
-        "COMPLETED" -> "Įvykdytas" to MaterialTheme.colorScheme.onSurfaceVariant
-        "CANCELLED" -> "Atšauktas" to MaterialTheme.colorScheme.error
+        "COMPLETED" -> "Ivykdytas" to MaterialTheme.colorScheme.onSurfaceVariant
+        "CANCELLED" -> "Atsauktas" to MaterialTheme.colorScheme.error
         else -> status to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(

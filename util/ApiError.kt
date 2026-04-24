@@ -1,9 +1,15 @@
 package lt.skautai.android.util
 
 import com.google.gson.Gson
+import com.google.gson.JsonElement
+import com.google.gson.JsonParser
 import retrofit2.Response
 
-private data class ErrorEnvelope(val error: String? = null)
+private data class ErrorEnvelope(
+    val error: String? = null,
+    val message: String? = null,
+    val details: String? = null
+)
 
 private val gson = Gson()
 
@@ -36,10 +42,30 @@ private fun httpFallback(code: Int, fallback: String): String = when (code) {
     else -> fallback
 }
 
-fun parseApiError(body: String?, code: Int, fallback: String): String {
-    val raw = body?.let {
-        try { gson.fromJson(it, ErrorEnvelope::class.java)?.error } catch (_: Exception) { null }
+private fun JsonElement.stringOrNull(): String? =
+    if (isJsonPrimitive && asJsonPrimitive.isString) asString else null
+
+private fun parseRawMessage(body: String?): String? {
+    val trimmed = body?.trim().orEmpty()
+    if (trimmed.isBlank()) return null
+    if (trimmed.startsWith("<")) return null
+
+    return try {
+        if (!trimmed.startsWith("{")) return trimmed
+        val envelope = gson.fromJson(trimmed, ErrorEnvelope::class.java)
+        envelope.error
+            ?: envelope.message
+            ?: envelope.details
+            ?: JsonParser.parseString(trimmed).asJsonObject.get("error")?.stringOrNull()
+            ?: JsonParser.parseString(trimmed).asJsonObject.get("message")?.stringOrNull()
+            ?: JsonParser.parseString(trimmed).asJsonObject.get("details")?.stringOrNull()
+    } catch (_: Exception) {
+        trimmed
     }
+}
+
+fun parseApiError(body: String?, code: Int, fallback: String): String {
+    val raw = parseRawMessage(body)?.trim('"')?.takeIf { it.isNotBlank() }
     return when {
         raw != null -> translations[raw] ?: httpFallback(code, raw)
         else -> httpFallback(code, fallback)
