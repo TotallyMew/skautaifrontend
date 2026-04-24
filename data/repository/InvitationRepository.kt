@@ -1,10 +1,12 @@
 package lt.skautai.android.data.repository
 
 import kotlinx.coroutines.flow.first
+import lt.skautai.android.data.remote.AcceptInvitationRequestDto
 import lt.skautai.android.data.remote.CreateInvitationRequestDto
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.InvitationResponseDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,7 +38,25 @@ class InvitationRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant pakvietimą"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant pakvietimą")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun acceptInvitation(code: String): Result<InvitationResponseDto> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val response = invitationApiService.acceptInvitation(
+                token = "Bearer $token",
+                request = AcceptInvitationRequestDto(code = code.trim())
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida priimant pakvietima")))
             }
         } catch (e: Exception) {
             Result.failure(e)

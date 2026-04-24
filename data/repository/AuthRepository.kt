@@ -6,34 +6,46 @@ import lt.skautai.android.data.remote.RegisterTuntininkasRequestDto
 import lt.skautai.android.data.remote.RegisterWithInviteRequestDto
 import lt.skautai.android.data.remote.TokenResponseDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
     private val authApiService: AuthApiService,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val userRepository: UserRepository
 ) {
+
+    private suspend fun persistSession(body: TokenResponseDto) {
+        tokenManager.saveToken(
+            token = body.token,
+            userId = body.userId,
+            name = body.name,
+            email = body.email,
+            type = body.type
+        )
+
+        val tuntai = body.tuntai.orEmpty()
+        if (tuntai.size == 1) {
+            val tuntas = tuntai.first()
+            val tuntasId = tuntas.id
+            tokenManager.setActiveTuntas(tuntasId, tuntas.name)
+            userRepository.getMyPermissions(tuntasId)
+                .onSuccess { tokenManager.savePermissions(it) }
+        }
+    }
 
     suspend fun login(email: String, password: String): Result<TokenResponseDto> {
         return try {
             val response = authApiService.login(LoginRequestDto(email, password))
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveToken(
-                    token = body.token,
-                    userId = body.userId,
-                    name = body.name,
-                    email = body.email,
-                    type = body.type
-                )
-                if (body.tuntai.size == 1) {
-                    tokenManager.setActiveTuntas(body.tuntai.first().id)
-                }
+                persistSession(body)
                 Result.success(body)
 
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Login failed"))
+                Result.failure(Exception(response.errorMessage("Login failed")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -47,8 +59,7 @@ class AuthRepository @Inject constructor(
         password: String,
         phone: String?,
         tuntasName: String,
-        tuntasKrastas: String?,
-        tuntasContactEmail: String?
+        tuntasKrastas: String?
     ): Result<TokenResponseDto> {
         return try {
             val response = authApiService.registerTuntininkas(
@@ -59,22 +70,15 @@ class AuthRepository @Inject constructor(
                     password = password,
                     phone = phone,
                     tuntasName = tuntasName,
-                    tuntasKrastas = tuntasKrastas,
-                    tuntasContactEmail = tuntasContactEmail
+                    tuntasKrastas = tuntasKrastas
                 )
             )
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveToken(
-                    token = body.token,
-                    userId = body.userId,
-                    name = body.name,
-                    email = body.email,
-                    type = body.type
-                )
+                persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
+                Result.failure(Exception(response.errorMessage("Registration failed")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -102,19 +106,10 @@ class AuthRepository @Inject constructor(
             )
             if (response.isSuccessful) {
                 val body = response.body()!!
-                tokenManager.saveToken(
-                    token = body.token,
-                    userId = body.userId,
-                    name = body.name,
-                    email = body.email,
-                    type = body.type
-                )
-                if (body.tuntai.size == 1) {
-                    tokenManager.setActiveTuntas(body.tuntai.first().id)
-                }
+                persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
+                Result.failure(Exception(response.errorMessage("Registration failed")))
             }
         } catch (e: Exception) {
             Result.failure(e)

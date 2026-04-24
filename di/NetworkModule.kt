@@ -21,7 +21,12 @@ import lt.skautai.android.data.remote.MemberApiService
 import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.RequestApiService
+import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.ReservationApiService
+import lt.skautai.android.data.remote.EventApiService
+import lt.skautai.android.data.remote.LocationApiService
+import lt.skautai.android.data.remote.UploadApiService
+import lt.skautai.android.util.NetworkErrorInterceptor
 
 
 @Module
@@ -38,16 +43,22 @@ object NetworkModule {
     @Singleton
     fun provideLoggingInterceptor(): HttpLoggingInterceptor {
         return HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.NONE
         }
     }
 
     @Provides
     @Singleton
+    fun provideNetworkErrorInterceptor(): NetworkErrorInterceptor = NetworkErrorInterceptor()
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
-        loggingInterceptor: HttpLoggingInterceptor
+        loggingInterceptor: HttpLoggingInterceptor,
+        networkErrorInterceptor: NetworkErrorInterceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor(networkErrorInterceptor)
             .addInterceptor(loggingInterceptor)
             .build()
     }
@@ -116,5 +127,27 @@ object NetworkModule {
         return retrofit.create(RequestApiService::class.java)
     }
 
+    @Provides
+    @Singleton
+    fun provideRequisitionApiService(retrofit: Retrofit): RequisitionApiService {
+        return retrofit.create(RequisitionApiService::class.java)
+    }
 
+    @Provides
+    @Singleton
+    fun provideEventApiService(retrofit: Retrofit): EventApiService {
+        return retrofit.create(EventApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLocationApiService(retrofit: Retrofit): LocationApiService {
+        return retrofit.create(LocationApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideUploadApiService(retrofit: Retrofit): UploadApiService {
+        return retrofit.create(UploadApiService::class.java)
+    }
 }

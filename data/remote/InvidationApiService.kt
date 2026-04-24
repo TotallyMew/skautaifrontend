@@ -13,4 +13,10 @@ interface InvitationApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Body request: CreateInvitationRequestDto
     ): Response<InvitationResponseDto>
+
+    @POST("api/invitations/accept")
+    suspend fun acceptInvitation(
+        @Header("Authorization") token: String,
+        @Body request: AcceptInvitationRequestDto
+    ): Response<InvitationResponseDto>
 }

@@ -12,8 +12,7 @@ data class RegisterTuntininkasRequestDto(
     val password: String,
     val phone: String? = null,
     val tuntasName: String,
-    val tuntasKrastas: String? = null,
-    val tuntasContactEmail: String? = null
+    val tuntasKrastas: String? = null
 )
 
 data class RegisterWithInviteRequestDto(
@@ -31,7 +30,7 @@ data class TokenResponseDto(
     val email: String,
     val name: String,
     val type: String = "user",
-    val tuntai: List<UserTuntasDto> = emptyList()
+    val tuntai: List<UserTuntasDto>? = emptyList()
 )
 
 data class ErrorResponseDto(

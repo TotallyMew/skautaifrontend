@@ -16,11 +16,11 @@ interface ItemApiService {
     suspend fun getItems(
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String,
-        @Query("ownerType") ownerType: String? = null,
+        @Query("custodianId") custodianId: String? = null,
+        @Query("type") type: String? = null,
         @Query("category") category: String? = null,
         @Query("status") status: String? = null
     ): Response<ItemListResponseDto>
-
 
     @GET("api/items/{itemId}")
     suspend fun getItem(
@@ -50,5 +50,4 @@ interface ItemApiService {
         @Path("itemId") itemId: String,
         @Body request: UpdateItemRequestDto
     ): Response<ItemDto>
-
 }
