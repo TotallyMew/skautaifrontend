@@ -1,54 +1,180 @@
 package lt.skautai.android.ui.inventory
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface InventoryListUiState {
     object Loading : InventoryListUiState
-    data class Success(val items: List<ItemDto>) : InventoryListUiState
+    data class Success(
+        val activeItems: List<ItemDto>,
+        val pendingItems: List<ItemDto> = emptyList()
+    ) : InventoryListUiState
     data class Error(val message: String) : InventoryListUiState
     object Empty : InventoryListUiState
 }
 
+enum class InventoryListTab {
+    INVENTORY,
+    APPROVALS
+}
+
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val tokenManager: TokenManager,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<InventoryListUiState>(InventoryListUiState.Loading)
     val uiState: StateFlow<InventoryListUiState> = _uiState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _selectedType = MutableStateFlow(savedStateHandle.get<String?>("type"))
+    val selectedType: StateFlow<String?> = _selectedType.asStateFlow()
+
+    private val _selectedCategory = MutableStateFlow(savedStateHandle.get<String?>("category"))
+    val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
+
+    private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
+    val openedCustodianId: String? = initialCustodianId
+
+    private val _selectedTab = MutableStateFlow(InventoryListTab.INVENTORY)
+    val selectedTab: StateFlow<InventoryListTab> = _selectedTab.asStateFlow()
+
+    val permissions: StateFlow<Set<String>> = tokenManager.permissions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     init {
+        observeCachedItems()
         loadItems()
+    }
+
+    private fun observeCachedItems() {
+        viewModelScope.launch {
+            combine(
+                itemRepository.observeItems(custodianId = initialCustodianId),
+                itemRepository.observeItems(status = "PENDING_APPROVAL"),
+                permissions
+            ) { activeItems, pendingItems, permissions ->
+                val visiblePendingItems = if ("items.transfer" in permissions) pendingItems else emptyList()
+                if (activeItems.isEmpty() && visiblePendingItems.isEmpty()) {
+                    InventoryListUiState.Empty
+                } else {
+                    InventoryListUiState.Success(activeItems, visiblePendingItems)
+                }
+            }.collect { state ->
+                if (!_isRefreshing.value ||
+                    state is InventoryListUiState.Success ||
+                    state is InventoryListUiState.Empty
+                ) {
+                    _uiState.value = state
+                }
+            }
+        }
     }
 
     fun loadItems() {
         viewModelScope.launch {
-            _uiState.value = InventoryListUiState.Loading
-            itemRepository.getItems()
-                .onSuccess { items ->
-                    _uiState.value = if (items.isEmpty()) {
-                        InventoryListUiState.Empty
-                    } else {
-                        InventoryListUiState.Success(items)
+            _isRefreshing.value = true
+            if (_uiState.value !is InventoryListUiState.Success) {
+                _uiState.value = InventoryListUiState.Loading
+            }
+            try {
+                val itemsResult = itemRepository.refreshItems(custodianId = initialCustodianId)
+                val canApprovePending = "items.transfer" in permissions.value
+
+                val pendingItemsResult = if (canApprovePending) {
+                    itemRepository.refreshItems(status = "PENDING_APPROVAL")
+                } else Result.success(Unit)
+
+                val error = itemsResult.exceptionOrNull() ?: pendingItemsResult.exceptionOrNull()
+                if (error != null && _uiState.value !is InventoryListUiState.Success) {
+                    val currentState = _uiState.value
+                    if (currentState !is InventoryListUiState.Empty) {
+                        _uiState.value = InventoryListUiState.Error(
+                            error.message ?: "Nepavyko gauti inventoriaus"
+                        )
                     }
                 }
-                .onFailure { error ->
-                    _uiState.value = InventoryListUiState.Error(
-                        error.message ?: "Nepavyko gauti inventoriaus"
-                    )
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    fun approveItem(itemId: String) {
+        viewModelScope.launch {
+            itemRepository.updateItem(itemId, UpdateItemRequestDto(status = "ACTIVE"))
+                .onSuccess { updatedItem ->
+                    val current = _uiState.value
+                    if (current is InventoryListUiState.Success) {
+                        _uiState.value = current.copy(
+                            activeItems = (current.activeItems + updatedItem)
+                                .distinctBy { it.id }
+                                .sortedBy { it.name.lowercase() },
+                            pendingItems = current.pendingItems.filterNot { it.id == itemId }
+                        )
+                    } else {
+                        loadItems()
+                    }
                 }
+        }
+    }
+
+    fun rejectItem(itemId: String) {
+        viewModelScope.launch {
+            itemRepository.updateItem(itemId, UpdateItemRequestDto(status = "INACTIVE"))
+                .onSuccess {
+                    val current = _uiState.value
+                    if (current is InventoryListUiState.Success) {
+                        val remainingPending = current.pendingItems.filterNot { it.id == itemId }
+                        _uiState.value = if (current.activeItems.isEmpty() && remainingPending.isEmpty()) {
+                            InventoryListUiState.Empty
+                        } else {
+                            current.copy(pendingItems = remainingPending)
+                        }
+                    } else {
+                        loadItems()
+                    }
+                }
+        }
+    }
+
+    fun approveAllPending() {
+        viewModelScope.launch {
+            val current = _uiState.value as? InventoryListUiState.Success ?: return@launch
+            val pendingIds = current.pendingItems.map { it.id }
+            if (pendingIds.isEmpty()) return@launch
+
+            val approvedItems = pendingIds.mapNotNull { itemId ->
+                itemRepository.updateItem(itemId, UpdateItemRequestDto(status = "ACTIVE")).getOrNull()
+            }
+
+            _uiState.value = current.copy(
+                activeItems = (current.activeItems + approvedItems)
+                    .distinctBy { it.id }
+                    .sortedBy { it.name.lowercase() },
+                pendingItems = current.pendingItems.filterNot { it.id in pendingIds }
+            )
         }
     }
 
@@ -56,12 +182,38 @@ class InventoryListViewModel @Inject constructor(
         _searchQuery.value = query
     }
 
+    fun onTypeSelected(type: String?) {
+        _selectedType.value = type
+    }
+
+    fun onCategorySelected(category: String?) {
+        _selectedCategory.value = category
+    }
+
+    fun clearFilters() {
+        _selectedType.value = null
+        _selectedCategory.value = null
+    }
+
+    fun onTabSelected(tab: InventoryListTab) {
+        _selectedTab.value = tab
+    }
+
     fun filteredItems(items: List<ItemDto>): List<ItemDto> {
         val query = _searchQuery.value.trim()
-        if (query.isBlank()) return items
-        return items.filter {
+        val byType = _selectedType.value?.let { selected ->
+            items.filter { it.type == selected }
+        } ?: items
+        val byCategory = _selectedCategory.value?.let { selected ->
+            byType.filter { it.category == selected }
+        } ?: byType
+
+        if (query.isBlank()) return byCategory
+        return byCategory.filter {
             it.name.contains(query, ignoreCase = true) ||
-                    it.notes?.contains(query, ignoreCase = true) == true
+                it.notes?.contains(query, ignoreCase = true) == true ||
+                it.custodianName?.contains(query, ignoreCase = true) == true ||
+                it.locationId?.contains(query, ignoreCase = true) == true
         }
     }
 }

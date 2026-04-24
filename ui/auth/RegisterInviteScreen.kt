@@ -50,7 +50,7 @@ fun RegisterInviteScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             if (uiState.tuntaiCount == 1) {
-                navController.navigate(NavRoutes.InventoryList.route) {
+                navController.navigate(NavRoutes.Home.route) {
                     popUpTo(NavRoutes.Login.route) { inclusive = true }
                 }
             } else {

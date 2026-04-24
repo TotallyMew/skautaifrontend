@@ -1,66 +1,109 @@
 package lt.skautai.android.ui.inventory
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.ui.common.RemoteImage
+import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.itemConditionLabel
+import lt.skautai.android.ui.common.inventoryCategoryLabel
+import lt.skautai.android.ui.common.inventoryTypeLabel
+import java.time.Instant
+import java.time.ZoneOffset
+
+private const val STEP_CONTEXT = 0
+private const val STEP_INFO = 1
+private const val STEP_REVIEW = 2
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InventoryAddEditScreen(
     itemId: String?,
+    mode: String?,
     navController: NavController,
     viewModel: InventoryAddEditViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var currentStep by remember(itemId) { mutableIntStateOf(STEP_CONTEXT) }
+    var saveImmediately by remember(itemId) { mutableStateOf(true) }
+    var saveAndAddAnother by remember(itemId) { mutableStateOf(false) }
+    val isCreateFlow = itemId == null
 
     LaunchedEffect(Unit) {
-        viewModel.init(itemId)
+        viewModel.init(itemId, mode)
     }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
-            navController.popBackStack()
+            if (saveAndAddAnother && isCreateFlow) {
+                snackbarHostState.showSnackbar("Issaugota. Gali prideti kita daikta.")
+                viewModel.prepareNextItem()
+                currentStep = STEP_INFO
+            } else {
+                viewModel.clearSuccess()
+                navController.popBackStack()
+            }
         }
     }
 
@@ -74,10 +117,18 @@ fun InventoryAddEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (itemId == null) "Naujas daiktas" else "Redaguoti daiktą") },
+                title = { Text(if (isCreateFlow) createTitle(uiState.mode) else "Redaguoti inventoriu") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            if (isCreateFlow && currentStep > STEP_CONTEXT) currentStep -= 1
+                            else navController.popBackStack()
+                        }
+                    ) {
+                        androidx.compose.material3.Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Atgal"
+                        )
                     }
                 }
             )
@@ -97,139 +148,540 @@ fun InventoryAddEditScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState())
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    // Name
-                    OutlinedTextField(
-                        value = uiState.name,
-                        onValueChange = { viewModel.onNameChange(it) },
-                        label = { Text("Pavadinimas *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    // Description
-                    OutlinedTextField(
-                        value = uiState.description,
-                        onValueChange = { viewModel.onDescriptionChange(it) },
-                        label = { Text("Aprašymas") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4
-                    )
-
-                    // Category dropdown
-                    DropdownField(
-                        label = "Kategorija",
-                        selected = uiState.category,
-                        options = listOf(
-                            "COLLECTIVE" to "Bendras",
-                            "ASSIGNED" to "Priskirtas",
-                            "INDIVIDUAL" to "Asmeninis"
-                        ),
-                        onSelected = { viewModel.onCategoryChange(it) }
-                    )
-
-                    // Condition dropdown (only when editing)
-                    if (itemId != null) {
-                        DropdownField(
-                            label = "Būklė",
-                            selected = uiState.condition,
-                            options = listOf(
-                                "GOOD" to "Gera",
-                                "DAMAGED" to "Pažeista",
-                                "WRITTEN_OFF" to "Nurašyta"
-                            ),
-                            onSelected = { viewModel.onConditionChange(it) }
-                        )
+                    if (isCreateFlow) {
+                        StepHeader(currentStep = currentStep)
                     }
 
-                    // Owner type dropdown
-                    DropdownField(
-                        label = "Savininko tipas",
-                        selected = uiState.ownerType,
-                        options = listOf(
-                            "TUNTAS" to "Tuntas",
-                            "DRAUGOVE" to "Draugovė",
-                            "INDIVIDUAL" to "Asmeninis"
-                        ),
-                        onSelected = { viewModel.onOwnerTypeChange(it) }
-                    )
+                    when {
+                        !isCreateFlow -> {
+                            ContextStep(uiState = uiState, viewModel = viewModel)
+                            ItemInfoStep(uiState = uiState, viewModel = viewModel, isEditing = true)
+                        }
+                        currentStep == STEP_CONTEXT -> ContextStep(uiState = uiState, viewModel = viewModel)
+                        currentStep == STEP_INFO -> ItemInfoStep(uiState = uiState, viewModel = viewModel, isEditing = false)
+                        else -> ReviewStep(uiState = uiState)
+                    }
 
-                    // Org unit dropdown (only when DRAUGOVE)
-                    if (uiState.ownerType == "DRAUGOVE") {
-                        if (uiState.orgUnits.isEmpty()) {
-                            Text(
-                                text = "Nėra draugovių šiame tunte",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        } else {
-                            OrgUnitDropdown(
-                                units = uiState.orgUnits,
-                                selectedId = uiState.selectedOrgUnitId,
-                                onSelected = { viewModel.onOrgUnitChange(it) }
+                    if (isCreateFlow) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            if (currentStep > STEP_CONTEXT) {
+                                OutlinedButton(
+                                    onClick = { currentStep -= 1 },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Atgal")
+                                }
+                            }
+                            Button(
+                                onClick = {
+                                    when (currentStep) {
+                                        STEP_CONTEXT -> if (validateContextStep(uiState, viewModel)) currentStep = STEP_INFO
+                                        STEP_INFO -> if (validateInfoStep(uiState, viewModel)) {
+                                            if (saveImmediately) viewModel.save(null) else currentStep = STEP_REVIEW
+                                        }
+                                        else -> viewModel.save(null)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = !uiState.isSaving && !uiState.isUploadingPhoto
+                            ) {
+                                if (uiState.isSaving) {
+                                    CircularProgressIndicator()
+                                } else {
+                                    Text(
+                                        when (currentStep) {
+                                            STEP_CONTEXT -> "Toliau"
+                                            STEP_INFO -> if (saveImmediately) "Issaugoti" else "Perziureti"
+                                            else -> "Issaugoti"
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                        if (currentStep == STEP_INFO) {
+                            SaveFlowOptions(
+                                saveImmediately = saveImmediately,
+                                onSaveImmediatelyChange = { saveImmediately = it },
+                                saveAndAddAnother = saveAndAddAnother,
+                                onSaveAndAddAnotherChange = { saveAndAddAnother = it }
                             )
                         }
-                    }
-
-                    // Quantity
-                    OutlinedTextField(
-                        value = uiState.quantity,
-                        onValueChange = { viewModel.onQuantityChange(it) },
-                        label = { Text("Kiekis *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-
-                    // Notes
-                    OutlinedTextField(
-                        value = uiState.notes,
-                        onValueChange = { viewModel.onNotesChange(it) },
-                        label = { Text("Pastabos") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4
-                    )
-
-                    // Purchase date
-                    OutlinedTextField(
-                        value = uiState.purchaseDate,
-                        onValueChange = { viewModel.onPurchaseDateChange(it) },
-                        label = { Text("Pirkimo data (YYYY-MM-DD)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
-
-                    // Purchase price
-                    OutlinedTextField(
-                        value = uiState.purchasePrice,
-                        onValueChange = { viewModel.onPurchasePriceChange(it) },
-                        label = { Text("Pirkimo kaina (€)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Button(
-                        onClick = { viewModel.save(itemId) },
-                        modifier = Modifier.fillMaxWidth(),
-                        enabled = !uiState.isSaving
-                    ) {
-                        if (uiState.isSaving) {
-                            CircularProgressIndicator()
-                        } else {
-                            Text(if (itemId == null) "Sukurti" else "Išsaugoti")
+                        if (currentStep == STEP_REVIEW) {
+                            OutlinedButton(
+                                onClick = {
+                                    saveAndAddAnother = true
+                                    viewModel.save(null)
+                                },
+                                enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Issaugoti ir prideti kita")
+                            }
+                        }
+                    } else {
+                        Button(
+                            onClick = { viewModel.save(itemId) },
+                            enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            if (uiState.isSaving) CircularProgressIndicator() else Text("Issaugoti pakeitimus")
                         }
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun StepHeader(currentStep: Int) {
+    val labels = listOf(
+        "1. Kontekstas ir laikymas",
+        "2. Daikto informacija",
+        "3. Perziura"
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Naujo inventoriaus vedlys", style = MaterialTheme.typography.headlineSmall)
+        labels.forEachIndexed { index, label ->
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (index == currentStep) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                fontWeight = if (index == currentStep) FontWeight.SemiBold else FontWeight.Normal
+            )
+        }
+    }
+}
+
+@Composable
+private fun ContextStep(
+    uiState: InventoryAddEditUiState,
+    viewModel: InventoryAddEditViewModel
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SkautaiCard(
+            modifier = Modifier.fillMaxWidth(),
+            tonal = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(contextTitle(uiState.mode), style = MaterialTheme.typography.titleMedium)
+                Text(
+                    contextDescription(uiState.mode),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
+        SkautaiSectionHeader(title = "Inventoriaus duomenys")
+
+        ReadOnlyInfo(label = "Tipas", value = inventoryTypeLabel(uiState.type))
+
+        DropdownField(
+            label = "Inventoriaus kategorija",
+            selected = uiState.category,
+            options = inventoryCategoryOptions(),
+            onSelected = viewModel::onCategoryChange
+        )
+
+        if (uiState.mode == "UNIT_OWN") {
+            SkautaiCard(
+                modifier = Modifier.fillMaxWidth(),
+                tonal = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Text(
+                    text = "Kuriamas naujas vieneto daiktas; paemimui is tunto naudok prasyma.",
+                    modifier = Modifier.padding(16.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+            }
+        }
+
+        LocationDropdown(
+            locations = uiState.locations,
+            selectedId = uiState.selectedLocationId,
+            onSelected = viewModel::onLocationChange
+        )
+
+        OutlinedTextField(
+            value = uiState.temporaryStorageLabel,
+            onValueChange = viewModel::onTemporaryStorageLabelChange,
+            label = { Text("Vienkartine laikymo vieta") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2
+        )
+
+        if (uiState.mode == "UNIT_OWN" || uiState.selectedOrgUnitId.isNotBlank()) {
+            CustodianUnitDropdown(
+                units = uiState.orgUnits,
+                selectedId = uiState.selectedOrgUnitId,
+                onSelected = viewModel::onOrgUnitChange,
+                enabled = uiState.mode != "UNIT_OWN"
+            )
+        }
+
+        Text(
+            text = approvalMessage(uiState),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun ItemInfoStep(
+    uiState: InventoryAddEditUiState,
+    viewModel: InventoryAddEditViewModel,
+    isEditing: Boolean
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SkautaiSectionHeader(title = "Daikto informacija")
+
+        PhotoField(uiState = uiState, viewModel = viewModel)
+
+        OutlinedTextField(
+            value = uiState.name,
+            onValueChange = viewModel::onNameChange,
+            label = { Text("Pavadinimas *") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
+        OutlinedTextField(
+            value = uiState.description,
+            onValueChange = viewModel::onDescriptionChange,
+            label = { Text("Aprasymas") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 4
+        )
+
+        QuantityStepper(
+            quantity = uiState.quantity,
+            onQuantityChange = viewModel::onQuantityChange
+        )
+
+        ConditionSelector(
+            selected = uiState.condition,
+            onSelected = viewModel::onConditionChange
+        )
+
+        OutlinedTextField(
+            value = uiState.notes,
+            onValueChange = viewModel::onNotesChange,
+            label = { Text("Pastabos") },
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 4
+        )
+
+        PurchaseDateField(
+            value = uiState.purchaseDate,
+            onSelected = viewModel::onPurchaseDateSelected
+        )
+
+        OutlinedTextField(
+            value = uiState.purchasePrice,
+            onValueChange = viewModel::onPurchasePriceChange,
+            label = { Text("Pirkimo kaina (EUR)") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+        )
+    }
+}
+
+@Composable
+private fun ReviewStep(uiState: InventoryAddEditUiState) {
+    val selectedLocation = uiState.locations.firstOrNull { it.id == uiState.selectedLocationId }
+    val selectedUnit = uiState.orgUnits.firstOrNull { it.id == uiState.selectedOrgUnitId }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        SkautaiSectionHeader(title = "Perziura")
+        SkautaiCard(
+            modifier = Modifier.fillMaxWidth(),
+            tonal = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Column(
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(uiState.name.ifBlank { "Be pavadinimo" }, style = MaterialTheme.typography.headlineSmall)
+                ReviewRow("Tipas", inventoryTypeLabel(uiState.type))
+                ReviewRow("Kategorija", inventoryCategoryLabel(uiState.category))
+                ReviewRow("Lokacija", selectedLocation?.name ?: "Nenurodyta")
+                uiState.temporaryStorageLabel.takeIf { it.isNotBlank() }?.let {
+                    ReviewRow("Vienkartine vieta", it)
+                }
+                ReviewRow("Atsakingas vienetas", selectedUnit?.name ?: "Bendras tunto saugojimas")
+                ReviewRow("Kilme", originLabelForMode(uiState.mode))
+                ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
+                ReviewRow("Bukle", itemConditionLabel(uiState.condition))
+                uiState.photoUrl.takeIf { it.isNotBlank() }?.let {
+                    ReviewRow("Nuotrauka", "Prideta")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PhotoField(
+    uiState: InventoryAddEditUiState,
+    viewModel: InventoryAddEditViewModel
+) {
+    val photoPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let { viewModel.uploadPhoto(it) }
+    }
+
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            OutlinedButton(
+                onClick = {
+                    photoPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+            ) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.AddAPhoto,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Prideti nuotrauka")
+            }
+            if (uiState.isUploadingPhoto) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                    Text(
+                        text = "Nuotrauka ikeliama...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else if (uiState.photoUrl.isNotBlank()) {
+                RemoteImage(
+                    imageUrl = uiState.photoUrl,
+                    contentDescription = "Pasirinkta nuotrauka",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.7f)
+                )
+                Text(
+                    text = "Nuotrauka ikelta",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PurchaseDateField(
+    value: String,
+    onSelected: (String?) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = value.toEpochMillisOrNull()
+    )
+
+    OutlinedButton(
+        onClick = { showPicker = true },
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+    ) {
+        Text(if (value.isBlank()) "Pasirinkti pirkimo data" else "Pirkimo data: $value")
+    }
+
+    if (showPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showPicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onSelected(datePickerState.selectedDateMillis?.toIsoDate())
+                        showPicker = false
+                    }
+                ) {
+                    Text("Pasirinkti")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("Atsaukti")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+@Composable
+private fun QuantityStepper(
+    quantity: String,
+    onQuantityChange: (String) -> Unit
+) {
+    val numeric = quantity.toIntOrNull() ?: 1
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        OutlinedButton(
+            onClick = { onQuantityChange((numeric - 1).coerceAtLeast(1).toString()) },
+            modifier = Modifier.size(width = 56.dp, height = 56.dp)
+        ) {
+            androidx.compose.material3.Icon(Icons.Default.Remove, contentDescription = "Mazinti")
+        }
+        OutlinedTextField(
+            value = quantity,
+            onValueChange = onQuantityChange,
+            label = { Text("Kiekis *") },
+            modifier = Modifier.weight(1f),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
+        Button(
+            onClick = { onQuantityChange((numeric + 1).toString()) },
+            modifier = Modifier.size(width = 56.dp, height = 56.dp)
+        ) {
+            androidx.compose.material3.Icon(Icons.Default.Add, contentDescription = "Didinti")
+        }
+    }
+}
+
+private fun Long.toIsoDate(): String =
+    Instant.ofEpochMilli(this).atZone(ZoneOffset.UTC).toLocalDate().toString()
+
+private fun String.toEpochMillisOrNull(): Long? =
+    runCatching {
+        java.time.LocalDate.parse(this)
+            .atStartOfDay()
+            .toInstant(ZoneOffset.UTC)
+            .toEpochMilli()
+    }.getOrNull()
+
+@Composable
+private fun ConditionSelector(
+    selected: String,
+    onSelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Bukle",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            conditionOptions().forEach { (value, label) ->
+                val isSelected = selected == value
+                if (isSelected) {
+                    Button(
+                        onClick = { onSelected(value) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text(label)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { onSelected(value) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text(label)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SaveFlowOptions(
+    saveImmediately: Boolean,
+    onSaveImmediatelyChange: (Boolean) -> Unit,
+    saveAndAddAnother: Boolean,
+    onSaveAndAddAnotherChange: (Boolean) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        CheckboxRow(
+            checked = saveImmediately,
+            onCheckedChange = onSaveImmediatelyChange,
+            label = "Issaugoti iskart"
+        )
+        CheckboxRow(
+            checked = saveAndAddAnother,
+            onCheckedChange = onSaveAndAddAnotherChange,
+            label = "Issaugoti ir prideti kita"
+        )
+    }
+}
+
+@Composable
+private fun CheckboxRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Text(label, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun ReviewRow(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyLarge)
+    }
+}
+
+@Composable
+private fun ReadOnlyInfo(label: String, value: String) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = {},
+        readOnly = true,
+        label = { Text(label) },
+        modifier = Modifier.fillMaxWidth()
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -242,11 +694,7 @@ private fun DropdownField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = options.firstOrNull { it.first == selected }?.second ?: selected
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = selectedLabel,
             onValueChange = {},
@@ -255,9 +703,9 @@ private fun DropdownField(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
@@ -276,29 +724,71 @@ private fun DropdownField(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun OrgUnitDropdown(
-    units: List<OrganizationalUnitDto>,
+private fun LocationDropdown(
+    locations: List<LocationDto>,
     selectedId: String,
-    onSelected: (String) -> Unit
+    onSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkite draugovę"
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
+    val selectedName = if (selectedId.isEmpty()) "Lokacija nepasirinkta" else locations.firstOrNull { it.id == selectedId }?.name ?: "Lokacija nepasirinkta"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = selectedName,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Draugovė *") },
+            label = { Text("Permanent lokacija") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
         )
-        ExposedDropdownMenu(
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Lokacija nepasirinkta") },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                }
+            )
+            locations.forEach { location ->
+                DropdownMenuItem(
+                    text = { Text(location.name) },
+                    onClick = {
+                        onSelected(location.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustodianUnitDropdown(
+    units: List<OrganizationalUnitDto>,
+    selectedId: String,
+    onSelected: (String?) -> Unit,
+    enabled: Boolean
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkti vieneta"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
+        OutlinedTextField(
+            value = selectedName,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("Atsakingas vienetas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
@@ -313,4 +803,81 @@ private fun OrgUnitDropdown(
             }
         }
     }
+}
+
+private fun inventoryCategoryOptions(): List<Pair<String, String>> = listOf(
+    "CAMPING" to "Camping",
+    "TOOLS" to "Tools",
+    "COOKING" to "Cooking",
+    "FIRST_AID" to "First aid",
+    "UNIFORMS" to "Uniforms",
+    "BOOKS" to "Books",
+    "PERSONAL_LOANS" to "Personal loans"
+)
+
+private fun conditionOptions(): List<Pair<String, String>> = listOf(
+    "GOOD" to "Gera",
+    "DAMAGED" to "Vidutine",
+    "WRITTEN_OFF" to "Bloga"
+)
+
+private fun createTitle(mode: String): String = when (mode) {
+    "UNIT_OWN" -> "Naujas vieneto daiktas"
+    "PERSONAL" -> "Mano siulomas skolinti"
+    else -> "Prideti i tunto inventoriu"
+}
+
+private fun contextTitle(mode: String): String = when (mode) {
+    "UNIT_OWN" -> "Aktyvaus vieneto inventorius"
+    "PERSONAL" -> "Mano siulomas skolinti"
+    else -> "Bendras tunto inventorius"
+}
+
+private fun contextDescription(mode: String): String = when (mode) {
+    "UNIT_OWN" -> "Naujas tavo aktyvaus vieneto inventoriaus irasas."
+    "PERSONAL" -> "Asmeninis daiktas, kuri gali skolinti kitiems."
+    else -> "Bendro tunto sandelio inventoriaus irasas."
+}
+
+private fun originLabelForMode(mode: String): String = when (mode) {
+    "SHARED" -> "Bendro tunto inventorius"
+    "PERSONAL" -> "Asmeninis daiktas skolinimui"
+    "UNIT_OWN" -> "Naujas vieneto daiktas"
+    else -> "Sukurtas naujai"
+}
+
+private fun approvalMessage(uiState: InventoryAddEditUiState): String = when (uiState.mode) {
+    "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventorius."
+    "PERSONAL" -> "Daiktas bus iskart matomas kaip tavo siulomas skolinti inventorius."
+    else -> "Bendro tunto inventorius gali reikalauti aukstesnio lygio patvirtinimo."
+}
+
+private fun validateContextStep(
+    uiState: InventoryAddEditUiState,
+    viewModel: InventoryAddEditViewModel
+): Boolean {
+    if (uiState.category.isBlank()) {
+        viewModel.showValidationError("Pasirink inventoriaus kategorija")
+        return false
+    }
+    if (uiState.mode == "UNIT_OWN" && uiState.selectedOrgUnitId.isBlank()) {
+        viewModel.showValidationError("Aktyviam vienetui reikia pasirinkto vieneto")
+        return false
+    }
+    return true
+}
+
+private fun validateInfoStep(
+    uiState: InventoryAddEditUiState,
+    viewModel: InventoryAddEditViewModel
+): Boolean {
+    if (uiState.name.isBlank()) {
+        viewModel.showValidationError("Pavadinimas privalomas")
+        return false
+    }
+    if (uiState.quantity.toIntOrNull() == null || uiState.quantity.toInt() < 1) {
+        viewModel.showValidationError("Kiekis turi buti teigiamas skaicius")
+        return false
+    }
+    return true
 }

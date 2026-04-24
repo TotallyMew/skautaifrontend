@@ -31,7 +31,9 @@ class RequestListViewModel @Inject constructor(
 
     fun loadRequests() {
         viewModelScope.launch {
-            _uiState.value = RequestListUiState.Loading
+            if (_uiState.value !is RequestListUiState.Success) {
+                _uiState.value = RequestListUiState.Loading
+            }
             requestRepository.getRequests()
                 .onSuccess { response ->
                     _uiState.value = RequestListUiState.Success(response.requests)

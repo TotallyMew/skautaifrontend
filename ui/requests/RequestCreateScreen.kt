@@ -1,20 +1,33 @@
 package lt.skautai.android.ui.requests
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -40,7 +53,7 @@ fun RequestCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas prašymas") },
+                title = { Text("Naujas paemimo prasymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -50,139 +63,105 @@ fun RequestCreateScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            if (uiState.isLoadingItems) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .verticalScroll(rememberScrollState())
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+        if (uiState.isLoadingItems) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                    modifier = Modifier.fillMaxWidth()
                 ) {
-                    RequestItemDropdown(
-                        items = uiState.items,
-                        selectedItemId = uiState.selectedItemId,
-                        onItemSelected = viewModel::onItemSelected
-                    )
-
-                    if (uiState.orgUnits.isNotEmpty()) {
-                        RequestOrgUnitDropdown(
-                            orgUnits = uiState.orgUnits,
-                            selectedOrgUnitId = uiState.selectedOrgUnitId,
-                            onOrgUnitSelected = viewModel::onOrgUnitSelected
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            text = "Paemimo is tunto prasymas",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "Naudojama tada, kai daiktas jau yra bendrame tunto inventoriuje ir ji reikia perduoti vienetui.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                     }
+                }
 
-                    OutlinedTextField(
-                        value = uiState.quantity,
-                        onValueChange = viewModel::onQuantityChange,
-                        label = { Text("Kiekis *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                OutlinedTextField(
+                    value = uiState.itemDescription,
+                    onValueChange = viewModel::onItemDescriptionChange,
+                    label = { Text("Bendro inventoriaus daiktas *") },
+                    placeholder = { Text("pvz. Palapine 4 asmenims, Kompasas...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4
+                )
 
-                    OutlinedTextField(
-                        value = uiState.startDate,
-                        onValueChange = viewModel::onStartDateChange,
-                        label = { Text("Pradžios data (YYYY-MM-DD) *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                OutlinedTextField(
+                    value = uiState.quantity,
+                    onValueChange = viewModel::onQuantityChange,
+                    label = { Text("Kiekis *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
 
-                    OutlinedTextField(
-                        value = uiState.endDate,
-                        onValueChange = viewModel::onEndDateChange,
-                        label = { Text("Pabaigos data (YYYY-MM-DD) *") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                    )
+                OutlinedTextField(
+                    value = uiState.neededByDate,
+                    onValueChange = viewModel::onNeededByDateChange,
+                    label = { Text("Reikalinga iki (YYYY-MM-DD)") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
 
-                    OutlinedTextField(
-                        value = uiState.notes,
-                        onValueChange = viewModel::onNotesChange,
-                        label = { Text("Pastabos") },
-                        modifier = Modifier.fillMaxWidth(),
-                        minLines = 2,
-                        maxLines = 4
-                    )
+                RequestOrgUnitDropdown(
+                    orgUnits = uiState.orgUnits,
+                    selectedOrgUnitId = uiState.selectedOrgUnitId,
+                    selectedOrgUnitName = uiState.selectedOrgUnitName,
+                    onOrgUnitSelected = viewModel::onOrgUnitSelected
+                )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = uiState.notes,
+                    onValueChange = viewModel::onNotesChange,
+                    label = { Text("Pagrindimas / pastabos") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    maxLines = 4
+                )
 
-                    Button(
-                        onClick = viewModel::createRequest,
-                        enabled = !uiState.isSaving,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        if (uiState.isSaving) {
-                            CircularProgressIndicator(
-                                color = MaterialTheme.colorScheme.onPrimary,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
-                            Text("Pateikti prašymą")
-                        }
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Button(
+                    onClick = viewModel::createRequest,
+                    enabled = !uiState.isSaving,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (uiState.isSaving) {
+                        CircularProgressIndicator(
+                            color = MaterialTheme.colorScheme.onPrimary,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Text("Pateikti prasyma")
                     }
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun RequestItemDropdown(
-    items: List<ItemDto>,
-    selectedItemId: String,
-    onItemSelected: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedItem = items.find { it.id == selectedItemId }
-
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = it }
-    ) {
-        OutlinedTextField(
-            value = selectedItem?.name ?: "Pasirinkite daiktą",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Daiktas *") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            items.forEach { item ->
-                DropdownMenuItem(
-                    text = {
-                        Column {
-                            Text(item.name)
-                            Text(
-                                text = "Kiekis: ${item.quantity}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    },
-                    onClick = {
-                        onItemSelected(item.id)
-                        expanded = false
-                    }
-                )
             }
         }
     }
@@ -193,6 +172,7 @@ private fun RequestItemDropdown(
 private fun RequestOrgUnitDropdown(
     orgUnits: List<OrganizationalUnitDto>,
     selectedOrgUnitId: String?,
+    selectedOrgUnitName: String?,
     onOrgUnitSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -203,10 +183,10 @@ private fun RequestOrgUnitDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedUnit?.name ?: "Pasirinkite draugovę (neprivaloma)",
+            value = selectedUnit?.name ?: selectedOrgUnitName ?: "Tuntui",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Draugovė") },
+            label = { Text("Kam teikiamas prasymas") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -217,7 +197,7 @@ private fun RequestOrgUnitDropdown(
             onDismissRequest = { expanded = false }
         ) {
             DropdownMenuItem(
-                text = { Text("Nepriskirta") },
+                text = { Text("Tuntui") },
                 onClick = {
                     onOrgUnitSelected(null)
                     expanded = false

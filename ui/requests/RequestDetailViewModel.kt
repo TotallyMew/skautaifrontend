@@ -4,11 +4,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.BendrasRequestDto
 import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface RequestDetailUiState {
@@ -23,11 +26,21 @@ sealed interface RequestDetailUiState {
 
 @HiltViewModel
 class RequestDetailViewModel @Inject constructor(
-    private val requestRepository: RequestRepository
+    private val requestRepository: RequestRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<RequestDetailUiState>(RequestDetailUiState.Loading)
     val uiState: StateFlow<RequestDetailUiState> = _uiState.asStateFlow()
+
+    val permissions: StateFlow<Set<String>> = tokenManager.permissions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val currentUserId: StateFlow<String?> = tokenManager.userId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val activeOrgUnitId: StateFlow<String?> = tokenManager.activeOrgUnitId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
     fun loadRequest(id: String) {
         viewModelScope.launch {

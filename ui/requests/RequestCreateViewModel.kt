@@ -3,16 +3,18 @@ package lt.skautai.android.ui.requests
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateBendrasRequestDto
-import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
-import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.remote.MemberDto
+import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 data class RequestCreateUiState(
@@ -20,73 +22,68 @@ data class RequestCreateUiState(
     val isSaving: Boolean = false,
     val isSuccess: Boolean = false,
     val error: String? = null,
-    val items: List<ItemDto> = emptyList(),
     val orgUnits: List<OrganizationalUnitDto> = emptyList(),
-    val selectedItemId: String = "",
     val selectedOrgUnitId: String? = null,
+    val selectedOrgUnitName: String? = null,
+    val itemDescription: String = "",
     val quantity: String = "1",
-    val startDate: String = "",
-    val endDate: String = "",
+    val neededByDate: String = "",
     val notes: String = ""
 )
 
 @HiltViewModel
 class RequestCreateViewModel @Inject constructor(
     private val requestRepository: RequestRepository,
-    private val itemRepository: ItemRepository,
-    private val orgUnitRepository: OrganizationalUnitRepository
+    private val orgUnitRepository: OrganizationalUnitRepository,
+    private val memberRepository: MemberRepository,
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(RequestCreateUiState())
     val uiState: StateFlow<RequestCreateUiState> = _uiState.asStateFlow()
 
     init {
-        loadInitialData()
-    }
-
-    private fun loadInitialData() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoadingItems = true, error = null)
+            val unitsResult = orgUnitRepository.getUnits()
+            val currentUserId = tokenManager.userId.first()
+            val currentMemberResult = currentUserId?.let { memberRepository.getMember(it) }
 
-            itemRepository.getItems(status = "ACTIVE")
-                .onSuccess { items ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingItems = false,
-                        items = items
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingItems = false,
-                        error = error.message ?: "Klaida gaunant daiktus"
-                    )
-                }
-
-            orgUnitRepository.getUnits()
+            unitsResult
                 .onSuccess { units ->
-                    _uiState.value = _uiState.value.copy(orgUnits = units)
+                    val ownUnit = currentUserId?.let { userId ->
+                        findOwnUnit(userId, currentMemberResult?.getOrNull(), units)
+                    }
+                    _uiState.value = _uiState.value.copy(
+                        isLoadingItems = false,
+                        orgUnits = ownUnit?.let(::listOf) ?: emptyList(),
+                        selectedOrgUnitId = ownUnit?.id,
+                        selectedOrgUnitName = ownUnit?.name
+                    )
+                }
+                .onFailure {
+                    _uiState.value = _uiState.value.copy(isLoadingItems = false)
                 }
         }
     }
 
-    fun onItemSelected(itemId: String) {
-        _uiState.value = _uiState.value.copy(selectedItemId = itemId)
+    fun onItemDescriptionChange(value: String) {
+        _uiState.value = _uiState.value.copy(itemDescription = value)
     }
 
     fun onOrgUnitSelected(orgUnitId: String?) {
-        _uiState.value = _uiState.value.copy(selectedOrgUnitId = orgUnitId)
+        val selectedUnit = _uiState.value.orgUnits.find { it.id == orgUnitId }
+        _uiState.value = _uiState.value.copy(
+            selectedOrgUnitId = orgUnitId,
+            selectedOrgUnitName = selectedUnit?.name
+        )
     }
 
     fun onQuantityChange(value: String) {
         _uiState.value = _uiState.value.copy(quantity = value)
     }
 
-    fun onStartDateChange(value: String) {
-        _uiState.value = _uiState.value.copy(startDate = value)
-    }
-
-    fun onEndDateChange(value: String) {
-        _uiState.value = _uiState.value.copy(endDate = value)
+    fun onNeededByDateChange(value: String) {
+        _uiState.value = _uiState.value.copy(neededByDate = value)
     }
 
     fun onNotesChange(value: String) {
@@ -100,8 +97,8 @@ class RequestCreateViewModel @Inject constructor(
     fun createRequest() {
         val state = _uiState.value
 
-        if (state.selectedItemId.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite daiktą")
+        if (state.itemDescription.isBlank()) {
+            _uiState.value = state.copy(error = "Įveskite daikto aprašymą")
             return
         }
         val qty = state.quantity.toIntOrNull()
@@ -109,25 +106,15 @@ class RequestCreateViewModel @Inject constructor(
             _uiState.value = state.copy(error = "Kiekis turi būti teigiamas skaičius")
             return
         }
-        if (state.startDate.isBlank()) {
-            _uiState.value = state.copy(error = "Įveskite pradžios datą")
-            return
-        }
-        if (state.endDate.isBlank()) {
-            _uiState.value = state.copy(error = "Įveskite pabaigos datą")
-            return
-        }
 
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
             requestRepository.createRequest(
                 CreateBendrasRequestDto(
-                    itemId = state.selectedItemId,
+                    itemDescription = state.itemDescription,
                     quantity = qty,
-                    startDate = state.startDate,
-                    endDate = state.endDate,
-                    draugoveId = state.selectedOrgUnitId,
-                    eventId = null,
+                    neededByDate = state.neededByDate.ifBlank { null },
+                    requestingUnitId = state.selectedOrgUnitId,
                     notes = state.notes.ifBlank { null }
                 )
             ).onSuccess {
@@ -139,5 +126,28 @@ class RequestCreateViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private suspend fun findOwnUnit(
+        currentUserId: String,
+        currentMember: MemberDto?,
+        units: List<OrganizationalUnitDto>
+    ): OrganizationalUnitDto? {
+        val leadershipUnitId = currentMember?.leadershipRoles
+            ?.firstOrNull { it.termStatus == "ACTIVE" && !it.organizationalUnitId.isNullOrBlank() }
+            ?.organizationalUnitId
+
+        if (leadershipUnitId != null) {
+            return units.find { it.id == leadershipUnitId }
+        }
+
+        units.forEach { unit ->
+            val isAssigned = orgUnitRepository.getUnitMembers(unit.id)
+                .getOrDefault(emptyList())
+                .any { it.userId == currentUserId && it.leftAt == null }
+            if (isAssigned) return unit
+        }
+
+        return null
     }
 }

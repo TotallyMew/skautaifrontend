@@ -15,9 +15,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -29,7 +33,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -37,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.RegistrationValidation
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -152,21 +159,9 @@ fun RegisterScreen(
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
-                value = uiState.tuntasKrastas,
-                onValueChange = viewModel::onTuntasKrastasChange,
-                label = { Text("Kraštas (neprivaloma)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            OutlinedTextField(
-                value = uiState.tuntasContactEmail,
-                onValueChange = viewModel::onTuntasContactEmailChange,
-                label = { Text("Tunto kontaktinis el. paštas (neprivaloma)") },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            KrastasDropdown(
+                selectedKrastas = uiState.tuntasKrastas,
+                onKrastasSelected = viewModel::onTuntasKrastasChange
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -194,6 +189,47 @@ fun RegisterScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun KrastasDropdown(
+    selectedKrastas: String,
+    onKrastasSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedKrastas,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Kraštas *") },
+            placeholder = { Text("Pasirinkite kraštą") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            RegistrationValidation.allowedKrastai.forEach { krastas ->
+                DropdownMenuItem(
+                    text = { Text(krastas) },
+                    onClick = {
+                        onKrastasSelected(krastas)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }
