@@ -48,4 +48,10 @@ interface ReservationDao {
 
     @Query("DELETE FROM reservations WHERE id = :reservationId AND tuntasId = :tuntasId")
     suspend fun deleteReservation(reservationId: String, tuntasId: String)
+
+    @Query("SELECT * FROM reservations WHERE tuntasId = :tuntasId AND eventId = :eventId ORDER BY startDate ASC")
+    fun observeReservationsForEvent(tuntasId: String, eventId: String): Flow<List<ReservationEntity>>
+
+    @Query("SELECT * FROM reservations WHERE tuntasId = :tuntasId AND eventId = :eventId ORDER BY startDate ASC")
+    suspend fun getReservationsForEvent(tuntasId: String, eventId: String): List<ReservationEntity>
 }

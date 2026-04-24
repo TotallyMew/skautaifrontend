@@ -1,9 +1,10 @@
 package lt.skautai.android.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "reservations")
+@Entity(tableName = "reservations", indices = [Index("eventId")])
 data class ReservationEntity(
     @PrimaryKey val id: String,
     val title: String,

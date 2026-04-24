@@ -75,13 +75,18 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `pending_operations` ADD COLUMN `userId` TEXT NOT NULL DEFAULT ''")
             }
         }
+        val migration4To5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reservations_eventId` ON `reservations`(`eventId`)")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             "skautai_inventory.db"
         )
-            .addMigrations(migration1To2, migration2To3, migration3To4)
+            .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5)
             .build()
     }
 

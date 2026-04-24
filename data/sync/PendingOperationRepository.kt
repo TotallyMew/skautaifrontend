@@ -50,6 +50,7 @@ import lt.skautai.android.data.remote.UpdateOrganizationalUnitRequestDto
 import lt.skautai.android.data.remote.UpdateReservationPickupRequestDto
 import lt.skautai.android.data.remote.UpdateReservationReturnTimeRequestDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import retrofit2.Response
 
 @Singleton
@@ -84,6 +85,11 @@ class PendingOperationRepository @Inject constructor(
     fun observeFailedCount(): Flow<Int> = tokenManager.userId.flatMapLatest { userId ->
         userId?.let { pendingOperationDao.observeFailedCount(it) } ?: flowOf(0)
     }
+
+    fun observeVisibleOperations(): Flow<List<PendingOperationEntity>> =
+        tokenManager.userId.flatMapLatest { userId ->
+            userId?.let { pendingOperationDao.observeVisibleOperations(it) } ?: flowOf(emptyList())
+        }
 
     fun observePendingCountForEntity(entityType: String, entityId: String): Flow<Int> =
         tokenManager.userId.flatMapLatest { userId ->
@@ -370,15 +376,15 @@ class PendingOperationRepository @Inject constructor(
 
     private fun <T> requireSuccessful(response: Response<T>, fallback: String): T {
         if (response.isSuccessful) return response.body() ?: throw Exception(fallback)
-        throw Exception(response.errorBody()?.string() ?: fallback)
+        throw Exception(response.errorMessage(fallback))
     }
 
     private fun requireSuccessfulUnit(response: Response<Unit>, fallback: String) {
-        if (!response.isSuccessful) throw Exception(response.errorBody()?.string() ?: fallback)
+        if (!response.isSuccessful) throw Exception(response.errorMessage(fallback))
     }
 
     private fun requireSuccessfulEmpty(response: Response<*>, fallback: String) {
-        if (!response.isSuccessful) throw Exception(response.errorBody()?.string() ?: fallback)
+        if (!response.isSuccessful) throw Exception(response.errorMessage(fallback))
     }
 }
 

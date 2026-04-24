@@ -24,6 +24,15 @@ interface PendingOperationDao {
     @Query("SELECT COUNT(*) FROM pending_operations WHERE userId = :userId AND status = 'FAILED'")
     fun observeFailedCount(userId: String): Flow<Int>
 
+    @Query(
+        """
+        SELECT * FROM pending_operations
+        WHERE userId = :userId AND status IN ('PENDING', 'SYNCING', 'FAILED')
+        ORDER BY createdAt DESC
+        """
+    )
+    fun observeVisibleOperations(userId: String): Flow<List<PendingOperationEntity>>
+
     @Query("SELECT COUNT(*) FROM pending_operations WHERE userId = :userId AND entityType = :entityType AND entityId = :entityId AND status IN ('PENDING', 'SYNCING')")
     fun observePendingCountForEntity(userId: String, entityType: String, entityId: String): Flow<Int>
 
