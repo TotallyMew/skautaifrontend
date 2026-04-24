@@ -82,7 +82,10 @@ class InventoryListViewModel @Inject constructor(
                     InventoryListUiState.Success(activeItems, visiblePendingItems)
                 }
             }.collect { state ->
-                if (!_isRefreshing.value || state is InventoryListUiState.Success) {
+                if (!_isRefreshing.value ||
+                    state is InventoryListUiState.Success ||
+                    state is InventoryListUiState.Empty
+                ) {
                     _uiState.value = state
                 }
             }

@@ -24,7 +24,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -47,7 +46,8 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.MetadataRow
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
-import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
@@ -66,6 +66,8 @@ fun InventoryDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
     val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
+    val sharedRequestCreated by viewModel.sharedRequestCreated.collectAsStateWithLifecycle()
+    val isCreatingSharedRequest by viewModel.isCreatingSharedRequest.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -83,6 +85,13 @@ fun InventoryDetailScreen(
         deleteError?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.onDeleteErrorShown()
+        }
+    }
+
+    LaunchedEffect(sharedRequestCreated) {
+        if (sharedRequestCreated) {
+            snackbarHostState.showSnackbar("Paemimo prasymas sukurtas")
+            viewModel.onSharedRequestMessageShown()
         }
     }
 
@@ -112,7 +121,7 @@ fun InventoryDetailScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -125,9 +134,9 @@ fun InventoryDetailScreen(
                 }
 
                 is InventoryDetailUiState.Error -> {
-                    SkautaiEmptyState(
-                        title = "Nepavyko uzkrauti daikto",
-                        subtitle = state.message,
+                    SkautaiErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.loadItem(itemId) },
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
@@ -137,6 +146,8 @@ fun InventoryDetailScreen(
                         item = state.item,
                         reservations = state.reservations,
                         canChangeStatus = canChangeStatus,
+                        isCreatingSharedRequest = isCreatingSharedRequest,
+                        onRequestSharedItem = { viewModel.requestSharedItemForActiveUnit(itemId) },
                         onStatusChange = { status -> viewModel.updateStatus(itemId, status) }
                     )
                 }
@@ -150,9 +161,12 @@ private fun ItemDetailContent(
     item: ItemDto,
     reservations: List<ReservationDto>,
     canChangeStatus: Boolean,
+    isCreatingSharedRequest: Boolean,
+    onRequestSharedItem: () -> Unit,
     onStatusChange: (String) -> Unit
 ) {
     val isSharedTransfer = item.origin == "TRANSFERRED_FROM_TUNTAS"
+    val canRequestForUnit = item.custodianId == null && item.status == "ACTIVE" && item.quantity > 0
 
     Column(
         modifier = Modifier
@@ -329,6 +343,44 @@ private fun ItemDetailContent(
 
         if (reservations.isNotEmpty()) {
             ItemReservationsCard(reservations = reservations)
+        }
+
+        if (canRequestForUnit) {
+            SkautaiCard(
+                modifier = Modifier.fillMaxWidth(),
+                tonal = MaterialTheme.colorScheme.secondaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Gauti i vieneta",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Text(
+                        text = "Jei daiktas jau yra bendrame tunto inventoriuje, kurk paemimo prasyma, o ne pirkimo prasyma.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
+                    )
+                    Button(
+                        onClick = onRequestSharedItem,
+                        enabled = !isCreatingSharedRequest,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        if (isCreatingSharedRequest) {
+                            CircularProgressIndicator(
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        } else {
+                            Text("Prasyti paemimo i aktyvu vieneta")
+                        }
+                    }
+                }
+            }
         }
 
         if (canChangeStatus) {

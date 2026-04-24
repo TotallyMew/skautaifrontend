@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.BendrasRequestDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 
 @Composable
@@ -64,22 +65,11 @@ fun RequestListScreen(
             }
 
             is RequestListUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = viewModel::loadRequests) {
-                        Text("Bandyti dar karta")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadRequests,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
 
             is RequestListUiState.Success -> {

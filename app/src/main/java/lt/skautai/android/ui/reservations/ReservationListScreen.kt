@@ -41,6 +41,7 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.theme.ScoutStatusColors
 
@@ -82,22 +83,11 @@ fun ReservationListScreen(
             }
 
             is ReservationListUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = viewModel::loadReservations) {
-                        Text("Bandyti dar karta")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadReservations,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
 
             is ReservationListUiState.Success -> {

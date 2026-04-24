@@ -61,7 +61,7 @@ fun SuperAdminDashboardScreen(
                 title = { Text("Tuntų valdymas") }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         when {
             uiState.isLoading -> {

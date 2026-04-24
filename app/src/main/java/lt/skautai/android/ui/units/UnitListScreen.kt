@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.theme.ScoutPalette
@@ -71,24 +72,11 @@ fun UnitListScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            uiState.error != null -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = uiState.error!!,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = viewModel::loadUnits) {
-                        Text("Bandyti dar karta")
-                    }
-                }
-            }
+            uiState.error != null -> SkautaiErrorState(
+                message = uiState.error!!,
+                onRetry = viewModel::loadUnits,
+                modifier = Modifier.align(Alignment.Center)
+            )
             uiState.units.isEmpty() -> SkautaiEmptyState(
                 title = "Vienetu dar nera",
                 subtitle = "Cia bus draugoves, gildijos ir kiti tunto vienetai.",

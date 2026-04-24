@@ -6,6 +6,7 @@ import lt.skautai.android.data.remote.RegisterTuntininkasRequestDto
 import lt.skautai.android.data.remote.RegisterWithInviteRequestDto
 import lt.skautai.android.data.remote.TokenResponseDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -44,7 +45,7 @@ class AuthRepository @Inject constructor(
                 Result.success(body)
 
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Login failed"))
+                Result.failure(Exception(response.errorMessage("Login failed")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -77,7 +78,7 @@ class AuthRepository @Inject constructor(
                 persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
+                Result.failure(Exception(response.errorMessage("Registration failed")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -108,7 +109,7 @@ class AuthRepository @Inject constructor(
                 persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Registration failed"))
+                Result.failure(Exception(response.errorMessage("Registration failed")))
             }
         } catch (e: Exception) {
             Result.failure(e)

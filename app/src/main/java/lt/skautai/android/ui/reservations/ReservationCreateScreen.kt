@@ -118,7 +118,7 @@ fun ReservationCreateScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             if (!isKeyboardVisible) {
                 Surface(shadowElevation = 8.dp) {

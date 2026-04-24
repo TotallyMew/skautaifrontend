@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.ui.common.SkautaiErrorState
 
 @Composable
 fun EventListScreen(
@@ -46,22 +47,11 @@ fun EventListScreen(
             }
 
             is EventListUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = { viewModel.loadEvents() }) {
-                        Text("Bandyti dar kartą")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadEvents,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
 
             is EventListUiState.Success -> {

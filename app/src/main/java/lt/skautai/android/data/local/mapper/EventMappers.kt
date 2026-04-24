@@ -40,7 +40,8 @@ fun EventEntity.toDto(): EventDto = EventDto(
     notes = notes,
     createdAt = createdAt,
     eventRoles = fromJsonListOrEmpty(eventRolesJson, eventRolesType),
-    stovyklaDetails = fromJsonOrNull(stovyklaDetailsJson, stovyklaDetailsType)
+    stovyklaDetails = fromJsonOrNull(stovyklaDetailsJson, stovyklaDetailsType),
+    inventorySummary = null
 )
 
 fun List<EventEntity>.toEventDtos(): List<EventDto> = map { it.toDto() }

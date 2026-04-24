@@ -53,7 +53,7 @@ fun RequestCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas prasymas") },
+                title = { Text("Naujas paemimo prasymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -61,7 +61,7 @@ fun RequestCreateScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         if (uiState.isLoadingItems) {
             Box(
@@ -87,14 +87,14 @@ fun RequestCreateScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Pirkimo prasymas",
+                            text = "Paemimo is tunto prasymas",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Aprasykite ka noretumete isigyti. Prasymas bus issiustas perziurai.",
+                            text = "Naudojama tada, kai daiktas jau yra bendrame tunto inventoriuje ir ji reikia perduoti vienetui.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -104,7 +104,7 @@ fun RequestCreateScreen(
                 OutlinedTextField(
                     value = uiState.itemDescription,
                     onValueChange = viewModel::onItemDescriptionChange,
-                    label = { Text("Norimas daiktas *") },
+                    label = { Text("Bendro inventoriaus daiktas *") },
                     placeholder = { Text("pvz. Palapine 4 asmenims, Kompasas...") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,

@@ -78,7 +78,7 @@ fun MainScaffold(
         NavRoutes.Home.route -> "Pradzia"
         NavRoutes.InventoryList.route -> "Inventorius"
         NavRoutes.ReservationList.route -> "Rezervacijos"
-        NavRoutes.RequestList.route -> "Prasymai"
+        NavRoutes.RequestList.route -> "Pirkimo prasymai"
         NavRoutes.InviteAccept.route -> "Kvietimai"
         NavRoutes.SharedRequestList.route -> "Paemimo prasymai"
         NavRoutes.MemberList.route -> "Nariai"
@@ -191,12 +191,23 @@ fun MainScaffold(
                 )
 
                 NavigationDrawerItem(
-                    label = { Text("Visi prasymai") },
+                    label = { Text("Pirkimo prasymai") },
                     icon = { Icon(Icons.Default.Assignment, contentDescription = null) },
                     selected = currentRoute == NavRoutes.RequestList.route,
                     onClick = {
                         scope.launch { drawerState.close() }
                         navController.navigate(NavRoutes.RequestList.createRoute())
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp)
+                )
+
+                NavigationDrawerItem(
+                    label = { Text("Paemimas is tunto") },
+                    icon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
+                    selected = currentRoute == NavRoutes.SharedRequestList.route,
+                    onClick = {
+                        scope.launch { drawerState.close() }
+                        navController.navigate(NavRoutes.SharedRequestList.route)
                     },
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )

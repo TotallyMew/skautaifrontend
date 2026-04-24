@@ -17,15 +17,31 @@ import lt.skautai.android.data.local.mapper.toEntity
 import lt.skautai.android.data.local.mapper.toEventDtos
 import lt.skautai.android.data.local.mapper.toEventEntities
 import lt.skautai.android.data.remote.CreateEventRequestDto
+import lt.skautai.android.data.remote.AssignEventRoleRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryAllocationRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryBucketRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
+import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
+import lt.skautai.android.data.remote.AttachEventPurchaseInvoiceRequestDto
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventInventoryAllocationDto
+import lt.skautai.android.data.remote.EventInventoryBucketDto
+import lt.skautai.android.data.remote.EventInventoryItemDto
+import lt.skautai.android.data.remote.EventInventoryItemListDto
+import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventListDto
+import lt.skautai.android.data.remote.EventPurchaseDto
+import lt.skautai.android.data.remote.EventPurchaseListDto
 import lt.skautai.android.data.remote.StovyklaDetailsDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
+import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class EventRepository @Inject constructor(
@@ -70,7 +86,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsertAll(events.toEventEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
+                Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -85,7 +101,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
+                Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -124,7 +140,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsert(event.toEntity())
                 Result.success(event)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
+                Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -155,7 +171,8 @@ class EventRepository @Inject constructor(
                     )
                 } else {
                     null
-                }
+                },
+                inventorySummary = null
             )
             eventDao.upsert(event.toEntity())
             pendingOperationRepository.enqueue(
@@ -179,7 +196,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsert(event.toEntity())
                 Result.success(event)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
+                Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -212,7 +229,7 @@ class EventRepository @Inject constructor(
                 eventDao.deleteEvent(id, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida"))
+                Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -225,6 +242,164 @@ class EventRepository @Inject constructor(
                 payload = mapOf("id" to id)
             )
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun assignEventRole(eventId: String, request: AssignEventRoleRequestDto): Result<Unit> {
+        return try {
+            val response = eventApiService.assignEventRole("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun removeEventRole(eventId: String, roleId: String): Result<Unit> {
+        return try {
+            val response = eventApiService.removeEventRole("Bearer ${token()}", tuntasId(), eventId, roleId)
+            if (response.isSuccessful) Result.success(Unit)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getInventoryPlan(eventId: String): Result<EventInventoryPlanDto> {
+        return try {
+            val response = eventApiService.getInventoryPlan("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: EventInventoryPlanDto(emptyList(), emptyList(), emptyList()))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createInventoryBucket(
+        eventId: String,
+        request: CreateEventInventoryBucketRequestDto
+    ): Result<EventInventoryBucketDto> {
+        return try {
+            val response = eventApiService.createInventoryBucket("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createInventoryItem(
+        eventId: String,
+        request: CreateEventInventoryItemRequestDto
+    ): Result<EventInventoryItemDto> {
+        return try {
+            val response = eventApiService.createInventoryItem("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createInventoryItemsBulk(
+        eventId: String,
+        request: CreateEventInventoryItemsBulkRequestDto
+    ): Result<EventInventoryItemListDto> {
+        return try {
+            val response = eventApiService.createInventoryItemsBulk("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateInventoryItem(
+        eventId: String,
+        inventoryItemId: String,
+        request: UpdateEventInventoryItemRequestDto
+    ): Result<EventInventoryItemDto> {
+        return try {
+            val response = eventApiService.updateInventoryItem("Bearer ${token()}", tuntasId(), eventId, inventoryItemId, request)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createInventoryAllocation(
+        eventId: String,
+        request: CreateEventInventoryAllocationRequestDto
+    ): Result<EventInventoryAllocationDto> {
+        return try {
+            val response = eventApiService.createInventoryAllocation("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getPurchases(eventId: String): Result<EventPurchaseListDto> {
+        return try {
+            val response = eventApiService.getPurchases("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: EventPurchaseListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun createPurchase(eventId: String, request: CreateEventPurchaseRequestDto): Result<EventPurchaseDto> {
+        return try {
+            val response = eventApiService.createPurchase("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun attachPurchaseInvoice(eventId: String, purchaseId: String, invoiceFileUrl: String): Result<EventPurchaseDto> {
+        return try {
+            val response = eventApiService.attachPurchaseInvoice(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                purchaseId,
+                AttachEventPurchaseInvoiceRequestDto(invoiceFileUrl)
+            )
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun completePurchase(eventId: String, purchaseId: String): Result<EventPurchaseDto> {
+        return try {
+            val response = eventApiService.completePurchase("Bearer ${token()}", tuntasId(), eventId, purchaseId)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun addPurchaseToInventory(eventId: String, purchaseId: String): Result<EventPurchaseDto> {
+        return try {
+            val response = eventApiService.addPurchaseToInventory("Bearer ${token()}", tuntasId(), eventId, purchaseId)
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida")))
         } catch (e: Exception) {
             Result.failure(e)
         }

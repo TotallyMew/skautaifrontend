@@ -28,7 +28,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +46,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.UserTuntasDto
+import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.util.NavRoutes
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -125,7 +126,7 @@ fun TuntasSelectScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         Box(
             modifier = Modifier
@@ -149,21 +150,11 @@ fun TuntasSelectScreen(
                 }
 
                 is TuntasSelectUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadTuntai() }) {
-                            Text("Bandyti dar karta")
-                        }
-                    }
+                    SkautaiErrorState(
+                        message = state.message,
+                        onRetry = viewModel::loadTuntai,
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
 
                 is TuntasSelectUiState.Success -> {

@@ -26,6 +26,7 @@ import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.data.sync.ReviewPayload
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class RequestRepository @Inject constructor(
@@ -71,7 +72,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsertAll(entities)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prasymus"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant prasymus")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -86,7 +87,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prasyma"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant prasyma")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -121,7 +122,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsert(created.toEntity())
                 Result.success(created)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant prasyma"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant prasyma")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -164,7 +165,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.deleteRequest(id, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atsaukiant prasyma"))
+                Result.failure(Exception(response.errorMessage("Klaida atsaukiant prasyma")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -210,7 +211,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsert(updated.toEntity())
                 Result.success(updated)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atliekant perziura"))
+                Result.failure(Exception(response.errorMessage("Klaida atliekant perziura")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()

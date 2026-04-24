@@ -8,12 +8,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.CreateBendrasRequestDto
+import lt.skautai.android.data.remote.CreateBendrasRequestItemDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
@@ -30,6 +34,7 @@ sealed interface InventoryDetailUiState {
 @HiltViewModel
 class InventoryDetailViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
+    private val requestRepository: RequestRepository,
     private val reservationRepository: ReservationRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
@@ -45,6 +50,12 @@ class InventoryDetailViewModel @Inject constructor(
 
     private val _deleteError = MutableStateFlow<String?>(null)
     val deleteError: StateFlow<String?> = _deleteError.asStateFlow()
+
+    private val _sharedRequestCreated = MutableStateFlow(false)
+    val sharedRequestCreated: StateFlow<Boolean> = _sharedRequestCreated.asStateFlow()
+
+    private val _isCreatingSharedRequest = MutableStateFlow(false)
+    val isCreatingSharedRequest: StateFlow<Boolean> = _isCreatingSharedRequest.asStateFlow()
     private var itemObserverJob: Job? = null
 
     fun loadItem(itemId: String) {
@@ -104,6 +115,31 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    fun requestSharedItemForActiveUnit(itemId: String) {
+        viewModelScope.launch {
+            val activeUnitId = tokenManager.activeOrgUnitId.first()
+            if (activeUnitId.isNullOrBlank()) {
+                _deleteError.value = "Pasirink aktyvu vieneta, kuriam nori gauti daikta"
+                return@launch
+            }
+
+            _isCreatingSharedRequest.value = true
+            requestRepository.createRequest(
+                CreateBendrasRequestDto(
+                    requestingUnitId = activeUnitId,
+                    neededByDate = null,
+                    notes = "Prasymas paimti daikta is bendro tunto inventoriaus",
+                    items = listOf(CreateBendrasRequestItemDto(itemId = itemId, quantity = 1))
+                )
+            ).onSuccess {
+                _sharedRequestCreated.value = true
+            }.onFailure { error ->
+                _deleteError.value = error.message ?: "Nepavyko sukurti paemimo prasymo"
+            }
+            _isCreatingSharedRequest.value = false
+        }
+    }
+
     private fun loadItemReservations(itemId: String) {
         viewModelScope.launch {
             reservationRepository.getReservations(itemId = itemId)
@@ -119,5 +155,9 @@ class InventoryDetailViewModel @Inject constructor(
 
     fun onDeleteErrorShown() {
         _deleteError.value = null
+    }
+
+    fun onSharedRequestMessageShown() {
+        _sharedRequestCreated.value = false
     }
 }

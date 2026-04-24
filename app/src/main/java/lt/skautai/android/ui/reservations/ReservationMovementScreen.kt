@@ -90,7 +90,7 @@ fun ReservationMovementScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
+        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) },
         bottomBar = {
             Button(
                 onClick = viewModel::submit,

@@ -2,18 +2,17 @@ package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import java.time.Instant
+import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +22,7 @@ fun EventCreateScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var selectingDate by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) onBack()
@@ -32,6 +32,33 @@ fun EventCreateScreen(
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    selectingDate?.let { target ->
+        val pickerState = rememberDatePickerState()
+        DatePickerDialog(
+            onDismissRequest = { selectingDate = null },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            val date = Instant.ofEpochMilli(millis)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                                .toString()
+                            if (target == "start") viewModel.onStartDateChange(date)
+                            else viewModel.onEndDateChange(date)
+                        }
+                        selectingDate = null
+                    }
+                ) { Text("Pasirinkti") }
+            },
+            dismissButton = {
+                TextButton(onClick = { selectingDate = null }) { Text("Uzdaryti") }
+            }
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 
@@ -46,7 +73,7 @@ fun EventCreateScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -69,23 +96,19 @@ fun EventCreateScreen(
                 onTypeSelected = viewModel::onTypeChange
             )
 
-            OutlinedTextField(
-                value = uiState.startDate,
-                onValueChange = viewModel::onStartDateChange,
-                label = { Text("Pradžios data (YYYY-MM-DD) *") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
+            OutlinedButton(
+                onClick = { selectingDate = "start" },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (uiState.startDate.isBlank()) "Pasirinkti pradzios data" else "Pradzia: ${uiState.startDate}")
+            }
 
-            OutlinedTextField(
-                value = uiState.endDate,
-                onValueChange = viewModel::onEndDateChange,
-                label = { Text("Pabaigos data (YYYY-MM-DD) *") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-            )
+            OutlinedButton(
+                onClick = { selectingDate = "end" },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (uiState.endDate.isBlank()) "Pasirinkti pabaigos data" else "Pabaiga: ${uiState.endDate}")
+            }
 
             OutlinedTextField(
                 value = uiState.notes,
@@ -95,35 +118,6 @@ fun EventCreateScreen(
                 minLines = 2,
                 maxLines = 4
             )
-
-            if (uiState.type == "STOVYKLA") {
-                HorizontalDivider()
-                Text(
-                    text = "Stovyklos detalės",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-
-                OutlinedTextField(
-                    value = uiState.registrationDeadline,
-                    onValueChange = viewModel::onRegistrationDeadlineChange,
-                    label = { Text("Registracijos terminas (YYYY-MM-DD)") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-
-                OutlinedTextField(
-                    value = uiState.expectedParticipants,
-                    onValueChange = viewModel::onExpectedParticipantsChange,
-                    label = { Text("Planuojami dalyviai") },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
 
             Button(
                 onClick = viewModel::createEvent,

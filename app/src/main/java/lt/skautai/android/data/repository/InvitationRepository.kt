@@ -6,6 +6,7 @@ import lt.skautai.android.data.remote.CreateInvitationRequestDto
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.InvitationResponseDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -37,7 +38,7 @@ class InvitationRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant pakvietimą"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant pakvietimą")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -55,7 +56,7 @@ class InvitationRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priimant pakvietima"))
+                Result.failure(Exception(response.errorMessage("Klaida priimant pakvietima")))
             }
         } catch (e: Exception) {
             Result.failure(e)

@@ -27,6 +27,7 @@ import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.data.sync.UnitMemberPayload
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class OrganizationalUnitRepository @Inject constructor(
@@ -63,7 +64,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.upsertAll(units.toOrganizationalUnitEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant vienetus"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant vienetus")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -96,7 +97,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 if (cachedUnit != null) {
                     Result.success(cachedUnit)
                 } else {
-                    Result.failure(Exception(response.errorBody()?.string() ?: "Vienetas nerastas"))
+                    Result.failure(Exception(response.errorMessage("Vienetas nerastas")))
                 }
             }
         } catch (e: Exception) {
@@ -116,7 +117,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.upsert(unit.toEntity())
                 Result.success(unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant vieneta"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant vieneta")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -154,7 +155,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.upsert(unit.toEntity())
                 Result.success(unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atnaujinant vieneta"))
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant vieneta")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -186,7 +187,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.deleteUnit(unitId, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida trinant vieneta"))
+                Result.failure(Exception(response.errorMessage("Klaida trinant vieneta")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -208,7 +209,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.getUnitMembers("Bearer ${token()}", tuntasId(), unitId)
             if (response.isSuccessful) Result.success(response.body()!!.members)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant narius"))
+            else Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -218,7 +219,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.assignUnitMember("Bearer ${token()}", tuntasId(), unitId, request)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant nari"))
+            else Result.failure(Exception(response.errorMessage("Klaida priskiriant nari")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             pendingOperationRepository.enqueue(
@@ -238,7 +239,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.removeUnitMember("Bearer ${token()}", tuntasId(), unitId, userId)
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant nari"))
+            else Result.failure(Exception(response.errorMessage("Klaida salinant nari")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             pendingOperationRepository.enqueue(
@@ -258,7 +259,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.leaveUnit("Bearer ${token()}", tuntasId(), unitId)
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida paliekant vieneta"))
+            else Result.failure(Exception(response.errorMessage("Klaida paliekant vieneta")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             pendingOperationRepository.enqueue(
@@ -278,7 +279,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.moveUnitMember("Bearer ${token()}", tuntasId(), unitId, userId)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida perkeliant nari"))
+            else Result.failure(Exception(response.errorMessage("Klaida perkeliant nari")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             pendingOperationRepository.enqueue(

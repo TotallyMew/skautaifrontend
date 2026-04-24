@@ -58,6 +58,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.theme.ScoutPalette
 
@@ -96,22 +97,11 @@ fun MemberListScreen(
             }
 
             is MemberListUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = state.message,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = viewModel::loadMembers) {
-                        Text("Bandyti dar karta")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadMembers,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
 
             is MemberListUiState.Success -> {

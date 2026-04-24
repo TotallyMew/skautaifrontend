@@ -29,7 +29,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.BendrasRequestDto
+import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -149,7 +150,7 @@ fun RequestDetailScreen(
                 }
             )
         },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Box(
             modifier = Modifier
@@ -162,22 +163,11 @@ fun RequestDetailScreen(
                 }
 
                 is RequestDetailUiState.Error -> {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.Center)
-                            .padding(24.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = state.message,
-                            color = MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(onClick = { viewModel.loadRequest(requestId) }) {
-                            Text("Bandyti dar karta")
-                        }
-                    }
+                    SkautaiErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.loadRequest(requestId) },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
                 }
 
                 is RequestDetailUiState.Success -> {

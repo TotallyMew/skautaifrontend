@@ -33,6 +33,7 @@ import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.data.sync.ReservationMovementSyncPayload
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class ReservationRepository @Inject constructor(
@@ -86,7 +87,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsertAll(reservations.toReservationEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant rezervacijas"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant rezervacijas")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -105,7 +106,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant rezervacija"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant rezervacija")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -144,7 +145,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsert(reservation.toEntity())
                 Result.success(reservation)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant rezervacija"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant rezervacija")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -194,7 +195,7 @@ class ReservationRepository @Inject constructor(
         return try {
             val response = reservationApiService.getAvailability("Bearer ${token()}", tuntasId(), startDate, endDate)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant prieinama kieki"))
+            else Result.failure(Exception(response.errorMessage("Klaida gaunant prieinama kieki")))
         } catch (e: Exception) { Result.failure(e) }
     }
 
@@ -221,7 +222,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.deleteReservation(id, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atšaukiant rezervacija"))
+                Result.failure(Exception(response.errorMessage("Klaida atšaukiant rezervacija")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -263,7 +264,7 @@ class ReservationRepository @Inject constructor(
         return try {
             val response = reservationApiService.getReservationMovements("Bearer ${token()}", tuntasId(), id)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant judejimus"))
+            else Result.failure(Exception(response.errorMessage("Klaida gaunant judejimus")))
         } catch (e: Exception) { Result.failure(e) }
     }
 
@@ -307,7 +308,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsert(reservation.toEntity())
                 Result.success(reservation)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: fallbackMessage))
+                Result.failure(Exception(response.errorMessage(fallbackMessage)))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()

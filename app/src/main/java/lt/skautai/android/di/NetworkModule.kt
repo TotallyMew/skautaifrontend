@@ -26,6 +26,7 @@ import lt.skautai.android.data.remote.ReservationApiService
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.UploadApiService
+import lt.skautai.android.util.NetworkErrorInterceptor
 
 
 @Module
@@ -48,10 +49,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideNetworkErrorInterceptor(): NetworkErrorInterceptor = NetworkErrorInterceptor()
+
+    @Provides
+    @Singleton
     fun provideOkHttpClient(
-        loggingInterceptor: HttpLoggingInterceptor
+        loggingInterceptor: HttpLoggingInterceptor,
+        networkErrorInterceptor: NetworkErrorInterceptor
     ): OkHttpClient {
         return OkHttpClient.Builder()
+            .addInterceptor(networkErrorInterceptor)
             .addInterceptor(loggingInterceptor)
             .build()
     }

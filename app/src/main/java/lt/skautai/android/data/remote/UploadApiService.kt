@@ -18,4 +18,11 @@ interface UploadApiService {
         @Header("Authorization") token: String,
         @Part file: MultipartBody.Part
     ): Response<UploadResponseDto>
+
+    @Multipart
+    @POST("api/uploads/documents")
+    suspend fun uploadDocument(
+        @Header("Authorization") token: String,
+        @Part file: MultipartBody.Part
+    ): Response<UploadResponseDto>
 }

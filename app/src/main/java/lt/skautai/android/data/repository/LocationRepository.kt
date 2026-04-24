@@ -23,6 +23,7 @@ import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class LocationRepository @Inject constructor(
@@ -56,7 +57,7 @@ class LocationRepository @Inject constructor(
                 locationDao.upsertAll(locations.toLocationEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant lokacijas"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant lokacijas")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -84,7 +85,7 @@ class LocationRepository @Inject constructor(
                 locationDao.upsert(location.toEntity())
                 Result.success(location)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant lokacija"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant lokacija")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()

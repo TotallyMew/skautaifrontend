@@ -29,6 +29,7 @@ import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class MemberRepository @Inject constructor(
@@ -73,7 +74,7 @@ class MemberRepository @Inject constructor(
                 memberDao.upsertAll(members.toMemberEntities(currentTuntasId))
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant narius"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -88,7 +89,7 @@ class MemberRepository @Inject constructor(
                 memberDao.upsert(response.body()!!.toEntity(currentTuntasId))
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant nari"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant nari")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -130,7 +131,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(role)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant pareigas"))
+                Result.failure(Exception(response.errorMessage("Klaida priskiriant pareigas")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -171,7 +172,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant pareigas"))
+                Result.failure(Exception(response.errorMessage("Klaida salinant pareigas")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -195,7 +196,7 @@ class MemberRepository @Inject constructor(
         return try {
             val response = memberApiService.stepDownLeadershipRole("Bearer ${token()}", tuntasId(), assignmentId)
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atsistatydinant"))
+            else Result.failure(Exception(response.errorMessage("Klaida atsistatydinant")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val userId = findMemberByLeadershipAssignment(currentTuntasId, assignmentId)
@@ -224,7 +225,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(rank)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida priskiriant laipsni"))
+                Result.failure(Exception(response.errorMessage("Klaida priskiriant laipsni")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -258,7 +259,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant laipsni"))
+                Result.failure(Exception(response.errorMessage("Klaida salinant laipsni")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -286,7 +287,7 @@ class MemberRepository @Inject constructor(
                 memberDao.deleteMember(userId, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida salinant nari"))
+                Result.failure(Exception(response.errorMessage("Klaida salinant nari")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()

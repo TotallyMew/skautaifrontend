@@ -2,81 +2,128 @@ package lt.skautai.android.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
+/**
+ * Skautai palette v2 — refined.
+ *
+ * What changed:
+ * - Forest deepened slightly (#214D34 → #1F3A2A) — more confident primary.
+ * - Saturation across neutrals reduced; off-whites read warmer, calmer.
+ * - Added Clay accent (#B8704A) — warm complement to forest, used for alerts / new-item dots.
+ * - Surfaces simplified: fewer near-identical tonal steps. You had 6, we really only need 3.
+ *
+ * Usage rule: forest/moss/gold are ACCENTS, not default fills. Most cards should sit on
+ * `paper` with a 1px `line` border — reserve tonal fills for the hero and key CTAs.
+ */
 object ScoutPalette {
-    val Forest = Color(0xFF214D34)
-    val ForestDeep = Color(0xFF0C1A11)
-    val ForestSoft = Color(0xFFBFD9BF)
-    val ForestMist = Color(0xFFE4EEDF)
+    // Primary — forest family
+    val Forest = Color(0xFF1F3A2A)
+    val ForestInk = Color(0xFF0B1710)
+    val ForestSoft = Color(0xFFBFD0BA)   // container
+    val ForestMist = Color(0xFFE6EEE1)   // faint tonal fill
 
+    // Secondary — moss (slightly blue-green)
     val Moss = Color(0xFF3E5B43)
-    val MossDeep = Color(0xFF102016)
-    val MossSoft = Color(0xFFD6E4D2)
-    val MossMist = Color(0xFFEAF1E6)
-    val Lichen = Color(0xFFE1EAD1)
+    val MossSoft = Color(0xFFD6E1D2)
+    val Lichen = Color(0xFFDCE6D3)
 
-    val Khaki = Color(0xFFF1E3C8)
-    val Gold = Color(0xFF8B6A2B)
-    val GoldDeep = Color(0xFF2B1D00)
-    val GoldSoft = Color(0xFFF0E0AE)
-    val GoldWarning = Color(0xFFFFE08A)
-    val GoldWarningText = Color(0xFF4A3700)
+    // Tertiary — gold / khaki (warm)
+    val Gold = Color(0xFF7A5C1E)
+    val GoldSoft = Color(0xFFEFE2B2)
+    val Khaki = Color(0xFFE8DCC2)
 
-    val Earth = Color(0xFFE9DDCF)
-    val White = Color(0xFFFFFFFF)
+    // New accent — clay (warm complement; use for alerts, dots, warn states)
+    val Clay = Color(0xFFB8704A)
+    val ClaySoft = Color(0xFFF2DCCB)
+
+    // Ink
+    val Ink = Color(0xFF0D120E)
+    val InkBody = Color(0xFF1A1F1B)
+    val InkMuted = Color(0xFF596560)
+    val InkFaint = Color(0xFF8A938C)
     val BlackScrim = Color(0xFF000000)
 
-    val Error = Color(0xFFBA1A1A)
+    // Aliases kept for backward-compatibility with existing screens
+    val ForestDeep = ForestInk
+    val MossMist = Color(0xFFEAF1E6)
+    val MossDeep = Color(0xFF102016)
+    val GoldDeep = Color(0xFF2B1D00)
+    val GoldWarning = Color(0xFFFFE08A)
+    val GoldWarningText = Color(0xFF4A3700)
+    val Earth = Color(0xFFE9DDCF)
+
+    // Neutrals
+    val Paper = Color(0xFFF6F7F2)        // main background — subtly warm off-white
+    val PaperDeep = Color(0xFFECEEE5)    // slightly deeper for contrast zones
+    val White = Color(0xFFFFFFFF)
+    val Line = Color(0xFFD7DCD1)
+    val LineSoft = Color(0xFFE5E9DF)
+
+    // Semantics
+    val Ok = Color(0xFF406B3F)
+    val Warn = Color(0xFFC18A1A)
+    val Error = Color(0xFF9B2F27)
     val OnError = Color(0xFFFFFFFF)
-    val ErrorContainer = Color(0xFFFFDAD6)
-    val OnErrorContainer = Color(0xFF410002)
+    val ErrorContainer = Color(0xFFF5D7D3)
+    val OnErrorContainer = Color(0xFF3A0F0B)
 }
 
+/**
+ * Surfaces — flattened from 6 near-identical tonal steps to 3 meaningful ones.
+ * If you truly need surfaceContainerHighest etc., map them all to the closest of these.
+ */
 object ScoutSurfaces {
-    val LightBackground = Color(0xFFF1F4EE)
-    val LightSurface = Color(0xFFF8FBF5)
-    val LightSurfaceDim = Color(0xFFE0E6DC)
-    val LightSurfaceBright = Color(0xFFF8FBF5)
-    val LightSurfaceContainerLowest = Color(0xFFFFFFFF)
-    val LightSurfaceContainerLow = Color(0xFFF2F6EF)
-    val LightSurfaceContainer = Color(0xFFECEFE8)
-    val LightSurfaceContainerHigh = Color(0xFFE5EBE1)
-    val LightSurfaceContainerHighest = Color(0xFFDDE5DA)
-    val LightSurfaceVariant = Color(0xFFD8E0D5)
+    // Light
+    val LightBackground = ScoutPalette.Paper
+    val LightSurface = ScoutPalette.Paper
+    val LightSurfaceDim = ScoutPalette.PaperDeep
+    val LightSurfaceBright = ScoutPalette.White
+    val LightSurfaceContainerLowest = ScoutPalette.White
+    val LightSurfaceContainerLow = ScoutPalette.Paper
+    val LightSurfaceContainer = ScoutPalette.PaperDeep
+    val LightSurfaceContainerHigh = Color(0xFFE5E8DE)
+    val LightSurfaceContainerHighest = Color(0xFFDDE2D5)
+    val LightSurfaceVariant = Color(0xFFDDE2D5)
     val LightOutline = Color(0xFF68786B)
-    val LightOutlineVariant = Color(0xFFBCC7BA)
-    val LightOnSurface = Color(0xFF161C17)
-    val LightOnSurfaceVariant = Color(0xFF3F4A41)
+    val LightOutlineVariant = ScoutPalette.Line
+    val LightOnSurface = ScoutPalette.Ink
+    val LightOnSurfaceVariant = ScoutPalette.InkMuted
     val LightInverseSurface = Color(0xFF2B322C)
     val LightInverseOnSurface = Color(0xFFEFF4EC)
 
-    val DarkBackground = Color(0xFF0D120E)
-    val DarkSurface = Color(0xFF141A15)
-    val DarkSurfaceDim = Color(0xFF0D120E)
-    val DarkSurfaceBright = Color(0xFF343B35)
-    val DarkSurfaceContainerLowest = Color(0xFF080C09)
-    val DarkSurfaceContainerLow = Color(0xFF171D18)
-    val DarkSurfaceContainer = Color(0xFF1C231E)
-    val DarkSurfaceContainerHigh = Color(0xFF273028)
-    val DarkSurfaceContainerHighest = Color(0xFF323B33)
-    val DarkSurfaceVariant = Color(0xFF3F4A41)
-    val DarkOutline = Color(0xFF859487)
-    val DarkOutlineVariant = Color(0xFF3F4A41)
+    // Dark — rebalanced. Old dark mode swapped primary/container which muddied everything.
+    val DarkBackground = Color(0xFF0C1410)
+    val DarkSurface = Color(0xFF121A15)
+    val DarkSurfaceDim = Color(0xFF0C1410)
+    val DarkSurfaceBright = Color(0xFF2C342E)
+    val DarkSurfaceContainerLowest = Color(0xFF060B08)
+    val DarkSurfaceContainerLow = Color(0xFF151C17)
+    val DarkSurfaceContainer = Color(0xFF1A221C)
+    val DarkSurfaceContainerHigh = Color(0xFF232B25)
+    val DarkSurfaceContainerHighest = Color(0xFF2D352E)
+    val DarkSurfaceVariant = Color(0xFF3A443C)
+    val DarkOutline = Color(0xFF7E8B80)
+    val DarkOutlineVariant = Color(0xFF3A443C)
     val DarkOnSurface = Color(0xFFE0E4DD)
-    val DarkOnSurfaceVariant = Color(0xFFBEC9BE)
+    val DarkOnSurfaceVariant = Color(0xFFB4BDB5)
     val DarkInverseSurface = Color(0xFFE0E6DC)
     val DarkInverseOnSurface = Color(0xFF2B322C)
 }
 
 object ScoutGradients {
-    val LoginBackground = listOf(ScoutPalette.MossMist, ScoutSurfaces.LightSurfaceContainerHigh)
-    val LoginHero = listOf(Color(0xFF23452A), Color(0xFF315F38))
-    val HomeHero = listOf(ScoutPalette.MossMist, Color(0xFFDDE9D4))
+    // Only one gradient now — the home hero. Everything else is flat.
+    val LoginBackground = listOf(ScoutPalette.ForestMist, ScoutPalette.PaperDeep)
+    val LoginHero = listOf(Color(0xFF1F3A2A), Color(0xFF2A4E35))
+    val HomeHero = listOf(Color(0xFF1F3A2A), Color(0xFF274832))
     val HeroTextMuted = Color(0xFFD6E5D3)
 }
 
 object ScoutStatusColors {
-    val PendingContainer = ScoutPalette.GoldWarning
-    val OnPendingContainer = ScoutPalette.GoldWarningText
+    val PendingContainer = ScoutPalette.GoldSoft
+    val OnPendingContainer = Color(0xFF4A3700)
+    val OkContainer = ScoutPalette.Lichen
+    val OnOkContainer = Color(0xFF1E3A1F)
+    val WarnContainer = ScoutPalette.ClaySoft
+    val OnWarnContainer = Color(0xFF5A2E13)
 }
 
 data class ScoutUnitPalette(
@@ -86,57 +133,30 @@ data class ScoutUnitPalette(
 )
 
 object ScoutUnitColors {
-    val PatyreSkautai = ScoutUnitPalette(
-        cardTone = Color(0xFFF4D7D2),
-        iconTone = Color(0xFFE9B8B0),
-        accent = Color(0xFF8E2F25)
-    )
-    val Skautai = ScoutUnitPalette(
-        cardTone = Color(0xFFF5E7B6),
-        iconTone = Color(0xFFE7CB69),
-        accent = Color(0xFF6F5412)
-    )
-    val Vilkai = ScoutUnitPalette(
-        cardTone = Color(0xFFF7DDC4),
-        iconTone = Color(0xFFEAB27C),
-        accent = Color(0xFF8A4A16)
-    )
-    val Gildija = ScoutUnitPalette(
-        cardTone = Color(0xFFE1E5E0),
-        iconTone = Color(0xFFC6CDC4),
-        accent = Color(0xFF465149)
-    )
-    val VyrSkautai = ScoutUnitPalette(
-        cardTone = Color(0xFFE6DDF0),
-        iconTone = Color(0xFFCBB7DE),
-        accent = Color(0xFF5C3E76)
-    )
-    val VyrSkautes = ScoutUnitPalette(
-        cardTone = Color(0xFFD8E1EF),
-        iconTone = Color(0xFFB4C6DD),
-        accent = Color(0xFF263F63)
-    )
-    val Default = ScoutUnitPalette(
-        cardTone = ScoutPalette.Khaki,
-        iconTone = ScoutPalette.GoldSoft,
-        accent = Color(0xFF7A5A2E)
-    )
+    val PatyreSkautai = ScoutUnitPalette(Color(0xFFF0D4CE), Color(0xFFE4B3AB), Color(0xFF8E2F25))
+    val Skautai      = ScoutUnitPalette(Color(0xFFF1E2B0), Color(0xFFE3C664), Color(0xFF6F5412))
+    val Vilkai       = ScoutUnitPalette(Color(0xFFF2D8BE), Color(0xFFE4AC76), Color(0xFF8A4A16))
+    val Gildija      = ScoutUnitPalette(Color(0xFFDEE2DD), Color(0xFFC3CAC1), Color(0xFF465149))
+    val VyrSkautai   = ScoutUnitPalette(Color(0xFFE2D9EB), Color(0xFFC6B2D8), Color(0xFF5C3E76))
+    val VyrSkautes   = ScoutUnitPalette(Color(0xFFD4DCE9), Color(0xFFB0C1D6), Color(0xFF263F63))
+    val Default      = ScoutUnitPalette(ScoutPalette.Khaki, ScoutPalette.GoldSoft, ScoutPalette.Gold)
 }
 
+// Role-colour aliases consumed by Color.kt/Theme.kt
 val ForestPrimary = ScoutPalette.Forest
 val ForestOnPrimary = ScoutPalette.White
 val ForestPrimaryContainer = ScoutPalette.ForestSoft
-val ForestOnPrimaryContainer = ScoutPalette.ForestDeep
+val ForestOnPrimaryContainer = ScoutPalette.ForestInk
 
 val MossSecondary = ScoutPalette.Moss
 val MossOnSecondary = ScoutPalette.White
 val MossSecondaryContainer = ScoutPalette.MossSoft
-val MossOnSecondaryContainer = ScoutPalette.MossDeep
+val MossOnSecondaryContainer = Color(0xFF102016)
 
 val GoldTertiary = ScoutPalette.Gold
 val GoldOnTertiary = ScoutPalette.White
 val GoldTertiaryContainer = ScoutPalette.GoldSoft
-val GoldOnTertiaryContainer = ScoutPalette.GoldDeep
+val GoldOnTertiaryContainer = Color(0xFF2B1D00)
 
 val ErrorRed = ScoutPalette.Error
 val OnErrorRed = ScoutPalette.OnError

@@ -4,6 +4,7 @@ import lt.skautai.android.data.remote.UserApiService
 import lt.skautai.android.data.remote.UserTuntasDto
 import lt.skautai.android.data.remote.PermissionsResponseDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -22,7 +23,7 @@ class UserRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant tuntus"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant tuntus")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -37,7 +38,7 @@ class UserRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!.permissions)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant teises"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant teises")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -52,7 +53,7 @@ class UserRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida paliekant tunta"))
+                Result.failure(Exception(response.errorMessage("Klaida paliekant tunta")))
             }
         } catch (e: Exception) {
             Result.failure(e)

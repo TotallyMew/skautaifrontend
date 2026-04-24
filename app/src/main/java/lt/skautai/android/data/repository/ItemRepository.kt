@@ -24,6 +24,7 @@ import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class ItemRepository @Inject constructor(
@@ -85,7 +86,7 @@ class ItemRepository @Inject constructor(
                 itemDao.upsertAll(items.toItemEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant inventoriu"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant inventoriu")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -107,7 +108,7 @@ class ItemRepository @Inject constructor(
                 itemDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant daikta"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant daikta")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -158,7 +159,7 @@ class ItemRepository @Inject constructor(
                 itemDao.deleteItem(itemId, tuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida trinant daikta"))
+                Result.failure(Exception(response.errorMessage("Klaida trinant daikta")))
             }
         } catch (e: IOException) {
             val tuntasId = tokenManager.activeTuntasId.first()
@@ -202,7 +203,7 @@ class ItemRepository @Inject constructor(
                 itemDao.upsert(item.toEntity())
                 Result.success(item)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida kuriant daikta"))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant daikta")))
             }
         } catch (e: IOException) {
             val tuntasId = tokenManager.activeTuntasId.first()
@@ -264,7 +265,7 @@ class ItemRepository @Inject constructor(
                 itemDao.upsert(item.toEntity())
                 Result.success(item)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida atnaujinant daikta"))
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant daikta")))
             }
         } catch (e: IOException) {
             val tuntasId = tokenManager.activeTuntasId.first()

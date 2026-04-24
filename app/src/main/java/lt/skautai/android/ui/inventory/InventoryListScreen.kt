@@ -58,6 +58,7 @@ import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.inventoryTypeLabel
@@ -265,20 +266,11 @@ private fun InventoryBody(
 
         is InventoryListUiState.Error -> {
             Box(modifier = Modifier.fillMaxSize()) {
-                Column(
-                    modifier = Modifier.align(Alignment.Center),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = state.message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.error
-                    )
-                    Button(onClick = viewModel::loadItems) {
-                        Text("Bandyti dar karta")
-                    }
-                }
+                SkautaiErrorState(
+                    message = state.message,
+                    onRetry = viewModel::loadItems,
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
 

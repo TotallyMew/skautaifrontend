@@ -4,6 +4,7 @@ import kotlinx.coroutines.flow.first
 import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,7 +27,7 @@ class RoleRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!.roles)
             } else {
-                Result.failure(Exception(response.errorBody()?.string() ?: "Klaida gaunant roles"))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant roles")))
             }
         } catch (e: Exception) {
             Result.failure(e)
