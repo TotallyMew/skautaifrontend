@@ -42,6 +42,9 @@ interface PendingOperationDao {
     @Query("SELECT * FROM pending_operations WHERE userId = :userId AND entityType = :entityType AND entityId = :entityId AND operationType = :operationType AND status IN ('PENDING', 'FAILED') LIMIT 1")
     suspend fun findOperation(userId: String, entityType: String, entityId: String, operationType: String): PendingOperationEntity?
 
+    @Query("SELECT * FROM pending_operations WHERE userId = :userId AND entityType = :entityType AND entityId = :entityId AND operationType = :operationType LIMIT 1")
+    suspend fun findOperationAnyStatus(userId: String, entityType: String, entityId: String, operationType: String): PendingOperationEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(operation: PendingOperationEntity)
 

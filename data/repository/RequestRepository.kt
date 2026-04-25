@@ -170,6 +170,14 @@ class RequestRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (id.startsWith("local-") && pendingOperationRepository.hasCreateOperationInFlight(
+                    entityType = PendingEntityType.BENDRAS_REQUEST,
+                    entityId = id,
+                    createOperationType = PendingOperationType.BENDRAS_REQUEST_CREATE
+                )
+            ) {
+                return Result.failure(Exception("Prašymas dabar sinchronizuojamas. Pabandykite dar kartą vėliau."))
+            }
             if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.BENDRAS_REQUEST,
                     entityId = id,

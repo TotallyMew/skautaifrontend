@@ -287,5 +287,6 @@ data class CreateEventInventoryMovementRequestDto(
     @SerializedName("pastovykleId") val pastovykleId: String? = null,
     @SerializedName("toUserId") val toUserId: String? = null,
     @SerializedName("fromCustodyId") val fromCustodyId: String? = null,
+    @SerializedName("requestId") val requestId: String? = null,
     @SerializedName("notes") val notes: String? = null
 )

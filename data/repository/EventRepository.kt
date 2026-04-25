@@ -255,13 +255,23 @@ class EventRepository @Inject constructor(
             val currentTuntasId = tuntasId()
             val response = eventApiService.cancelEvent("Bearer ${token()}", currentTuntasId, id)
             if (response.isSuccessful) {
-                eventDao.deleteEvent(id, currentTuntasId)
+                eventDao.getEvent(id, currentTuntasId)?.let { existing ->
+                    eventDao.upsert(existing.copy(status = "CANCELLED"))
+                }
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
+            if (id.startsWith("local-") && pendingOperationRepository.hasCreateOperationInFlight(
+                    entityType = PendingEntityType.EVENT,
+                    entityId = id,
+                    createOperationType = PendingOperationType.EVENT_CREATE
+                )
+            ) {
+                return Result.failure(Exception("Renginys dabar sinchronizuojamas. Pabandykite dar kartą vėliau."))
+            }
             if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.EVENT,
                     entityId = id,
@@ -271,7 +281,9 @@ class EventRepository @Inject constructor(
                 eventDao.deleteEvent(id, currentTuntasId)
                 return Result.success(Unit)
             }
-            eventDao.deleteEvent(id, currentTuntasId)
+            val cached = eventDao.getEvent(id, currentTuntasId)
+                ?: return Result.failure(Exception("Renginys nerastas offline cache"))
+            eventDao.upsert(cached.copy(status = "CANCELLED"))
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
                 entityType = PendingEntityType.EVENT,

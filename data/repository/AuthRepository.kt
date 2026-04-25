@@ -2,6 +2,7 @@ package lt.skautai.android.data.repository
 
 import lt.skautai.android.data.remote.AuthApiService
 import lt.skautai.android.data.remote.LoginRequestDto
+import lt.skautai.android.data.remote.RefreshTokenRequestDto
 import lt.skautai.android.data.remote.RegisterTuntininkasRequestDto
 import lt.skautai.android.data.remote.RegisterWithInviteRequestDto
 import lt.skautai.android.data.remote.TokenResponseDto
@@ -20,6 +21,7 @@ class AuthRepository @Inject constructor(
     private suspend fun persistSession(body: TokenResponseDto) {
         tokenManager.saveToken(
             token = body.token,
+            refreshToken = body.refreshToken,
             userId = body.userId,
             name = body.name,
             email = body.email,
@@ -118,6 +120,21 @@ class AuthRepository @Inject constructor(
 
     suspend fun logout() {
         tokenManager.clearAll()
+    }
+
+    suspend fun refreshSession(refreshToken: String): Result<TokenResponseDto> {
+        return try {
+            val response = authApiService.refresh(RefreshTokenRequestDto(refreshToken))
+            if (response.isSuccessful) {
+                val body = response.body()!!
+                persistSession(body)
+                Result.success(body)
+            } else {
+                Result.failure(Exception(response.errorMessage("Refresh failed")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
 
     fun getToken() = tokenManager.token

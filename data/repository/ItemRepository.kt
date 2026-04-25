@@ -108,6 +108,9 @@ class ItemRepository @Inject constructor(
                 itemDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
+                if (response.code() == 404) {
+                    itemDao.deleteItem(itemId, tuntasId)
+                }
                 Result.failure(Exception(response.errorMessage("Klaida gaunant daikta")))
             }
         } catch (e: Exception) {
@@ -164,6 +167,14 @@ class ItemRepository @Inject constructor(
         } catch (e: IOException) {
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (itemId.startsWith("local-") && pendingOperationRepository.hasCreateOperationInFlight(
+                    entityType = PendingEntityType.ITEM,
+                    entityId = itemId,
+                    createOperationType = PendingOperationType.ITEM_CREATE
+                )
+            ) {
+                return Result.failure(Exception("Daiktas dabar sinchronizuojamas. Pabandykite dar kartą vėliau."))
+            }
             if (itemId.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.ITEM,
                     entityId = itemId,

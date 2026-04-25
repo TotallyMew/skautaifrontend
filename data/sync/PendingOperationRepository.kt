@@ -151,6 +151,17 @@ class PendingOperationRepository @Inject constructor(
         return true
     }
 
+    suspend fun hasCreateOperationInFlight(
+        entityType: String,
+        entityId: String,
+        createOperationType: String
+    ): Boolean {
+        val userId = tokenManager.userId.first() ?: return false
+        val operation = pendingOperationDao.findOperationAnyStatus(userId, entityType, entityId, createOperationType)
+            ?: return false
+        return operation.status == "SYNCING"
+    }
+
     suspend fun retryFailed() {
         val userId = tokenManager.userId.first()
             ?: throw Exception("Nav prisijungta")

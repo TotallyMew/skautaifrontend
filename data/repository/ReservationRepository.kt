@@ -227,6 +227,14 @@ class ReservationRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (id.startsWith("local-") && pendingOperationRepository.hasCreateOperationInFlight(
+                    entityType = PendingEntityType.RESERVATION,
+                    entityId = id,
+                    createOperationType = PendingOperationType.RESERVATION_CREATE
+                )
+            ) {
+                return Result.failure(Exception("Rezervacija dabar sinchronizuojama. Pabandykite dar kartą vėliau."))
+            }
             if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.RESERVATION,
                     entityId = id,
