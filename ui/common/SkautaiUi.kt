@@ -15,6 +15,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -40,12 +44,78 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import lt.skautai.android.ui.theme.ScoutGradients
+import lt.skautai.android.ui.theme.ScoutStatusColors
+
+enum class SkautaiStatusTone {
+    Success,
+    Warning,
+    Danger,
+    Neutral,
+    Info
+}
+
+enum class SkautaiSurfaceRole {
+    Default,
+    Muted,
+    Identity,
+    DenseList
+}
+
+@Composable
+fun skautaiSurfaceTone(role: SkautaiSurfaceRole): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when (role) {
+        SkautaiSurfaceRole.Default -> scheme.surfaceBright
+        SkautaiSurfaceRole.Muted -> scheme.surfaceContainerLow
+        SkautaiSurfaceRole.Identity -> scheme.primaryContainer
+        SkautaiSurfaceRole.DenseList -> scheme.surfaceContainer
+    }
+}
+
+data class SkautaiStatusStyle(
+    val containerColor: Color,
+    val contentColor: Color,
+    val icon: ImageVector? = null
+)
+
+@Composable
+fun skautaiStatusStyle(tone: SkautaiStatusTone): SkautaiStatusStyle {
+    val scheme = MaterialTheme.colorScheme
+    return when (tone) {
+        SkautaiStatusTone.Success -> SkautaiStatusStyle(
+            containerColor = ScoutStatusColors.OkContainer,
+            contentColor = ScoutStatusColors.OnOkContainer,
+            icon = Icons.Default.CheckCircle
+        )
+        SkautaiStatusTone.Warning -> SkautaiStatusStyle(
+            containerColor = ScoutStatusColors.PendingContainer,
+            contentColor = ScoutStatusColors.OnPendingContainer,
+            icon = Icons.Default.Schedule
+        )
+        SkautaiStatusTone.Danger -> SkautaiStatusStyle(
+            containerColor = scheme.errorContainer,
+            contentColor = scheme.onErrorContainer,
+            icon = Icons.Default.WarningAmber
+        )
+        SkautaiStatusTone.Info -> SkautaiStatusStyle(
+            containerColor = ScoutStatusColors.InfoContainer,
+            contentColor = ScoutStatusColors.OnInfoContainer,
+            icon = Icons.Default.Info
+        )
+        SkautaiStatusTone.Neutral -> SkautaiStatusStyle(
+            containerColor = ScoutStatusColors.NeutralContainer,
+            contentColor = ScoutStatusColors.OnNeutralContainer,
+            icon = null
+        )
+    }
+}
 
 @Composable
 fun SkautaiCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    tonal: Color = MaterialTheme.colorScheme.surface,
+    tonal: Color = MaterialTheme.colorScheme.surfaceBright,
     shape: Shape = RoundedCornerShape(24.dp),
     content: @Composable () -> Unit
 ) {
@@ -156,6 +226,21 @@ fun SkautaiStatusPill(
 }
 
 @Composable
+fun SkautaiStatusPill(
+    label: String,
+    tone: SkautaiStatusTone,
+    modifier: Modifier = Modifier
+) {
+    val style = skautaiStatusStyle(tone)
+    SkautaiStatusPill(
+        label = label,
+        containerColor = style.containerColor,
+        contentColor = style.contentColor,
+        modifier = modifier
+    )
+}
+
+@Composable
 fun SkautaiErrorState(
     message: String,
     onRetry: (() -> Unit)? = null,
@@ -227,7 +312,9 @@ fun SkautaiEmptyState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.fillMaxWidth().padding(24.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -267,7 +354,7 @@ fun SkautaiStatCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    tone: Color = MaterialTheme.colorScheme.surfaceContainerHigh
+    tone: Color = MaterialTheme.colorScheme.surfaceContainerLow
 ) {
     SkautaiCard(modifier = modifier, tonal = tone) {
         Column(
@@ -288,40 +375,77 @@ fun SkautaiStatCard(
 }
 
 @Composable
-fun SkautaiHeroCard(
+fun SkautaiSummaryCard(
     title: String,
     subtitle: String,
     modifier: Modifier = Modifier,
+    eyebrow: String? = null,
+    metrics: List<Pair<String, String>> = emptyList(),
+    foresty: Boolean = false,
     content: (@Composable () -> Unit)? = null
 ) {
+    val containerColor = if (foresty) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceBright
+    val titleColor = if (foresty) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val subtitleColor = if (foresty) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val eyebrowColor = if (foresty) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f) else MaterialTheme.colorScheme.primary
     SkautaiCard(
         modifier = modifier,
-        tonal = Color.Transparent,
+        tonal = if (foresty) Color.Transparent else MaterialTheme.colorScheme.surfaceBright,
         shape = RoundedCornerShape(28.dp)
     ) {
         Column(
             modifier = Modifier
                 .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.secondary
+                    brush = if (foresty) {
+                        Brush.linearGradient(ScoutGradients.HomeHero)
+                    } else {
+                        Brush.linearGradient(
+                            listOf(MaterialTheme.colorScheme.surfaceBright, MaterialTheme.colorScheme.surfaceBright)
                         )
-                    )
+                    }
                 )
                 .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            eyebrow?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = eyebrowColor
+                )
+            }
             Text(
                 text = title,
-                style = MaterialTheme.typography.displaySmall,
-                color = MaterialTheme.colorScheme.onPrimary
+                style = MaterialTheme.typography.headlineMedium,
+                color = titleColor
             )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.88f)
+                style = MaterialTheme.typography.bodyMedium,
+                color = subtitleColor
             )
+            if (metrics.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    metrics.forEach { (label, value) ->
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = subtitleColor
+                            )
+                            Text(
+                                text = value,
+                                style = MaterialTheme.typography.titleLarge,
+                                color = titleColor,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
             content?.invoke()
         }
     }
@@ -330,21 +454,33 @@ fun SkautaiHeroCard(
 @Composable
 fun SkautaiSectionHeader(
     title: String,
+    subtitle: String? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
-        Text(text = title, style = MaterialTheme.typography.titleLarge)
+        Column(modifier = Modifier.weight(1f)) {
+            Text(text = title, style = MaterialTheme.typography.titleLarge)
+            subtitle?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
         if (actionLabel != null && onAction != null) {
             Text(
                 text = actionLabel,
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable(onClick = onAction)
+                modifier = Modifier
+                    .padding(start = 12.dp, top = 2.dp)
+                    .clickable(onClick = onAction)
             )
         }
     }

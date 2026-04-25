@@ -1,15 +1,12 @@
 package lt.skautai.android.ui.events
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -17,13 +14,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -38,9 +33,13 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSummaryCard
 
 @Composable
 fun EventListScreen(
@@ -75,6 +74,7 @@ fun EventListScreen(
 
             is EventListUiState.Success -> {
                 Column(modifier = Modifier.fillMaxSize()) {
+                    EventListOverview(events = state.events, activeFilter = state.activeFilter)
                     EventTypeFilterRow(
                         activeFilter = state.activeFilter,
                         onFilterSelected = { viewModel.setTypeFilter(it) }
@@ -83,8 +83,10 @@ fun EventListScreen(
                     if (state.events.isEmpty()) {
                         SkautaiEmptyState(
                             title = "Renginiu nera",
-                            subtitle = "Cia matysi stovyklas, sueigas ir kitus vieneto renginius.",
+                            subtitle = "Cia matysi stovyklas, sueigas ir kitus vieneto renginius, kai tik jie bus sukurti.",
                             icon = Icons.Default.CalendarMonth,
+                            actionLabel = "Kurti rengini",
+                            onAction = onCreateClick,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp)
                         )
                     } else {
@@ -92,8 +94,8 @@ fun EventListScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 8.dp)
+                            verticalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)
                         ) {
                             items(state.events, key = { it.id }) { event ->
                                 EventCard(
@@ -119,6 +121,22 @@ fun EventListScreen(
 }
 
 @Composable
+private fun EventListOverview(events: List<EventDto>, activeFilter: String?) {
+    SkautaiSummaryCard(
+        eyebrow = "Renginiu kalendorius",
+        title = activeFilter?.let(::eventTypeLabel) ?: "Visi renginiai",
+        subtitle = "Greita aktyviu, planuojamu ir uzbaigtu renginiu apzvalga.",
+        metrics = listOf(
+            "Visi" to events.size.toString(),
+            "Aktyvus" to events.count { it.status == "ACTIVE" }.toString(),
+            "Planuojami" to events.count { it.status == "PLANNING" }.toString()
+        ),
+        foresty = true,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
+
+@Composable
 private fun EventTypeFilterRow(
     activeFilter: String?,
     onFilterSelected: (String?) -> Unit
@@ -130,7 +148,7 @@ private fun EventTypeFilterRow(
         "RENGINYS" to "Renginys"
     )
     LazyRow(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         items(filters) { (type, label) ->
@@ -148,37 +166,94 @@ fun EventCard(
     event: EventDto,
     onClick: () -> Unit
 ) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            androidx.compose.foundation.layout.Row(
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
-                Text(
-                    text = event.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f)
-                )
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = event.name,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 EventStatusChip(status = event.status)
             }
-            Spacer(modifier = Modifier.height(4.dp))
-            androidx.compose.foundation.layout.Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                EventTypeChip(type = event.type)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                SkautaiStatusPill(label = eventTypeLabel(event.type), tone = SkautaiStatusTone.Info)
+                event.stovyklaDetails?.actualParticipants?.let {
+                    SkautaiStatusPill(label = "$it dalyviai", tone = SkautaiStatusTone.Neutral)
+                }
+            }
+            event.notes?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
+                    text = it,
                     style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2
+                )
+            }
+            event.inventorySummary?.let { summary ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EventMetricMini(
+                        icon = Icons.Default.Groups,
+                        label = "Planas",
+                        value = summary.totalPlannedQuantity.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                    EventMetricMini(
+                        icon = Icons.Default.CalendarMonth,
+                        label = "Pirkti",
+                        value = summary.itemsNeedingPurchase.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventMetricMini(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier
+) {
+    SkautaiCard(modifier = modifier, tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
                 )
             }
         }
@@ -186,39 +261,20 @@ fun EventCard(
 }
 
 @Composable
-fun EventTypeChip(type: String) {
-    val label = when (type) {
-        "STOVYKLA" -> "Stovykla"
-        "SUEIGA" -> "Sueiga"
-        "RENGINYS" -> "Renginys"
-        else -> type
-    }
-    Surface(
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        shape = MaterialTheme.shapes.small
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-        )
-    }
-}
-
-@Composable
 fun EventStatusChip(status: String) {
-    val (label, color) = when (status) {
-        "PLANNING" -> "Planuojamas" to MaterialTheme.colorScheme.tertiary
-        "ACTIVE" -> "Aktyvus" to MaterialTheme.colorScheme.primary
-        "COMPLETED" -> "Ivykdytas" to MaterialTheme.colorScheme.onSurfaceVariant
-        "CANCELLED" -> "Atsauktas" to MaterialTheme.colorScheme.error
-        else -> status to MaterialTheme.colorScheme.onSurfaceVariant
+    val tone = when (status) {
+        "PLANNING" -> SkautaiStatusTone.Warning
+        "ACTIVE" -> SkautaiStatusTone.Success
+        "COMPLETED" -> SkautaiStatusTone.Neutral
+        "CANCELLED" -> SkautaiStatusTone.Danger
+        else -> SkautaiStatusTone.Neutral
     }
-    Text(
-        text = label,
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.SemiBold,
-        color = color
-    )
+    val label = when (status) {
+        "PLANNING" -> "Planuojamas"
+        "ACTIVE" -> "Aktyvus"
+        "COMPLETED" -> "Ivykdytas"
+        "CANCELLED" -> "Atsauktas"
+        else -> status
+    }
+    SkautaiStatusPill(label = label, tone = tone)
 }

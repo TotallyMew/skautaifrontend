@@ -17,12 +17,17 @@ import java.time.ZoneId
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventCreateScreen(
+    eventId: String?,
     onBack: () -> Unit,
     viewModel: EventCreateViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectingDate by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(eventId) {
+        viewModel.loadEvent(eventId)
+    }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) onBack()
@@ -65,7 +70,7 @@ fun EventCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas renginys") },
+                title = { Text(if (uiState.isEditMode) "Redaguoti rengini" else "Naujas renginys") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -83,6 +88,12 @@ fun EventCreateScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            if (uiState.isLoading) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    CircularProgressIndicator(modifier = Modifier.padding(vertical = 24.dp))
+                }
+            }
+
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChange,
@@ -93,11 +104,13 @@ fun EventCreateScreen(
 
             EventTypeDropdown(
                 selectedType = uiState.type,
-                onTypeSelected = viewModel::onTypeChange
+                onTypeSelected = viewModel::onTypeChange,
+                enabled = !uiState.isEditMode
             )
 
             OutlinedButton(
                 onClick = { selectingDate = "start" },
+                enabled = !uiState.isEditMode,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (uiState.startDate.isBlank()) "Pasirinkti pradzios data" else "Pradzia: ${uiState.startDate}")
@@ -105,6 +118,7 @@ fun EventCreateScreen(
 
             OutlinedButton(
                 onClick = { selectingDate = "end" },
+                enabled = !uiState.isEditMode,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (uiState.endDate.isBlank()) "Pasirinkti pabaigos data" else "Pabaiga: ${uiState.endDate}")
@@ -120,8 +134,8 @@ fun EventCreateScreen(
             )
 
             Button(
-                onClick = viewModel::createEvent,
-                enabled = !uiState.isSaving,
+                onClick = viewModel::saveEvent,
+                enabled = !uiState.isSaving && !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth()
             ) {
                 if (uiState.isSaving) {
@@ -131,7 +145,7 @@ fun EventCreateScreen(
                         modifier = Modifier.size(20.dp)
                     )
                 } else {
-                    Text("Sukurti")
+                    Text(if (uiState.isEditMode) "Issaugoti" else "Sukurti")
                 }
             }
         }
@@ -142,7 +156,8 @@ fun EventCreateScreen(
 @Composable
 private fun EventTypeDropdown(
     selectedType: String,
-    onTypeSelected: (String) -> Unit
+    onTypeSelected: (String) -> Unit,
+    enabled: Boolean
 ) {
     val types = listOf(
         "STOVYKLA" to "Stovykla",
@@ -154,12 +169,13 @@ private fun EventTypeDropdown(
 
     ExposedDropdownMenuBox(
         expanded = expanded,
-        onExpandedChange = { expanded = it }
+        onExpandedChange = { if (enabled) expanded = it }
     ) {
         OutlinedTextField(
             value = selectedLabel,
             onValueChange = {},
             readOnly = true,
+            enabled = enabled,
             label = { Text("Tipas *") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier

@@ -124,6 +124,10 @@ object ScoutStatusColors {
     val OnOkContainer = Color(0xFF1E3A1F)
     val WarnContainer = ScoutPalette.ClaySoft
     val OnWarnContainer = Color(0xFF5A2E13)
+    val NeutralContainer = ScoutPalette.MossSoft
+    val OnNeutralContainer = ScoutPalette.MossDeep
+    val InfoContainer = ScoutPalette.ForestSoft
+    val OnInfoContainer = ScoutPalette.ForestInk
 }
 
 data class ScoutUnitPalette(

@@ -5,7 +5,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -17,7 +19,10 @@ import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ReceiptLong
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -51,6 +56,9 @@ import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSummaryCard
 
 data class EventTabSpec(
     val label: String,
@@ -67,6 +75,8 @@ private sealed interface EventSheet {
 fun EventDetailScreen(
     eventId: String,
     onBack: () -> Unit,
+    onEdit: (String) -> Unit,
+    onOpenMovement: (String) -> Unit,
     viewModel: EventDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -94,7 +104,7 @@ fun EventDetailScreen(
                 TextButton(
                     onClick = {
                         showCancelDialog = false
-                        viewModel.cancelEvent(eventId)
+                        viewModel.cancelEvent(eventId, onSuccess = onBack)
                     }
                 ) {
                     Text("Atsaukti", color = MaterialTheme.colorScheme.error)
@@ -153,6 +163,7 @@ fun EventDetailScreen(
                         canStart = "events.manage" in permissions || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS") },
                         canInventory = "events.inventory.distribute" in permissions || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") },
                         onCancel = { showCancelDialog = true },
+                        onEdit = { onEdit(eventId) },
                         onActivate = { viewModel.updateStatus(eventId, "ACTIVE") },
                         onComplete = { viewModel.updateStatus(eventId, "COMPLETED") },
                         onCreatePurchase = { selected -> viewModel.createPurchaseFromSelected(eventId, selected) },
@@ -170,7 +181,8 @@ fun EventDetailScreen(
                         onCompletePurchase = { purchaseId -> viewModel.completePurchase(eventId, purchaseId) },
                         onAddPurchaseToInventory = { purchaseId -> viewModel.addPurchaseToInventory(eventId, purchaseId) },
                         onAttachInvoice = { purchaseId, uri -> viewModel.attachInvoice(eventId, purchaseId, uri) },
-                        onDownloadInvoice = { purchaseId -> viewModel.downloadInvoice(eventId, purchaseId) }
+                        onDownloadInvoice = { purchaseId -> viewModel.downloadInvoice(eventId, purchaseId) },
+                        onOpenMovement = { onOpenMovement(eventId) }
                     )
                 }
             }
@@ -191,6 +203,7 @@ private fun EventDetailContent(
     canManage: Boolean,
     canStart: Boolean,
     canInventory: Boolean,
+    onEdit: () -> Unit,
     onCancel: () -> Unit,
     onActivate: () -> Unit,
     onComplete: () -> Unit,
@@ -203,7 +216,8 @@ private fun EventDetailContent(
     onCompletePurchase: (String) -> Unit,
     onAddPurchaseToInventory: (String) -> Unit,
     onAttachInvoice: (String, Uri) -> Unit,
-    onDownloadInvoice: (String) -> Unit
+    onDownloadInvoice: (String) -> Unit,
+    onOpenMovement: () -> Unit
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf(
@@ -266,16 +280,28 @@ private fun EventDetailContent(
                     isCancelling = isCancelling,
                     canManage = canManage,
                     canStart = canStart,
+                    onEdit = onEdit,
                     onActivate = onActivate,
                     onComplete = onComplete,
                     onCancel = onCancel
                 )
+            }
+            item {
+                MovementEntryCard(onOpenMovement = onOpenMovement)
             }
             stickyHeader {
                 EventTabBar(
                     tabs = tabs,
                     selectedTab = selectedTab,
                     onTabSelected = { selectedTab = it }
+                )
+            }
+            item {
+                EventTabSummary(
+                    selectedTab = selectedTab,
+                    inventoryPlan = inventoryPlan,
+                    purchases = purchases,
+                    event = event
                 )
             }
             item {
@@ -323,6 +349,107 @@ private fun EventDetailContent(
                         onRemoveRole = onRemoveRole
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventTabSummary(
+    selectedTab: Int,
+    inventoryPlan: EventInventoryPlanDto?,
+    purchases: List<EventPurchaseDto>,
+    event: EventDto
+) {
+    val items = inventoryPlan?.items.orEmpty()
+    when (selectedTab) {
+        0 -> {
+            SkautaiSummaryCard(
+                title = "Poreikiu santrauka",
+                subtitle = "Kas jau suplanuota ir ko dar truksta renginiui.",
+                metrics = listOf(
+                    "Eilutes" to items.size.toString(),
+                    "Vnt." to items.sumOf { it.plannedQuantity }.toString(),
+                    "Trukumai" to items.count { it.shortageQuantity > 0 }.toString()
+                ),
+                foresty = true
+            )
+        }
+
+        1 -> {
+            SkautaiSummaryCard(
+                title = if (event.status == "COMPLETED") "Grazinimo santrauka" else "Ukvedzio santrauka",
+                subtitle = if (event.status == "COMPLETED") {
+                    "Greita grazinamu daiktu apzvalga."
+                } else {
+                    "Daiktai, kuriuos reikia papildomai nupirkti arba paskirstyti."
+                },
+                metrics = listOf(
+                    "Pirkti" to items.sumOf { it.shortageQuantity }.toString(),
+                    "Truksta" to items.count { it.shortageQuantity > 0 }.toString(),
+                    "Rezervuota" to items.count { it.reservationGroupId != null }.toString()
+                ),
+                foresty = true
+            )
+        }
+
+        2 -> {
+            SkautaiSummaryCard(
+                title = "Pirkimu santrauka",
+                subtitle = "Sukurtu pirkimu busena ir bendra suma.",
+                metrics = listOf(
+                    "Pirkimai" to purchases.size.toString(),
+                    "Nupirkta" to purchases.count { it.status == "PURCHASED" || it.status == "ADDED_TO_INVENTORY" }.toString(),
+                    "Suma" to String.format("%.0f EUR", purchases.sumOf { it.totalAmount ?: 0.0 })
+                ),
+                foresty = true
+            )
+        }
+
+        3 -> {
+            val summary = event.inventorySummary
+            SkautaiSummaryCard(
+                title = "Plano santrauka",
+                subtitle = "Bendra renginio inventoriaus plano pusiausvyra.",
+                metrics = listOf(
+                    "Planuota" to (summary?.totalPlannedQuantity ?: 0).toString(),
+                    "Turima" to (summary?.totalAvailableQuantity ?: 0).toString(),
+                    "Paskirstyta" to (summary?.totalAllocatedQuantity ?: 0).toString()
+                ),
+                foresty = true
+            )
+        }
+
+        4 -> {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SkautaiStatusPill(label = "${event.eventRoles.size} nariai", tone = SkautaiStatusTone.Info)
+                SkautaiStatusPill(
+                    label = "${event.eventRoles.map { it.role }.distinct().size} rolės",
+                    tone = SkautaiStatusTone.Neutral
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovementEntryCard(onOpenMovement: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(
+                text = "Inventoriaus judejimas",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f)
+            )
+            Button(onClick = onOpenMovement) {
+                Text("Atidaryti")
             }
         }
     }

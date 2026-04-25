@@ -98,6 +98,9 @@ sealed class NavRoutes(val route: String) {
     object EventDetail : NavRoutes("event_detail/{eventId}") {
         fun createRoute(eventId: String) = "event_detail/$eventId"
     }
+    object EventMovement : NavRoutes("event_movement/{eventId}") {
+        fun createRoute(eventId: String) = "event_movement/$eventId"
+    }
     object EventAddEdit : NavRoutes("event_add_edit?eventId={eventId}") {
         fun createRoute(eventId: String? = null) =
             if (eventId != null) "event_add_edit?eventId=$eventId" else "event_add_edit"

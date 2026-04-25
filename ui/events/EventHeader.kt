@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -32,6 +33,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.StovyklaDetailsDto
 import androidx.compose.ui.unit.dp
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSummaryCard
 
 @Composable
 fun EventHeader(
@@ -39,59 +43,67 @@ fun EventHeader(
     isCancelling: Boolean,
     canManage: Boolean,
     canStart: Boolean,
+    onEdit: () -> Unit,
     onActivate: () -> Unit,
     onComplete: () -> Unit,
     onCancel: () -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = event.name,
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.padding(start = 14.dp, end = 8.dp, top = 12.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        EventStatusPill(status = event.status)
+                        SkautaiStatusPill(label = eventTypeLabel(event.type), tone = SkautaiStatusTone.Info)
+                    }
+                    Text(
+                        text = event.name,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
                 HeaderActions(
                     event = event,
                     isCancelling = isCancelling,
                     canManage = canManage,
+                    onEdit = onEdit,
                     onCancel = onCancel
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                EventStatusPill(status = event.status)
-                Text(
-                    text = eventTypeLabel(event.type),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1
-                )
-                Text(
-                    text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+
+            event.inventorySummary?.let { summary ->
+                SkautaiSummaryCard(
+                    title = "Renginio santrauka",
+                    subtitle = "Trumpa poreikiu, turimo inventoriaus ir trukumu apzvalga.",
+                    metrics = listOf(
+                        "Planuojama" to summary.totalPlannedQuantity.toString(),
+                        "Turima" to summary.totalAvailableQuantity.toString(),
+                        "Truksta" to summary.totalShortageQuantity.toString()
+                    ),
+                    modifier = Modifier.padding(horizontal = 12.dp)
                 )
             }
+
             event.notes?.takeIf { it.isNotBlank() }?.let {
                 Text(
                     text = it,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 14.dp)
                 )
             }
             if (event.type == "STOVYKLA") {
@@ -119,13 +131,17 @@ private fun EventPrimaryStatusAction(
 ) {
     when {
         event.status == "PLANNING" && canStart -> {
-            Button(onClick = onActivate, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onActivate, modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 4.dp)) {
                 Text("Pradeti rengini")
             }
         }
 
         event.status == "ACTIVE" && canManage -> {
-            Button(onClick = onComplete, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onComplete, modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 4.dp)) {
                 Text("Baigti rengini")
             }
         }
@@ -137,6 +153,7 @@ private fun HeaderActions(
     event: EventDto,
     isCancelling: Boolean,
     canManage: Boolean,
+    onEdit: () -> Unit,
     onCancel: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -151,6 +168,16 @@ private fun HeaderActions(
                     }
                 }
                 DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                    DropdownMenuItem(
+                        text = { Text("Redaguoti rengini") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Edit, contentDescription = null)
+                        },
+                        onClick = {
+                            expanded = false
+                            onEdit()
+                        }
+                    )
                     DropdownMenuItem(
                         text = { Text("Atsaukti rengini", color = MaterialTheme.colorScheme.error) },
                         onClick = {
@@ -167,7 +194,7 @@ private fun HeaderActions(
 @Composable
 private fun StovyklaDetailsCompact(details: StovyklaDetailsDto) {
     details.actualParticipants?.let {
-        HorizontalDivider()
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 14.dp))
         EventInfoRow("Stabo zmones", it.toString())
     }
 }

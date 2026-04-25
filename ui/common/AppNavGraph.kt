@@ -21,6 +21,7 @@ import lt.skautai.android.ui.auth.RegisterScreen
 import lt.skautai.android.ui.events.EventCreateScreen
 import lt.skautai.android.ui.events.EventDetailScreen
 import lt.skautai.android.ui.events.EventListScreen
+import lt.skautai.android.ui.events.EventMovementScreen
 import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
@@ -441,6 +442,19 @@ fun AppNavGraph(
             val eventId = it.arguments?.getString("eventId")!!
             EventDetailScreen(
                 eventId = eventId,
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(NavRoutes.EventAddEdit.createRoute(id)) },
+                onOpenMovement = { id -> navController.navigate(NavRoutes.EventMovement.createRoute(id)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EventMovement.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventMovementScreen(
+                eventId = eventId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -453,7 +467,11 @@ fun AppNavGraph(
                 nullable = true
             })
         ) {
-            EventCreateScreen(onBack = { navController.popBackStack() })
+            val eventId = it.arguments?.getString("eventId")
+            EventCreateScreen(
+                eventId = eventId,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(NavRoutes.TuntasSelect.route) {

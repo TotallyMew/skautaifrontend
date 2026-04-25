@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
@@ -84,19 +85,32 @@ class HomeViewModel @Inject constructor(
             )
 
             val userId = tokenManager.userId.first()
+            val activeTuntasId = tokenManager.activeTuntasId.first()
             val permissions = tokenManager.permissions.first()
             val unitsResult = orgUnitRepository.getUnits()
             val currentMember = userId?.let { memberRepository.getMember(it).getOrNull() }
-            val ownUnits = unitsResult.getOrDefault(emptyList()).filter { unit ->
-                currentMember?.leadershipRoles?.any {
-                    it.termStatus == "ACTIVE" && it.organizationalUnitId == unit.id
-                } == true || orgUnitRepository.getUnitMembers(unit.id)
-                    .getOrDefault(emptyList())
-                    .any { it.userId == userId && it.leftAt == null }
+            val currentMemberUnitIds = currentMember?.activeUnitIds().orEmpty()
+            val knownUnits = (
+                unitsResult.getOrDefault(emptyList()) +
+                    currentMember.offlineUnitDtos(activeTuntasId)
+                ).distinctBy { it.id }
+            val ownUnits = if (currentMemberUnitIds.isNotEmpty()) {
+                knownUnits.filter { it.id in currentMemberUnitIds }
+            } else {
+                knownUnits.filter { unit ->
+                    orgUnitRepository.getUnitMembers(unit.id)
+                        .getOrDefault(emptyList())
+                        .any { it.userId == userId && it.leftAt == null }
+                }
             }
 
             val persistedUnitId = tokenManager.activeOrgUnitId.first()
-            val resolvedUnit = ownUnits.firstOrNull { it.id == persistedUnitId } ?: ownUnits.firstOrNull()
+            val persistedUnit = persistedUnitId?.let { unitId ->
+                orgUnitRepository.getUnit(unitId).getOrNull()
+            }
+            val resolvedUnit = ownUnits.firstOrNull { it.id == persistedUnitId }
+                ?: ownUnits.firstOrNull()
+                ?: persistedUnit
             if (resolvedUnit?.id != persistedUnitId) {
                 tokenManager.setActiveOrgUnit(resolvedUnit?.id)
             }
@@ -214,3 +228,46 @@ private fun ReservationDto.canBeManagedBy(permissions: Set<String>, activeUnitId
             else -> "reservations.approve:OWN_UNIT" in permissions && item.custodianId == activeUnitId
         }
     }
+
+private fun MemberDto.activeUnitIds(): Set<String> =
+    (
+        unitAssignments.orEmpty().map { it.organizationalUnitId } +
+            leadershipRoles
+                .filter { it.termStatus == "ACTIVE" && it.organizationalUnitId != null }
+                .mapNotNull { it.organizationalUnitId }
+        ).toSet()
+
+private fun MemberDto?.offlineUnitDtos(activeTuntasId: String?): List<OrganizationalUnitDto> {
+    if (this == null || activeTuntasId == null) return emptyList()
+    val assignmentUnits = unitAssignments.orEmpty().map { assignment ->
+        OrganizationalUnitDto(
+            id = assignment.organizationalUnitId,
+            tuntasId = activeTuntasId,
+            name = assignment.organizationalUnitName,
+            type = "UNKNOWN",
+            subtype = null,
+            acceptedRankId = null,
+            acceptedRankName = null,
+            memberCount = 0,
+            itemCount = 0,
+            createdAt = assignment.joinedAt
+        )
+    }
+    val leadershipUnits = leadershipRoles
+        .filter { it.termStatus == "ACTIVE" && it.organizationalUnitId != null && !it.organizationalUnitName.isNullOrBlank() }
+        .map { role ->
+            OrganizationalUnitDto(
+                id = role.organizationalUnitId!!,
+                tuntasId = activeTuntasId,
+                name = role.organizationalUnitName!!,
+                type = "UNKNOWN",
+                subtype = null,
+                acceptedRankId = null,
+                acceptedRankName = null,
+                memberCount = 0,
+                itemCount = 0,
+                createdAt = role.assignedAt
+            )
+        }
+    return (assignmentUnits + leadershipUnits).distinctBy { it.id }
+}

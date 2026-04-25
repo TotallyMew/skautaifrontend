@@ -42,6 +42,8 @@ import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSummaryCard
 
 @Composable
 fun RequestListScreen(
@@ -91,30 +93,17 @@ fun RequestListScreen(
                         contentPadding = PaddingValues(vertical = 12.dp)
                     ) {
                         item {
-                            SkautaiCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                tonal = MaterialTheme.colorScheme.secondaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.Inventory2, contentDescription = null)
-                                    Column {
-                                        Text(
-                                            text = "Reikia paimti turima daikta is tunto?",
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Text(
-                                            text = "Cia vienetas praso gauti jau esama bendro tunto inventoriaus daikta, o ne pirkti nauja.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
+                            SkautaiSummaryCard(
+                                title = "Reikia paimti turima daikta is tunto?",
+                                subtitle = "Cia vienetas praso gauti jau esama bendro tunto inventoriaus daikta, o ne pirkti nauja.",
+                                metrics = listOf(
+                                    "Prasymai" to state.requests.size.toString(),
+                                    "Laukia" to state.requests.count { it.topLevelStatus == "PENDING" }.toString(),
+                                    "Perduota" to state.requests.count { it.topLevelStatus == "FORWARDED" }.toString()
+                                ),
+                                foresty = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                         items(state.requests, key = { it.id }) { request ->
                             SharedTransferRequestCard(
@@ -147,7 +136,7 @@ private fun SharedTransferRequestCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -196,11 +185,11 @@ private fun SharedTransferRequestCard(
 @Composable
 fun RequestStatusChip(status: String) {
     val (label, container, content) = when (status) {
-        "PENDING" -> Triple("Laukia", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+        "PENDING" -> Triple("Laukia", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
         "APPROVED" -> Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         "REJECTED" -> Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         "FORWARDED" -> Triple("Perduota", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-        else -> Triple(status, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> Triple(status, MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
     }
     SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
 }

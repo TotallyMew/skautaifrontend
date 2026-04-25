@@ -41,6 +41,7 @@ import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiSummaryCard
 
 @Composable
 fun RequisitionListScreen(
@@ -100,38 +101,25 @@ fun RequisitionListScreen(
                         contentPadding = PaddingValues(vertical = 12.dp, horizontal = 0.dp)
                     ) {
                         item {
-                            SkautaiCard(
-                                modifier = Modifier.fillMaxWidth(),
-                                tonal = MaterialTheme.colorScheme.primaryContainer
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Default.ShoppingCart, contentDescription = null)
-                                    Column {
-                                        Text(
-                                            text = when {
-                                                isAssignedMode -> "Man skirti tvirtinti"
-                                                isMyActiveMode -> "Mano patvirtinti prasymai"
-                                                else -> "Visi pirkimo ir papildymo prasymai"
-                                            },
-                                            style = MaterialTheme.typography.titleMedium,
-                                            fontWeight = FontWeight.SemiBold
-                                        )
-                                        Text(
-                                            text = when {
-                                                isAssignedMode -> "Prasymai, kurie laukia tavo sprendimo."
-                                                isMyActiveMode -> "Tik tavo galutinai patvirtinti prasymai."
-                                                else -> "Visa prasymu istorija: laukiantys, patvirtinti ir atmesti."
-                                            },
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            }
+                            SkautaiSummaryCard(
+                                title = when {
+                                    isAssignedMode -> "Man skirti tvirtinti"
+                                    isMyActiveMode -> "Mano patvirtinti prasymai"
+                                    else -> "Visi pirkimo ir papildymo prasymai"
+                                },
+                                subtitle = when {
+                                    isAssignedMode -> "Prasymai, kurie laukia tavo sprendimo."
+                                    isMyActiveMode -> "Tik tavo galutinai patvirtinti prasymai."
+                                    else -> "Visa prasymu istorija: laukiantys, patvirtinti ir atmesti."
+                                },
+                                metrics = listOf(
+                                    "Visi" to state.requests.size.toString(),
+                                    "Laukia" to state.requests.count { it.topLevelReviewStatus == "PENDING" || it.unitReviewStatus == "PENDING" }.toString(),
+                                    "Patvirtinti" to state.requests.count { it.status == "APPROVED" }.toString()
+                                ),
+                                foresty = true,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                         items(state.requests, key = { it.id }) { request ->
                             RequisitionCard(
@@ -167,7 +155,7 @@ private fun RequisitionCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
@@ -224,13 +212,13 @@ private fun RequisitionStatusPill(request: RequisitionDto) {
         request.unitReviewStatus == "FORWARDED" ->
             Triple("Perduota", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
         request.unitReviewStatus == "PENDING" ->
-            Triple("Laukia vieneto", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+            Triple("Laukia vieneto", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
         request.topLevelReviewStatus == "PENDING" ->
             Triple("Laukia tunto", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
         request.status == "REJECTED" ->
             Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         else ->
-            Triple("Pateikta", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+            Triple("Pateikta", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
     }
     SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
 }

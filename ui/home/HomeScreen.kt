@@ -1,8 +1,6 @@
 package lt.skautai.android.ui.home
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -23,13 +21,15 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,7 +37,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -46,13 +45,17 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
-import lt.skautai.android.ui.common.SkautaiHeroCard
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSummaryCard
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.LithuanianNameVocativeFormatter
 import lt.skautai.android.util.NavRoutes
 
@@ -91,10 +94,11 @@ fun HomeScreen(
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         item {
-            HeroCard(
+            OverviewCard(
+                uiState = uiState,
                 userName = LithuanianNameVocativeFormatter.firstNameVocative(userName),
                 onManageTuntai = { navController.navigate(NavRoutes.TuntasSelect.route) }
             )
@@ -102,7 +106,10 @@ fun HomeScreen(
 
         if (uiState.availableUnits.size > 1) {
             item {
-                SkautaiSectionHeader(title = "Aktyvus vienetas")
+                SkautaiSectionHeader(
+                    title = "Aktyvus vienetas",
+                    subtitle = "Perjunk konteksta tarp vienetu, kuriems priklausai."
+                )
             }
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -119,7 +126,10 @@ fun HomeScreen(
 
         if (hasAnyAction) {
             item {
-                SkautaiSectionHeader(title = "Reikalauja demesio")
+                SkautaiSectionHeader(
+                    title = "Reikalauja demesio",
+                    subtitle = "Svarbiausi veiksmai, kuriuos verta atlikti pirmiausia."
+                )
             }
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -129,7 +139,8 @@ fun HomeScreen(
                             count = uiState.sharedPendingApprovalCount,
                             subtitle = "Inventoriaus irasu patvirtinimas",
                             icon = Icons.Default.PendingActions,
-                            tone = MaterialTheme.colorScheme.primaryContainer,
+                            tone = MaterialTheme.colorScheme.surfaceBright,
+                            badgeTone = SkautaiStatusTone.Warning,
                             onClick = { navController.navigate(NavRoutes.InventoryList.createRoute()) }
                         )
                     }
@@ -139,7 +150,8 @@ fun HomeScreen(
                             count = uiState.assignedReservationCount,
                             subtitle = "Patvirtink arba atmest",
                             icon = Icons.Default.EventAvailable,
-                            tone = MaterialTheme.colorScheme.secondaryContainer,
+                            tone = MaterialTheme.colorScheme.surfaceBright,
+                            badgeTone = SkautaiStatusTone.Warning,
                             onClick = { navController.navigate(NavRoutes.ReservationList.createRoute(mode = "assigned")) }
                         )
                     }
@@ -149,7 +161,8 @@ fun HomeScreen(
                             count = uiState.assignedRequisitionCount,
                             subtitle = "Pirkimo ir papildymo prasymai",
                             icon = Icons.Default.Assignment,
-                            tone = MaterialTheme.colorScheme.tertiaryContainer,
+                            tone = MaterialTheme.colorScheme.surfaceBright,
+                            badgeTone = SkautaiStatusTone.Warning,
                             onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "assigned")) }
                         )
                     }
@@ -158,11 +171,14 @@ fun HomeScreen(
         }
 
         item {
-            SkautaiSectionHeader(title = "Inventorius")
+            SkautaiSectionHeader(
+                title = "Inventorius",
+                subtitle = "Greita prieiga prie tunto, vieneto ir asmeninio inventoriaus."
+            )
         }
 
         item {
-            InventoryScopeGrid(
+            InventoryScopeColumn(
                 activeUnitId = uiState.activeUnitId,
                 activeUnitName = uiState.activeUnitName,
                 activeUnitItemCount = uiState.activeUnitItemCount,
@@ -196,6 +212,7 @@ fun HomeScreen(
         item {
             SkautaiSectionHeader(
                 title = "Rezervacijos",
+                subtitle = "Sek savo aktyvias rezervacijas ir greitai pereik prie sarasu.",
                 actionLabel = "Visos",
                 onAction = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
             )
@@ -207,7 +224,8 @@ fun HomeScreen(
                 count = uiState.myReservationCount,
                 subtitle = "Tavo aktyvios rezervacijos",
                 icon = Icons.Default.EventAvailable,
-                tone = MaterialTheme.colorScheme.primaryContainer,
+                tone = MaterialTheme.colorScheme.surfaceBright,
+                badgeTone = SkautaiStatusTone.Info,
                 onClick = { navController.navigate(NavRoutes.ReservationList.createRoute(mode = "my_active")) }
             )
         }
@@ -215,6 +233,7 @@ fun HomeScreen(
         item {
             SkautaiSectionHeader(
                 title = "Prasymai",
+                subtitle = "Pirkimo ir papildymo uzklausos vienoje vietoje.",
                 actionLabel = "Visi",
                 onAction = { navController.navigate(NavRoutes.RequestList.createRoute()) }
             )
@@ -226,7 +245,8 @@ fun HomeScreen(
                 count = uiState.myRequisitionCount,
                 subtitle = "Kuriuos pats pateikei",
                 icon = Icons.Default.Inbox,
-                tone = MaterialTheme.colorScheme.primaryContainer,
+                tone = MaterialTheme.colorScheme.surfaceBright,
+                badgeTone = SkautaiStatusTone.Info,
                 onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active")) }
             )
         }
@@ -234,21 +254,42 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HeroCard(userName: String, onManageTuntai: () -> Unit) {
-    SkautaiHeroCard(
+private fun OverviewCard(
+    uiState: HomeUiState,
+    userName: String,
+    onManageTuntai: () -> Unit
+) {
+    val actionCount = uiState.sharedPendingApprovalCount +
+        uiState.assignedReservationCount +
+        uiState.assignedRequisitionCount
+    SkautaiSummaryCard(
+        eyebrow = "Pagrindine apzvalga",
         title = "Labas, $userName",
-        subtitle = "Greita tavo vieneto, tunto ir asmeninio inventoriaus apzvalga.",
+        subtitle = "Svarbiausi inventoriaus, rezervaciju ir prasymu srautai vienoje vietoje.",
+        metrics = listOf(
+            "Veiksmai" to actionCount.toString(),
+            "Vieneto daiktai" to uiState.activeUnitItemCount.toString(),
+            "Bendri daiktai" to uiState.sharedInventoryCount.toString()
+        ),
+        foresty = true,
         modifier = Modifier.fillMaxWidth()
     ) {
-        OutlinedButton(
-            onClick = onManageTuntai
+        FilledTonalButton(
+            onClick = onManageTuntai,
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
         ) {
             Icon(
                 imageVector = Icons.Default.SwapHoriz,
                 contentDescription = null,
                 modifier = Modifier.padding(end = 8.dp)
             )
-            Text("Keisti tunta")
+            Text(
+                text = "Keisti tunta",
+                fontWeight = FontWeight.SemiBold
+            )
         }
     }
 }
@@ -260,6 +301,7 @@ private fun ActionTile(
     subtitle: String,
     icon: ImageVector,
     tone: Color,
+    badgeTone: SkautaiStatusTone,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -276,8 +318,8 @@ private fun ActionTile(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.56f),
-                contentColor = MaterialTheme.colorScheme.primary,
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 shape = RoundedCornerShape(14.dp)
             ) {
                 Box(
@@ -310,18 +352,20 @@ private fun ActionTile(
                     overflow = TextOverflow.Ellipsis
                 )
             }
-            Text(
-                text = "$count",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.Bold
-            )
+            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                SkautaiStatusPill(label = "$count", tone = badgeTone)
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun InventoryScopeGrid(
+private fun InventoryScopeColumn(
     activeUnitId: String?,
     activeUnitName: String?,
     activeUnitItemCount: Int,
@@ -343,7 +387,8 @@ private fun InventoryScopeGrid(
                     title = activeUnitName ?: "Mano vienetas",
                     count = activeUnitItemCount,
                     icon = Icons.Default.Group,
-                    tone = MaterialTheme.colorScheme.primaryContainer,
+                    tone = skautaiSurfaceTone(SkautaiSurfaceRole.Identity),
+                    toneLabel = "Vienetas",
                     onOpen = onOpenUnit,
                     showAdd = canCreateItems,
                     onAdd = onAddToUnit
@@ -352,10 +397,11 @@ private fun InventoryScopeGrid(
         }
         add(
             ScopeTile(
-                title = "Tunto bendras",
+                title = "Tunto bendras inventorius",
                 count = sharedInventoryCount,
                 icon = Icons.Default.Flag,
-                tone = MaterialTheme.colorScheme.tertiaryContainer,
+                tone = MaterialTheme.colorScheme.secondaryContainer,
+                toneLabel = "Bendras",
                 onOpen = onOpenShared,
                 showAdd = canCreateItems,
                 onAdd = onAddToShared
@@ -363,10 +409,11 @@ private fun InventoryScopeGrid(
         )
         add(
             ScopeTile(
-                title = "Mano asmeniniai",
+                title = "Mano asmeniniai daiktai",
                 count = personalLendingCount,
                 icon = Icons.Default.Person,
-                tone = MaterialTheme.colorScheme.surfaceVariant,
+                tone = MaterialTheme.colorScheme.surfaceContainerLow,
+                toneLabel = "Asmeninis",
                 onOpen = onOpenPersonal,
                 showAdd = canCreateItems,
                 onAdd = onAddPersonal
@@ -374,10 +421,11 @@ private fun InventoryScopeGrid(
         )
         add(
             ScopeTile(
-                title = "Visas inventorius",
+                title = "Visas inventoriaus katalogas",
                 count = null,
                 icon = Icons.Default.Inventory2,
-                tone = MaterialTheme.colorScheme.primaryContainer,
+                tone = MaterialTheme.colorScheme.surfaceContainer,
+                toneLabel = "Katalogas",
                 onOpen = onOpenAll,
                 showAdd = false,
                 onAdd = {}
@@ -385,19 +433,9 @@ private fun InventoryScopeGrid(
         )
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        tiles.chunked(2).forEach { row ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                row.forEach { tile ->
-                    ScopeTileCard(tile = tile, modifier = Modifier.weight(1f))
-                }
-                if (row.size == 1) {
-                    Box(modifier = Modifier.weight(1f))
-                }
-            }
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        tiles.forEach { tile ->
+            ScopeTileCard(tile = tile)
         }
     }
 }
@@ -407,6 +445,7 @@ private data class ScopeTile(
     val count: Int?,
     val icon: ImageVector,
     val tone: Color,
+    val toneLabel: String,
     val onOpen: () -> Unit,
     val showAdd: Boolean,
     val onAdd: () -> Unit
@@ -415,71 +454,78 @@ private data class ScopeTile(
 @Composable
 private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
     SkautaiCard(
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier.fillMaxWidth(),
         onClick = tile.onOpen,
         tonal = tile.tone
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(14.dp)
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.SpaceBetween
+            Surface(
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                contentColor = MaterialTheme.colorScheme.primary,
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.48f),
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(12.dp)
+                Box(
+                    modifier = Modifier.size(44.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier.size(34.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = tile.icon,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    if (tile.count != null) {
-                        Text(
-                            text = "${tile.count}",
-                            style = MaterialTheme.typography.headlineMedium,
-                            color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Text(
-                        text = tile.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                    Icon(
+                        imageVector = tile.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
-            if (tile.showAdd) {
-                Surface(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(28.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    contentColor = MaterialTheme.colorScheme.primary,
-                    shape = RoundedCornerShape(8.dp),
-                    onClick = tile.onAdd
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Prideti",
-                            modifier = Modifier.size(16.dp)
-                        )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = tile.toneLabel,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = tile.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = tile.count?.let { "$it irasu" } ?: "Perziureti visa kataloga",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (tile.showAdd) {
+                    Surface(
+                        modifier = Modifier.size(28.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        contentColor = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(8.dp),
+                        onClick = tile.onAdd
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Prideti",
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

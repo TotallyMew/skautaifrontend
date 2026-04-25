@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -14,13 +15,18 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.AssignEventRoleRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseItemRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
+import lt.skautai.android.data.remote.CreatePastovykleRequestDto
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventInventoryCustodyDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
+import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
+import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
 import lt.skautai.android.data.repository.EventRepository
@@ -35,6 +41,9 @@ sealed interface EventDetailUiState {
         val event: EventDto,
         val inventoryPlan: EventInventoryPlanDto? = null,
         val purchases: List<EventPurchaseDto> = emptyList(),
+        val pastovykles: List<PastovykleDto> = emptyList(),
+        val custody: List<EventInventoryCustodyDto> = emptyList(),
+        val movements: List<EventInventoryMovementDto> = emptyList(),
         val items: List<ItemDto> = emptyList(),
         val members: List<MemberDto> = emptyList(),
         val isCancelling: Boolean = false,
@@ -55,35 +64,53 @@ class EventDetailViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<EventDetailUiState>(EventDetailUiState.Loading)
     val uiState: StateFlow<EventDetailUiState> = _uiState.asStateFlow()
+    private var observeJob: Job? = null
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     fun loadEvent(id: String) {
+        observeEvent(id)
         viewModelScope.launch {
-            _uiState.value = EventDetailUiState.Loading
+            if (_uiState.value !is EventDetailUiState.Success) {
+                _uiState.value = EventDetailUiState.Loading
+            }
             eventRepository.getEvent(id)
-                .onSuccess { event ->
-                    val inventoryPlan = eventRepository.getInventoryPlan(id).getOrNull()
-                    val purchases = eventRepository.getPurchases(id).getOrNull()?.purchases.orEmpty()
-                    val items = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
-                    val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
-                    _uiState.value = EventDetailUiState.Success(event, inventoryPlan, purchases, items, members)
-                }
                 .onFailure { error ->
                     _uiState.value = EventDetailUiState.Error(
                         error.message ?: "Klaida gaunant renginio informacija"
                     )
                 }
+            val current = (_uiState.value as? EventDetailUiState.Success)?.event
+            if (current == null) return@launch
+            val inventoryPlan = eventRepository.getInventoryPlan(id).getOrNull()
+            val purchases = eventRepository.getPurchases(id).getOrNull()?.purchases.orEmpty()
+            val pastovykles = eventRepository.getPastovykles(id).getOrNull()?.pastovykles.orEmpty()
+            val custody = eventRepository.getInventoryCustody(id).getOrNull()?.custody.orEmpty()
+            val movements = eventRepository.getInventoryMovements(id).getOrNull()?.movements.orEmpty()
+            val items = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
+            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            _uiState.value = EventDetailUiState.Success(
+                event = current,
+                inventoryPlan = inventoryPlan,
+                purchases = purchases,
+                pastovykles = pastovykles,
+                custody = custody,
+                movements = movements,
+                items = items,
+                members = members
+            )
         }
     }
 
-    fun cancelEvent(id: String) {
+    fun cancelEvent(id: String, onSuccess: (() -> Unit)? = null) {
         val current = _uiState.value as? EventDetailUiState.Success ?: return
         viewModelScope.launch {
             _uiState.value = current.copy(isCancelling = true, error = null)
             eventRepository.cancelEvent(id)
-                .onSuccess { loadEvent(id) }
+                .onSuccess {
+                    onSuccess?.invoke()
+                }
                 .onFailure { error ->
                     _uiState.value = current.copy(
                         isCancelling = false,
@@ -351,6 +378,92 @@ class EventDetailViewModel @Inject constructor(
                         error = error.message ?: "Klaida pridedant i inventoriu"
                     )
                 }
+        }
+    }
+
+    fun createPastovykle(eventId: String, name: String, responsibleUserId: String?, notes: String) {
+        val current = _uiState.value as? EventDetailUiState.Success ?: return
+        if (name.isBlank()) {
+            _uiState.value = current.copy(error = "Ivesk pastovykles pavadinima")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.createPastovykle(
+                eventId,
+                CreatePastovykleRequestDto(
+                    name = name.trim(),
+                    responsibleUserId = responsibleUserId,
+                    notes = notes.ifBlank { null }
+                )
+            )
+                .onSuccess { loadEvent(eventId) }
+                .onFailure { error ->
+                    _uiState.value = current.copy(isWorking = false, error = error.message ?: "Klaida kuriant pastovykle")
+                }
+        }
+    }
+
+    fun createMovement(
+        eventId: String,
+        movementType: String,
+        eventInventoryItemId: String,
+        quantityText: String,
+        pastovykleId: String?,
+        toUserId: String?,
+        fromCustodyId: String?,
+        notes: String
+    ) {
+        val current = _uiState.value as? EventDetailUiState.Success ?: return
+        val quantity = quantityText.toIntOrNull()
+        if (eventInventoryItemId.isBlank() || quantity == null || quantity <= 0) {
+            _uiState.value = current.copy(error = "Pasirink daikta ir teigiama kieki")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.createInventoryMovement(
+                eventId,
+                CreateEventInventoryMovementRequestDto(
+                    eventInventoryItemId = eventInventoryItemId,
+                    movementType = movementType,
+                    quantity = quantity,
+                    pastovykleId = pastovykleId,
+                    toUserId = toUserId,
+                    fromCustodyId = fromCustodyId,
+                    notes = notes.ifBlank { null }
+                )
+            )
+                .onSuccess { loadEvent(eventId) }
+                .onFailure { error ->
+                    _uiState.value = current.copy(isWorking = false, error = error.message ?: "Klaida registruojant judejima")
+                }
+        }
+    }
+
+    private fun observeEvent(id: String) {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            eventRepository.observeEvent(id).collect { event ->
+                val current = _uiState.value as? EventDetailUiState.Success
+                if (event != null) {
+                    _uiState.value = EventDetailUiState.Success(
+                        event = event,
+                        inventoryPlan = current?.inventoryPlan,
+                        purchases = current?.purchases.orEmpty(),
+                        pastovykles = current?.pastovykles.orEmpty(),
+                        custody = current?.custody.orEmpty(),
+                        movements = current?.movements.orEmpty(),
+                        items = current?.items.orEmpty(),
+                        members = current?.members.orEmpty(),
+                        isCancelling = current?.isCancelling == true,
+                        isWorking = current?.isWorking == true,
+                        error = current?.error
+                    )
+                } else if (current == null) {
+                    _uiState.value = EventDetailUiState.Loading
+                }
+            }
         }
     }
 }

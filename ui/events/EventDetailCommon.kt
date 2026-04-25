@@ -27,6 +27,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -48,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiChip
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
 
 @Composable
 fun EventTabBar(
@@ -55,26 +58,41 @@ fun EventTabBar(
     selectedTab: Int,
     onTabSelected: (Int) -> Unit
 ) {
+    val scrollState = rememberScrollState()
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxWidth()) {
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.primaryContainer,
+            color = MaterialTheme.colorScheme.secondaryContainer,
             shape = RoundedCornerShape(18.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState())
-                    .padding(4.dp),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                tabs.forEachIndexed { index, tab ->
-                    EventSegment(
-                        label = tab.label,
-                        icon = tab.icon,
-                        selected = selectedTab == index,
-                        onClick = { onTabSelected(index) },
-                        modifier = Modifier.widthIn(min = 116.dp)
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(scrollState)
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    tabs.forEachIndexed { index, tab ->
+                        EventSegment(
+                            label = tab.label,
+                            icon = tab.icon,
+                            selected = selectedTab == index,
+                            onClick = { onTabSelected(index) },
+                            modifier = Modifier.widthIn(min = 116.dp)
+                        )
+                    }
+                }
+                if (scrollState.maxValue > 0) {
+                    val progress = scrollState.value.toFloat() / scrollState.maxValue.toFloat()
+                    LinearProgressIndicator(
+                        progress = { progress.coerceIn(0f, 1f) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .padding(horizontal = 18.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        trackColor = MaterialTheme.colorScheme.outlineVariant
                     )
                 }
             }
@@ -90,8 +108,8 @@ private fun EventSegment(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val container = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
-    val content = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary
+    val container = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+    val content = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSecondaryContainer
     Surface(
         modifier = modifier
             .heightIn(min = 48.dp)
@@ -122,23 +140,21 @@ private fun EventSegment(
 
 @Composable
 fun EventStatusPill(status: String) {
-    val scheme = MaterialTheme.colorScheme
-    val (label, container, onContainer) = when (status) {
-        "PLANNING" -> Triple("Planuojamas", scheme.primaryContainer, scheme.onPrimaryContainer)
-        "ACTIVE" -> Triple("Vyksta", scheme.secondaryContainer, scheme.onSecondaryContainer)
-        "COMPLETED" -> Triple("Uzbaigtas", scheme.tertiaryContainer, scheme.onTertiaryContainer)
-        "CANCELLED" -> Triple("Atsauktas", scheme.errorContainer, scheme.onErrorContainer)
-        else -> Triple(status, scheme.surfaceVariant, scheme.onSurfaceVariant)
+    val tone = when (status) {
+        "PLANNING" -> SkautaiStatusTone.Warning
+        "ACTIVE" -> SkautaiStatusTone.Success
+        "COMPLETED" -> SkautaiStatusTone.Neutral
+        "CANCELLED" -> SkautaiStatusTone.Danger
+        else -> SkautaiStatusTone.Neutral
     }
-    Surface(color = container, contentColor = onContainer, shape = RoundedCornerShape(999.dp)) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-            maxLines = 1
-        )
+    val label = when (status) {
+        "PLANNING" -> "Planuojamas"
+        "ACTIVE" -> "Vyksta"
+        "COMPLETED" -> "Uzbaigtas"
+        "CANCELLED" -> "Atsauktas"
+        else -> status
     }
+    SkautaiStatusPill(label = label, tone = tone)
 }
 
 @Composable
@@ -173,9 +189,9 @@ fun EventListSection(
 ) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.secondaryContainer,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp
+        tonalElevation = 0.dp
     ) {
         Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {

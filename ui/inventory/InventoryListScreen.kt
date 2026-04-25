@@ -18,18 +18,24 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Support
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Warehouse
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,7 +43,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -47,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -63,10 +69,16 @@ import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
+import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSummaryCard
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
+import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
-import lt.skautai.android.ui.common.inventoryCategoryLabel
+import lt.skautai.android.ui.common.itemOriginLabel
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.NavRoutes
 
 private val KnownInventoryCategories = listOf(
@@ -115,26 +127,19 @@ fun InventoryListScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Text(
-                text = inventoryContextTitle(
-                    openedCustodianId = openedCustodianId,
-                    selectedType = selectedType,
-                    selectedCategory = selectedCategory,
-                    items = (uiState as? InventoryListUiState.Success)?.activeItems.orEmpty()
-                ),
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = 8.dp)
+            InventoryHeaderCard(
+                openedCustodianId = openedCustodianId,
+                selectedType = selectedType,
+                selectedCategory = selectedCategory,
+                items = (uiState as? InventoryListUiState.Success)?.activeItems.orEmpty()
             )
 
             SkautaiSearchBar(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
-                placeholder = "Ieskoti...",
+                placeholder = "Ieskoti pagal pavadinima, vieta ar pastabas",
                 leadingIcon = Icons.Default.Search
             )
 
@@ -167,6 +172,32 @@ fun InventoryListScreen(
 }
 
 @Composable
+private fun InventoryHeaderCard(
+    openedCustodianId: String?,
+    selectedType: String?,
+    selectedCategory: String?,
+    items: List<ItemDto>
+) {
+    val title = inventoryContextTitle(openedCustodianId, selectedType, selectedCategory, items)
+    val subtitle = inventoryContextSubtitle(openedCustodianId, selectedType, selectedCategory)
+    val totalQuantity = items.sumOf { it.quantity }
+    SkautaiSummaryCard(
+        eyebrow = "Inventoriaus katalogas",
+        title = title,
+        subtitle = subtitle,
+        metrics = listOf(
+            "Irasai" to items.size.toString(),
+            "Vnt." to totalQuantity.toString(),
+            "Kategorijos" to items.map { it.category }.distinct().size.toString()
+        ),
+        foresty = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+    )
+}
+
+@Composable
 private fun ApprovalBanner(
     items: List<ItemDto>,
     navController: NavController,
@@ -178,7 +209,7 @@ private fun ApprovalBanner(
 
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        tonal = MaterialTheme.colorScheme.secondaryContainer
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Identity)
     ) {
         Column {
             Row(
@@ -189,23 +220,27 @@ private fun ApprovalBanner(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Laukia ${items.size} patvirtinimai",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.weight(1f)
-                )
-                TextButton(
-                    onClick = onApproveAll,
-                    enabled = items.isNotEmpty()
-                ) {
-                    Text("Patvirtinti visus", fontWeight = FontWeight.SemiBold)
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Laukia ${items.size} patvirtinimai",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Patikrink naujus irasus pries itraukiant i katalogus.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                SkautaiStatusPill(label = items.size.toString(), tone = SkautaiStatusTone.Warning)
+                IconButton(onClick = onApproveAll, enabled = items.isNotEmpty()) {
+                    Icon(Icons.Default.Check, contentDescription = "Patvirtinti visus")
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) "Sutraukti" else "Isskleisti",
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -282,8 +317,9 @@ private fun InventoryBody(
             }
             val categoryFilters = remember(state.activeItems) {
                 val counts = state.activeItems.groupingBy { it.category }.eachCount()
-                KnownInventoryCategories
-                    .map { category -> category to (inventoryCategoryLabel(category) to (counts[category] ?: 0)) }
+                KnownInventoryCategories.map { category ->
+                    category to (inventoryCategoryLabel(category) to (counts[category] ?: 0))
+                }
             }
 
             InventoryCatalogContent(
@@ -326,35 +362,53 @@ private fun InventoryCatalogContent(
     ) {
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(vertical = 2.dp)
+                SkautaiCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
                 ) {
-                    item {
-                        SkautaiChip(
-                            label = "Visi (${allItems.size})",
-                            selected = selectedType == null && selectedCategory == null,
-                            onClick = onClearFilters
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SkautaiSectionHeader(
+                            title = "Filtrai",
+                            subtitle = if (selectedType == null && selectedCategory == null) {
+                                "Rodymas pagal visa inventoriu."
+                            } else {
+                                "Aktyvus filtrai padeda greitai susiaurinti sarasa."
+                            }
                         )
-                    }
-                    items(typeFilters, key = { it.first }) { (type, chip) ->
-                        SkautaiChip(
-                            label = "${chip.first} (${chip.second})",
-                            selected = selectedType == type,
-                            onClick = { onTypeSelected(if (selectedType == type) null else type) }
-                        )
-                    }
-                }
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 2.dp)
-                ) {
-                    items(categoryFilters, key = { "category_${it.first}" }) { (category, chip) ->
-                        SkautaiChip(
-                            label = "${chip.first} (${chip.second})",
-                            selected = selectedCategory == category,
-                            onClick = { onCategorySelected(if (selectedCategory == category) null else category) }
-                        )
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 2.dp)
+                        ) {
+                            item {
+                                SkautaiChip(
+                                    label = "Visi (${allItems.size})",
+                                    selected = selectedType == null && selectedCategory == null,
+                                    onClick = onClearFilters
+                                )
+                            }
+                            items(typeFilters, key = { it.first }) { (type, chip) ->
+                                SkautaiChip(
+                                    label = "${chip.first} (${chip.second})",
+                                    selected = selectedType == type,
+                                    onClick = { onTypeSelected(if (selectedType == type) null else type) }
+                                )
+                            }
+                        }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(bottom = 2.dp)
+                        ) {
+                            items(categoryFilters, key = { "category_${it.first}" }) { (category, chip) ->
+                                SkautaiChip(
+                                    label = "${chip.first} (${chip.second})",
+                                    selected = selectedCategory == category,
+                                    onClick = { onCategorySelected(if (selectedCategory == category) null else category) }
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -364,7 +418,7 @@ private fun InventoryCatalogContent(
             item {
                 SkautaiEmptyState(
                     title = "Nieko nerasta",
-                    subtitle = "Pabandyk kita paieskos fraze arba pakeisk inventoriaus tipo filtra.",
+                    subtitle = noResultsSubtitle(openedCustodianId, selectedType, selectedCategory),
                     icon = Icons.Default.Inventory2
                 )
             }
@@ -384,66 +438,81 @@ private fun InventoryCatalogContent(
 
 @Composable
 private fun InventoryGroupHeader(title: String, count: Int) {
-    Text(
-        text = "$title / $count",
-        style = MaterialTheme.typography.labelLarge,
-        fontWeight = FontWeight.SemiBold,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.background)
-            .padding(top = 10.dp, bottom = 6.dp)
-    )
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Surface(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Text(
+                text = "$title / $count",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+            )
+        }
+    }
 }
 
 @Composable
 private fun InventoryDenseRow(item: ItemDto, onOpen: () -> Unit) {
     val subtitle = listOfNotNull(
-        item.custodianName?.takeIf { it.isNotBlank() }?.toInitialsLabel(),
-        item.locationId?.takeIf { it.isNotBlank() }
+        item.custodianName?.takeIf { it.isNotBlank() },
+        item.locationId?.takeIf { it.isNotBlank() },
+        item.temporaryStorageLabel?.takeIf { it.isNotBlank() }
     ).joinToString(" / ")
 
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen)
-            .padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        InventoryRowVisual(item = item)
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(2.dp)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+            InventoryRowVisual(item = item)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(3.dp)
             ) {
                 Text(
-                    text = "${item.name} (${item.quantity} vnt.)",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
+                    overflow = TextOverflow.Ellipsis
                 )
-                InventoryPill(
-                    label = itemConditionLabel(item.condition),
-                    container = conditionContainerColor(item.condition),
-                    content = conditionContentColor(item.condition)
-                )
-            }
-            if (subtitle.isNotBlank()) {
                 Text(
-                    text = subtitle,
+                    text = "${item.quantity} vnt. / ${inventoryCategoryLabel(item.category)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
+            SkautaiStatusPill(
+                label = itemConditionLabel(item.condition),
+                tone = conditionTone(item.condition)
+            )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SkautaiStatusPill(label = inventoryTypeLabel(item.type), tone = SkautaiStatusTone.Neutral)
+            SkautaiStatusPill(label = itemOriginLabel(item.origin), tone = originTone(item.origin))
         }
     }
 }
@@ -464,7 +533,7 @@ private fun PendingInventoryRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onOpen)
-            .padding(vertical = 8.dp),
+            .padding(vertical = 8.dp, horizontal = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -473,25 +542,14 @@ private fun PendingInventoryRow(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${item.name} (${item.quantity} vnt.)",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                InventoryPill(
-                    label = itemConditionLabel(item.condition),
-                    container = conditionContainerColor(item.condition),
-                    content = conditionContentColor(item.condition)
-                )
-            }
+            Text(
+                text = "${item.name} (${item.quantity} vnt.)",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.bodySmall,
@@ -519,51 +577,70 @@ private fun PendingInventoryRow(
 
 @Composable
 private fun InventoryRowVisual(item: ItemDto) {
-    if (item.photoUrl.isNullOrBlank()) {
-        Box(
-            modifier = Modifier
-                .size(10.dp)
-                .background(conditionColor(item.condition), CircleShape)
-        )
-    } else {
+    if (!item.photoUrl.isNullOrBlank()) {
         RemoteImage(
             imageUrl = item.photoUrl,
             contentDescription = item.name,
-            modifier = Modifier.size(44.dp)
+            modifier = Modifier.size(52.dp)
         )
+        return
+    }
+
+    Surface(
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Box(
+            modifier = Modifier.size(52.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = categoryIcon(item.category),
+                contentDescription = null,
+                modifier = Modifier.size(24.dp)
+            )
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .size(10.dp)
+                    .background(conditionDotColor(item.condition), CircleShape)
+            )
+        }
     }
 }
 
-@Composable
-private fun InventoryPill(label: String, container: Color, content: Color) {
-    SkautaiStatusPill(
-        label = label,
-        containerColor = container,
-        contentColor = content
-    )
+private fun categoryIcon(category: String): ImageVector = when (category) {
+    "CAMPING" -> Icons.Default.Warehouse
+    "TOOLS" -> Icons.Default.Build
+    "COOKING" -> Icons.Default.Folder
+    "FIRST_AID" -> Icons.Default.HealthAndSafety
+    "UNIFORMS" -> Icons.Default.Shield
+    "BOOKS" -> Icons.Default.MenuBook
+    "PERSONAL_LOANS" -> Icons.Default.Support
+    else -> Icons.Default.Inventory2
 }
 
 @Composable
-private fun conditionColor(condition: String): Color = when (condition) {
+private fun conditionDotColor(condition: String): Color = when (condition) {
     "GOOD" -> MaterialTheme.colorScheme.primary
-    "DAMAGED" -> MaterialTheme.colorScheme.error
+    "DAMAGED" -> MaterialTheme.colorScheme.tertiary
+    "WRITTEN_OFF" -> MaterialTheme.colorScheme.error
     else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
-@Composable
-private fun conditionContainerColor(condition: String): Color = when (condition) {
-    "GOOD" -> MaterialTheme.colorScheme.primaryContainer
-    "DAMAGED" -> MaterialTheme.colorScheme.errorContainer
-    "WRITTEN_OFF" -> MaterialTheme.colorScheme.surfaceVariant
-    else -> MaterialTheme.colorScheme.surfaceVariant
+private fun conditionTone(condition: String): SkautaiStatusTone = when (condition) {
+    "GOOD" -> SkautaiStatusTone.Success
+    "DAMAGED" -> SkautaiStatusTone.Warning
+    "WRITTEN_OFF" -> SkautaiStatusTone.Danger
+    else -> SkautaiStatusTone.Neutral
 }
 
-@Composable
-private fun conditionContentColor(condition: String): Color = when (condition) {
-    "GOOD" -> MaterialTheme.colorScheme.onPrimaryContainer
-    "DAMAGED" -> MaterialTheme.colorScheme.onErrorContainer
-    "WRITTEN_OFF" -> MaterialTheme.colorScheme.onSurfaceVariant
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
+private fun originTone(origin: String): SkautaiStatusTone = when (origin) {
+    "TRANSFERRED_FROM_TUNTAS" -> SkautaiStatusTone.Info
+    "UNIT_ACQUIRED" -> SkautaiStatusTone.Neutral
+    else -> SkautaiStatusTone.Neutral
 }
 
 private fun inventoryContextTitle(
@@ -573,9 +650,20 @@ private fun inventoryContextTitle(
     items: List<ItemDto>
 ): String = when {
     openedCustodianId != null -> items.firstOrNull()?.custodianName ?: "Vieneto inventorius"
-    selectedType == "INDIVIDUAL" -> "Mano siulomas skolinti"
-    selectedCategory != null -> "${inventoryCategoryLabel(selectedCategory)} inventorius"
+    selectedType == "INDIVIDUAL" -> "Mano siulomi skolinti daiktai"
+    selectedCategory != null -> inventoryCategoryLabel(selectedCategory)
     else -> "Bendras tunto inventorius"
+}
+
+private fun inventoryContextSubtitle(
+    openedCustodianId: String?,
+    selectedType: String?,
+    selectedCategory: String?
+): String = when {
+    openedCustodianId != null -> "Vieneto daiktai, ju bukle ir priskyrimas."
+    selectedType == "INDIVIDUAL" -> "Asmeniniai daiktai, kuriuos galima skolinti kitiems."
+    selectedCategory != null -> "Filtruotas sarasas pagal pasirinkta kategorija."
+    else -> "Bendro inventoriaus katalogas su bukle, kilme ir vieta."
 }
 
 private fun inventoryContextEmptySubtitle(
@@ -589,6 +677,16 @@ private fun inventoryContextEmptySubtitle(
     else -> "Kai atsiras pirmi daiktai, cia matysi bendro tunto inventoriaus kataloga."
 }
 
+private fun noResultsSubtitle(
+    openedCustodianId: String?,
+    selectedType: String?,
+    selectedCategory: String?
+): String = when {
+    openedCustodianId != null -> "Pabandyk kita paieskos fraze arba nuimk vieneto filtrus."
+    selectedType != null || selectedCategory != null -> "Pabandyk pakeisti aktyvius filtrus arba paieskos fraze."
+    else -> "Pabandyk kita paieskos fraze arba susiaurink sarasa pagal tipa."
+}
+
 private data class InventoryGroup(
     val title: String,
     val items: List<ItemDto>
@@ -598,14 +696,3 @@ private fun List<ItemDto>.toInventoryGroups(): List<InventoryGroup> =
     sortedWith(compareBy<ItemDto>({ it.type }, { inventoryCategoryLabel(it.category) }, { it.name.lowercase() }))
         .groupBy { item -> "${inventoryTypeLabel(item.type)} - ${inventoryCategoryLabel(item.category)}" }
         .map { (title, items) -> InventoryGroup(title, items) }
-
-private fun String.toInitialsLabel(): String {
-    val parts = trim()
-        .split(Regex("\\s+"))
-        .filter { it.isNotBlank() }
-    if (parts.size < 2) return trim()
-    return parts
-        .take(2)
-        .mapNotNull { it.firstOrNull()?.uppercaseChar()?.let { ch -> "$ch." } }
-        .joinToString("")
-}
