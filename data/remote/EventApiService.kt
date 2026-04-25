@@ -153,4 +153,41 @@ interface EventApiService {
         @Path("id") id: String,
         @Path("purchaseId") purchaseId: String
     ): Response<EventPurchaseDto>
+
+    @GET("api/events/{id}/pastovykles")
+    suspend fun getPastovykles(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<PastovykleListDto>
+
+    @POST("api/events/{id}/pastovykles")
+    suspend fun createPastovykle(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: CreatePastovykleRequestDto
+    ): Response<PastovykleDto>
+
+    @GET("api/events/{id}/inventory-custody")
+    suspend fun getInventoryCustody(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventInventoryCustodyListDto>
+
+    @GET("api/events/{id}/inventory-movements")
+    suspend fun getInventoryMovements(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventInventoryMovementListDto>
+
+    @POST("api/events/{id}/inventory-movements")
+    suspend fun createInventoryMovement(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: CreateEventInventoryMovementRequestDto
+    ): Response<EventInventoryMovementDto>
 }

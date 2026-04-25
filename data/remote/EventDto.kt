@@ -207,3 +207,85 @@ data class CreateEventPurchaseRequestDto(
 data class AttachEventPurchaseInvoiceRequestDto(
     @SerializedName("invoiceFileUrl") val invoiceFileUrl: String
 )
+
+data class PastovykleDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("responsibleUserId") val responsibleUserId: String?,
+    @SerializedName("ageGroup") val ageGroup: String?,
+    @SerializedName("notes") val notes: String?
+)
+
+data class PastovykleListDto(
+    @SerializedName("pastovykles") val pastovykles: List<PastovykleDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class CreatePastovykleRequestDto(
+    @SerializedName("name") val name: String,
+    @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
+    @SerializedName("ageGroup") val ageGroup: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class EventInventoryCustodyDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("pastovykleId") val pastovykleId: String?,
+    @SerializedName("pastovykleName") val pastovykleName: String?,
+    @SerializedName("holderUserId") val holderUserId: String?,
+    @SerializedName("holderUserName") val holderUserName: String?,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("returnedQuantity") val returnedQuantity: Int,
+    @SerializedName("remainingQuantity") val remainingQuantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("createdByUserId") val createdByUserId: String,
+    @SerializedName("createdByUserName") val createdByUserName: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("closedAt") val closedAt: String?,
+    @SerializedName("notes") val notes: String?
+)
+
+data class EventInventoryMovementDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("custodyId") val custodyId: String?,
+    @SerializedName("movementType") val movementType: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("fromPastovykleId") val fromPastovykleId: String?,
+    @SerializedName("fromPastovykleName") val fromPastovykleName: String?,
+    @SerializedName("toPastovykleId") val toPastovykleId: String?,
+    @SerializedName("toPastovykleName") val toPastovykleName: String?,
+    @SerializedName("fromUserId") val fromUserId: String?,
+    @SerializedName("fromUserName") val fromUserName: String?,
+    @SerializedName("toUserId") val toUserId: String?,
+    @SerializedName("toUserName") val toUserName: String?,
+    @SerializedName("performedByUserId") val performedByUserId: String,
+    @SerializedName("performedByUserName") val performedByUserName: String?,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("createdAt") val createdAt: String
+)
+
+data class EventInventoryCustodyListDto(
+    @SerializedName("custody") val custody: List<EventInventoryCustodyDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class EventInventoryMovementListDto(
+    @SerializedName("movements") val movements: List<EventInventoryMovementDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class CreateEventInventoryMovementRequestDto(
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("movementType") val movementType: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("pastovykleId") val pastovykleId: String? = null,
+    @SerializedName("toUserId") val toUserId: String? = null,
+    @SerializedName("fromCustodyId") val fromCustodyId: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)

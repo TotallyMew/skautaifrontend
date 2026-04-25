@@ -43,7 +43,7 @@ interface EventDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(event: EventEntity)
 
-    @Query("DELETE FROM events WHERE tuntasId = :tuntasId AND (:type IS NULL OR type = :type) AND (:status IS NULL OR status = :status)")
+    @Query("DELETE FROM events WHERE tuntasId = :tuntasId AND id NOT LIKE 'local-%' AND (:type IS NULL OR type = :type) AND (:status IS NULL OR status = :status)")
     suspend fun deleteForQuery(tuntasId: String, type: String?, status: String?)
 
     @Query("DELETE FROM events WHERE id = :eventId AND tuntasId = :tuntasId")
