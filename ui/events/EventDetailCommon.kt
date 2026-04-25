@@ -303,7 +303,7 @@ fun EventInventoryListRow(
 private fun EventQuantitySummary(item: EventInventoryItemDto) {
     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(
-            text = "${item.availableQuantity}/${item.plannedQuantity}",
+            text = "Aprupinta ${item.availableQuantity}/${item.plannedQuantity}",
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -398,5 +398,6 @@ fun planItemSubtitle(item: EventInventoryItemDto): String {
     item.bucketName?.takeIf { it.isNotBlank() }?.let { parts += "Paskirtis: $it" }
     if (item.reservationGroupId != null) parts += "Rezervuota"
     item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { parts += "Atsakingas: $it" }
+    parts += "Santykis rodo aprupinima, ne sandelio likuti"
     return parts.joinToString(" / ").ifBlank { "Paskirtis neparinkta" }
 }

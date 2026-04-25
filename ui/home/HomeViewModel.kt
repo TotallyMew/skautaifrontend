@@ -20,6 +20,7 @@ import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
+import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 
 data class HomeUiState(
@@ -51,6 +52,7 @@ class HomeViewModel @Inject constructor(
     private val requisitionRepository: RequisitionRepository,
     private val memberRepository: MemberRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
+    private val userRepository: UserRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
     private companion object {
@@ -87,6 +89,10 @@ class HomeViewModel @Inject constructor(
             val userId = tokenManager.userId.first()
             val activeTuntasId = tokenManager.activeTuntasId.first()
             val permissions = tokenManager.permissions.first()
+            activeTuntasId?.let { tuntasId ->
+                userRepository.getMyPermissions(tuntasId)
+                    .onSuccess { tokenManager.savePermissions(it) }
+            }
             val unitsResult = orgUnitRepository.getUnits()
             val currentMember = userId?.let { memberRepository.getMember(it).getOrNull() }
             val currentMemberUnitIds = currentMember?.activeUnitIds().orEmpty()
@@ -206,7 +212,10 @@ class HomeViewModel @Inject constructor(
                     reservationsResult.exceptionOrNull(),
                     sharedRequestsResult.exceptionOrNull(),
                     requisitionsResult.exceptionOrNull()
-                ).firstOrNull()?.message
+                ).mapNotNull { it?.message }
+                    .distinct()
+                    .takeIf { it.isNotEmpty() }
+                    ?.joinToString("\n")
             )
             lastRefreshAtMillis = now
         }

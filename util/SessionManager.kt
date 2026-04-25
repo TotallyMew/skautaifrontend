@@ -18,12 +18,13 @@ class SessionManager @Inject constructor(
 
     suspend fun saveSession(
         token: String,
+        refreshToken: String?,
         userId: String,
         name: String,
         email: String,
         type: String
     ) {
-        tokenManager.saveToken(token, userId, name, email, type)
+        tokenManager.saveToken(token, refreshToken, userId, name, email, type)
     }
 
     suspend fun setActiveTuntas(tuntasId: String, tuntasName: String? = null) {

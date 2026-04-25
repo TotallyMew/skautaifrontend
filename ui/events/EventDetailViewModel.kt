@@ -34,6 +34,7 @@ import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
+import java.util.UUID
 
 sealed interface EventDetailUiState {
     data object Loading : EventDetailUiState
@@ -431,6 +432,7 @@ class EventDetailViewModel @Inject constructor(
                     pastovykleId = pastovykleId,
                     toUserId = toUserId,
                     fromCustodyId = fromCustodyId,
+                    requestId = UUID.randomUUID().toString(),
                     notes = notes.ifBlank { null }
                 )
             )

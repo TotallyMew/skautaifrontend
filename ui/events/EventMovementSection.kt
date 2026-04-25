@@ -87,7 +87,11 @@ fun EventMovementCard(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                Button(onClick = { dialogMode = MovementDialogMode.Checkout }, enabled = !isWorking, modifier = Modifier.weight(1f)) {
+                Button(
+                    onClick = { dialogMode = MovementDialogMode.Checkout },
+                    enabled = !isWorking && inventoryPlan?.items.orEmpty().any { it.availableQuantity > 0 },
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text("Pasiimti")
                 }
                 Button(onClick = { dialogMode = MovementDialogMode.Request }, enabled = !isWorking, modifier = Modifier.weight(1f)) {
@@ -188,14 +192,17 @@ private fun CustodySection(
 
 @Composable
 private fun MovementHistoryRow(movement: EventInventoryMovementDto) {
+    val route = listOfNotNull(
+        movement.fromPastovykleName ?: movement.fromUserName,
+        movement.toPastovykleName ?: movement.toUserName
+    ).joinToString(" -> ")
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         Text("${movementLabel(movement.movementType)}: ${movement.itemName}", fontWeight = FontWeight.SemiBold)
         Text(
             listOfNotNull(
-                movement.toPastovykleName,
-                movement.toUserName,
+                route.ifBlank { null },
                 "kiekis ${movement.quantity}",
-                movement.performedByUserName
+                movement.performedByUserName?.let { "atliko $it" }
             ).joinToString(" / "),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant

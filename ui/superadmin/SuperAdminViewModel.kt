@@ -52,6 +52,7 @@ class SuperAdminLoginViewModel @Inject constructor(
                     val body = response.body()!!
                     tokenManager.saveToken(
                         token = body.token,
+                        refreshToken = body.refreshToken,
                         userId = body.userId,
                         name = body.name,
                         email = body.email,

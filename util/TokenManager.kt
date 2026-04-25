@@ -20,6 +20,7 @@ class TokenManager @Inject constructor(
 ) {
     companion object {
         val TOKEN_KEY = stringPreferencesKey("jwt_token")
+        val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
         val USER_ID_KEY = stringPreferencesKey("user_id")
         val USER_NAME_KEY = stringPreferencesKey("user_name")
         val USER_EMAIL_KEY = stringPreferencesKey("user_email")
@@ -31,6 +32,7 @@ class TokenManager @Inject constructor(
     }
 
     val token: Flow<String?> = context.dataStore.data.map { it[TOKEN_KEY] }
+    val refreshToken: Flow<String?> = context.dataStore.data.map { it[REFRESH_TOKEN_KEY] }
     val userId: Flow<String?> = context.dataStore.data.map { it[USER_ID_KEY] }
     val userName: Flow<String?> = context.dataStore.data.map { it[USER_NAME_KEY] }
     val userEmail: Flow<String?> = context.dataStore.data.map { it[USER_EMAIL_KEY] }
@@ -44,6 +46,7 @@ class TokenManager @Inject constructor(
 
     suspend fun saveToken(
         token: String,
+        refreshToken: String?,
         userId: String,
         name: String,
         email: String,
@@ -51,10 +54,26 @@ class TokenManager @Inject constructor(
     ) {
         context.dataStore.edit { prefs ->
             prefs[TOKEN_KEY] = token
+            if (refreshToken.isNullOrBlank()) {
+                prefs.remove(REFRESH_TOKEN_KEY)
+            } else {
+                prefs[REFRESH_TOKEN_KEY] = refreshToken
+            }
             prefs[USER_ID_KEY] = userId
             prefs[USER_NAME_KEY] = name
             prefs[USER_EMAIL_KEY] = email
             prefs[USER_TYPE_KEY] = type
+        }
+    }
+
+    suspend fun updateTokens(token: String, refreshToken: String?) {
+        context.dataStore.edit { prefs ->
+            prefs[TOKEN_KEY] = token
+            if (refreshToken.isNullOrBlank()) {
+                prefs.remove(REFRESH_TOKEN_KEY)
+            } else {
+                prefs[REFRESH_TOKEN_KEY] = refreshToken
+            }
         }
     }
 

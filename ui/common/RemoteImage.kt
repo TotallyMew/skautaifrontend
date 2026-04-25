@@ -27,8 +27,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import lt.skautai.android.util.Constants
+import lt.skautai.android.util.TokenManager
+import java.net.HttpURLConnection
 import java.net.URL
 
 @Composable
@@ -39,6 +42,7 @@ fun RemoteImage(
     contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
+    val tokenManager = remember(context) { TokenManager(context.applicationContext) }
     var bitmap by remember(imageUrl) { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember(imageUrl) { mutableStateOf(!imageUrl.isNullOrBlank()) }
 
@@ -56,7 +60,14 @@ fun RemoteImage(
                 if (url.startsWith("content://")) {
                     context.contentResolver.openInputStream(Uri.parse(url))?.use(BitmapFactory::decodeStream)
                 } else {
-                    URL(url.toAbsoluteImageUrl()).openStream().use(BitmapFactory::decodeStream)
+                    val absoluteUrl = url.toAbsoluteImageUrl()
+                    val token = tokenManager.token.first()
+                    val connection = (URL(absoluteUrl).openConnection() as HttpURLConnection).apply {
+                        if (absoluteUrl.startsWith(Constants.BASE_URL.trimEnd('/') + "/uploads/") && !token.isNullOrBlank()) {
+                            setRequestProperty("Authorization", "Bearer $token")
+                        }
+                    }
+                    connection.inputStream.use(BitmapFactory::decodeStream)
                 }
             }.getOrNull()
         }
