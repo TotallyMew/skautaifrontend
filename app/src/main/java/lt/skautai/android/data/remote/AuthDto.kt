@@ -26,11 +26,16 @@ data class RegisterWithInviteRequestDto(
 
 data class TokenResponseDto(
     val token: String,
+    val refreshToken: String? = null,
     val userId: String,
     val email: String,
     val name: String,
     val type: String = "user",
     val tuntai: List<UserTuntasDto>? = emptyList()
+)
+
+data class RefreshTokenRequestDto(
+    val refreshToken: String
 )
 
 data class ErrorResponseDto(

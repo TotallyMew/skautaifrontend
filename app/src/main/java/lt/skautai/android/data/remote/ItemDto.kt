@@ -13,6 +13,8 @@ data class ItemDto(
     val condition: String,
     val quantity: Int,
     val locationId: String?,
+    val locationName: String?,
+    val locationPath: String?,
     val temporaryStorageLabel: String?,
     val sourceSharedItemId: String?,
     val quantityBreakdown: List<ItemDistributionDto> = emptyList(),

@@ -18,11 +18,18 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "API_BASE_URL", "\"http://localhost:8080/\"")
+        buildConfigField("String", "API_HOST", "\"\"")
+        buildConfigField("String", "API_CERT_PIN", "\"\"")
     }
 
     buildTypes {
+        debug {
+            manifestPlaceholders["usesCleartextTraffic"] = "true"
+        }
         release {
             isMinifyEnabled = false
+            manifestPlaceholders["usesCleartextTraffic"] = "false"
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -37,6 +44,7 @@ android {
 
 
     buildFeatures {
+        buildConfig = true
         compose = true
     }
     packaging {

@@ -65,6 +65,7 @@ import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.locations.LocationPickerField
 import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
@@ -303,10 +304,18 @@ private fun ContextStep(
             }
         }
 
-        LocationDropdown(
+        LocationPickerField(
+            label = "Permanent lokacija",
             locations = uiState.locations,
             selectedId = uiState.selectedLocationId,
-            onSelected = viewModel::onLocationChange
+            onSelected = { viewModel.onLocationChange(it?.id) },
+            filter = { location ->
+                when (uiState.mode) {
+                    "PERSONAL" -> location.visibility == "PRIVATE"
+                    "UNIT_OWN" -> location.visibility == "UNIT" && location.ownerUnitId == uiState.selectedOrgUnitId
+                    else -> location.visibility == "PUBLIC"
+                }
+            }
         )
 
         OutlinedTextField(
@@ -714,50 +723,6 @@ private fun DropdownField(
                     text = { Text(display) },
                     onClick = {
                         onSelected(value)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LocationDropdown(
-    locations: List<LocationDto>,
-    selectedId: String,
-    onSelected: (String?) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedName = if (selectedId.isEmpty()) "Lokacija nepasirinkta" else locations.firstOrNull { it.id == selectedId }?.name ?: "Lokacija nepasirinkta"
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selectedName,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text("Permanent lokacija") },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-        )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            DropdownMenuItem(
-                text = { Text("Lokacija nepasirinkta") },
-                onClick = {
-                    onSelected(null)
-                    expanded = false
-                }
-            )
-            locations.forEach { location ->
-                DropdownMenuItem(
-                    text = { Text(location.name) },
-                    onClick = {
-                        onSelected(location.id)
                         expanded = false
                     }
                 )

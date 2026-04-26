@@ -65,9 +65,10 @@ fun InventoryDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
-    val deleteError by viewModel.deleteError.collectAsStateWithLifecycle()
+    val actionError by viewModel.actionError.collectAsStateWithLifecycle()
     val sharedRequestCreated by viewModel.sharedRequestCreated.collectAsStateWithLifecycle()
     val isCreatingSharedRequest by viewModel.isCreatingSharedRequest.collectAsStateWithLifecycle()
+    val isUpdatingStatus by viewModel.isUpdatingStatus.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -81,10 +82,10 @@ fun InventoryDetailScreen(
         }
     }
 
-    LaunchedEffect(deleteError) {
-        deleteError?.let {
+    LaunchedEffect(actionError) {
+        actionError?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.onDeleteErrorShown()
+            viewModel.onActionErrorShown()
         }
     }
 
@@ -147,6 +148,7 @@ fun InventoryDetailScreen(
                         reservations = state.reservations,
                         canChangeStatus = canChangeStatus,
                         isCreatingSharedRequest = isCreatingSharedRequest,
+                        isUpdatingStatus = isUpdatingStatus,
                         onRequestSharedItem = { viewModel.requestSharedItemForActiveUnit(itemId) },
                         onStatusChange = { status -> viewModel.updateStatus(itemId, status) }
                     )
@@ -162,6 +164,7 @@ private fun ItemDetailContent(
     reservations: List<ReservationDto>,
     canChangeStatus: Boolean,
     isCreatingSharedRequest: Boolean,
+    isUpdatingStatus: Boolean,
     onRequestSharedItem: () -> Unit,
     onStatusChange: (String) -> Unit
 ) {
@@ -367,7 +370,7 @@ private fun ItemDetailContent(
                     )
                     Button(
                         onClick = onRequestSharedItem,
-                        enabled = !isCreatingSharedRequest,
+                        enabled = !isCreatingSharedRequest && !isUpdatingStatus,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         if (isCreatingSharedRequest) {
@@ -390,17 +393,17 @@ private fun ItemDetailContent(
             ) {
                 Button(
                     onClick = { onStatusChange("ACTIVE") },
-                    enabled = item.status != "ACTIVE",
+                    enabled = item.status != "ACTIVE" && !isUpdatingStatus && !isCreatingSharedRequest,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Aktyvus")
+                    Text(if (isUpdatingStatus && item.status != "ACTIVE") "Keiciama..." else "Aktyvus")
                 }
                 OutlinedButton(
                     onClick = { onStatusChange("INACTIVE") },
-                    enabled = item.status != "INACTIVE",
+                    enabled = item.status != "INACTIVE" && !isUpdatingStatus && !isCreatingSharedRequest,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Neaktyvus")
+                    Text(if (isUpdatingStatus && item.status != "INACTIVE") "Keiciama..." else "Neaktyvus")
                 }
             }
         }

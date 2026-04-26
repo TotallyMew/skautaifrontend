@@ -30,6 +30,7 @@ import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.ReservationApiService
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.LocationApiService
+import lt.skautai.android.data.remote.SuperAdminApiService
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.RoleRepository
 import lt.skautai.android.data.repository.InvitationRepository
@@ -38,6 +39,7 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.LocationRepository
+import lt.skautai.android.data.repository.SuperAdminRepository
 import lt.skautai.android.data.sync.PendingOperationRepository
 
 @Module
@@ -167,5 +169,14 @@ object RepositoryModule {
         pendingOperationRepository: PendingOperationRepository
     ): LocationRepository {
         return LocationRepository(locationApiService, tokenManager, locationDao, pendingOperationRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideSuperAdminRepository(
+        superAdminApiService: SuperAdminApiService,
+        tokenManager: TokenManager
+    ): SuperAdminRepository {
+        return SuperAdminRepository(superAdminApiService, tokenManager)
     }
 }

@@ -7,8 +7,19 @@ fun LocationDto.toEntity(): LocationEntity = LocationEntity(
     id = id,
     tuntasId = tuntasId,
     name = name,
+    visibility = visibility,
+    parentLocationId = parentLocationId,
+    ownerUserId = ownerUserId,
+    ownerUnitId = ownerUnitId,
+    ownerUnitName = ownerUnitName,
+    fullPath = fullPath,
+    hasChildren = hasChildren,
+    isLeafSelectable = isLeafSelectable,
+    isEditable = isEditable,
     address = address,
     description = description,
+    latitude = latitude,
+    longitude = longitude,
     createdAt = createdAt
 )
 
@@ -16,8 +27,19 @@ fun LocationEntity.toDto(): LocationDto = LocationDto(
     id = id,
     tuntasId = tuntasId,
     name = name,
+    visibility = visibility,
+    parentLocationId = parentLocationId,
+    ownerUserId = ownerUserId,
+    ownerUnitId = ownerUnitId,
+    ownerUnitName = ownerUnitName,
+    fullPath = fullPath,
+    hasChildren = hasChildren,
+    isLeafSelectable = isLeafSelectable,
+    isEditable = isEditable,
     address = address,
     description = description,
+    latitude = latitude,
+    longitude = longitude,
     createdAt = createdAt
 )
 

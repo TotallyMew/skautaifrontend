@@ -43,7 +43,6 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.theme.ScoutGradients
-import lt.skautai.android.ui.theme.ScoutPalette
 import lt.skautai.android.util.NavRoutes
 
 @Composable
@@ -117,12 +116,12 @@ fun LoginScreen(
                         Text(
                             text = "Prisijunk prie savo tunto inventoriaus",
                             style = MaterialTheme.typography.headlineMedium,
-                            color = ScoutPalette.White
+                            color = MaterialTheme.colorScheme.onPrimary
                         )
                         Text(
                             text = "Vienoje vietoje matysi bendra tunto, vieneto ir savo siuloma skolinti inventoriu.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = ScoutPalette.White.copy(alpha = 0.86f)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f)
                         )
                     }
                 }

@@ -12,6 +12,9 @@ interface AuthApiService {
     @POST("api/auth/login")
     suspend fun login(@Body request: LoginRequestDto): Response<TokenResponseDto>
 
+    @POST("api/auth/refresh")
+    suspend fun refresh(@Body request: RefreshTokenRequestDto): Response<TokenResponseDto>
+
     @POST("api/auth/register")
     suspend fun registerTuntininkas(@Body request: RegisterTuntininkasRequestDto): Response<TokenResponseDto>
 

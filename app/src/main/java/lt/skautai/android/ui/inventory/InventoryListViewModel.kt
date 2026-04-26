@@ -27,11 +27,6 @@ sealed interface InventoryListUiState {
     object Empty : InventoryListUiState
 }
 
-enum class InventoryListTab {
-    INVENTORY,
-    APPROVALS
-}
-
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
@@ -56,9 +51,6 @@ class InventoryListViewModel @Inject constructor(
 
     private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
     val openedCustodianId: String? = initialCustodianId
-
-    private val _selectedTab = MutableStateFlow(InventoryListTab.INVENTORY)
-    val selectedTab: StateFlow<InventoryListTab> = _selectedTab.asStateFlow()
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -193,10 +185,6 @@ class InventoryListViewModel @Inject constructor(
     fun clearFilters() {
         _selectedType.value = null
         _selectedCategory.value = null
-    }
-
-    fun onTabSelected(tab: InventoryListTab) {
-        _selectedTab.value = tab
     }
 
     fun filteredItems(items: List<ItemDto>): List<ItemDto> {

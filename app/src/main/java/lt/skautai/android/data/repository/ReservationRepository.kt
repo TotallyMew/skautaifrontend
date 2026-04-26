@@ -167,6 +167,10 @@ class ReservationRepository @Inject constructor(
                 startDate = request.startDate,
                 endDate = request.endDate,
                 status = "PENDING",
+                pickupLocationId = request.pickupLocationId,
+                pickupLocationPath = null,
+                returnLocationId = request.returnLocationId,
+                returnLocationPath = null,
                 notes = request.notes,
                 createdAt = now,
                 updatedAt = now,
@@ -227,6 +231,14 @@ class ReservationRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (id.startsWith("local-") && pendingOperationRepository.hasCreateOperationInFlight(
+                    entityType = PendingEntityType.RESERVATION,
+                    entityId = id,
+                    createOperationType = PendingOperationType.RESERVATION_CREATE
+                )
+            ) {
+                return Result.failure(Exception("Rezervacija dabar sinchronizuojama. Pabandykite dar kartą vėliau."))
+            }
             if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.RESERVATION,
                     entityId = id,
@@ -323,8 +335,18 @@ class ReservationRepository @Inject constructor(
                     updatedAt = Instant.now().toString()
                 )
                 is UpdateReservationStatusRequestDto -> cached.copy(status = payload.status, notes = payload.notes ?: cached.notes, updatedAt = Instant.now().toString())
-                is UpdateReservationPickupRequestDto -> cached.copy(pickupAt = payload.pickupAt, pickupProposalStatus = payload.response ?: "PENDING", updatedAt = Instant.now().toString())
-                is UpdateReservationReturnTimeRequestDto -> cached.copy(returnAt = payload.returnAt, returnProposalStatus = payload.response ?: "PENDING", updatedAt = Instant.now().toString())
+                is UpdateReservationPickupRequestDto -> cached.copy(
+                    pickupAt = payload.pickupAt,
+                    pickupLocationId = payload.pickupLocationId ?: cached.pickupLocationId,
+                    pickupProposalStatus = payload.response ?: "PENDING",
+                    updatedAt = Instant.now().toString()
+                )
+                is UpdateReservationReturnTimeRequestDto -> cached.copy(
+                    returnAt = payload.returnAt,
+                    returnLocationId = payload.returnLocationId ?: cached.returnLocationId,
+                    returnProposalStatus = payload.response ?: "PENDING",
+                    updatedAt = Instant.now().toString()
+                )
                 else -> cached.copy(updatedAt = Instant.now().toString())
             }
             reservationDao.upsert(updated.toEntity())

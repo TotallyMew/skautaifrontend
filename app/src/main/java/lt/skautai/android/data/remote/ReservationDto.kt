@@ -24,12 +24,16 @@ data class ReservationDto(
     @SerializedName("topLevelReviewedByUserId") val topLevelReviewedByUserId: String? = null,
     @SerializedName("topLevelReviewedAt") val topLevelReviewedAt: String? = null,
     @SerializedName("pickupAt") val pickupAt: String? = null,
+    @SerializedName("pickupLocationId") val pickupLocationId: String? = null,
+    @SerializedName("pickupLocationPath") val pickupLocationPath: String? = null,
     @SerializedName("pickupProposalStatus") val pickupProposalStatus: String = "NONE",
     @SerializedName("pickupProposedAt") val pickupProposedAt: String? = null,
     @SerializedName("pickupProposedByUserId") val pickupProposedByUserId: String? = null,
     @SerializedName("pickupRespondedAt") val pickupRespondedAt: String? = null,
     @SerializedName("pickupRespondedByUserId") val pickupRespondedByUserId: String? = null,
     @SerializedName("returnAt") val returnAt: String? = null,
+    @SerializedName("returnLocationId") val returnLocationId: String? = null,
+    @SerializedName("returnLocationPath") val returnLocationPath: String? = null,
     @SerializedName("returnProposalStatus") val returnProposalStatus: String = "NONE",
     @SerializedName("returnProposedAt") val returnProposedAt: String? = null,
     @SerializedName("returnProposedByUserId") val returnProposedByUserId: String? = null,
@@ -86,6 +90,8 @@ data class CreateReservationRequestDto(
     @SerializedName("startDate") val startDate: String,
     @SerializedName("endDate") val endDate: String,
     @SerializedName("requestingUnitId") val requestingUnitId: String? = null,
+    @SerializedName("pickupLocationId") val pickupLocationId: String? = null,
+    @SerializedName("returnLocationId") val returnLocationId: String? = null,
     @SerializedName("notes") val notes: String?
 )
 
@@ -96,11 +102,13 @@ data class UpdateReservationStatusRequestDto(
 
 data class UpdateReservationPickupRequestDto(
     @SerializedName("pickupAt") val pickupAt: String?,
+    @SerializedName("pickupLocationId") val pickupLocationId: String? = null,
     @SerializedName("response") val response: String? = null
 )
 
 data class UpdateReservationReturnTimeRequestDto(
     @SerializedName("returnAt") val returnAt: String?,
+    @SerializedName("returnLocationId") val returnLocationId: String? = null,
     @SerializedName("response") val response: String? = null
 )
 
@@ -116,6 +124,7 @@ data class ReservationMovementItemRequestDto(
 
 data class ReservationMovementRequestDto(
     @SerializedName("items") val items: List<ReservationMovementItemRequestDto>,
+    @SerializedName("locationId") val locationId: String? = null,
     @SerializedName("notes") val notes: String? = null
 )
 
@@ -124,6 +133,8 @@ data class ReservationMovementDto(
     @SerializedName("reservationId") val reservationId: String,
     @SerializedName("itemId") val itemId: String,
     @SerializedName("itemName") val itemName: String?,
+    @SerializedName("locationId") val locationId: String? = null,
+    @SerializedName("locationPath") val locationPath: String? = null,
     @SerializedName("type") val type: String,
     @SerializedName("quantity") val quantity: Int,
     @SerializedName("performedByUserId") val performedByUserId: String,

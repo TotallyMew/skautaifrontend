@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.units
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -47,7 +49,6 @@ import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiStatusPill
-import lt.skautai.android.ui.theme.ScoutPalette
 import lt.skautai.android.ui.theme.ScoutUnitColors
 import lt.skautai.android.ui.theme.ScoutUnitPalette
 
@@ -80,6 +81,7 @@ fun UnitListScreen(
             uiState.units.isEmpty() -> SkautaiEmptyState(
                 title = "Vienetu dar nera",
                 subtitle = "Cia bus draugoves, gildijos ir kiti tunto vienetai.",
+                icon = Icons.Default.AccountTree,
                 modifier = Modifier.align(Alignment.Center)
             )
             else -> {
@@ -144,7 +146,8 @@ fun UnitListScreen(
                         item {
                             SkautaiEmptyState(
                                 title = "Nieko nerasta",
-                                subtitle = "Pabandyk ieskoti pagal pavadinima, tipa ar priimama laipsni."
+                                subtitle = "Pabandyk ieskoti pagal pavadinima, tipa ar priimama laipsni.",
+                                icon = Icons.Default.AccountTree
                             )
                         }
                     }
@@ -166,7 +169,8 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
             .fillMaxWidth()
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(containerColor = palette.cardTone),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -211,7 +215,7 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
                     SkautaiStatusPill(
                         label = unit.subtype?.let { subtypeLabel(it) } ?: "Vienetas",
                         containerColor = palette.accent,
-                        contentColor = ScoutPalette.White
+                        contentColor = Color.White
                     )
                     unit.acceptedRankName?.let {
                         SkautaiStatusPill(

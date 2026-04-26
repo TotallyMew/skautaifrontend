@@ -93,13 +93,35 @@ sealed class NavRoutes(val route: String) {
 
     object TuntasSelect : NavRoutes("tuntas_select")
 
+    object LocationList : NavRoutes("location_list")
+    object LocationDetail : NavRoutes("location_detail/{locationId}") {
+        fun createRoute(locationId: String) = "location_detail/$locationId"
+    }
+    object LocationAddEdit : NavRoutes("location_add_edit?locationId={locationId}&parentLocationId={parentLocationId}") {
+        fun createRoute(locationId: String? = null, parentLocationId: String? = null): String {
+            val params = buildList {
+                if (locationId != null) add("locationId=$locationId")
+                if (parentLocationId != null) add("parentLocationId=$parentLocationId")
+            }
+            return if (params.isEmpty()) "location_add_edit" else "location_add_edit?${params.joinToString("&")}"
+        }
+    }
+
     // Events
     object EventList : NavRoutes("event_list")
     object EventDetail : NavRoutes("event_detail/{eventId}") {
         fun createRoute(eventId: String) = "event_detail/$eventId"
     }
+    object EventMovement : NavRoutes("event_movement/{eventId}") {
+        fun createRoute(eventId: String) = "event_movement/$eventId"
+    }
+    object PastovykleLeader : NavRoutes("event_pastovykle/{eventId}") {
+        fun createRoute(eventId: String) = "event_pastovykle/$eventId"
+    }
     object EventAddEdit : NavRoutes("event_add_edit?eventId={eventId}") {
         fun createRoute(eventId: String? = null) =
             if (eventId != null) "event_add_edit?eventId=$eventId" else "event_add_edit"
     }
+
+    object SyncStatus : NavRoutes("sync_status")
 }

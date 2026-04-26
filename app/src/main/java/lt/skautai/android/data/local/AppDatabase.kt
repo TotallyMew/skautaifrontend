@@ -33,7 +33,7 @@ import lt.skautai.android.data.local.entity.ReservationEntity
         EventEntity::class,
         PendingOperationEntity::class
     ],
-    version = 4,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

@@ -86,6 +86,11 @@ class PendingOperationRepository @Inject constructor(
         userId?.let { pendingOperationDao.observeFailedCount(it) } ?: flowOf(0)
     }
 
+    fun observeVisibleOperations(): Flow<List<PendingOperationEntity>> =
+        tokenManager.userId.flatMapLatest { userId ->
+            userId?.let { pendingOperationDao.observeVisibleOperations(it) } ?: flowOf(emptyList())
+        }
+
     fun observePendingCountForEntity(entityType: String, entityId: String): Flow<Int> =
         tokenManager.userId.flatMapLatest { userId ->
             userId?.let { pendingOperationDao.observePendingCountForEntity(it, entityType, entityId) } ?: flowOf(0)
@@ -144,6 +149,17 @@ class PendingOperationRepository @Inject constructor(
             ?: return false
         pendingOperationDao.deleteOperation(operation.id)
         return true
+    }
+
+    suspend fun hasCreateOperationInFlight(
+        entityType: String,
+        entityId: String,
+        createOperationType: String
+    ): Boolean {
+        val userId = tokenManager.userId.first() ?: return false
+        val operation = pendingOperationDao.findOperationAnyStatus(userId, entityType, entityId, createOperationType)
+            ?: return false
+        return operation.status == "SYNCING"
     }
 
     suspend fun retryFailed() {

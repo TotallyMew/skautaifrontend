@@ -60,6 +60,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.ui.common.RemoteImage
+import lt.skautai.android.ui.locations.LocationPickerField
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -243,6 +244,38 @@ fun ReservationCreateScreen(
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 3
+                    )
+                }
+
+                item {
+                    LocationPickerField(
+                        label = "Atsiėmimo lokacija",
+                        locations = uiState.locations,
+                        selectedId = uiState.pickupLocationId,
+                        onSelected = { viewModel.onPickupLocationChange(it?.id) },
+                        filter = { location ->
+                            when (location.visibility) {
+                                "UNIT" -> location.ownerUnitId == uiState.activeOrgUnitId
+                                "PRIVATE" -> false
+                                else -> true
+                            }
+                        }
+                    )
+                }
+
+                item {
+                    LocationPickerField(
+                        label = "Grąžinimo lokacija",
+                        locations = uiState.locations,
+                        selectedId = uiState.returnLocationId,
+                        onSelected = { viewModel.onReturnLocationChange(it?.id) },
+                        filter = { location ->
+                            when (location.visibility) {
+                                "UNIT" -> location.ownerUnitId == uiState.activeOrgUnitId
+                                "PRIVATE" -> false
+                                else -> true
+                            }
+                        }
                     )
                 }
 

@@ -4,10 +4,8 @@ import com.google.gson.reflect.TypeToken
 import lt.skautai.android.data.local.entity.EventEntity
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventRoleDto
-import lt.skautai.android.data.remote.StovyklaDetailsDto
 
 private val eventRolesType = object : TypeToken<List<EventRoleDto>>() {}.type
-private val stovyklaDetailsType = object : TypeToken<StovyklaDetailsDto>() {}.type
 
 fun EventDto.toEntity(): EventEntity = EventEntity(
     id = id,
@@ -23,7 +21,7 @@ fun EventDto.toEntity(): EventEntity = EventEntity(
     notes = notes,
     createdAt = createdAt,
     eventRolesJson = localGson.toJson(eventRoles),
-    stovyklaDetailsJson = toJsonOrNull(stovyklaDetails)
+    stovyklaDetailsJson = null
 )
 
 fun EventEntity.toDto(): EventDto = EventDto(
@@ -40,7 +38,6 @@ fun EventEntity.toDto(): EventDto = EventDto(
     notes = notes,
     createdAt = createdAt,
     eventRoles = fromJsonListOrEmpty(eventRolesJson, eventRolesType),
-    stovyklaDetails = fromJsonOrNull(stovyklaDetailsJson, stovyklaDetailsType),
     inventorySummary = null
 )
 

@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.reservations
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,6 +44,8 @@ import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiSummaryCard
+import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.theme.ScoutStatusColors
 
 @Composable
@@ -105,6 +108,18 @@ fun ReservationListScreen(
                             isTrackedMode -> "Cia matysi patvirtintas rezervacijas, kurias reikia isduoti arba priimti."
                             else -> "Rezervacija skirta uzsakyti jau esama inventoriaus daikta konkreciam laikotarpiui."
                         },
+                        icon = Icons.Default.EventAvailable,
+                        actionLabel = when {
+                            isAssignedMode || isTrackedMode -> "Rodyti mano rezervacijas"
+                            else -> "Kurti rezervacija"
+                        },
+                        onAction = {
+                            if (isAssignedMode || isTrackedMode) {
+                                onModeClick("my_active")
+                            } else {
+                                onCreateClick()
+                            }
+                        },
                         modifier = Modifier.align(Alignment.Center)
                     )
                 } else {
@@ -157,40 +172,27 @@ private fun ReservationModeHeader(
     onModeClick: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        SkautaiCard(
-            modifier = Modifier.fillMaxWidth(),
-            tonal = MaterialTheme.colorScheme.primaryContainer
-        ) {
-            Row(
-                modifier = Modifier.padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(Icons.Default.EventAvailable, contentDescription = null)
-                Column {
-                    Text(
-                        text = when (mode) {
-                            "assigned" -> "Man skirta tvirtinti"
-                            "my_active" -> "Mano rezervacijos"
-                            "tracked" -> "Sekamos rezervacijos"
-                            else -> "Visos rezervacijos"
-                        },
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = when (mode) {
-                            "assigned" -> "Rezervacijos, kurios laukia tavo sprendimo."
-                            "my_active" -> "Tik tavo patvirtintos ir aktyvios rezervacijos."
-                            "tracked" -> "Patvirtintos rezervacijos, kurias reikia isduoti arba priimti."
-                            else -> "Cia matai visa rezervaciju istorija."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
+        SkautaiSummaryCard(
+            title = when (mode) {
+                "assigned" -> "Man skirta tvirtinti"
+                "my_active" -> "Mano rezervacijos"
+                "tracked" -> "Sekamos rezervacijos"
+                else -> "Visos rezervacijos"
+            },
+            subtitle = when (mode) {
+                "assigned" -> "Rezervacijos, kurios laukia tavo sprendimo."
+                "my_active" -> "Tik tavo patvirtintos ir aktyvios rezervacijos."
+                "tracked" -> "Patvirtintos rezervacijos, kurias reikia isduoti arba priimti."
+                else -> "Cia matai visa rezervaciju istorija."
+            },
+            metrics = listOf(
+                "Mano" to myCount.toString(),
+                "Skirtos" to assignedCount.toString(),
+                "Sekamos" to trackedCount.toString()
+            ),
+            foresty = true,
+            modifier = Modifier.fillMaxWidth()
+        )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ReservationModeTile(
                 title = "Mano",
@@ -232,12 +234,10 @@ private fun ReservationModeTile(
     androidx.compose.material3.Card(
         modifier = modifier.clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surfaceContainerLow
-            }
-        )
+            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -259,8 +259,9 @@ fun ReservationCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),
@@ -307,8 +308,8 @@ fun ReservationPhysicalStatusPill(status: ReservationPhysicalStatus) {
     val (label, container, content) = when (status) {
         ReservationPhysicalStatus.NOT_ISSUED -> Triple(
             "Neisduota",
-            MaterialTheme.colorScheme.surfaceContainerHighest,
-            MaterialTheme.colorScheme.onSurfaceVariant
+            ScoutStatusColors.NeutralContainer,
+            ScoutStatusColors.OnNeutralContainer
         )
         ReservationPhysicalStatus.PARTIALLY_ISSUED -> Triple(
             "Dalinai isduota",
@@ -327,8 +328,8 @@ fun ReservationPhysicalStatusPill(status: ReservationPhysicalStatus) {
         )
         ReservationPhysicalStatus.RECEIVED -> Triple(
             "Gauta",
-            MaterialTheme.colorScheme.tertiaryContainer,
-            MaterialTheme.colorScheme.onTertiaryContainer
+            ScoutStatusColors.InfoContainer,
+            ScoutStatusColors.OnInfoContainer
         )
     }
     SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
@@ -362,10 +363,10 @@ fun ReservationStatusChip(status: String) {
         "PENDING" -> Triple("Laukia", ScoutStatusColors.PendingContainer, ScoutStatusColors.OnPendingContainer)
         "APPROVED" -> Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         "ACTIVE" -> Triple("Aktyvi", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        "RETURNED" -> Triple("Grazinta", MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+        "RETURNED" -> Triple("Grazinta", ScoutStatusColors.InfoContainer, ScoutStatusColors.OnInfoContainer)
         "CANCELLED" -> Triple("Atsaukta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         "REJECTED" -> Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-        else -> Triple(status, MaterialTheme.colorScheme.surfaceContainerHighest, MaterialTheme.colorScheme.onSurfaceVariant)
+        else -> Triple(status, ScoutStatusColors.NeutralContainer, ScoutStatusColors.OnNeutralContainer)
     }
     SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
 }

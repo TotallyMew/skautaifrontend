@@ -1,9 +1,10 @@
 package lt.skautai.android.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "reservations")
+@Entity(tableName = "reservations", indices = [Index("eventId")])
 data class ReservationEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -26,12 +27,16 @@ data class ReservationEntity(
     val topLevelReviewedByUserId: String?,
     val topLevelReviewedAt: String?,
     val pickupAt: String?,
+    val pickupLocationId: String?,
+    val pickupLocationPath: String?,
     val pickupProposalStatus: String,
     val pickupProposedAt: String?,
     val pickupProposedByUserId: String?,
     val pickupRespondedAt: String?,
     val pickupRespondedByUserId: String?,
     val returnAt: String?,
+    val returnLocationId: String?,
+    val returnLocationPath: String?,
     val returnProposalStatus: String,
     val returnProposedAt: String?,
     val returnProposedByUserId: String?,

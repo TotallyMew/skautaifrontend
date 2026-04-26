@@ -19,6 +19,7 @@ import lt.skautai.android.data.local.mapper.toLocationEntities
 import lt.skautai.android.data.remote.CreateLocationRequestDto
 import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.LocationDto
+import lt.skautai.android.data.remote.UpdateLocationRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
@@ -77,6 +78,26 @@ class LocationRepository @Inject constructor(
         }
     }
 
+    suspend fun getLocation(locationId: String): Result<LocationDto> {
+        return try {
+            val currentTuntasId = tuntasId()
+            val response = locationApiService.getLocation("Bearer ${token()}", currentTuntasId, locationId)
+            if (response.isSuccessful) {
+                val location = response.body()!!
+                locationDao.upsert(location.toEntity())
+                Result.success(location)
+            } else {
+                val cached = locationDao.getLocation(locationId, currentTuntasId)?.toDto()
+                cached?.let { Result.success(it) }
+                    ?: Result.failure(Exception(response.errorMessage("Klaida gaunant lokacija")))
+            }
+        } catch (e: Exception) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+            val cached = currentTuntasId?.let { locationDao.getLocation(locationId, it)?.toDto() }
+            cached?.let { Result.success(it) } ?: Result.failure(e)
+        }
+    }
+
     suspend fun createLocation(request: CreateLocationRequestDto): Result<LocationDto> {
         return try {
             val response = locationApiService.createLocation("Bearer ${token()}", tuntasId(), request)
@@ -93,8 +114,19 @@ class LocationRepository @Inject constructor(
                 id = "local-${UUID.randomUUID()}",
                 tuntasId = currentTuntasId,
                 name = request.name,
+                visibility = request.visibility,
+                parentLocationId = request.parentLocationId,
+                ownerUserId = null,
+                ownerUnitId = request.ownerUnitId,
+                ownerUnitName = null,
+                fullPath = request.name,
+                hasChildren = false,
+                isLeafSelectable = true,
+                isEditable = true,
                 address = request.address,
                 description = request.description,
+                latitude = request.latitude,
+                longitude = request.longitude,
                 createdAt = Instant.now().toString()
             )
             locationDao.upsert(location.toEntity())
@@ -106,6 +138,37 @@ class LocationRepository @Inject constructor(
                 payload = request
             )
             Result.success(location)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateLocation(locationId: String, request: UpdateLocationRequestDto): Result<LocationDto> {
+        return try {
+            val currentTuntasId = tuntasId()
+            val response = locationApiService.updateLocation("Bearer ${token()}", currentTuntasId, locationId, request)
+            if (response.isSuccessful) {
+                val location = response.body()!!
+                locationDao.upsert(location.toEntity())
+                Result.success(location)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant lokacija")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteLocation(locationId: String): Result<Unit> {
+        return try {
+            val currentTuntasId = tuntasId()
+            val response = locationApiService.deleteLocation("Bearer ${token()}", currentTuntasId, locationId)
+            if (response.isSuccessful) {
+                locationDao.deleteLocation(locationId, currentTuntasId)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida trinant lokacija")))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

@@ -11,7 +11,9 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateReservationItemRequestDto
 import lt.skautai.android.data.remote.CreateReservationRequestDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
@@ -36,13 +38,17 @@ data class ReservationCreateUiState(
     val endDate: String = "",
     val notes: String = "",
     val availabilityByItemId: Map<String, Int> = emptyMap(),
-    val activeOrgUnitId: String? = null
+    val activeOrgUnitId: String? = null,
+    val locations: List<LocationDto> = emptyList(),
+    val pickupLocationId: String? = null,
+    val returnLocationId: String? = null
 )
 
 @HiltViewModel
 class ReservationCreateViewModel @Inject constructor(
     private val reservationRepository: ReservationRepository,
     private val itemRepository: ItemRepository,
+    private val locationRepository: LocationRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -59,9 +65,11 @@ class ReservationCreateViewModel @Inject constructor(
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first()
             itemRepository.getItems(status = "ACTIVE")
                 .onSuccess { items ->
+                    val locations = locationRepository.getLocations().getOrDefault(emptyList())
                     _uiState.value = _uiState.value.copy(
                         isLoadingItems = false,
                         activeOrgUnitId = activeOrgUnitId,
+                        locations = locations,
                         items = items
                             .filter { item -> item.custodianId == null || item.custodianId == activeOrgUnitId }
                             .sortedBy { it.name.lowercase() }
@@ -96,6 +104,14 @@ class ReservationCreateViewModel @Inject constructor(
 
     fun onNotesChange(value: String) {
         _uiState.value = _uiState.value.copy(notes = value)
+    }
+
+    fun onPickupLocationChange(value: String?) {
+        _uiState.value = _uiState.value.copy(pickupLocationId = value)
+    }
+
+    fun onReturnLocationChange(value: String?) {
+        _uiState.value = _uiState.value.copy(returnLocationId = value)
     }
 
     fun clearError() {
@@ -191,6 +207,8 @@ class ReservationCreateViewModel @Inject constructor(
                     startDate = state.startDate,
                     endDate = state.endDate,
                     requestingUnitId = selectedRequestingUnitId(state),
+                    pickupLocationId = state.pickupLocationId,
+                    returnLocationId = state.returnLocationId,
                     notes = state.notes.ifBlank { null }
                 )
             )

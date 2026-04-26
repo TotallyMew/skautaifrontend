@@ -75,13 +75,41 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `pending_operations` ADD COLUMN `userId` TEXT NOT NULL DEFAULT ''")
             }
         }
+        val migration4To5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reservations_eventId` ON `reservations`(`eventId`)")
+            }
+        }
+        val migration5To6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `visibility` TEXT NOT NULL DEFAULT 'PUBLIC'")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `parentLocationId` TEXT")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `ownerUserId` TEXT")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `ownerUnitId` TEXT")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `ownerUnitName` TEXT")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `fullPath` TEXT NOT NULL DEFAULT ''")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `hasChildren` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `isLeafSelectable` INTEGER NOT NULL DEFAULT 1")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `isEditable` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `latitude` REAL")
+                db.execSQL("ALTER TABLE `locations` ADD COLUMN `longitude` REAL")
+
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `locationName` TEXT")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `locationPath` TEXT")
+
+                db.execSQL("ALTER TABLE `reservations` ADD COLUMN `pickupLocationId` TEXT")
+                db.execSQL("ALTER TABLE `reservations` ADD COLUMN `pickupLocationPath` TEXT")
+                db.execSQL("ALTER TABLE `reservations` ADD COLUMN `returnLocationId` TEXT")
+                db.execSQL("ALTER TABLE `reservations` ADD COLUMN `returnLocationPath` TEXT")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             "skautai_inventory.db"
         )
-            .addMigrations(migration1To2, migration2To3, migration3To4)
+            .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6)
             .build()
     }
 

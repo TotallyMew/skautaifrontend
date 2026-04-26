@@ -1,10 +1,11 @@
 package lt.skautai.android.ui.common
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.ui.graphics.vector.ImageVector
 import lt.skautai.android.util.NavRoutes
 
@@ -25,19 +26,25 @@ sealed class BottomNavItem(
         icon = Icons.Default.CalendarMonth
     )
 
+    data object Inventory : BottomNavItem(
+        route = NavRoutes.InventoryList.route,
+        label = "Inventorius",
+        icon = Icons.Default.Inventory2
+    )
+
+    data object Reservations : BottomNavItem(
+        route = NavRoutes.ReservationList.route,
+        label = "Rezervacijos",
+        icon = Icons.Default.EventAvailable
+    )
+
     data object Members : BottomNavItem(
         route = NavRoutes.MemberList.route,
         label = "Nariai",
         icon = Icons.Default.Group
     )
 
-    data object Units : BottomNavItem(
-        route = NavRoutes.UnitList.route,
-        label = "Vienetai",
-        icon = Icons.Default.AccountTree
-    )
-
     companion object {
-        val all = listOf(Home, Events, Members, Units)
+        val all = listOf(Home, Inventory, Reservations, Events, Members)
     }
 }

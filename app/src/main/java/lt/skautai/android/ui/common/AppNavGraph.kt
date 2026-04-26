@@ -21,10 +21,15 @@ import lt.skautai.android.ui.auth.RegisterScreen
 import lt.skautai.android.ui.events.EventCreateScreen
 import lt.skautai.android.ui.events.EventDetailScreen
 import lt.skautai.android.ui.events.EventListScreen
+import lt.skautai.android.ui.events.EventMovementScreen
+import lt.skautai.android.ui.events.PastovykleLeaderScreen
 import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
+import lt.skautai.android.ui.locations.LocationAddEditScreen
+import lt.skautai.android.ui.locations.LocationDetailScreen
+import lt.skautai.android.ui.locations.LocationListScreen
 import lt.skautai.android.ui.members.InviteAcceptScreen
 import lt.skautai.android.ui.members.InviteCreateScreen
 import lt.skautai.android.ui.members.MemberDetailScreen
@@ -229,6 +234,11 @@ fun AppNavGraph(
                     onInviteClick = {
                         navController.navigate(NavRoutes.InviteCreate.route)
                     },
+                    onEmptyActionClick = {
+                        navController.navigate(NavRoutes.Home.route) {
+                            launchSingleTop = true
+                        }
+                    },
                     canInvite = "invitations.create" in permissions
                 )
             }
@@ -256,6 +266,83 @@ fun AppNavGraph(
                     }
                 )
             }
+        }
+
+        composable(NavRoutes.LocationList.route) { backStackEntry ->
+            val refreshLocations by backStackEntry.savedStateHandle
+                .getStateFlow("refreshLocations", false)
+                .collectAsState()
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                floatingActionButton = {
+                    FloatingActionButton(onClick = { navController.navigate(NavRoutes.LocationAddEdit.createRoute()) }) {
+                        Icon(Icons.Default.Add, contentDescription = "Prideti lokacija")
+                    }
+                }
+            ) {
+                LocationListScreen(
+                    onLocationClick = { locationId -> navController.navigate(NavRoutes.LocationDetail.createRoute(locationId)) },
+                    onCreateClick = { navController.navigate(NavRoutes.LocationAddEdit.createRoute()) },
+                    refreshSignal = refreshLocations,
+                    onRefreshHandled = {
+                        backStackEntry.savedStateHandle["refreshLocations"] = false
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = NavRoutes.LocationDetail.route,
+            arguments = listOf(navArgument("locationId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val locationId = backStackEntry.arguments?.getString("locationId")!!
+            val refreshLocationDetail by backStackEntry.savedStateHandle
+                .getStateFlow("refreshLocationDetail", false)
+                .collectAsState()
+            LocationDetailScreen(
+                locationId = locationId,
+                onBack = {
+                    navController.previousBackStackEntry?.savedStateHandle?.set("refreshLocations", true)
+                    navController.popBackStack()
+                },
+                onEdit = { id -> navController.navigate(NavRoutes.LocationAddEdit.createRoute(locationId = id)) },
+                onCreateChild = { parentId -> navController.navigate(NavRoutes.LocationAddEdit.createRoute(parentLocationId = parentId)) },
+                refreshSignal = refreshLocationDetail,
+                onRefreshHandled = {
+                    backStackEntry.savedStateHandle["refreshLocationDetail"] = false
+                }
+            )
+        }
+
+        composable(
+            route = NavRoutes.LocationAddEdit.route,
+            arguments = listOf(
+                navArgument("locationId") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                },
+                navArgument("parentLocationId") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                }
+            )
+        ) {
+            val locationId = it.arguments?.getString("locationId")
+            val parentLocationId = it.arguments?.getString("parentLocationId")
+            LocationAddEditScreen(
+                locationId = locationId,
+                parentLocationId = parentLocationId,
+                onBack = { navController.popBackStack() },
+                onSaved = {
+                    navController.previousBackStackEntry?.savedStateHandle?.set("refreshLocations", true)
+                    navController.previousBackStackEntry?.savedStateHandle?.set("refreshLocationDetail", true)
+                    navController.popBackStack()
+                }
+            )
         }
 
         composable(NavRoutes.EventList.route) {
@@ -436,6 +523,31 @@ fun AppNavGraph(
             val eventId = it.arguments?.getString("eventId")!!
             EventDetailScreen(
                 eventId = eventId,
+                onBack = { navController.popBackStack() },
+                onEdit = { id -> navController.navigate(NavRoutes.EventAddEdit.createRoute(id)) },
+                onOpenMovement = { id -> navController.navigate(NavRoutes.EventMovement.createRoute(id)) },
+                onOpenPastovykleLeader = { id -> navController.navigate(NavRoutes.PastovykleLeader.createRoute(id)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EventMovement.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventMovementScreen(
+                eventId = eventId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(
+            route = NavRoutes.PastovykleLeader.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            PastovykleLeaderScreen(
+                eventId = eventId,
                 onBack = { navController.popBackStack() }
             )
         }
@@ -448,11 +560,27 @@ fun AppNavGraph(
                 nullable = true
             })
         ) {
-            EventCreateScreen(onBack = { navController.popBackStack() })
+            val eventId = it.arguments?.getString("eventId")
+            EventCreateScreen(
+                eventId = eventId,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(NavRoutes.TuntasSelect.route) {
             TuntasSelectScreen(navController)
+        }
+
+        composable(NavRoutes.SyncStatus.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                SyncStatusScreen()
+            }
         }
     }
 }

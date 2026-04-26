@@ -12,13 +12,6 @@ data class EventRoleDto(
     @SerializedName("assignedAt") val assignedAt: String
 )
 
-data class StovyklaDetailsDto(
-    @SerializedName("id") val id: String,
-    @SerializedName("registrationDeadline") val registrationDeadline: String?,
-    @SerializedName("expectedParticipants") val expectedParticipants: Int?,
-    @SerializedName("actualParticipants") val actualParticipants: Int?
-)
-
 data class EventDto(
     @SerializedName("id") val id: String,
     @SerializedName("tuntasId") val tuntasId: String,
@@ -33,7 +26,6 @@ data class EventDto(
     @SerializedName("notes") val notes: String?,
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("eventRoles") val eventRoles: List<EventRoleDto>,
-    @SerializedName("stovyklaDetails") val stovyklaDetails: StovyklaDetailsDto?,
     @SerializedName("inventorySummary") val inventorySummary: EventInventorySummaryDto?
 )
 
@@ -47,9 +39,7 @@ data class CreateEventRequestDto(
     @SerializedName("type") val type: String,
     @SerializedName("startDate") val startDate: String,
     @SerializedName("endDate") val endDate: String,
-    @SerializedName("notes") val notes: String? = null,
-    @SerializedName("registrationDeadline") val registrationDeadline: String? = null,
-    @SerializedName("expectedParticipants") val expectedParticipants: Int? = null
+    @SerializedName("notes") val notes: String? = null
 )
 
 data class UpdateEventRequestDto(
@@ -73,6 +63,8 @@ data class EventInventoryBucketDto(
     @SerializedName("type") val type: String,
     @SerializedName("pastovykleId") val pastovykleId: String?,
     @SerializedName("pastovykleName") val pastovykleName: String?,
+    @SerializedName("locationId") val locationId: String?,
+    @SerializedName("locationPath") val locationPath: String?,
     @SerializedName("notes") val notes: String?
 )
 
@@ -116,6 +108,15 @@ data class CreateEventInventoryBucketRequestDto(
     @SerializedName("name") val name: String,
     @SerializedName("type") val type: String,
     @SerializedName("pastovykleId") val pastovykleId: String? = null,
+    @SerializedName("locationId") val locationId: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdateEventInventoryBucketRequestDto(
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("pastovykleId") val pastovykleId: String? = null,
+    @SerializedName("locationId") val locationId: String? = null,
     @SerializedName("notes") val notes: String? = null
 )
 
@@ -155,6 +156,11 @@ data class CreateEventInventoryAllocationRequestDto(
     @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
     @SerializedName("bucketId") val bucketId: String,
     @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdateEventInventoryAllocationRequestDto(
+    @SerializedName("quantity") val quantity: Int? = null,
     @SerializedName("notes") val notes: String? = null
 )
 
@@ -206,4 +212,176 @@ data class CreateEventPurchaseRequestDto(
 
 data class AttachEventPurchaseInvoiceRequestDto(
     @SerializedName("invoiceFileUrl") val invoiceFileUrl: String
+)
+
+data class PastovykleDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("responsibleUserId") val responsibleUserId: String?,
+    @SerializedName("ageGroup") val ageGroup: String?,
+    @SerializedName("notes") val notes: String?
+)
+
+data class PastovykleListDto(
+    @SerializedName("pastovykles") val pastovykles: List<PastovykleDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class CreatePastovykleRequestDto(
+    @SerializedName("name") val name: String,
+    @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
+    @SerializedName("ageGroup") val ageGroup: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdatePastovykleRequestDto(
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
+    @SerializedName("ageGroup") val ageGroup: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class PastovykleInventoryDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("pastovykleId") val pastovykleId: String,
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("distributedByUserId") val distributedByUserId: String?,
+    @SerializedName("recipientUserId") val recipientUserId: String?,
+    @SerializedName("recipientType") val recipientType: String?,
+    @SerializedName("quantityAssigned") val quantityAssigned: Int,
+    @SerializedName("quantityReturned") val quantityReturned: Int,
+    @SerializedName("assignedAt") val assignedAt: String,
+    @SerializedName("returnedAt") val returnedAt: String?,
+    @SerializedName("notes") val notes: String?
+)
+
+data class PastovykleInventoryListDto(
+    @SerializedName("inventory") val inventory: List<PastovykleInventoryDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class AssignPastovykleInventoryRequestDto(
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("recipientUserId") val recipientUserId: String? = null,
+    @SerializedName("recipientType") val recipientType: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdatePastovykleInventoryRequestDto(
+    @SerializedName("quantityReturned") val quantityReturned: Int? = null,
+    @SerializedName("returnedAt") val returnedAt: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class EventInventoryRequestDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemId") val itemId: String?,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("pastovykleId") val pastovykleId: String,
+    @SerializedName("pastovykleName") val pastovykleName: String,
+    @SerializedName("requestedByUserId") val requestedByUserId: String,
+    @SerializedName("requestedByName") val requestedByName: String?,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("reviewedAt") val reviewedAt: String?,
+    @SerializedName("reviewedByUserId") val reviewedByUserId: String?,
+    @SerializedName("reviewedByUserName") val reviewedByUserName: String?,
+    @SerializedName("fulfilledAt") val fulfilledAt: String?,
+    @SerializedName("resolvedByUserId") val resolvedByUserId: String?,
+    @SerializedName("resolvedByUserName") val resolvedByUserName: String?
+)
+
+data class EventInventoryRequestListDto(
+    @SerializedName("requests") val requests: List<EventInventoryRequestDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class CreatePastovykleInventoryRequestRequestDto(
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class FulfillPastovykleInventoryRequestRequestDto(
+    @SerializedName("quantity") val quantity: Int? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class MarkPastovykleInventoryRequestSelfProvidedRequestDto(
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class AssignUnitInventoryToPastovykleRequestDto(
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class EventInventoryCustodyDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("pastovykleId") val pastovykleId: String?,
+    @SerializedName("pastovykleName") val pastovykleName: String?,
+    @SerializedName("holderUserId") val holderUserId: String?,
+    @SerializedName("holderUserName") val holderUserName: String?,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("returnedQuantity") val returnedQuantity: Int,
+    @SerializedName("remainingQuantity") val remainingQuantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("createdByUserId") val createdByUserId: String,
+    @SerializedName("createdByUserName") val createdByUserName: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("closedAt") val closedAt: String?,
+    @SerializedName("notes") val notes: String?
+)
+
+data class EventInventoryMovementDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("custodyId") val custodyId: String?,
+    @SerializedName("movementType") val movementType: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("fromPastovykleId") val fromPastovykleId: String?,
+    @SerializedName("fromPastovykleName") val fromPastovykleName: String?,
+    @SerializedName("toPastovykleId") val toPastovykleId: String?,
+    @SerializedName("toPastovykleName") val toPastovykleName: String?,
+    @SerializedName("fromUserId") val fromUserId: String?,
+    @SerializedName("fromUserName") val fromUserName: String?,
+    @SerializedName("toUserId") val toUserId: String?,
+    @SerializedName("toUserName") val toUserName: String?,
+    @SerializedName("performedByUserId") val performedByUserId: String,
+    @SerializedName("performedByUserName") val performedByUserName: String?,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("createdAt") val createdAt: String
+)
+
+data class EventInventoryCustodyListDto(
+    @SerializedName("custody") val custody: List<EventInventoryCustodyDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class EventInventoryMovementListDto(
+    @SerializedName("movements") val movements: List<EventInventoryMovementDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class CreateEventInventoryMovementRequestDto(
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("movementType") val movementType: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("pastovykleId") val pastovykleId: String? = null,
+    @SerializedName("toUserId") val toUserId: String? = null,
+    @SerializedName("fromCustodyId") val fromCustodyId: String? = null,
+    @SerializedName("requestId") val requestId: String? = null,
+    @SerializedName("notes") val notes: String? = null
 )

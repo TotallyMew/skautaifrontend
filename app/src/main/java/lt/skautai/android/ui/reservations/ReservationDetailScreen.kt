@@ -285,6 +285,7 @@ private fun ReservationDetailContent(
             TimeProposalCard(
                 title = "Atsiėmimo laikas",
                 currentTime = reservation.pickupAt,
+                currentLocationPath = reservation.pickupLocationPath,
                 proposalStatus = reservation.pickupProposalStatus,
                 proposedByUserId = reservation.pickupProposedByUserId,
                 reservedByUserId = reservation.reservedByUserId,
@@ -298,6 +299,7 @@ private fun ReservationDetailContent(
             TimeProposalCard(
                 title = "Grąžinimo laikas",
                 currentTime = reservation.returnAt,
+                currentLocationPath = reservation.returnLocationPath,
                 proposalStatus = reservation.returnProposalStatus,
                 proposedByUserId = reservation.returnProposedByUserId,
                 reservedByUserId = reservation.reservedByUserId,
@@ -483,6 +485,7 @@ private fun ReservationTimingCard(reservation: ReservationDto) {
 private fun TimeProposalCard(
     title: String,
     currentTime: String?,
+    currentLocationPath: String?,
     proposalStatus: String,
     proposedByUserId: String?,
     reservedByUserId: String,
@@ -529,6 +532,9 @@ private fun TimeProposalCard(
             currentTime?.let {
                 ReservationInfoRow("Siulomas laikas", it.take(16).replace("T", " "))
             }
+            currentLocationPath?.takeIf { it.isNotBlank() }?.let {
+                ReservationInfoRow("Lokacija", it)
+            }
             OutlinedButton(
                 onClick = { showDatePicker = true },
                 modifier = Modifier.fillMaxWidth()
@@ -547,7 +553,7 @@ private fun TimeProposalCard(
                     modifier = Modifier.weight(1f)
                 )
                 TimeStepper(
-                    label = "Minutes",
+                    label = "Minutės",
                     value = "%02d".format(selectedMinute),
                     onDecrease = { selectedMinute = (selectedMinute + 55) % 60 },
                     onIncrease = { selectedMinute = (selectedMinute + 5) % 60 },
@@ -559,7 +565,7 @@ private fun TimeProposalCard(
                     onClick = onAccept,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Priimti siuloma laika")
+                    Text("Priimti siūlomą laiką")
                 }
             }
             Button(
@@ -567,7 +573,7 @@ private fun TimeProposalCard(
                 enabled = proposalValue != null,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (proposalStatus == "PENDING") "Siulyti kita laika" else "Siulyti laika")
+                Text(if (proposalStatus == "PENDING") "Siūlyti kitą laiką" else "Siūlyti laiką")
             }
         }
     }

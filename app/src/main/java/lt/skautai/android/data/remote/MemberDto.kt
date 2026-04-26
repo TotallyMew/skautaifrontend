@@ -59,6 +59,13 @@ data class AssignLeadershipRoleRequestDto(
     @SerializedName("termNumber") val termNumber: Int = 1
 )
 
+data class UpdateLeadershipRoleRequestDto(
+    @SerializedName("startsAt") val startsAt: String? = null,
+    @SerializedName("expiresAt") val expiresAt: String? = null,
+    @SerializedName("termStatus") val termStatus: String? = null,
+    @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null
+)
+
 data class AssignRankRequestDto(
     @SerializedName("roleId") val roleId: String
 )

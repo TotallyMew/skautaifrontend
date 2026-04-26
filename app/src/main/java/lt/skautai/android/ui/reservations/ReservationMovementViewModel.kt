@@ -8,9 +8,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationMovementItemRequestDto
 import lt.skautai.android.data.remote.ReservationMovementRequestDto
+import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import javax.inject.Inject
 
@@ -21,12 +23,15 @@ data class ReservationMovementUiState(
     val error: String? = null,
     val reservation: ReservationDto? = null,
     val selectedQuantities: Map<String, Int> = emptyMap(),
-    val notes: String = ""
+    val notes: String = "",
+    val locations: List<LocationDto> = emptyList(),
+    val selectedLocationId: String? = null
 )
 
 @HiltViewModel
 class ReservationMovementViewModel @Inject constructor(
     private val reservationRepository: ReservationRepository,
+    private val locationRepository: LocationRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     val reservationId: String = savedStateHandle["reservationId"] ?: ""
@@ -44,6 +49,7 @@ class ReservationMovementViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             reservationRepository.getReservation(reservationId)
                 .onSuccess { reservation ->
+                    val locations = locationRepository.getLocations().getOrDefault(emptyList())
                     val defaultQuantities = reservation.items
                         .mapNotNull { item ->
                             val max = maxQuantity(item)
@@ -53,7 +59,12 @@ class ReservationMovementViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         reservation = reservation,
-                        selectedQuantities = defaultQuantities
+                        selectedQuantities = defaultQuantities,
+                        locations = locations,
+                        selectedLocationId = when (mode) {
+                            "return" -> reservation.returnLocationId
+                            else -> reservation.pickupLocationId
+                        }
                     )
                 }
                 .onFailure { error ->
@@ -67,6 +78,10 @@ class ReservationMovementViewModel @Inject constructor(
 
     fun onNotesChange(value: String) {
         _uiState.value = _uiState.value.copy(notes = value)
+    }
+
+    fun onLocationChange(locationId: String?) {
+        _uiState.value = _uiState.value.copy(selectedLocationId = locationId)
     }
 
     fun increase(itemId: String) {
@@ -102,7 +117,11 @@ class ReservationMovementViewModel @Inject constructor(
 
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, error = null)
-            val request = ReservationMovementRequestDto(items = items, notes = state.notes.ifBlank { null })
+            val request = ReservationMovementRequestDto(
+                items = items,
+                locationId = state.selectedLocationId,
+                notes = state.notes.ifBlank { null }
+            )
             val result = when (mode) {
                 "return" -> reservationRepository.returnReservationItems(reservationId, request)
                 "mark_returned" -> reservationRepository.markReservationItemsReturned(reservationId, request)

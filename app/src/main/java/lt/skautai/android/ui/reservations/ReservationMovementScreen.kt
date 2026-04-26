@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ReservationItemDto
+import lt.skautai.android.ui.locations.LocationPickerField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -148,6 +149,21 @@ fun ReservationMovementScreen(
                         onDecrease = { viewModel.decrease(item.itemId) }
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+                item {
+                    LocationPickerField(
+                        label = "Lokacija",
+                        locations = uiState.locations,
+                        selectedId = uiState.selectedLocationId,
+                        onSelected = { viewModel.onLocationChange(it?.id) },
+                        filter = { location ->
+                            when (location.visibility) {
+                                "UNIT" -> uiState.reservation?.requestingUnitId == location.ownerUnitId
+                                "PRIVATE" -> false
+                                else -> true
+                            }
+                        }
+                    )
                 }
                 item {
                     OutlinedTextField(

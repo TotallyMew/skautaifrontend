@@ -9,10 +9,10 @@ import lt.skautai.android.data.local.entity.LocationEntity
 
 @Dao
 interface LocationDao {
-    @Query("SELECT * FROM locations WHERE tuntasId = :tuntasId ORDER BY LOWER(name)")
+    @Query("SELECT * FROM locations WHERE tuntasId = :tuntasId ORDER BY LOWER(fullPath), LOWER(name)")
     fun observeLocations(tuntasId: String): Flow<List<LocationEntity>>
 
-    @Query("SELECT * FROM locations WHERE tuntasId = :tuntasId ORDER BY LOWER(name)")
+    @Query("SELECT * FROM locations WHERE tuntasId = :tuntasId ORDER BY LOWER(fullPath), LOWER(name)")
     suspend fun getLocations(tuntasId: String): List<LocationEntity>
 
     @Query("SELECT * FROM locations WHERE id = :locationId AND tuntasId = :tuntasId LIMIT 1")

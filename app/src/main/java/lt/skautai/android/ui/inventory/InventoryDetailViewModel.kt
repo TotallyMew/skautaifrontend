@@ -48,14 +48,18 @@ class InventoryDetailViewModel @Inject constructor(
     private val _deleted = MutableStateFlow(false)
     val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
 
-    private val _deleteError = MutableStateFlow<String?>(null)
-    val deleteError: StateFlow<String?> = _deleteError.asStateFlow()
+    private val _actionError = MutableStateFlow<String?>(null)
+    val actionError: StateFlow<String?> = _actionError.asStateFlow()
 
     private val _sharedRequestCreated = MutableStateFlow(false)
     val sharedRequestCreated: StateFlow<Boolean> = _sharedRequestCreated.asStateFlow()
 
     private val _isCreatingSharedRequest = MutableStateFlow(false)
     val isCreatingSharedRequest: StateFlow<Boolean> = _isCreatingSharedRequest.asStateFlow()
+
+    private val _isUpdatingStatus = MutableStateFlow(false)
+    val isUpdatingStatus: StateFlow<Boolean> = _isUpdatingStatus.asStateFlow()
+
     private var itemObserverJob: Job? = null
 
     fun loadItem(itemId: String) {
@@ -92,26 +96,33 @@ class InventoryDetailViewModel @Inject constructor(
 
     fun deleteItem(itemId: String) {
         viewModelScope.launch {
+            if (_deleted.value) return@launch
+
             itemRepository.deleteItem(itemId)
                 .onSuccess {
                     _deleted.value = true
                 }
                 .onFailure { error ->
-                    _deleteError.value = error.message ?: "Nepavyko ištrinti daikto"
+                    _actionError.value = error.message ?: "Nepavyko istrinti daikto"
                 }
         }
     }
 
     fun updateStatus(itemId: String, status: String) {
         viewModelScope.launch {
+            if (_deleted.value || _isUpdatingStatus.value) return@launch
+
+            _isUpdatingStatus.value = true
             itemRepository.updateItem(itemId, UpdateItemRequestDto(status = status))
                 .onSuccess { item ->
-                    _uiState.value = InventoryDetailUiState.Success(item)
+                    val reservations = (_uiState.value as? InventoryDetailUiState.Success)?.reservations.orEmpty()
+                    _uiState.value = InventoryDetailUiState.Success(item, reservations)
                     loadItemReservations(itemId)
                 }
                 .onFailure { error ->
-                    _deleteError.value = error.message ?: "Nepavyko pakeisti busenos"
+                    _actionError.value = error.message ?: "Nepavyko pakeisti busenos"
                 }
+            _isUpdatingStatus.value = false
         }
     }
 
@@ -119,9 +130,11 @@ class InventoryDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val activeUnitId = tokenManager.activeOrgUnitId.first()
             if (activeUnitId.isNullOrBlank()) {
-                _deleteError.value = "Pasirink aktyvu vieneta, kuriam nori gauti daikta"
+                _actionError.value = "Pasirink aktyvu vieneta, kuriam nori gauti daikta"
                 return@launch
             }
+
+            if (_isCreatingSharedRequest.value) return@launch
 
             _isCreatingSharedRequest.value = true
             requestRepository.createRequest(
@@ -134,7 +147,7 @@ class InventoryDetailViewModel @Inject constructor(
             ).onSuccess {
                 _sharedRequestCreated.value = true
             }.onFailure { error ->
-                _deleteError.value = error.message ?: "Nepavyko sukurti paemimo prasymo"
+                _actionError.value = error.message ?: "Nepavyko sukurti paemimo prasymo"
             }
             _isCreatingSharedRequest.value = false
         }
@@ -153,8 +166,8 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
-    fun onDeleteErrorShown() {
-        _deleteError.value = null
+    fun onActionErrorShown() {
+        _actionError.value = null
     }
 
     fun onSharedRequestMessageShown() {

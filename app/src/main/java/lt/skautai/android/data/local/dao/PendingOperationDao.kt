@@ -24,6 +24,15 @@ interface PendingOperationDao {
     @Query("SELECT COUNT(*) FROM pending_operations WHERE userId = :userId AND status = 'FAILED'")
     fun observeFailedCount(userId: String): Flow<Int>
 
+    @Query(
+        """
+        SELECT * FROM pending_operations
+        WHERE userId = :userId AND status IN ('PENDING', 'SYNCING', 'FAILED')
+        ORDER BY createdAt DESC
+        """
+    )
+    fun observeVisibleOperations(userId: String): Flow<List<PendingOperationEntity>>
+
     @Query("SELECT COUNT(*) FROM pending_operations WHERE userId = :userId AND entityType = :entityType AND entityId = :entityId AND status IN ('PENDING', 'SYNCING')")
     fun observePendingCountForEntity(userId: String, entityType: String, entityId: String): Flow<Int>
 
@@ -32,6 +41,9 @@ interface PendingOperationDao {
 
     @Query("SELECT * FROM pending_operations WHERE userId = :userId AND entityType = :entityType AND entityId = :entityId AND operationType = :operationType AND status IN ('PENDING', 'FAILED') LIMIT 1")
     suspend fun findOperation(userId: String, entityType: String, entityId: String, operationType: String): PendingOperationEntity?
+
+    @Query("SELECT * FROM pending_operations WHERE userId = :userId AND entityType = :entityType AND entityId = :entityId AND operationType = :operationType LIMIT 1")
+    suspend fun findOperationAnyStatus(userId: String, entityType: String, entityId: String, operationType: String): PendingOperationEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(operation: PendingOperationEntity)

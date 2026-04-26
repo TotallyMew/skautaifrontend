@@ -17,6 +17,8 @@ data class ItemEntity(
     val condition: String,
     val quantity: Int,
     val locationId: String?,
+    val locationName: String?,
+    val locationPath: String?,
     val temporaryStorageLabel: String?,
     val sourceSharedItemId: String?,
     val quantityBreakdownJson: String,
