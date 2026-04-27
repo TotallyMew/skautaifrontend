@@ -20,27 +20,27 @@ object RegistrationValidation {
     fun emailError(email: String): String? {
         val normalized = normalizeEmail(email)
         return when {
-            normalized.isBlank() -> "Įveskite el. paštą"
-            !emailRegex.matches(normalized) -> "Įveskite teisingą el. pašto adresą"
+            normalized.isBlank() -> "Įveskite el. paštą."
+            !emailRegex.matches(normalized) -> "Įveskite teisingą el. pašto adresą."
             else -> null
         }
     }
 
     fun passwordError(password: String): String? {
         return when {
-            password.isBlank() -> "Įveskite slaptažodį"
-            password.length < 8 -> "Slaptažodis turi būti bent 8 simbolių"
-            password.any { it.isWhitespace() } -> "Slaptažodyje negali būti tarpų"
-            password.none { it.isLetter() } -> "Slaptažodyje turi būti bent viena raidė"
-            password.none { it.isDigit() } -> "Slaptažodyje turi būti bent vienas skaičius"
+            password.isBlank() -> "Įveskite slaptažodį."
+            password.length < 8 -> "Slaptažodis turi būti bent 8 simbolių."
+            password.any { it.isWhitespace() } -> "Slaptažodyje negali būti tarpų."
+            password.none { it.isLetter() } -> "Slaptažodyje turi būti bent viena raidė."
+            password.none { it.isDigit() } -> "Slaptažodyje turi būti bent vienas skaičius."
             else -> null
         }
     }
 
     fun krastasError(krastas: String): String? {
         return when {
-            krastas.isBlank() -> "Pasirinkite kraštą"
-            krastas !in allowedKrastai -> "Pasirinkite kraštą iš sąrašo"
+            krastas.isBlank() -> "Pasirinkite kraštą."
+            krastas !in allowedKrastai -> "Pasirinkite kraštą iš sąrašo."
             else -> null
         }
     }

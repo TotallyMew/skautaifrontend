@@ -96,7 +96,7 @@ class RequisitionRepository @Inject constructor(
     }
 
     suspend fun getRequests(): Result<RequisitionListDto> {
-        val refreshResult = refreshRequests()
+        refreshRequests()
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedRequests = currentTuntasId
             ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
@@ -105,7 +105,7 @@ class RequisitionRepository @Inject constructor(
     }
 
     suspend fun getRequest(id: String): Result<RequisitionDto> {
-        val refreshResult = refreshRequest(id)
+        refreshRequest(id)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedRequest = currentTuntasId?.let { requisitionDao.getRequest(id, it)?.toDto() }
         return if (cachedRequest != null) {

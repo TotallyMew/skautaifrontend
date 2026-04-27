@@ -103,13 +103,18 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `reservations` ADD COLUMN `returnLocationPath` TEXT")
             }
         }
+        val migration6To7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `bendras_requests` ADD COLUMN `requestedByUserName` TEXT")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
             AppDatabase::class.java,
             "skautai_inventory.db"
         )
-            .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6)
+            .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, migration6To7)
             .build()
     }
 

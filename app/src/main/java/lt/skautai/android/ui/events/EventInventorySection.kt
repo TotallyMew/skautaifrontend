@@ -487,6 +487,11 @@ fun UkvedysCard(
             if (!returnMode) {
                 HorizontalDivider()
                 Text("Buckets", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Atskirk inventoriu pagal paskirti ar pastovykles.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
                 if (canManage) {
                     OutlinedTextField(
                         value = bucketName,
@@ -540,6 +545,11 @@ fun UkvedysCard(
 
                 HorizontalDivider()
                 Text("Paskirstymai", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Priskirk inventoriaus kieki bucketams ir stebek kam jis atitenka.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
                 if (canManage) {
                     DropdownField(
                         label = "Daiktas",
@@ -585,6 +595,11 @@ fun UkvedysCard(
 
                 HorizontalDivider()
                 Text("Pastovykliu prasymai", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Matosi kas prase, kiek prase ir kokia prasymo busena.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall
+                )
                 if (allRequests.isEmpty()) {
                     EmptyStateText("Prašymų iš pastovyklės dar nėra.")
                 } else {
@@ -745,10 +760,14 @@ fun PlanCard(
             Text("Inventoriaus planas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             HorizontalDivider()
             event.inventorySummary?.let { summary ->
-                EventInfoRow("Planuojama", summary.totalPlannedQuantity.toString())
-                EventInfoRow("Yra inventoriuje", summary.totalAvailableQuantity.toString())
-                EventInfoRow("Truksta / pirkti", summary.totalShortageQuantity.toString())
-                EventInfoRow("Paskirstyta", summary.totalAllocatedQuantity.toString())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                EventMetricPill("Planuota ${summary.totalPlannedQuantity}", EventMetricTone.Neutral)
+                    EventMetricPill("Turima ${summary.totalAvailableQuantity}", EventMetricTone.Neutral)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EventMetricPill("Truksta ${summary.totalShortageQuantity}", EventMetricTone.Warning)
+                EventMetricPill("Paskirstyta ${summary.totalAllocatedQuantity}", EventMetricTone.Good)
+                }
             }
             if (inventoryPlan == null || inventoryPlan.items.isEmpty()) {
                 Text("Planas dar tuscias", color = MaterialTheme.colorScheme.onSurfaceVariant)

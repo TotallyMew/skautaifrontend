@@ -95,7 +95,7 @@ class RequestRepository @Inject constructor(
     }
 
     suspend fun getRequests(): Result<BendrasRequestListDto> {
-        val refreshResult = refreshRequests()
+        refreshRequests()
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedRequests = currentTuntasId
             ?.let { bendrasRequestDao.getRequests(it).toBendrasRequestDtos() }
@@ -104,7 +104,7 @@ class RequestRepository @Inject constructor(
     }
 
     suspend fun getRequest(id: String): Result<BendrasRequestDto> {
-        val refreshResult = refreshRequest(id)
+        refreshRequest(id)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedRequest = currentTuntasId?.let { bendrasRequestDao.getRequest(id, it)?.toDto() }
         return if (cachedRequest != null) {
@@ -132,6 +132,7 @@ class RequestRepository @Inject constructor(
                 id = "local-${UUID.randomUUID()}",
                 tuntasId = currentTuntasId,
                 requestedByUserId = tokenManager.userId.first().orEmpty(),
+                requestedByUserName = tokenManager.userName.first(),
                 itemId = null,
                 itemName = request.itemDescription ?: request.items.firstOrNull()?.itemId ?: "Prasymas",
                 itemDescription = request.itemDescription,

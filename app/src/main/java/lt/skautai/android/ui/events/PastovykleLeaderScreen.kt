@@ -38,12 +38,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 fun PastovykleLeaderScreen(
     eventId: String,
     onBack: () -> Unit,
-    viewModel: EventDetailViewModel = hiltViewModel()
+    viewModel: PastovykleLeaderViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(eventId) {
-        viewModel.loadEvent(eventId)
+        viewModel.load(eventId)
     }
 
     Scaffold(
@@ -59,7 +59,7 @@ fun PastovykleLeaderScreen(
         }
     ) { padding ->
         when (val state = uiState) {
-            EventDetailUiState.Loading -> {
+            PastovykleLeaderUiState.Loading -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -70,7 +70,7 @@ fun PastovykleLeaderScreen(
                 }
             }
 
-            is EventDetailUiState.Error -> {
+            is PastovykleLeaderUiState.Error -> {
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -79,13 +79,13 @@ fun PastovykleLeaderScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(state.message, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { viewModel.loadEvent(eventId) }) {
+                    Button(onClick = { viewModel.load(eventId) }) {
                         Text("Bandyti dar karta")
                     }
                 }
             }
 
-            is EventDetailUiState.Success -> {
+            is PastovykleLeaderUiState.Success -> {
                 val myPastovykles = state.pastovykles.filter { it.responsibleUserId == state.currentUserId }
                 var selectedPastovykleId by remember(myPastovykles) {
                     mutableStateOf(myPastovykles.firstOrNull()?.id)

@@ -160,6 +160,7 @@ fun RequisitionCreateScreen(
                 )
 
                 RequisitionOrgUnitDropdown(
+                    canRequestForTuntas = uiState.canRequestForTuntas,
                     orgUnits = uiState.orgUnits,
                     selectedOrgUnitId = uiState.selectedOrgUnitId,
                     selectedOrgUnitName = uiState.selectedOrgUnitName,
@@ -254,6 +255,7 @@ private fun Long.toIsoDateString(): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RequisitionOrgUnitDropdown(
+    canRequestForTuntas: Boolean,
     orgUnits: List<OrganizationalUnitDto>,
     selectedOrgUnitId: String?,
     selectedOrgUnitName: String?,
@@ -280,13 +282,15 @@ private fun RequisitionOrgUnitDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            DropdownMenuItem(
-                text = { Text("Tuntui") },
-                onClick = {
-                    onOrgUnitSelected(null)
-                    expanded = false
-                }
-            )
+            if (canRequestForTuntas) {
+                DropdownMenuItem(
+                    text = { Text("Tuntui") },
+                    onClick = {
+                        onOrgUnitSelected(null)
+                        expanded = false
+                    }
+                )
+            }
             orgUnits.forEach { unit ->
                 DropdownMenuItem(
                     text = { Text(unit.name) },

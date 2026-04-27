@@ -8,13 +8,16 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,12 +34,14 @@ fun PurchasesCard(
     purchases: List<EventPurchaseDto>,
     canManage: Boolean,
     isWorking: Boolean,
-    onCompletePurchase: (String) -> Unit,
+    onCompletePurchase: (String, Double?) -> Unit,
     onAddPurchaseToInventory: (String) -> Unit,
     onAttachInvoice: (String, Uri) -> Unit,
     onDownloadInvoice: (String) -> Unit
 ) {
     var invoiceTargetPurchaseId by remember { mutableStateOf<String?>(null) }
+    var completingPurchase by remember { mutableStateOf<EventPurchaseDto?>(null) }
+    var totalAmountInput by remember { mutableStateOf("") }
     val spent = purchases.sumOf { it.totalAmount ?: 0.0 }
     val budget = parseBudget(eventNotes)
     val invoicePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -45,6 +50,53 @@ fun PurchasesCard(
             onAttachInvoice(purchaseId, uri)
         }
         invoiceTargetPurchaseId = null
+    }
+
+    completingPurchase?.let { purchase ->
+        AlertDialog(
+            onDismissRequest = {
+                completingPurchase = null
+                totalAmountInput = ""
+            },
+            title = { Text("Pazymeti nupirkta") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Jei zinote galutine suma, irasykite ja dabar.")
+                    OutlinedTextField(
+                        value = totalAmountInput,
+                        onValueChange = { value ->
+                            totalAmountInput = value.filter { it.isDigit() || it == '.' || it == ',' }
+                        },
+                        label = { Text("Bendra suma (EUR)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isWorking,
+                    onClick = {
+                        val totalAmount = totalAmountInput.replace(',', '.').toDoubleOrNull()
+                        onCompletePurchase(purchase.id, totalAmount)
+                        completingPurchase = null
+                        totalAmountInput = ""
+                    }
+                ) {
+                    Text("Issaugoti")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        completingPurchase = null
+                        totalAmountInput = ""
+                    }
+                ) {
+                    Text("Atsaukti")
+                }
+            }
+        )
     }
 
     Card(modifier = Modifier.fillMaxWidth()) {
@@ -84,7 +136,10 @@ fun PurchasesCard(
                     }
                     if (purchase.status == "DRAFT") {
                         OutlinedButton(
-                            onClick = { onCompletePurchase(purchase.id) },
+                            onClick = {
+                                completingPurchase = purchase
+                                totalAmountInput = purchase.totalAmount?.toString().orEmpty()
+                            },
                             enabled = canManage && !isWorking,
                             modifier = Modifier.fillMaxWidth()
                         ) {

@@ -22,7 +22,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -41,7 +40,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
-import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
 import lt.skautai.android.ui.theme.ScoutGradients
 import lt.skautai.android.util.NavRoutes
 
@@ -51,7 +50,6 @@ fun LoginScreen(
     viewModel: LoginViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
@@ -67,16 +65,8 @@ fun LoginScreen(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
-        }
-    }
-
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -145,12 +135,17 @@ fun LoginScreen(
                         style = MaterialTheme.typography.headlineSmall
                     )
 
+                    uiState.formError?.let { message ->
+                        SkautaiInlineErrorBanner(message = message)
+                    }
+
                     AuthTextField(
                         value = uiState.email,
                         onValueChange = viewModel::onEmailChange,
                         label = "El. pastas",
                         icon = Icons.Outlined.AlternateEmail,
-                        keyboardType = KeyboardType.Email
+                        keyboardType = KeyboardType.Email,
+                        errorText = uiState.emailError
                     )
 
                     AuthTextField(
@@ -159,7 +154,8 @@ fun LoginScreen(
                         label = "Slaptazodis",
                         icon = Icons.Outlined.Lock,
                         keyboardType = KeyboardType.Password,
-                        isPassword = true
+                        isPassword = true,
+                        errorText = uiState.passwordError
                     )
 
                     Button(
@@ -209,7 +205,8 @@ private fun AuthTextField(
     label: String,
     icon: ImageVector,
     keyboardType: KeyboardType,
-    isPassword: Boolean = false
+    isPassword: Boolean = false,
+    errorText: String? = null
 ) {
     OutlinedTextField(
         value = value,
@@ -218,6 +215,8 @@ private fun AuthTextField(
         leadingIcon = { androidx.compose.material3.Icon(icon, contentDescription = null) },
         keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
+        isError = errorText != null,
+        supportingText = errorText?.let { message -> { Text(message) } },
         singleLine = true,
         shape = RoundedCornerShape(18.dp),
         modifier = Modifier.fillMaxWidth()

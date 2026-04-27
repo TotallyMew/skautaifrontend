@@ -54,7 +54,7 @@ class ProfileViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Nepavyko gauti profilio"
+                        error = error.message ?: "Nepavyko gauti profilio."
                     )
                 }
         }
@@ -72,8 +72,8 @@ class ProfileViewModel @Inject constructor(
         val state = _uiState.value
         val normalizedEmail = RegistrationValidation.normalizeEmail(state.email)
         when {
-            state.name.isBlank() -> return setError("Įveskite vardą")
-            state.surname.isBlank() -> return setError("Įveskite pavardę")
+            state.name.isBlank() -> return setError("Įveskite vardą.")
+            state.surname.isBlank() -> return setError("Įveskite pavardę.")
             RegistrationValidation.emailError(normalizedEmail) != null ->
                 return setError(RegistrationValidation.emailError(normalizedEmail)!!)
         }
@@ -93,12 +93,12 @@ class ProfileViewModel @Inject constructor(
                     surname = profile.surname,
                     email = profile.email,
                     phone = profile.phone.orEmpty(),
-                    message = "Profilis atnaujintas"
+                    message = "Profilis atnaujintas."
                 )
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSavingProfile = false,
-                    error = error.message ?: "Nepavyko atnaujinti profilio"
+                    error = error.message ?: "Nepavyko atnaujinti profilio."
                 )
             }
         }
@@ -107,13 +107,13 @@ class ProfileViewModel @Inject constructor(
     fun changePassword() {
         val state = _uiState.value
         when {
-            state.currentPassword.isBlank() -> return setError("Įveskite dabartinį slaptažodį")
+            state.currentPassword.isBlank() -> return setError("Įveskite dabartinį slaptažodį.")
             RegistrationValidation.passwordError(state.newPassword) != null ->
                 return setError(RegistrationValidation.passwordError(state.newPassword)!!)
             state.newPassword != state.repeatPassword ->
-                return setError("Nauji slaptažodžiai nesutampa")
+                return setError("Nauji slaptažodžiai nesutampa.")
             state.currentPassword == state.newPassword ->
-                return setError("Naujas slaptažodis turi skirtis nuo dabartinio")
+                return setError("Naujas slaptažodis turi skirtis nuo dabartinio.")
         }
 
         viewModelScope.launch {
@@ -132,7 +132,7 @@ class ProfileViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSavingPassword = false,
-                    error = error.message ?: "Nepavyko pakeisti slaptažodžio"
+                    error = error.message ?: "Nepavyko pakeisti slaptažodžio."
                 )
             }
         }

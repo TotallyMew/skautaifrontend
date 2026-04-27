@@ -84,7 +84,8 @@ class InviteCreateViewModel @Inject constructor(
 
                 val visibleRoles = restrictedConfig?.let { config ->
                     roles.filter { it.id in config.allowedRoleIds }
-                } ?: roles
+                } ?: roles.filterNot { it.name == "Tuntininkas" }
+                val deduplicatedRoles = deduplicateDisplayRoles(visibleRoles)
 
                 val filteredUnitsForSelection = if (restrictedConfig == null) {
                     sortOrgUnits(filterOrgUnitsForRole(units, null))
@@ -93,7 +94,7 @@ class InviteCreateViewModel @Inject constructor(
                 }
 
                 _uiState.value = _uiState.value.copy(
-                    roles = visibleRoles,
+                    roles = deduplicatedRoles,
                     orgUnits = filteredUnitsForSelection,
                     selectedOrgUnitId = restrictedConfig?.orgUnitId,
                     lockedOrgUnitId = restrictedConfig?.orgUnitId,
@@ -114,13 +115,19 @@ class InviteCreateViewModel @Inject constructor(
         val currentState = _uiState.value
         val role = currentState.roles.find { it.id == roleId }
         val filteredUnits = sortOrgUnits(filterOrgUnitsForRole(allOrgUnits, role))
-        val selectedOrgUnitId = currentState.selectedOrgUnitId
-            ?.takeIf { selectedId -> filteredUnits.any { it.id == selectedId } }
+        val selectedOrgUnitId = if (currentState.lockedOrgUnitId != null) {
+            currentState.lockedOrgUnitId
+        } else if (roleRequiresOrgUnit(role)) {
+            currentState.selectedOrgUnitId
+                ?.takeIf { selectedId -> filteredUnits.any { it.id == selectedId } }
+        } else {
+            null
+        }
 
         _uiState.value = currentState.copy(
             selectedRoleId = roleId,
             selectedRoleType = role?.roleType ?: "",
-            selectedOrgUnitId = currentState.lockedOrgUnitId ?: selectedOrgUnitId,
+            selectedOrgUnitId = selectedOrgUnitId,
             orgUnits = if (currentState.canChooseOrgUnit) filteredUnits else currentState.orgUnits
         )
     }
@@ -135,9 +142,15 @@ class InviteCreateViewModel @Inject constructor(
 
     fun createInvitation() {
         val state = _uiState.value
+        val selectedRole = state.roles.find { it.id == state.selectedRoleId }
 
         if (state.selectedRoleId.isBlank()) {
             _uiState.value = state.copy(error = "Pasirinkite rolę")
+            return
+        }
+
+        if (roleRequiresOrgUnit(selectedRole) && (state.lockedOrgUnitId ?: state.selectedOrgUnitId).isNullOrBlank()) {
+            _uiState.value = state.copy(error = "Pasirinkite vienetÄ…")
             return
         }
 
@@ -285,19 +298,19 @@ class InviteCreateViewModel @Inject constructor(
             }
 
             "Vyr. skautu draugoves draugininkas", "Vyr. skautu draugoves draugininko pavaduotojas" -> orgUnits.filter {
-                it.type == "VYR_SKAUTU_VIENETAS" && it.subtype == "DRAUGOVE"
+                it.type == "VYR_SKAUTU_VIENETAS"
             }
 
             "Vyr. skautu burelio pirmininkas", "Vyr. skautu burelio pirmininko pavaduotojas" -> orgUnits.filter {
-                it.type == "VYR_SKAUTU_VIENETAS" && it.subtype == "BURELIS"
+                it.type == "VYR_SKAUTU_VIENETAS"
             }
 
             "Vyr. skauciu draugoves draugininkas", "Vyr. skauciu draugoves draugininko pavaduotojas" -> orgUnits.filter {
-                it.type == "VYR_SKAUCIU_VIENETAS" && it.subtype == "DRAUGOVE"
+                it.type == "VYR_SKAUCIU_VIENETAS"
             }
 
             "Vyr. skauciu burelio pirmininkas", "Vyr. skauciu burelio pirmininko pavaduotojas" -> orgUnits.filter {
-                it.type == "VYR_SKAUCIU_VIENETAS" && it.subtype == "BURELIS"
+                it.type == "VYR_SKAUCIU_VIENETAS"
             }
 
             else -> orgUnits
@@ -311,9 +324,21 @@ class InviteCreateViewModel @Inject constructor(
         )
     }
 
+    private fun deduplicateDisplayRoles(roles: List<RoleDto>): List<RoleDto> {
+        val seenKeys = linkedSetOf<Pair<String, String>>()
+        return roles.filter { role ->
+            seenKeys.add(role.roleType to displayRoleName(role.name))
+        }
+    }
+
+    private fun roleRequiresOrgUnit(role: RoleDto?): Boolean {
+        if (role == null || role.roleType != "LEADERSHIP") return false
+        return role.name in unitScopedLeadershipRoleNames
+    }
+
     private fun unitSortOrder(unit: OrganizationalUnitDto): Int = when {
-        unit.type == "VYR_SKAUTU_VIENETAS" && unit.subtype == "DRAUGOVE" -> 0
-        unit.type == "VYR_SKAUCIU_VIENETAS" && unit.subtype == "DRAUGOVE" -> 1
+        unit.type == "VYR_SKAUTU_VIENETAS" -> 0
+        unit.type == "VYR_SKAUCIU_VIENETAS" -> 1
         unit.type == "GILDIJA" -> 2
         unit.type == "PATYRUSIU_SKAUTU_DRAUGOVE" -> 3
         unit.type == "SKAUTU_DRAUGOVE" -> 4
@@ -328,14 +353,12 @@ class InviteCreateViewModel @Inject constructor(
             "Vyr. skautas kandidatas"
         )
         val guildRestrictedRoleNames = setOf(
-            "Vilkas",
             "Skautas",
             "Patyres skautas",
             "Tuntininkas",
             "Tuntininko pavaduotojas"
         )
         val fallbackRankRoleNamesByUnitType = mapOf(
-            "VILKU_DRAUGOVE" to "Vilkas",
             "SKAUTU_DRAUGOVE" to "Skautas",
             "PATYRUSIU_SKAUTU_DRAUGOVE" to "Patyres skautas"
         )
@@ -343,6 +366,20 @@ class InviteCreateViewModel @Inject constructor(
             "VILKU_DRAUGOVE",
             "SKAUTU_DRAUGOVE",
             "PATYRUSIU_SKAUTU_DRAUGOVE"
+        )
+        val unitScopedLeadershipRoleNames = setOf(
+            "Draugininkas",
+            "Draugininko pavaduotojas",
+            "Gildijos pirmininkas",
+            "Gildijos pirmininko pavaduotojas",
+            "Vyr. skautu draugoves draugininkas",
+            "Vyr. skautu draugoves draugininko pavaduotojas",
+            "Vyr. skautu burelio pirmininkas",
+            "Vyr. skautu burelio pirmininko pavaduotojas",
+            "Vyr. skauciu draugoves draugininkas",
+            "Vyr. skauciu draugoves draugininko pavaduotojas",
+            "Vyr. skauciu burelio pirmininkas",
+            "Vyr. skauciu burelio pirmininko pavaduotojas"
         )
 
         val ownUnitInviteLeadershipTargets = mapOf(

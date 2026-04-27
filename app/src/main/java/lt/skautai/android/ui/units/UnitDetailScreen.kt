@@ -19,9 +19,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
+import lt.skautai.android.data.remote.MemberRankDto
 import lt.skautai.android.data.remote.UnitMembershipDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.members.displayRoleName
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -55,8 +57,8 @@ fun UnitDetailScreen(
     if (uiState.showDeleteDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideDeleteDialog,
-            title = { Text("Trinti vienetą?") },
-            text = { Text("Šis veiksmas negrįžtamas. Vienetas bus ištrintas.") },
+            title = { Text("Trinti vienetÄ…?") },
+            text = { Text("Å is veiksmas negrÄ¯Å¾tamas. Vienetas bus iÅ¡trintas.") },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.deleteUnit(unitId) },
@@ -64,7 +66,7 @@ fun UnitDetailScreen(
                 ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::hideDeleteDialog) { Text("Atšaukti") }
+                TextButton(onClick = viewModel::hideDeleteDialog) { Text("AtÅ¡aukti") }
             }
         )
     }
@@ -140,8 +142,11 @@ fun UnitDetailScreen(
                             Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
                         }
                         IconButton(onClick = viewModel::showDeleteDialog) {
-                            Icon(Icons.Default.Delete, contentDescription = "Trinti",
-                                tint = MaterialTheme.colorScheme.error)
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Trinti",
+                                tint = MaterialTheme.colorScheme.error
+                            )
                         }
                     }
                     if (uiState.unit != null && uiState.canCurrentUserLeaveThisUnit) {
@@ -155,22 +160,30 @@ fun UnitDetailScreen(
         floatingActionButton = {
             if (uiState.unit != null && canManageMembers) {
                 FloatingActionButton(onClick = viewModel::openAssignMemberDialog) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = "Priskirti narį")
+                    Icon(Icons.Default.PersonAdd, contentDescription = "Priskirti narÄ¯")
                 }
             }
         },
         snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         when {
-            uiState.isLoading -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            uiState.isLoading -> Box(
+                Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 CircularProgressIndicator()
             }
-            uiState.error != null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+
+            uiState.error != null -> Box(
+                Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 SkautaiErrorState(
                     message = uiState.error!!,
                     onRetry = { viewModel.loadUnit(unitId) }
                 )
             }
+
             uiState.unit != null -> {
                 val unit = uiState.unit!!
                 LazyColumn(
@@ -183,11 +196,13 @@ fun UnitDetailScreen(
                                 modifier = Modifier.padding(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp)
                             ) {
-                                Text("Informacija", style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "Informacija",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold
+                                )
                                 HorizontalDivider()
                                 DetailRow("Tipas", unitTypeLabel(unit.type))
-                                unit.subtype?.let { DetailRow("Potipis", subtypeLabel(it)) }
                                 unit.acceptedRankName?.let { DetailRow("Priimamas laipsnis", it) }
                                 DetailRow("Sukurta", unit.createdAt.take(10))
                             }
@@ -200,21 +215,27 @@ fun UnitDetailScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Nariai (${uiState.members.size})",
+                            Text(
+                                "Nariai (${uiState.members.size})",
                                 style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold)
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
 
                     if (uiState.members.isEmpty()) {
                         item {
-                            Text("Narių nėra", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 8.dp))
+                            Text(
+                                "NariÅ³ nÄ—ra",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
                         }
                     } else {
                         items(uiState.members) { membership ->
                             UnitMemberCard(
                                 membership = membership,
+                                member = uiState.memberDetails[membership.userId],
                                 canManageMembers = canManageMembers,
                                 onRemove = { memberPendingRemoval = membership },
                                 isRemoving = uiState.isSaving
@@ -230,6 +251,7 @@ fun UnitDetailScreen(
 @Composable
 private fun UnitMemberCard(
     membership: UnitMembershipDto,
+    member: MemberDto?,
     canManageMembers: Boolean,
     onRemove: () -> Unit,
     isRemoving: Boolean
@@ -241,23 +263,24 @@ private fun UnitMemberCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("${membership.userName} ${membership.userSurname}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium)
                 Text(
-                    text = when (membership.assignmentType) {
-                        "MEMBER" -> "Narys"
-                        "VADOVO_PADEJEJAS" -> "Vadovo padėjėjas"
-                        else -> membership.assignmentType
-                    },
+                    "${membership.userName} ${membership.userSurname}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = resolveUnitMemberRoleLabel(membership, member),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             if (canManageMembers) {
                 IconButton(onClick = onRemove, enabled = !isRemoving) {
-                    Icon(Icons.Default.PersonRemove, contentDescription = "Šalinti narį",
-                        tint = MaterialTheme.colorScheme.error)
+                    Icon(
+                        Icons.Default.PersonRemove,
+                        contentDescription = "Å alinti narÄ¯",
+                        tint = MaterialTheme.colorScheme.error
+                    )
                 }
             }
         }
@@ -278,17 +301,23 @@ private fun AssignMemberDialog(
 ) {
     var memberExpanded by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
-    val assignmentTypes = listOf("MEMBER" to "Narys", "VADOVO_PADEJEJAS" to "Vadovo padėjėjas")
+    val assignmentTypes = listOf("MEMBER" to "Narys", "VADOVO_PADEJEJAS" to "Vadovo padÄ—jÄ—jas")
     val selectedMember = members.find { it.userId == selectedMemberId }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Priskirti narį") },
+        title = { Text("Priskirti narÄ¯") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                if (members.isEmpty()) {
+                    Text(
+                        text = "Visi tunto nariai jau yra siame vienete.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
                 ExposedDropdownMenuBox(expanded = memberExpanded, onExpandedChange = { memberExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite narį",
+                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite narÄ¯",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Narys") },
@@ -326,12 +355,15 @@ private fun AssignMemberDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onConfirm, enabled = selectedMemberId.isNotBlank() && !isSaving) {
+            TextButton(
+                onClick = onConfirm,
+                enabled = members.isNotEmpty() && selectedMemberId.isNotBlank() && !isSaving
+            ) {
                 Text("Priskirti")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Atšaukti") }
+            TextButton(onClick = onDismiss) { Text("AtÅ¡aukti") }
         }
     )
 }
@@ -339,8 +371,49 @@ private fun AssignMemberDialog(
 @Composable
 private fun DetailRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
+}
+
+private fun resolveUnitMemberRoleLabel(
+    membership: UnitMembershipDto,
+    member: MemberDto?
+): String {
+    val activeLeadershipRole = member?.leadershipRoles
+        .orEmpty()
+        .firstOrNull { role ->
+            role.termStatus == "ACTIVE" && role.organizationalUnitId == membership.organizationalUnitId
+        }
+    if (activeLeadershipRole != null) {
+        return displayRoleName(activeLeadershipRole.roleName)
+    }
+
+    val memberRank = resolveMemberRankForUnit(membership, member)
+    if (memberRank != null) {
+        return displayRoleName(memberRank.roleName)
+    }
+
+    return when (membership.assignmentType) {
+        "MEMBER" -> "Narys"
+        "VADOVO_PADEJEJAS" -> "Vadovo padÄ—jÄ—jas"
+        else -> membership.assignmentType
+    }
+}
+
+private fun resolveMemberRankForUnit(
+    membership: UnitMembershipDto,
+    member: MemberDto?
+): MemberRankDto? {
+    if (member == null) return null
+
+    val hasMembershipInUnit = member.unitAssignments.orEmpty()
+        .any { it.organizationalUnitId == membership.organizationalUnitId }
+    if (!hasMembershipInUnit) return null
+
+    return member.ranks.firstOrNull()
 }

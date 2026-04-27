@@ -118,6 +118,17 @@ fun MemberDetailScreen(
         )
     }
 
+    if (uiState.showTransferTuntininkasDialog) {
+        TransferTuntininkasDialog(
+            members = uiState.availableSuccessors,
+            selectedSuccessorUserId = uiState.selectedSuccessorUserId,
+            isSaving = uiState.isSaving,
+            onSuccessorSelected = viewModel::onSuccessorSelected,
+            onConfirm = { viewModel.transferTuntininkas(userId) },
+            onDismiss = viewModel::hideTransferTuntininkasDialog
+        )
+    }
+
     pendingStepDownRole?.let { role ->
         AlertDialog(
             onDismissRequest = { pendingStepDownRole = null },
@@ -139,11 +150,18 @@ fun MemberDetailScreen(
                 TextButton(
                     onClick = {
                         pendingStepDownRole = null
-                        viewModel.stepDownLeadershipRole(userId, role.id)
+                        if (isTuntininkasRoleName(role.roleName)) {
+                            viewModel.openTransferTuntininkasDialog(userId, role.id)
+                        } else {
+                            viewModel.stepDownLeadershipRole(userId, role.id)
+                        }
                     },
                     enabled = !uiState.isSaving
                 ) {
-                    Text("Atsistatydinti", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        if (isTuntininkasRoleName(role.roleName)) "Perleisti pareigas" else "Atsistatydinti",
+                        color = MaterialTheme.colorScheme.error
+                    )
                 }
             },
             dismissButton = {
@@ -370,7 +388,9 @@ private fun MemberInfoSection(member: MemberDto) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             HorizontalDivider()
-            MemberInfoRow("El. paštas", member.email)
+            if (member.email.isNotBlank()) {
+                MemberInfoRow("El. paštas", member.email)
+            }
             member.phone?.let { MemberInfoRow("Telefonas", it) }
             MemberInfoRow("Prisijungė", member.joinedAt.take(10))
         }
@@ -412,7 +432,7 @@ private fun MemberRolesSection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(role.roleName, style = MaterialTheme.typography.bodyMedium,
+                            Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium,
                                 fontWeight = FontWeight.Medium)
                             role.organizationalUnitName?.let {
                                 Text(it, style = MaterialTheme.typography.bodySmall,
@@ -428,7 +448,7 @@ private fun MemberRolesSection(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isCurrentUser && role.termStatus == "ACTIVE") {
                                 TextButton(onClick = { onStepDownRole(role) }, enabled = !isSaving) {
-                                    Text("Atsistatydinti")
+                                    Text(if (isTuntininkasRoleName(role.roleName)) "Perleisti" else "Atsistatydinti")
                                 }
                             }
                             if (canManageRoles) {
@@ -464,7 +484,7 @@ private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto
             } else {
                 history.forEach { role ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(role.roleName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                    Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         role.organizationalUnitName?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -816,3 +836,63 @@ private fun MemberInfoRow(label: String, value: String) {
         Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferTuntininkasDialog(
+    members: List<MemberDto>,
+    selectedSuccessorUserId: String,
+    isSaving: Boolean,
+    onSuccessorSelected: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedMember = members.find { it.userId == selectedSuccessorUserId }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Perleisti tuntininko pareigas") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Pasirinktam nariui bus paliktas tik Vadovo laipsnis, o visos kitos aktyvios vadovavimo pareigos bus nuimtos.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+                    OutlinedTextField(
+                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite nari",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Naujas tuntininkas") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                        members.forEach { member ->
+                            DropdownMenuItem(
+                                text = { Text("${member.name} ${member.surname}") },
+                                onClick = {
+                                    onSuccessorSelected(member.userId)
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = selectedSuccessorUserId.isNotBlank() && !isSaving
+            ) {
+                Text("Perleisti")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }
+    )
+}
+
+private fun isTuntininkasRoleName(roleName: String): Boolean = roleName == "Tuntininkas"

@@ -23,6 +23,7 @@ import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberLeadershipRoleDto
 import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.MemberRankDto
+import lt.skautai.android.data.remote.TransferTuntininkasRequestDto
 import lt.skautai.android.data.remote.UpdateLeadershipRoleRequestDto
 import lt.skautai.android.data.sync.MemberAssignmentPayload
 import lt.skautai.android.data.sync.MemberRankPayload
@@ -238,6 +239,25 @@ class MemberRepository @Inject constructor(
                 payload = MemberAssignmentPayload(userId, assignmentId)
             )
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun transferTuntininkas(successorUserId: String): Result<Unit> {
+        return try {
+            val response = memberApiService.transferTuntininkas(
+                "Bearer ${token()}",
+                tuntasId(),
+                TransferTuntininkasRequestDto(successorUserId)
+            )
+            if (response.isSuccessful) {
+                refreshMembers()
+                refreshMember(successorUserId)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida perleidziant tuntininko pareigas")))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

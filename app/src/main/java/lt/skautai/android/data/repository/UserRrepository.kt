@@ -1,16 +1,17 @@
 package lt.skautai.android.data.repository
 
-import lt.skautai.android.data.remote.UserApiService
-import lt.skautai.android.data.remote.UserTuntasDto
-import lt.skautai.android.data.remote.PermissionsResponseDto
-import lt.skautai.android.data.remote.MyProfileDto
-import lt.skautai.android.data.remote.UpdateMyProfileRequestDto
-import lt.skautai.android.data.remote.ChangeMyPasswordRequestDto
-import lt.skautai.android.util.TokenManager
-import lt.skautai.android.util.errorMessage
-import kotlinx.coroutines.flow.first
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
+import lt.skautai.android.data.remote.ChangeMyPasswordRequestDto
+import lt.skautai.android.data.remote.MyProfileDto
+import lt.skautai.android.data.remote.PermissionsResponseDto
+import lt.skautai.android.data.remote.UpdateMyProfileRequestDto
+import lt.skautai.android.data.remote.UserApiService
+import lt.skautai.android.data.remote.UserTuntasDto
+import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
+import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.errorMessage
 
 @Singleton
 class UserRepository @Inject constructor(
@@ -21,12 +22,12 @@ class UserRepository @Inject constructor(
     suspend fun getMyProfile(): Result<MyProfileDto> {
         return try {
             val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.getMyProfile("Bearer $token")
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant profili")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti profilio.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -36,12 +37,12 @@ class UserRepository @Inject constructor(
     suspend fun getMyTuntai(): Result<List<UserTuntasDto>> {
         return try {
             val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.getMyTuntai("Bearer $token")
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant tuntus")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti tuntų sąrašo.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -51,12 +52,12 @@ class UserRepository @Inject constructor(
     suspend fun getMyPermissions(tuntasId: String): Result<List<String>> {
         return try {
             val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.getMyPermissions("Bearer $token", tuntasId)
             if (response.isSuccessful) {
                 Result.success(response.body()!!.permissions)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant teises")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti naudotojo teisių.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -66,12 +67,12 @@ class UserRepository @Inject constructor(
     suspend fun leaveTuntas(tuntasId: String): Result<Unit> {
         return try {
             val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.leaveTuntas("Bearer $token", tuntasId)
             if (response.isSuccessful) {
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida paliekant tunta")))
+                Result.failure(Exception(response.errorMessage("Nepavyko palikti tunto.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -86,7 +87,7 @@ class UserRepository @Inject constructor(
     ): Result<MyProfileDto> {
         return try {
             val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.updateMyProfile(
                 "Bearer $token",
                 UpdateMyProfileRequestDto(
@@ -101,7 +102,7 @@ class UserRepository @Inject constructor(
                 tokenManager.updateUserIdentity(body.name, body.email)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida atnaujinant profili")))
+                Result.failure(Exception(response.errorMessage("Nepavyko atnaujinti profilio.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -114,7 +115,7 @@ class UserRepository @Inject constructor(
     ): Result<String> {
         return try {
             val token = tokenManager.token.first()
-                ?: return Result.failure(Exception("Nav prisijungta"))
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.changeMyPassword(
                 "Bearer $token",
                 ChangeMyPasswordRequestDto(
@@ -123,9 +124,9 @@ class UserRepository @Inject constructor(
                 )
             )
             if (response.isSuccessful) {
-                Result.success(response.body()?.message ?: "Slaptažodis pakeistas")
+                Result.success(response.body()?.message ?: "Slaptažodis pakeistas.")
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida keičiant slaptažodį")))
+                Result.failure(Exception(response.errorMessage("Nepavyko pakeisti slaptažodžio.")))
             }
         } catch (e: Exception) {
             Result.failure(e)

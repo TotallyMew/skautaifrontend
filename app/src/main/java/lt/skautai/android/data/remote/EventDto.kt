@@ -210,6 +210,12 @@ data class CreateEventPurchaseRequestDto(
     @SerializedName("items") val items: List<CreateEventPurchaseItemRequestDto>
 )
 
+data class UpdateEventPurchaseRequestDto(
+    @SerializedName("purchaseDate") val purchaseDate: String? = null,
+    @SerializedName("totalAmount") val totalAmount: Double? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
 data class AttachEventPurchaseInvoiceRequestDto(
     @SerializedName("invoiceFileUrl") val invoiceFileUrl: String
 )

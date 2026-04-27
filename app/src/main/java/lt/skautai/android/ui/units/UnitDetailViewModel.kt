@@ -15,6 +15,7 @@ import lt.skautai.android.data.remote.*
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UserRepository
+import lt.skautai.android.ui.common.isScoutReadOnlyMember
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
@@ -22,8 +23,10 @@ data class UnitDetailUiState(
     val isLoading: Boolean = true,
     val unit: OrganizationalUnitDto? = null,
     val members: List<UnitMembershipDto> = emptyList(),
+    val memberDetails: Map<String, MemberDto> = emptyMap(),
     val canCurrentUserManageThisUnit: Boolean = false,
     val canCurrentUserLeaveThisUnit: Boolean = false,
+    val accessDenied: Boolean = false,
     val error: String? = null,
     val showDeleteDialog: Boolean = false,
     val showLeaveDialog: Boolean = false,
@@ -53,30 +56,40 @@ class UnitDetailViewModel @Inject constructor(
     fun loadUnit(unitId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val currentUserId = tokenManager.userId.first()
+            val currentUserMember = currentUserId?.let { memberRepository.getMember(it).getOrNull() }
+            if (currentUserMember != null && isScoutReadOnlyMember(currentUserMember)) {
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    accessDenied = true,
+                    error = "Vieneto detale prieinama tik vadovams."
+                )
+                return@launch
+            }
             val unitDeferred = async { orgUnitRepository.getUnit(unitId) }
             val membersDeferred = async { orgUnitRepository.getUnitMembers(unitId) }
-            val currentUserId = tokenManager.userId.first()
+            val allMembersDeferred = async { memberRepository.getMembers() }
             val currentMemberDeferred = currentUserId?.let { async { memberRepository.getMember(it) } }
             val unitResult = unitDeferred.await()
             val membersResult = membersDeferred.await()
+            val allMembersResult = allMembersDeferred.await()
             val currentMember = currentMemberDeferred?.await()?.getOrNull()
             val hasCurrentUserAssignment = currentMember?.unitAssignments.orEmpty()
                 .any { it.organizationalUnitId == unitId }
             val hasCurrentUserLeadership = currentMember?.leadershipRoles.orEmpty()
                 .any { it.termStatus == "ACTIVE" && it.organizationalUnitId == unitId }
-            val canManageThisUnit = currentMember?.let { member ->
-                member.leadershipRoles.any {
-                    it.termStatus == "ACTIVE" && it.organizationalUnitId == unitId
-                } || member.unitAssignments.orEmpty().any {
-                    it.organizationalUnitId == unitId
-                }
-            } ?: false
+            val canManageThisUnit = hasCurrentUserLeadership
+            val memberDetails = allMembersResult.getOrNull()
+                ?.members
+                ?.associateBy { it.userId }
+                .orEmpty()
             unitResult
                 .onSuccess { unit ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         unit = unit,
                         members = membersResult.getOrDefault(emptyList()),
+                        memberDetails = memberDetails,
                         canCurrentUserManageThisUnit = canManageThisUnit,
                         canCurrentUserLeaveThisUnit = hasCurrentUserAssignment && !hasCurrentUserLeadership
                     )
@@ -114,8 +127,9 @@ class UnitDetailViewModel @Inject constructor(
         viewModelScope.launch {
             memberRepository.getMembers()
                 .onSuccess { list ->
+                    val existingMemberIds = _uiState.value.members.map { it.userId }.toSet()
                     _uiState.value = _uiState.value.copy(
-                        availableTuntasMembers = list.members,
+                        availableTuntasMembers = list.members.filterNot { it.userId in existingMemberIds },
                         showAssignMemberDialog = true
                     )
                 }

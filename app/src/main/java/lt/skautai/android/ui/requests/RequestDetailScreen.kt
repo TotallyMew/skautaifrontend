@@ -258,6 +258,7 @@ private fun RequestDetailContent(
                 RequestInfoRow("Kiekis", request.quantity.toString())
                 request.neededByDate?.let { RequestInfoRow("Reikalinga iki", it.take(10)) }
                 request.requestingUnitName?.let { RequestInfoRow("Vienetas", it) }
+                request.requestedByUserName?.takeIf { it.isNotBlank() }?.let { RequestInfoRow("Kas praso", it) }
                 request.notes?.let { RequestInfoRow("Pastabos", it) }
                 RequestInfoRow("Sukurta", request.createdAt.take(10))
             }
@@ -371,15 +372,14 @@ private fun ReviewCard(
 
 @Composable
 private fun RequestInfoRow(label: String, value: String) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(1f)
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Text(
             text = value,

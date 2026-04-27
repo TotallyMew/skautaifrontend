@@ -1,9 +1,11 @@
 package lt.skautai.android.ui.reservations
 
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -12,7 +14,6 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
-import javax.inject.Inject
 
 sealed interface ReservationListUiState {
     data object Loading : ReservationListUiState
@@ -35,9 +36,29 @@ class ReservationListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ReservationListUiState>(ReservationListUiState.Loading)
     val uiState: StateFlow<ReservationListUiState> = _uiState.asStateFlow()
+    private var observeJob: Job? = null
 
     init {
+        observeReservations()
         loadReservations()
+    }
+
+    private fun observeReservations() {
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
+            reservationRepository.observeReservations().collect { response ->
+                val userId = tokenManager.userId.first()
+                val permissions = tokenManager.permissions.first()
+                val activeUnitId = tokenManager.activeOrgUnitId.first()
+                val allReservations = response.reservations
+                _uiState.value = ReservationListUiState.Success(
+                    reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),
+                    myCount = allReservations.filterForMode("my_active", userId, permissions, activeUnitId).size,
+                    assignedCount = allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size,
+                    trackedCount = allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size
+                )
+            }
+        }
     }
 
     fun loadReservations() {
@@ -45,12 +66,12 @@ class ReservationListViewModel @Inject constructor(
             if (_uiState.value !is ReservationListUiState.Success) {
                 _uiState.value = ReservationListUiState.Loading
             }
-            reservationRepository.getReservations()
-                .onSuccess { response ->
+            reservationRepository.refreshReservations()
+                .onSuccess {
                     val userId = tokenManager.userId.first()
                     val permissions = tokenManager.permissions.first()
                     val activeUnitId = tokenManager.activeOrgUnitId.first()
-                    val allReservations = response.reservations
+                    val allReservations = reservationRepository.getReservations().getOrNull()?.reservations.orEmpty()
                     _uiState.value = ReservationListUiState.Success(
                         reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),
                         myCount = allReservations.filterForMode("my_active", userId, permissions, activeUnitId).size,

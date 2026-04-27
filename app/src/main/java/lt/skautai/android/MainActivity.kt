@@ -17,6 +17,7 @@ import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.ui.common.AppNavGraph
 import lt.skautai.android.ui.theme.SkautuInventoriusTheme
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 import kotlinx.coroutines.flow.first
@@ -49,18 +50,30 @@ class MainActivity : ComponentActivity() {
                         val currentToken = tokenManager.token.first()
                         val currentTuntasId = tokenManager.activeTuntasId.first()
                         val currentTuntasName = tokenManager.activeTuntasName.first()
+                        var sessionIsValid = currentToken != null
+                        val myTuntaiResult = if (currentToken != null) {
+                            userRepository.getMyTuntai().onFailure { error ->
+                                if (error.message == SESSION_EXPIRED_MESSAGE || error.message == "Vartotojas nerastas.") {
+                                    tokenManager.clearAll()
+                                    sessionIsValid = false
+                                }
+                            }
+                        } else {
+                            null
+                        }
                         if (currentToken != null &&
+                            sessionIsValid &&
                             !currentTuntasId.isNullOrBlank() &&
                             currentTuntasName.isNullOrBlank()
                         ) {
-                            userRepository.getMyTuntai()
-                                .getOrNull()
+                            myTuntaiResult
+                                ?.getOrNull()
                                 ?.firstOrNull { it.id == currentTuntasId && it.status == "ACTIVE" }
                                 ?.let { tokenManager.setActiveTuntas(it.id, it.name) }
                         }
-                        val activeTuntasStillAvailable = if (currentToken != null && !currentTuntasId.isNullOrBlank()) {
-                            userRepository.getMyTuntai()
-                                .getOrNull()
+                        val activeTuntasStillAvailable = if (sessionIsValid && !currentTuntasId.isNullOrBlank()) {
+                            myTuntaiResult
+                                ?.getOrNull()
                                 ?.any { it.id == currentTuntasId && it.status == "ACTIVE" }
                                 ?: true
                         } else {
@@ -70,7 +83,7 @@ class MainActivity : ComponentActivity() {
                             tokenManager.clearActiveTuntas()
                         }
                         when {
-                            currentToken == null -> NavRoutes.Login.route
+                            !sessionIsValid || currentToken == null -> NavRoutes.Login.route
                             currentTuntasId.isNullOrBlank() || !activeTuntasStillAvailable -> NavRoutes.TuntasSelect.route
                             else -> NavRoutes.Home.route
                         }

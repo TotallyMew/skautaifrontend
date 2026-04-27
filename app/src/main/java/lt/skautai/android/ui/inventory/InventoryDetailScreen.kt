@@ -91,7 +91,7 @@ fun InventoryDetailScreen(
 
     LaunchedEffect(sharedRequestCreated) {
         if (sharedRequestCreated) {
-            snackbarHostState.showSnackbar("Paemimo prasymas sukurtas")
+            snackbarHostState.showSnackbar("Paėmimo prašymas sukurtas.")
             viewModel.onSharedRequestMessageShown()
         }
     }

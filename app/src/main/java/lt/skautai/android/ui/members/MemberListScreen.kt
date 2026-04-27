@@ -92,7 +92,11 @@ fun MemberListScreen(
                 if (state.members.isEmpty()) {
                     SkautaiEmptyState(
                         title = "Nariu dar nera",
-                        subtitle = "Cia matysi savo vieneto arba tunto narius pagal turimas teises.",
+                        subtitle = if (state.isReadOnly) {
+                            "Cia matysi tunto vadovus pagal turimas teises."
+                        } else {
+                            "Cia matysi savo vieneto arba tunto narius pagal turimas teises."
+                        },
                         icon = Icons.Default.Groups,
                         actionLabel = if (canInvite) "Pakviesti nari" else "Grizti i pradzia",
                         onAction = if (canInvite) onInviteClick else onEmptyActionClick,
@@ -158,10 +162,10 @@ fun MemberListScreen(
                                     UnitStickyHeader(title = unitName)
                                 }
                                 items(members, key = { it.userId }) { member ->
-                                    MemberRow(
-                                        member = member,
-                                        onClick = { onMemberClick(member.userId) }
-                                    )
+                                MemberRow(
+                                    member = member,
+                                    onClick = if (state.isReadOnly) null else ({ onMemberClick(member.userId) })
+                                )
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 }
                             }
@@ -263,7 +267,7 @@ private fun UnitStickyHeader(title: String) {
 @Composable
 private fun MemberRow(
     member: MemberDto,
-    onClick: () -> Unit
+    onClick: (() -> Unit)?
 ) {
     val context = LocalContext.current
     val phone = member.phone?.takeIf { it.isNotBlank() }
@@ -271,7 +275,9 @@ private fun MemberRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier
+            )
             .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -309,13 +315,15 @@ private fun MemberRow(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text(
-                text = member.email,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Clip
-            )
+            if (member.email.isNotBlank()) {
+                Text(
+                    text = member.email,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Clip
+                )
+            }
         }
         if (phone != null) {
             IconButton(
@@ -368,7 +376,7 @@ private fun MemberDto.primaryUnitName(): String =
 private fun MemberDto.safeUnitAssignments() = unitAssignments.orEmpty()
 
 private fun MemberDto.contextSubtitle(): String {
-    val role = leadershipRoles.firstOrNull()?.roleName ?: ranks.firstOrNull()?.roleName
+    val role = leadershipRoles.firstOrNull()?.roleName?.let(::displayRoleName) ?: ranks.firstOrNull()?.roleName
     return role ?: ""
 }
 

@@ -32,7 +32,7 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 fun EventMovementScreen(
     eventId: String,
     onBack: () -> Unit,
-    viewModel: EventDetailViewModel = hiltViewModel()
+    viewModel: EventMovementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
@@ -40,11 +40,11 @@ fun EventMovementScreen(
     val listState = rememberLazyListState()
 
     LaunchedEffect(eventId) {
-        viewModel.loadEvent(eventId)
+        viewModel.load(eventId)
     }
 
-    LaunchedEffect((uiState as? EventDetailUiState.Success)?.error) {
-        (uiState as? EventDetailUiState.Success)?.error?.let {
+    LaunchedEffect((uiState as? EventMovementUiState.Success)?.error) {
+        (uiState as? EventMovementUiState.Success)?.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
@@ -69,13 +69,13 @@ fun EventMovementScreen(
                 .padding(padding)
         ) {
             when (val state = uiState) {
-                is EventDetailUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                is EventDetailUiState.Error -> SkautaiErrorState(
+                is EventMovementUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                is EventMovementUiState.Error -> SkautaiErrorState(
                     message = state.message,
-                    onRetry = { viewModel.loadEvent(eventId) },
+                    onRetry = { viewModel.load(eventId) },
                     modifier = Modifier.align(Alignment.Center)
                 )
-                is EventDetailUiState.Success -> {
+                is EventMovementUiState.Success -> {
                     val myRoles = state.event.eventRoles.map { it.role }.toSet()
                     val canInventory = "events.inventory.distribute" in permissions ||
                         myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }

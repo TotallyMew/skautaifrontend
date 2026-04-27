@@ -163,6 +163,15 @@ interface EventApiService {
         @Body request: CreateEventPurchaseRequestDto
     ): Response<EventPurchaseDto>
 
+    @PUT("api/events/{id}/purchases/{purchaseId}")
+    suspend fun updatePurchase(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("purchaseId") purchaseId: String,
+        @Body request: UpdateEventPurchaseRequestDto
+    ): Response<EventPurchaseDto>
+
     @POST("api/events/{id}/purchases/{purchaseId}/invoice")
     suspend fun attachPurchaseInvoice(
         @Header("Authorization") token: String,

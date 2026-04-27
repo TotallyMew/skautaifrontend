@@ -13,6 +13,7 @@ data class BendrasRequestDto(
     @SerializedName("id") val id: String,
     @SerializedName("tuntasId") val tuntasId: String,
     @SerializedName("requestedByUserId") val requestedByUserId: String,
+    @SerializedName("requestedByUserName") val requestedByUserName: String?,
     @SerializedName("itemId") val itemId: String?,
     @SerializedName("itemName") val itemName: String,
     @SerializedName("itemDescription") val itemDescription: String?,

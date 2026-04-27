@@ -71,6 +71,7 @@ import lt.skautai.android.data.remote.UpdateEventRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryAllocationRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryBucketRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
+import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
 import lt.skautai.android.data.remote.UpdatePastovykleInventoryRequestDto
 import lt.skautai.android.data.remote.UpdatePastovykleRequestDto
 import lt.skautai.android.data.sync.EventRoleRemovalPayload
@@ -100,6 +101,8 @@ import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.data.sync.EventPurchaseCreatePayload
+import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
+import lt.skautai.android.util.TUNTAS_SELECTION_REQUIRED_MESSAGE
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.errorMessage
 
@@ -111,10 +114,10 @@ class EventRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository
 ) {
     private suspend fun token() = tokenManager.token.first()
-        ?: throw Exception("Nav prisijungta")
+        ?: throw Exception(SESSION_EXPIRED_MESSAGE)
 
     private suspend fun tuntasId() = tokenManager.activeTuntasId.first()
-        ?: throw Exception("Tuntas nepasirinktas")
+        ?: throw Exception(TUNTAS_SELECTION_REQUIRED_MESSAGE)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeEvents(type: String? = null, status: String? = null): Flow<EventListDto> {
@@ -146,7 +149,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsertAll(events.toEventEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti renginių.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -162,7 +165,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti renginio.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -178,7 +181,7 @@ class EventRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedEvents.isNotEmpty()) {
             Result.success(EventListDto(cachedEvents, cachedEvents.size))
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Nepavyko gauti renginių."))
         }
     }
 
@@ -198,7 +201,7 @@ class EventRepository @Inject constructor(
         return if (cachedEvent != null) {
             Result.success(cachedEvent)
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Nepavyko gauti renginio."))
         }
     }
 
@@ -210,7 +213,7 @@ class EventRepository @Inject constructor(
                 eventDao.upsert(event.toEntity())
                 Result.success(event)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida")))
+                Result.failure(Exception(response.errorMessage("Nepavyko sukurti renginio.")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -775,6 +778,31 @@ class EventRepository @Inject constructor(
                 payload = EventPurchaseCreatePayload(eventId, request)
             )
             Result.success(purchase)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updatePurchase(
+        eventId: String,
+        purchaseId: String,
+        request: UpdateEventPurchaseRequestDto
+    ): Result<EventPurchaseDto> {
+        return try {
+            val response = eventApiService.updatePurchase(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                purchaseId,
+                request
+            )
+            if (response.isSuccessful) {
+                val purchase = response.body()!!
+                upsertCachedPurchase(eventId, purchase)
+                Result.success(purchase)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant pirkima")))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

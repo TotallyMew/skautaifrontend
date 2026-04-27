@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -293,12 +294,67 @@ fun SkautaiErrorSnackbarHost(
     hostState: SnackbarHostState,
     modifier: Modifier = Modifier
 ) {
-    SnackbarHost(hostState = hostState, modifier = modifier) { data ->
+    SnackbarHost(hostState = hostState, modifier = modifier.imePadding()) { data ->
+        val style = snackbarStyleForMessage(data.visuals.message)
         Snackbar(
             snackbarData = data,
-            containerColor = MaterialTheme.colorScheme.errorContainer,
-            contentColor = MaterialTheme.colorScheme.onErrorContainer
+            containerColor = style.containerColor,
+            contentColor = style.contentColor
         )
+    }
+}
+
+@Composable
+private fun snackbarStyleForMessage(message: String): SkautaiStatusStyle {
+    val normalized = message.lowercase()
+    val looksSuccessful = listOf(
+        "sukur",
+        "issaug",
+        "išsaug",
+        "patvirt",
+        "pakeist",
+        "palikt",
+        "pridet",
+        "pridėt",
+        "issiust",
+        "išsiųst"
+    ).any { it in normalized }
+
+    return skautaiStatusStyle(
+        if (looksSuccessful) SkautaiStatusTone.Success else SkautaiStatusTone.Danger
+    )
+}
+
+@Composable
+fun SkautaiInlineErrorBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    val style = skautaiStatusStyle(SkautaiStatusTone.Danger)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = style.containerColor,
+        contentColor = style.contentColor,
+        shape = RoundedCornerShape(20.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            style.icon?.let { icon ->
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = style.contentColor
+                )
+            }
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 

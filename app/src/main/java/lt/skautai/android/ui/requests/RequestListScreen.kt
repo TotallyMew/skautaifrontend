@@ -67,7 +67,7 @@ fun RequestListScreen(
                 if (state.requests.isEmpty()) {
                     SkautaiEmptyState(
                         title = "Paemimo prasymu nera",
-                        subtitle = "Cia bus tavo vieneto prasymai paimti jau esamus daiktus is bendro tunto inventoriaus.",
+                        subtitle = "Cia matysi savo, savo vieneto arba viso tunto paemimo prasymus pagal turimas teises.",
                         icon = Icons.Default.Inbox,
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -153,6 +153,13 @@ private fun SharedTransferRequestCard(
             request.requestingUnitName?.let {
                 Text(
                     text = "Vienetas: $it",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            request.requestedByUserName?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = "Kas praso: $it",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

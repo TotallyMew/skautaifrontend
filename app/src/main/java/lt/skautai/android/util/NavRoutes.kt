@@ -113,6 +113,21 @@ sealed class NavRoutes(val route: String) {
     object EventDetail : NavRoutes("event_detail/{eventId}") {
         fun createRoute(eventId: String) = "event_detail/$eventId"
     }
+    object EventNeeds : NavRoutes("event_needs/{eventId}") {
+        fun createRoute(eventId: String) = "event_needs/$eventId"
+    }
+    object EventUkvedys : NavRoutes("event_ukvedys/{eventId}") {
+        fun createRoute(eventId: String) = "event_ukvedys/$eventId"
+    }
+    object EventPurchases : NavRoutes("event_purchases/{eventId}") {
+        fun createRoute(eventId: String) = "event_purchases/$eventId"
+    }
+    object EventPlan : NavRoutes("event_plan/{eventId}") {
+        fun createRoute(eventId: String) = "event_plan/$eventId"
+    }
+    object EventStaff : NavRoutes("event_staff/{eventId}") {
+        fun createRoute(eventId: String) = "event_staff/$eventId"
+    }
     object EventMovement : NavRoutes("event_movement/{eventId}") {
         fun createRoute(eventId: String) = "event_movement/$eventId"
     }

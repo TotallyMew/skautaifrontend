@@ -55,13 +55,8 @@ class HomeViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
-    private companion object {
-        const val REFRESH_COOLDOWN_MS = 30_000L
-    }
-
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
-    private var lastRefreshAtMillis = 0L
 
     val userName: StateFlow<String?> = tokenManager.userName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -72,14 +67,10 @@ class HomeViewModel @Inject constructor(
 
     fun refresh(force: Boolean = false) {
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
             val hasLoadedData = _uiState.value.availableUnits.isNotEmpty() ||
                 _uiState.value.activeUnitItemCount > 0 ||
                 _uiState.value.sharedInventoryCount > 0 ||
                 _uiState.value.personalLendingCount > 0
-            if (!force && hasLoadedData && now - lastRefreshAtMillis < REFRESH_COOLDOWN_MS) {
-                return@launch
-            }
 
             _uiState.value = _uiState.value.copy(
                 isLoading = !hasLoadedData,
@@ -140,15 +131,12 @@ class HomeViewModel @Inject constructor(
             val allReservations = reservationsResult.getOrNull()?.reservations.orEmpty()
             val sharedRequests = sharedRequestsResult.getOrNull()?.requests.orEmpty()
             val requisitions = requisitionsResult.getOrNull()?.requests.orEmpty()
-            val openRequisitions = requisitions.filter { it.status in listOf("SUBMITTED", "PARTIALLY_APPROVED") }
             val myRequisitions = userId?.let { currentUserId ->
                 requisitions.count {
-                    it.createdByUserId == currentUserId &&
-                        it.status == "APPROVED" &&
-                        it.topLevelReviewStatus == "APPROVED"
+                    it.createdByUserId == currentUserId
                 }
             } ?: 0
-            val assignedRequisitions = openRequisitions.count { request ->
+            val assignedRequisitions = requisitions.count { request ->
                 val waitsForActiveUnit = request.createdByUserId != userId &&
                     request.requestingUnitId == resolvedUnit?.id &&
                     request.unitReviewStatus == "PENDING"
@@ -197,7 +185,7 @@ class HomeViewModel @Inject constructor(
                 sharedInventoryCount = sharedItems.size,
                 sharedPendingApprovalCount = pendingItems.count { it.custodianId == null && it.type != "INDIVIDUAL" },
                 personalLendingCount = personalItems.size,
-                requisitionCount = openRequisitions.size,
+                requisitionCount = requisitions.size,
                 myRequisitionCount = myRequisitions,
                 assignedRequisitionCount = assignedRequisitions,
                 sharedRequestCount = sharedRequests.count { it.topLevelStatus == "PENDING" },
@@ -217,7 +205,6 @@ class HomeViewModel @Inject constructor(
                     .takeIf { it.isNotEmpty() }
                     ?.joinToString("\n")
             )
-            lastRefreshAtMillis = now
         }
     }
 

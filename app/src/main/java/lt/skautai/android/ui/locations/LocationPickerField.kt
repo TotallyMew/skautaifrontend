@@ -41,7 +41,8 @@ fun LocationPickerField(
     selectedId: String?,
     onSelected: (LocationDto?) -> Unit,
     filter: (LocationDto) -> Boolean = { true },
-    onQuickCreate: ((name: String, visibility: String) -> Unit)? = null
+    onQuickCreate: ((name: String, visibility: String) -> Unit)? = null,
+    errorText: String? = null
 ) {
     val byId = remember(locations) { locations.associateBy { it.id } }
 
@@ -71,6 +72,7 @@ fun LocationPickerField(
             candidates = roots,
             selected = chain.firstOrNull(),
             onSelected = { chosen -> onSelected(chosen) },
+            errorText = errorText,
             extraItem = if (onQuickCreate != null) {
                 {
                     DropdownMenuItem(
@@ -107,6 +109,7 @@ fun LocationPickerField(
                 selected = childSelection,
                 // Selecting null here means "keep the ancestor as selection"
                 onSelected = { chosen -> onSelected(chosen ?: ancestor) },
+                errorText = null,
                 extraItem = null
             )
         }
@@ -156,6 +159,7 @@ private fun SingleLevelDropdown(
     candidates: List<LocationDto>,
     selected: LocationDto?,
     onSelected: (LocationDto?) -> Unit,
+    errorText: String?,
     extraItem: (@Composable () -> Unit)?
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -165,6 +169,8 @@ private fun SingleLevelDropdown(
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
+            isError = errorText != null,
+            supportingText = errorText?.let { message -> { Text(message) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()

@@ -69,7 +69,7 @@ class EventCreateViewModel @Inject constructor(
             eventRepository.getEvent(eventId).onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = error.message ?: "Klaida gaunant rengini"
+                    error = error.message ?: "Nepavyko gauti renginio."
                 )
             }
         }
@@ -79,15 +79,15 @@ class EventCreateViewModel @Inject constructor(
         val state = _uiState.value
 
         if (state.name.isBlank()) {
-            _uiState.value = state.copy(error = "Iveskite renginio pavadinima")
+            _uiState.value = state.copy(error = "Įveskite renginio pavadinimą.")
             return
         }
         if (state.startDate.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite pradzios data")
+            _uiState.value = state.copy(error = "Pasirinkite pradžios datą.")
             return
         }
         if (state.endDate.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite pabaigos data")
+            _uiState.value = state.copy(error = "Pasirinkite pabaigos datą.")
             return
         }
 
@@ -117,7 +117,11 @@ class EventCreateViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = error.message ?: if (state.isEditMode) "Klaida atnaujinant rengini" else "Klaida kuriant rengini"
+                    error = error.message ?: if (state.isEditMode) {
+                        "Nepavyko atnaujinti renginio."
+                    } else {
+                        "Nepavyko sukurti renginio."
+                    }
                 )
             }
         }

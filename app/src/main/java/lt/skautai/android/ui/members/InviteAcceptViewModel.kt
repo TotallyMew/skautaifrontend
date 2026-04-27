@@ -42,7 +42,7 @@ class InviteAcceptViewModel @Inject constructor(
     fun acceptInvitation() {
         val state = _uiState.value
         if (state.code.isBlank()) {
-            _uiState.value = state.copy(error = "Iveskite pakvietimo koda")
+            _uiState.value = state.copy(error = "Įveskite pakvietimo kodą.")
             return
         }
 
@@ -71,7 +71,7 @@ class InviteAcceptViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Nepavyko priimti pakvietimo"
+                        error = error.message ?: "Nepavyko priimti pakvietimo."
                     )
                 }
         }

@@ -138,14 +138,20 @@ fun MainScaffold(
     }
 
     val managementItems = buildList {
-        add(
-            DrawerNavItem(
-                label = "Lokacijos",
-                icon = Icons.Default.Place,
-                selected = currentRoute == NavRoutes.LocationList.route,
-                onClick = { navController.navigate(NavRoutes.LocationList.route) }
+        if (
+            "locations.manage" in permissions ||
+            "locations.manage:ALL" in permissions ||
+            "locations.manage:OWN_UNIT" in permissions
+        ) {
+            add(
+                DrawerNavItem(
+                    label = "Lokacijos",
+                    icon = Icons.Default.Place,
+                    selected = currentRoute == NavRoutes.LocationList.route,
+                    onClick = { navController.navigate(NavRoutes.LocationList.route) }
+                )
             )
-        )
+        }
         add(
             DrawerNavItem(
                 label = "Kvietimai",
@@ -166,21 +172,14 @@ fun MainScaffold(
             )
         }
 
-        if (
-            "organizational_units.manage" in permissions ||
-            "unit.members.manage" in permissions ||
-            "unit.members.manage:ALL" in permissions ||
-            "unit.members.manage:OWN_UNIT" in permissions
-        ) {
-            add(
-                DrawerNavItem(
-                    label = "Vienetai",
-                    icon = Icons.Default.AccountTree,
-                    selected = currentRoute == NavRoutes.UnitList.route,
-                    onClick = { navController.navigate(NavRoutes.UnitList.route) }
-                )
+        add(
+            DrawerNavItem(
+                label = "Vienetai",
+                icon = Icons.Default.AccountTree,
+                selected = currentRoute == NavRoutes.UnitList.route,
+                onClick = { navController.navigate(NavRoutes.UnitList.route) }
             )
-        }
+        )
     }
 
     val accountItems = buildList {

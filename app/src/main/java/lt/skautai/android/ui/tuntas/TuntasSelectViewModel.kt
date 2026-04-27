@@ -63,7 +63,7 @@ class TuntasSelectViewModel @Inject constructor(
             activateTuntas(state.tuntai, tuntasId)
                 .onSuccess { _navigateHome.value = true }
                 .onFailure { error ->
-                    _uiState.value = state.copy(message = error.message ?: "Nepavyko pakeisti tunto")
+                    _uiState.value = state.copy(message = error.message ?: "Nepavyko pakeisti tunto.")
                 }
         }
     }
@@ -82,7 +82,7 @@ class TuntasSelectViewModel @Inject constructor(
         val state = (_uiState.value as? TuntasSelectUiState.Success)
             ?: TuntasSelectUiState.Success(emptyList(), null)
         if (state.inviteCode.isBlank()) {
-            _uiState.value = state.copy(message = "Iveskite pakvietimo koda")
+            _uiState.value = state.copy(message = "Įveskite pakvietimo kodą.")
             return
         }
 
@@ -96,7 +96,7 @@ class TuntasSelectViewModel @Inject constructor(
                         if (activationResult.isFailure) {
                             _uiState.value = state.copy(
                                 isAcceptingInvite = false,
-                                message = activationResult.exceptionOrNull()?.message ?: "Nepavyko aktyvuoti tunto"
+                                message = activationResult.exceptionOrNull()?.message ?: "Nepavyko aktyvuoti tunto."
                             )
                             return@launch
                         }
@@ -106,14 +106,14 @@ class TuntasSelectViewModel @Inject constructor(
                         activeTuntasId = tokenManager.activeTuntasId.first(),
                         inviteCode = "",
                         acceptedInvitation = invitation,
-                        message = "Pakvietimas priimtas"
+                        message = "Pakvietimas priimtas."
                     )
                     _navigateHome.value = true
                 }
                 .onFailure { error ->
                     _uiState.value = state.copy(
                         isAcceptingInvite = false,
-                        message = error.message ?: "Nepavyko priimti pakvietimo"
+                        message = error.message ?: "Nepavyko priimti pakvietimo."
                     )
                 }
         }
@@ -136,7 +136,7 @@ class TuntasSelectViewModel @Inject constructor(
                         if (activationResult.isFailure) {
                             _uiState.value = state.copy(
                                 isLeavingTuntas = false,
-                                message = activationResult.exceptionOrNull()?.message ?: "Nepavyko aktyvuoti kito tunto"
+                                message = activationResult.exceptionOrNull()?.message ?: "Nepavyko aktyvuoti kito tunto."
                             )
                             return@launch
                         }
@@ -146,14 +146,14 @@ class TuntasSelectViewModel @Inject constructor(
                     _uiState.value = TuntasSelectUiState.Success(
                         tuntai = refreshedTuntai,
                         activeTuntasId = tokenManager.activeTuntasId.first(),
-                        message = "Tuntas paliktas"
+                        message = "Tuntas paliktas."
                     )
                     _navigateHome.value = refreshedTuntai.isNotEmpty()
                 }
                 .onFailure { error ->
                     _uiState.value = state.copy(
                         isLeavingTuntas = false,
-                        message = error.message ?: "Nepavyko palikti tunto"
+                        message = error.message ?: "Nepavyko palikti tunto."
                     )
                 }
         }
@@ -191,7 +191,7 @@ class TuntasSelectViewModel @Inject constructor(
             }
             .onFailure { error ->
                 _uiState.value = TuntasSelectUiState.Error(
-                    error.message ?: "Nepavyko gauti tuntu saraso"
+                    error.message ?: "Nepavyko gauti tuntų sąrašo."
                 )
             }
     }

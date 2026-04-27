@@ -23,6 +23,7 @@ data class RequisitionCreateUiState(
     val isSaving: Boolean = false,
     val isSuccess: Boolean = false,
     val error: String? = null,
+    val canRequestForTuntas: Boolean = false,
     val orgUnits: List<OrganizationalUnitDto> = emptyList(),
     val selectedOrgUnitId: String? = null,
     val selectedOrgUnitName: String? = null,
@@ -56,8 +57,10 @@ class RequisitionCreateViewModel @Inject constructor(
                         findOwnUnits(userId, currentMemberResult?.getOrNull(), units)
                     }.orEmpty()
                     val selected = ownUnits.firstOrNull()
+                    val currentMember = currentMemberResult?.getOrNull()
                     _uiState.value = _uiState.value.copy(
                         isLoadingUnits = false,
+                        canRequestForTuntas = canRequestForTuntas(currentMember),
                         orgUnits = ownUnits,
                         selectedOrgUnitId = selected?.id,
                         selectedOrgUnitName = selected?.name
@@ -159,5 +162,15 @@ class RequisitionCreateViewModel @Inject constructor(
         }
 
         return units.filter { it.id in ownUnitIds }
+    }
+
+    private fun canRequestForTuntas(currentMember: MemberDto?): Boolean {
+        if (currentMember == null) return false
+
+        val hasActiveLeadershipRole = currentMember.leadershipRoles
+            .any { it.termStatus == "ACTIVE" }
+        val hasVadovasRank = currentMember.ranks.any { it.roleName == "Vadovas" }
+
+        return hasActiveLeadershipRole || hasVadovasRank
     }
 }

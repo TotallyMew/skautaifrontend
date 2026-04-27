@@ -24,6 +24,8 @@ import lt.skautai.android.data.sync.IdPayload
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
+import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
+import lt.skautai.android.util.TUNTAS_SELECTION_REQUIRED_MESSAGE
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.errorMessage
 
@@ -36,10 +38,10 @@ class LocationRepository @Inject constructor(
 ) {
 
     private suspend fun token() = tokenManager.token.first()
-        ?: throw Exception("Nav prisijungta")
+        ?: throw Exception(SESSION_EXPIRED_MESSAGE)
 
     private suspend fun tuntasId() = tokenManager.activeTuntasId.first()
-        ?: throw Exception("Tuntas nepasirinktas")
+        ?: throw Exception(TUNTAS_SELECTION_REQUIRED_MESSAGE)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeLocations(): Flow<List<LocationDto>> {
@@ -59,7 +61,7 @@ class LocationRepository @Inject constructor(
                 locationDao.deleteStaleForTuntas(currentTuntasId, locations.map { it.id })
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant lokacijas")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti lokacijų.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -75,7 +77,7 @@ class LocationRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedLocations.isNotEmpty()) {
             Result.success(cachedLocations)
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant lokacijas"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Nepavyko gauti lokacijų."))
         }
     }
 
@@ -90,7 +92,7 @@ class LocationRepository @Inject constructor(
             } else {
                 val cached = locationDao.getLocation(locationId, currentTuntasId)?.toDto()
                 cached?.let { Result.success(it) }
-                    ?: Result.failure(Exception(response.errorMessage("Klaida gaunant lokacija")))
+                    ?: Result.failure(Exception(response.errorMessage("Nepavyko gauti lokacijos.")))
             }
         } catch (e: Exception) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -107,7 +109,7 @@ class LocationRepository @Inject constructor(
                 locationDao.upsert(location.toEntity())
                 Result.success(location)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida kuriant lokacija")))
+                Result.failure(Exception(response.errorMessage("Nepavyko sukurti lokacijos.")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -153,7 +155,7 @@ class LocationRepository @Inject constructor(
                 locationDao.upsert(location.toEntity())
                 Result.success(location)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida atnaujinant lokacija")))
+                Result.failure(Exception(response.errorMessage("Nepavyko atnaujinti lokacijos.")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -197,7 +199,7 @@ class LocationRepository @Inject constructor(
                 locationDao.deleteLocation(locationId, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida trinant lokacija")))
+                Result.failure(Exception(response.errorMessage("Nepavyko ištrinti lokacijos.")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()

@@ -8,6 +8,7 @@ data class BendrasRequestEntity(
     @PrimaryKey val id: String,
     val tuntasId: String,
     val requestedByUserId: String,
+    val requestedByUserName: String?,
     val itemId: String?,
     val itemName: String,
     val itemDescription: String?,

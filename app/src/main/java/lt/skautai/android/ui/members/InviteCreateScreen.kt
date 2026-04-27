@@ -94,6 +94,10 @@ private fun InviteFormContent(
     onOrgUnitSelected: (String?) -> Unit,
     onSubmit: () -> Unit
 ) {
+    val selectedRole = uiState.roles.find { it.id == uiState.selectedRoleId }
+    val requiresOrgUnit = selectedRole?.let(::roleRequiresOrgUnitSelection) == true
+    val hasRequiredOrgUnit = !requiresOrgUnit || !uiState.lockedOrgUnitId.isNullOrBlank() || !uiState.selectedOrgUnitId.isNullOrBlank()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -112,14 +116,14 @@ private fun InviteFormContent(
                 value = uiState.lockedOrgUnitName,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Draugovė") },
+                label = { Text("Vienetas") },
                 supportingText = { Text("Pakvietimas bus priskirtas jūsų vienetui") },
                 modifier = Modifier.fillMaxWidth()
             )
         }
 
-        if (uiState.canChooseOrgUnit && uiState.selectedRoleType == "LEADERSHIP" && uiState.orgUnits.isNotEmpty()) {
-            OrgUnitDropdown(
+        if (uiState.canChooseOrgUnit && requiresOrgUnit && uiState.orgUnits.isNotEmpty()) {
+            RequiredOrgUnitDropdown(
                 orgUnits = uiState.orgUnits,
                 selectedOrgUnitId = uiState.selectedOrgUnitId,
                 onOrgUnitSelected = onOrgUnitSelected
@@ -130,7 +134,7 @@ private fun InviteFormContent(
 
         Button(
             onClick = onSubmit,
-            enabled = !uiState.isSaving && uiState.selectedRoleId.isNotBlank(),
+            enabled = !uiState.isSaving && uiState.selectedRoleId.isNotBlank() && hasRequiredOrgUnit,
             modifier = Modifier.fillMaxWidth()
         ) {
             if (uiState.isSaving) {
@@ -144,6 +148,24 @@ private fun InviteFormContent(
             }
         }
     }
+}
+
+private fun roleRequiresOrgUnitSelection(role: RoleDto): Boolean {
+    if (role.roleType != "LEADERSHIP") return false
+    return role.name in setOf(
+        "Draugininkas",
+        "Draugininko pavaduotojas",
+        "Gildijos pirmininkas",
+        "Gildijos pirmininko pavaduotojas",
+        "Vyr. skautu draugoves draugininkas",
+        "Vyr. skautu draugoves draugininko pavaduotojas",
+        "Vyr. skautu burelio pirmininkas",
+        "Vyr. skautu burelio pirmininko pavaduotojas",
+        "Vyr. skauciu draugoves draugininkas",
+        "Vyr. skauciu draugoves draugininko pavaduotojas",
+        "Vyr. skauciu burelio pirmininkas",
+        "Vyr. skauciu burelio pirmininko pavaduotojas"
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -161,7 +183,7 @@ private fun RoleDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedRole?.name ?: "Pasirinkite rolę",
+            value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite rolę",
             onValueChange = {},
             readOnly = true,
             label = { Text("Rolė") },
@@ -178,7 +200,7 @@ private fun RoleDropdown(
                 DropdownMenuItem(
                     text = {
                         Column {
-                            Text(role.name)
+                            Text(displayRoleName(role.name))
                             Text(
                                 text = if (role.roleType == "LEADERSHIP") "Pareigos" else "Laipsnis",
                                 style = MaterialTheme.typography.labelSmall,
@@ -201,6 +223,7 @@ private fun RoleDropdown(
 private fun OrgUnitDropdown(
     orgUnits: List<OrganizationalUnitDto>,
     selectedOrgUnitId: String?,
+    isRequired: Boolean,
     onOrgUnitSelected: (String?) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -211,10 +234,10 @@ private fun OrgUnitDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedUnit?.name ?: "Pasirinkite draugovę (neprivaloma)",
+            value = selectedUnit?.name ?: "Pasirinkite vienetą (neprivaloma)",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Draugovė") },
+            label = { Text("Vienetas") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -231,6 +254,47 @@ private fun OrgUnitDropdown(
                     expanded = false
                 }
             )
+            orgUnits.forEach { unit ->
+                DropdownMenuItem(
+                    text = { Text(unit.name) },
+                    onClick = {
+                        onOrgUnitSelected(unit.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RequiredOrgUnitDropdown(
+    orgUnits: List<OrganizationalUnitDto>,
+    selectedOrgUnitId: String?,
+    onOrgUnitSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedUnit = orgUnits.find { it.id == selectedOrgUnitId }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedUnit?.name ?: "Pasirinkite vienetÄ…",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Vienetas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
             orgUnits.forEach { unit ->
                 DropdownMenuItem(
                     text = { Text(unit.name) },
@@ -285,7 +349,7 @@ private fun InviteSuccessContent(
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "Rolė: $roleName",
+                    text = "Rolė: ${displayRoleName(roleName)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )

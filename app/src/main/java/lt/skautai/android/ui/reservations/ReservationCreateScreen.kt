@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.reservations
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,14 +38,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -58,14 +58,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import lt.skautai.android.data.remote.ItemDto
-import lt.skautai.android.ui.common.RemoteImage
-import lt.skautai.android.ui.locations.LocationPickerField
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.ui.common.RemoteImage
+import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ReservationCreateScreen(
     onBack: () -> Unit,
@@ -101,10 +101,10 @@ fun ReservationCreateScreen(
         if (uiState.isSuccess) onBack()
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
+    LaunchedEffect(uiState.snackbarMessage) {
+        uiState.snackbarMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
+            viewModel.clearSnackbarMessage()
         }
     }
 
@@ -143,9 +143,9 @@ fun ReservationCreateScreen(
                                 CircularProgressIndicator(
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     strokeWidth = 2.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            } else {
                                 Text(if (datesSelected) "Sukurti rezervacija" else "Pasirinkite datas")
                             }
                         }
@@ -196,11 +196,19 @@ fun ReservationCreateScreen(
                     }
                 }
 
+                uiState.formError?.let { message ->
+                    item {
+                        SkautaiInlineErrorBanner(message = message)
+                    }
+                }
+
                 item {
                     OutlinedTextField(
                         value = uiState.title,
                         onValueChange = viewModel::onTitleChange,
                         label = { Text("Rezervacijos pavadinimas") },
+                        isError = uiState.titleError != null,
+                        supportingText = uiState.titleError?.let { text -> { Text(text) } },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -210,7 +218,8 @@ fun ReservationCreateScreen(
                     DatePickerField(
                         label = "Pradzios data",
                         value = uiState.startDate,
-                        onDateSelected = viewModel::onStartDateChange
+                        onDateSelected = viewModel::onStartDateChange,
+                        errorText = uiState.startDateError
                     )
                 }
 
@@ -218,7 +227,8 @@ fun ReservationCreateScreen(
                     DatePickerField(
                         label = "Pabaigos data",
                         value = uiState.endDate,
-                        onDateSelected = viewModel::onEndDateChange
+                        onDateSelected = viewModel::onEndDateChange,
+                        errorText = uiState.endDateError
                     )
                 }
 
@@ -247,38 +257,6 @@ fun ReservationCreateScreen(
                     )
                 }
 
-                item {
-                    LocationPickerField(
-                        label = "Atsiėmimo lokacija",
-                        locations = uiState.locations,
-                        selectedId = uiState.pickupLocationId,
-                        onSelected = { viewModel.onPickupLocationChange(it?.id) },
-                        filter = { location ->
-                            when (location.visibility) {
-                                "UNIT" -> location.ownerUnitId == uiState.activeOrgUnitId
-                                "PRIVATE" -> false
-                                else -> true
-                            }
-                        }
-                    )
-                }
-
-                item {
-                    LocationPickerField(
-                        label = "Grąžinimo lokacija",
-                        locations = uiState.locations,
-                        selectedId = uiState.returnLocationId,
-                        onSelected = { viewModel.onReturnLocationChange(it?.id) },
-                        filter = { location ->
-                            when (location.visibility) {
-                                "UNIT" -> location.ownerUnitId == uiState.activeOrgUnitId
-                                "PRIVATE" -> false
-                                else -> true
-                            }
-                        }
-                    )
-                }
-
                 if (uiState.selectedItems.isNotEmpty()) {
                     item {
                         SelectedItemsSummary(
@@ -288,7 +266,7 @@ fun ReservationCreateScreen(
                     }
                 }
 
-                item {
+                stickyHeader {
                     ReservationSectionHeader(
                         title = "Tunto inventorius",
                         subtitle = "Tvirtina inventorininkas arba tuntininkas"
@@ -318,7 +296,7 @@ fun ReservationCreateScreen(
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
 
-                item {
+                stickyHeader {
                     ReservationSectionHeader(
                         title = "Tavo vieneto inventorius",
                         subtitle = "Tvirtina vieneto vadovas"
@@ -429,17 +407,24 @@ private fun ReservationSectionHeader(
     title: String,
     subtitle: String
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+    Surface(color = MaterialTheme.colorScheme.background) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 
@@ -448,7 +433,8 @@ private fun ReservationSectionHeader(
 private fun DatePickerField(
     label: String,
     value: String,
-    onDateSelected: (String) -> Unit
+    onDateSelected: (String) -> Unit,
+    errorText: String? = null
 ) {
     var showPicker by remember { mutableStateOf(false) }
 
@@ -458,6 +444,8 @@ private fun DatePickerField(
         readOnly = true,
         label = { Text(label) },
         placeholder = { Text("Pasirinkite data") },
+        isError = errorText != null,
+        supportingText = errorText?.let { message -> { Text(message) } },
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = {
             TextButton(onClick = { showPicker = true }) {

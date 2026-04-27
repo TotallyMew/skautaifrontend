@@ -59,7 +59,7 @@ fun InviteAcceptScreen(
                 fontWeight = FontWeight.SemiBold
             )
             Text(
-                text = "Iveskite gauta koda, kad prisijungtumete prie vieneto.",
+                text = "Įveskite gautą kodą, kad prisijungtumėte prie vieneto.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -101,7 +101,7 @@ fun InviteAcceptScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Text(
-                            text = "Pakvietimas priimtas",
+                            text = "Pakvietimas priimtas.",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )

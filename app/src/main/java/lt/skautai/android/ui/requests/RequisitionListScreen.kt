@@ -68,12 +68,12 @@ fun RequisitionListScreen(
                     SkautaiEmptyState(
                         title = when {
                             isAssignedMode -> "Tvirtinimu nera"
-                            isMyActiveMode -> "Patvirtintu prasymu nera"
+                            isMyActiveMode -> "Mano prasymu nera"
                             else -> "Pirkimo prasymu dar nera"
                         },
                         subtitle = when {
                             isAssignedMode -> "Siuo metu nera prasymu, kurie lauktu tavo sprendimo."
-                            isMyActiveMode -> "Cia matysi tik savo patvirtintus pirkimo ir papildymo prasymus."
+                            isMyActiveMode -> "Cia matysi visus savo pirkimo ir papildymo prasymus: laukiancius, patvirtintus ir atmestus."
                             else -> "Cia bus inventoriaus pirkimo ir papildymo prasymai."
                         },
                         icon = Icons.Default.ShoppingCart,
@@ -91,12 +91,12 @@ fun RequisitionListScreen(
                             SkautaiSummaryCard(
                                 title = when {
                                     isAssignedMode -> "Man skirti tvirtinti"
-                                    isMyActiveMode -> "Mano patvirtinti prasymai"
+                                    isMyActiveMode -> "Mano prasymai"
                                     else -> "Visi pirkimo ir papildymo prasymai"
                                 },
                                 subtitle = when {
                                     isAssignedMode -> "Prasymai, kurie laukia tavo sprendimo."
-                                    isMyActiveMode -> "Tik tavo galutinai patvirtinti prasymai."
+                                    isMyActiveMode -> "Visa tavo prasymu istorija, nepriklausomai nuo busenos."
                                     else -> "Visa prasymu istorija: laukiantys, patvirtinti ir atmesti."
                                 },
                                 metrics = listOf(

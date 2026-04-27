@@ -2,6 +2,7 @@ package lt.skautai.android.ui.locations
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +56,7 @@ import lt.skautai.android.data.remote.LocationVisibility
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.UpdateLocationRequestDto
 import lt.skautai.android.data.repository.LocationRepository
+import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
@@ -79,9 +81,7 @@ fun LocationAddEditScreen(
     }
 
     LaunchedEffect(uiState.isSuccess) {
-        if (uiState.isSuccess) {
-            onSaved()
-        }
+        if (uiState.isSuccess) onSaved()
     }
 
     LaunchedEffect(uiState.error) {
@@ -134,12 +134,12 @@ fun LocationAddEditScreen(
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                             modifier = Modifier.size(26.dp)
                         )
-                        androidx.compose.foundation.layout.Column(
+                        Column(
                             modifier = Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = if (isCreateMode) "Sukurk nauja lokacija" else "Atnaujink lokacijos informacija",
+                                text = if (isCreateMode) "Sukurkite nauja lokacija" else "Atnaujinkite lokacijos informacija",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.SemiBold
@@ -147,7 +147,7 @@ fun LocationAddEditScreen(
                             Text(
                                 text = uiState.parentPath?.let {
                                     "Lokacija bus kuriama po: $it"
-                                } ?: "Uzpildyk pagrindinius duomenis, kad vieta butu lengvai randama kataloge.",
+                                } ?: "Uzpildykite pagrindinius duomenis, kad vieta butu lengvai randama kataloge.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
                             )
@@ -158,7 +158,7 @@ fun LocationAddEditScreen(
 
             item {
                 SkautaiCard(modifier = Modifier.fillMaxWidth()) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
@@ -208,7 +208,7 @@ fun LocationAddEditScreen(
                     modifier = Modifier.fillMaxWidth(),
                     tonal = MaterialTheme.colorScheme.surfaceContainerLow
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
@@ -240,7 +240,7 @@ fun LocationAddEditScreen(
                     modifier = Modifier.fillMaxWidth(),
                     tonal = MaterialTheme.colorScheme.secondaryContainer
                 ) {
-                    androidx.compose.foundation.layout.Column(
+                    Column(
                         modifier = Modifier.padding(18.dp),
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
@@ -385,6 +385,8 @@ data class LocationAddEditUiState(
     val ownerUnitId: String? = null,
     val ownerUnitError: String? = null,
     val units: List<OrganizationalUnitDto> = emptyList(),
+    val allowedUnitIds: Set<String> = emptySet(),
+    val canManageAllUnits: Boolean = false,
     val parentLocationId: String? = null,
     val parentPath: String? = null,
     val address: String = "",
@@ -398,6 +400,7 @@ data class LocationAddEditUiState(
 class LocationAddEditViewModel @Inject constructor(
     private val locationRepository: LocationRepository,
     private val organizationalUnitRepository: OrganizationalUnitRepository,
+    private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(LocationAddEditUiState())
@@ -405,8 +408,17 @@ class LocationAddEditViewModel @Inject constructor(
 
     fun init(locationId: String?, parentLocationId: String?) {
         viewModelScope.launch {
-            val units = organizationalUnitRepository.getUnits().getOrDefault(emptyList())
+            val permissions = tokenManager.permissions.first()
+            val canManageAllUnits = "locations.manage:ALL" in permissions
+            val currentUserId = tokenManager.userId.first()
             val activeUnitId = tokenManager.activeOrgUnitId.first()
+            val allUnits = organizationalUnitRepository.getUnits().getOrDefault(emptyList())
+            val allowedUnitIds = resolveAllowedUnitIds(currentUserId, activeUnitId)
+            val visibleUnits = if (canManageAllUnits) {
+                allUnits
+            } else {
+                allUnits.filter { it.id in allowedUnitIds }
+            }
             val parent = parentLocationId?.let { locationRepository.getLocation(it).getOrNull() }
             val state = if (locationId != null) {
                 val locationResult = locationRepository.getLocation(locationId)
@@ -414,16 +426,35 @@ class LocationAddEditViewModel @Inject constructor(
                 if (location == null) {
                     LocationAddEditUiState(
                         isLoading = false,
-                        units = units,
-                        error = locationResult.exceptionOrNull()?.message ?: "Nepavyko gauti lokacijos"
+                        units = visibleUnits,
+                        allowedUnitIds = allowedUnitIds,
+                        canManageAllUnits = canManageAllUnits,
+                        error = locationResult.exceptionOrNull()?.message ?: "Nepavyko gauti lokacijos."
                     )
                 } else {
+                    val resolvedOwnerUnitId = when {
+                        location.visibility != "UNIT" -> null
+                        canManageAllUnits || location.ownerUnitId in allowedUnitIds -> location.ownerUnitId ?: activeUnitId
+                        else -> null
+                    }
                     LocationAddEditUiState(
                         isLoading = false,
                         name = location.name,
                         visibility = location.visibility,
-                        ownerUnitId = location.ownerUnitId ?: activeUnitId,
-                        units = units,
+                        ownerUnitId = resolvedOwnerUnitId,
+                        ownerUnitError = if (
+                            location.visibility == "UNIT" &&
+                            location.ownerUnitId != null &&
+                            !canManageAllUnits &&
+                            location.ownerUnitId !in allowedUnitIds
+                        ) {
+                            "Galite naudoti tik savo vienetus."
+                        } else {
+                            null
+                        },
+                        units = visibleUnits,
+                        allowedUnitIds = allowedUnitIds,
+                        canManageAllUnits = canManageAllUnits,
                         parentLocationId = location.parentLocationId ?: parentLocationId,
                         parentPath = parent?.fullPath,
                         address = location.address.orEmpty(),
@@ -433,15 +464,18 @@ class LocationAddEditViewModel @Inject constructor(
                     )
                 }
             } else {
+                val defaultOwnerUnitId = when {
+                    parent?.visibility == "UNIT" && (canManageAllUnits || parent.ownerUnitId in allowedUnitIds) ->
+                        parent.ownerUnitId ?: activeUnitId
+                    else -> activeUnitId?.takeIf { canManageAllUnits || it in allowedUnitIds }
+                }
                 LocationAddEditUiState(
                     isLoading = false,
                     visibility = parent?.visibility ?: "PUBLIC",
-                    ownerUnitId = if (parent?.visibility == "UNIT") {
-                        parent.ownerUnitId ?: activeUnitId
-                    } else {
-                        activeUnitId
-                    },
-                    units = units,
+                    ownerUnitId = if ((parent?.visibility ?: "PUBLIC") == "UNIT") defaultOwnerUnitId else null,
+                    units = visibleUnits,
+                    allowedUnitIds = allowedUnitIds,
+                    canManageAllUnits = canManageAllUnits,
                     parentLocationId = parentLocationId,
                     parentPath = parent?.fullPath
                 )
@@ -455,10 +489,14 @@ class LocationAddEditViewModel @Inject constructor(
     }
 
     fun onVisibilityChange(value: String) {
-        _uiState.value = _uiState.value.copy(
+        val state = _uiState.value
+        val fallbackUnitId = state.ownerUnitId
+            ?: state.units.firstOrNull()?.id
+            ?: state.allowedUnitIds.firstOrNull()
+        _uiState.value = state.copy(
             visibility = value,
             ownerUnitError = null,
-            ownerUnitId = if (value == "UNIT") _uiState.value.ownerUnitId else null
+            ownerUnitId = if (value == "UNIT") fallbackUnitId else null
         )
     }
 
@@ -485,11 +523,13 @@ class LocationAddEditViewModel @Inject constructor(
     fun save(locationId: String?) {
         val state = _uiState.value
         val trimmedName = state.name.trim()
-        val nameError = if (trimmedName.isBlank()) "Iveskite pavadinima" else null
-        val ownerUnitError = if (state.visibility == "UNIT" && state.ownerUnitId == null) {
-            "Pasirinkite vieneta"
-        } else {
-            null
+        val nameError = if (trimmedName.isBlank()) "Iveskite pavadinima." else null
+        val ownerUnitError = when {
+            state.visibility != "UNIT" -> null
+            state.ownerUnitId == null -> "Pasirinkite vieneta."
+            !state.canManageAllUnits && state.ownerUnitId !in state.allowedUnitIds ->
+                "Galite pasirinkti tik savo vieneta."
+            else -> null
         }
         if (nameError != null || ownerUnitError != null) {
             _uiState.value = state.copy(
@@ -539,7 +579,7 @@ class LocationAddEditViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Nepavyko issaugoti lokacijos"
+                        error = error.message ?: "Nepavyko issaugoti lokacijos."
                     )
                 }
         }
@@ -547,5 +587,24 @@ class LocationAddEditViewModel @Inject constructor(
 
     fun clearError() {
         _uiState.value = _uiState.value.copy(error = null)
+    }
+
+    private suspend fun resolveAllowedUnitIds(
+        currentUserId: String?,
+        activeUnitId: String?
+    ): Set<String> {
+        val ids = linkedSetOf<String>()
+        activeUnitId?.let(ids::add)
+        if (currentUserId == null) return ids
+
+        val member = memberRepository.getMember(currentUserId).getOrNull() ?: return ids
+        member.unitAssignments.orEmpty()
+            .map { it.organizationalUnitId }
+            .forEach(ids::add)
+        member.leadershipRoles
+            .filter { it.termStatus == "ACTIVE" }
+            .mapNotNull { it.organizationalUnitId }
+            .forEach(ids::add)
+        return ids
     }
 }

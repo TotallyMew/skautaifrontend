@@ -34,16 +34,20 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
@@ -64,8 +68,12 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userName by viewModel.userName.collectAsStateWithLifecycle()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val canCreateItems = "items.create" in permissions
     val canApproveInventory = "items.transfer" in permissions
+    val canManageLocations = "locations.manage" in permissions ||
+        "locations.manage:ALL" in permissions ||
+        "locations.manage:OWN_UNIT" in permissions
 
     if (uiState.isLoading && uiState.availableUnits.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -78,6 +86,12 @@ fun HomeScreen(
     val hasAssignedReservations = uiState.assignedReservationCount > 0
     val hasAssignedRequisitions = uiState.assignedRequisitionCount > 0
     val hasAnyAction = hasPendingApprovals || hasAssignedReservations || hasAssignedRequisitions
+
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.refresh(force = true)
+        }
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -182,9 +196,6 @@ fun HomeScreen(
                 onOpenPersonal = {
                     navController.navigate(NavRoutes.InventoryList.createRoute(type = "INDIVIDUAL"))
                 },
-                onOpenAll = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute())
-                },
                 onAddToUnit = {
                     navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
                 },
@@ -197,23 +208,25 @@ fun HomeScreen(
             )
         }
 
-        item {
-            SkautaiSectionHeader(
-                title = "Lokacijos",
-                subtitle = "Greita prieiga prie lokacijų katalogo ir sublokacijų."
-            )
-        }
+        if (canManageLocations) {
+            item {
+                SkautaiSectionHeader(
+                    title = "Lokacijos",
+                    subtitle = "Greita prieiga prie lokacijų katalogo ir sublokacijų."
+                )
+            }
 
-        item {
-            ActionTile(
-                title = "Atidaryti lokacijas",
-                count = null,
-                subtitle = "Peržiūrėk lokacijų katalogą ir kurk naujas sublokacijas.",
-                icon = Icons.Default.Place,
-                tone = MaterialTheme.colorScheme.surfaceBright,
-                badgeTone = SkautaiStatusTone.Neutral,
-                onClick = { navController.navigate(NavRoutes.LocationList.route) }
-            )
+            item {
+                ActionTile(
+                    title = "Atidaryti lokacijas",
+                    count = null,
+                    subtitle = "Peržiūrėk lokacijų katalogą ir kurk naujas sublokacijas.",
+                    icon = Icons.Default.Place,
+                    tone = MaterialTheme.colorScheme.surfaceBright,
+                    badgeTone = SkautaiStatusTone.Neutral,
+                    onClick = { navController.navigate(NavRoutes.LocationList.route) }
+                )
+            }
         }
 
         item {
@@ -240,22 +253,31 @@ fun HomeScreen(
         item {
             SkautaiSectionHeader(
                 title = "Prasymai",
-                subtitle = "Pirkimo ir papildymo uzklausos vienoje vietoje.",
-                actionLabel = "Visi",
-                onAction = { navController.navigate(NavRoutes.RequestList.createRoute()) }
+                subtitle = "Pirkimo, papildymo ir paemimo uzklausos vienoje vietoje."
             )
         }
 
         item {
-            ActionTile(
-                title = "Mano prasymai",
-                count = uiState.myRequisitionCount,
-                subtitle = "Kuriuos pats pateikei",
-                icon = Icons.Default.Inbox,
-                tone = MaterialTheme.colorScheme.surfaceBright,
-                badgeTone = SkautaiStatusTone.Info,
-                onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active")) }
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ActionTile(
+                    title = "Mano pirkimo prasymai",
+                    count = uiState.myRequisitionCount,
+                    subtitle = "Kuriuos pats pateikei",
+                    icon = Icons.Default.Assignment,
+                    tone = MaterialTheme.colorScheme.surfaceBright,
+                    badgeTone = SkautaiStatusTone.Info,
+                    onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active")) }
+                )
+                ActionTile(
+                    title = "Paemimo prasymai",
+                    count = null,
+                    subtitle = "Paimti esamus daiktus is bendro tunto inventoriaus",
+                    icon = Icons.Default.Inbox,
+                    tone = MaterialTheme.colorScheme.surfaceBright,
+                    badgeTone = SkautaiStatusTone.Info,
+                    onClick = { navController.navigate(NavRoutes.SharedRequestList.route) }
+                )
+            }
         }
     }
 }
@@ -384,7 +406,6 @@ private fun InventoryScopeColumn(
     onOpenUnit: () -> Unit,
     onOpenShared: () -> Unit,
     onOpenPersonal: () -> Unit,
-    onOpenAll: () -> Unit,
     onAddToUnit: () -> Unit,
     onAddToShared: () -> Unit,
     onAddPersonal: () -> Unit
@@ -426,18 +447,6 @@ private fun InventoryScopeColumn(
                 onOpen = onOpenPersonal,
                 showAdd = canCreateItems,
                 onAdd = onAddPersonal
-            )
-        )
-        add(
-            ScopeTile(
-                title = "Visas inventoriaus katalogas",
-                count = null,
-                icon = Icons.Default.Inventory2,
-                tone = MaterialTheme.colorScheme.surfaceContainer,
-                toneLabel = "Katalogas",
-                onOpen = onOpenAll,
-                showAdd = false,
-                onAdd = {}
             )
         )
     }

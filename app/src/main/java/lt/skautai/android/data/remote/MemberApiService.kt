@@ -50,6 +50,13 @@ interface MemberApiService {
         @Path("assignmentId") assignmentId: String
     ): Response<Void>
 
+    @POST("api/members/me/tuntininkas/transfer")
+    suspend fun transferTuntininkas(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Body request: TransferTuntininkasRequestDto
+    ): Response<Void>
+
     @POST("api/members/{userId}/ranks")
     suspend fun assignRank(
         @Header("Authorization") token: String,

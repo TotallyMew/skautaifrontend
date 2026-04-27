@@ -31,6 +31,11 @@ import lt.skautai.android.ui.events.EventCreateScreen
 import lt.skautai.android.ui.events.EventDetailScreen
 import lt.skautai.android.ui.events.EventListScreen
 import lt.skautai.android.ui.events.EventMovementScreen
+import lt.skautai.android.ui.events.EventNeedsScreen
+import lt.skautai.android.ui.events.EventPlanScreen
+import lt.skautai.android.ui.events.EventPurchasesScreen
+import lt.skautai.android.ui.events.EventStaffScreen
+import lt.skautai.android.ui.events.EventUkvedysScreen
 import lt.skautai.android.ui.events.PastovykleLeaderScreen
 import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
@@ -576,8 +581,53 @@ fun AppNavGraph(
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(NavRoutes.EventAddEdit.createRoute(id)) },
                 onOpenMovement = { id -> navController.navigate(NavRoutes.EventMovement.createRoute(id)) },
-                onOpenPastovykleLeader = { id -> navController.navigate(NavRoutes.PastovykleLeader.createRoute(id)) }
+                onOpenPastovykleLeader = { id -> navController.navigate(NavRoutes.PastovykleLeader.createRoute(id)) },
+                onOpenNeeds = { id -> navController.navigate(NavRoutes.EventNeeds.createRoute(id)) },
+                onOpenUkvedys = { id -> navController.navigate(NavRoutes.EventUkvedys.createRoute(id)) },
+                onOpenPurchases = { id -> navController.navigate(NavRoutes.EventPurchases.createRoute(id)) },
+                onOpenPlan = { id -> navController.navigate(NavRoutes.EventPlan.createRoute(id)) },
+                onOpenStaff = { id -> navController.navigate(NavRoutes.EventStaff.createRoute(id)) }
             )
+        }
+
+        composable(
+            route = NavRoutes.EventNeeds.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventNeedsScreen(eventId = eventId, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = NavRoutes.EventUkvedys.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventUkvedysScreen(eventId = eventId, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = NavRoutes.EventPurchases.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventPurchasesScreen(eventId = eventId, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = NavRoutes.EventPlan.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventPlanScreen(eventId = eventId, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = NavRoutes.EventStaff.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventStaffScreen(eventId = eventId, onBack = { navController.popBackStack() })
         }
 
         composable(

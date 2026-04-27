@@ -66,6 +66,10 @@ data class UpdateLeadershipRoleRequestDto(
     @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null
 )
 
+data class TransferTuntininkasRequestDto(
+    @SerializedName("successorUserId") val successorUserId: String
+)
+
 data class AssignRankRequestDto(
     @SerializedName("roleId") val roleId: String
 )

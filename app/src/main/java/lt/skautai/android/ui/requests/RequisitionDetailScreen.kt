@@ -286,9 +286,9 @@ private fun RequisitionDetailContent(
 
 @Composable
 private fun RequisitionInfoRow(label: String, value: String) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
         Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Text(text = value, fontWeight = FontWeight.Medium)

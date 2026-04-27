@@ -26,7 +26,12 @@ data class InventoryAddEditUiState(
     val isUploadingPhoto: Boolean = false,
     val isCreatingLocation: Boolean = false,
     val isSuccess: Boolean = false,
-    val error: String? = null,
+    val formError: String? = null,
+    val snackbarMessage: String? = null,
+    val nameError: String? = null,
+    val quantityError: String? = null,
+    val categoryError: String? = null,
+    val orgUnitError: String? = null,
     val name: String = "",
     val description: String = "",
     val type: String = "COLLECTIVE",
@@ -46,7 +51,8 @@ data class InventoryAddEditUiState(
     val locations: List<LocationDto> = emptyList(),
     val selectedLocationId: String = "",
     val tuntasId: String = "",
-    val mode: String = "SHARED"
+    val mode: String = "SHARED",
+    val canManageLocations: Boolean = true
 )
 
 @HiltViewModel
@@ -66,6 +72,10 @@ class InventoryAddEditViewModel @Inject constructor(
             val tuntasId = tokenManager.activeTuntasId.first() ?: ""
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first().orEmpty()
             val resolvedMode = mode ?: "SHARED"
+            val permissions = tokenManager.permissions.first()
+            val canManageLocations = permissions.contains("locations.manage") ||
+                permissions.contains("locations.manage:ALL") ||
+                permissions.contains("locations.manage:OWN_UNIT")
             _uiState.value = _uiState.value.copy(
                 tuntasId = tuntasId,
                 isLoading = itemId != null,
@@ -73,24 +83,18 @@ class InventoryAddEditViewModel @Inject constructor(
                 type = defaultTypeForMode(resolvedMode),
                 origin = defaultOriginForMode(resolvedMode),
                 selectedOrgUnitId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId else "",
-                custodianId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId.ifBlank { null } else null
+                custodianId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId.ifBlank { null } else null,
+                canManageLocations = canManageLocations
             )
 
             orgUnitRepository.getUnits()
                 .onSuccess { units ->
                     _uiState.value = _uiState.value.copy(orgUnits = units)
                 }
-                .onFailure {
-                    // The add/edit form can still save offline; avoid showing raw network errors
-                    // from optional dropdown refreshes.
-                }
 
             locationRepository.getLocations()
                 .onSuccess { locations ->
                     _uiState.value = _uiState.value.copy(locations = locations)
-                }
-                .onFailure {
-                    // Cached locations are best-effort for offline item creation.
                 }
 
             if (itemId != null) {
@@ -119,7 +123,7 @@ class InventoryAddEditViewModel @Inject constructor(
                     .onFailure { error ->
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = error.message ?: "Nepavyko gauti daikto"
+                            formError = error.message ?: "Nepavyko gauti daikto."
                         )
                     }
             } else {
@@ -128,23 +132,60 @@ class InventoryAddEditViewModel @Inject constructor(
         }
     }
 
-    fun onNameChange(value: String) { _uiState.value = _uiState.value.copy(name = value) }
-    fun onDescriptionChange(value: String) { _uiState.value = _uiState.value.copy(description = value) }
-    fun onNotesChange(value: String) { _uiState.value = _uiState.value.copy(notes = value) }
-    fun onQuantityChange(value: String) { _uiState.value = _uiState.value.copy(quantity = value) }
-    fun onPurchaseDateChange(value: String) { _uiState.value = _uiState.value.copy(purchaseDate = value) }
-    fun onPurchasePriceChange(value: String) { _uiState.value = _uiState.value.copy(purchasePrice = value) }
-    fun onPurchaseDateSelected(value: String?) { _uiState.value = _uiState.value.copy(purchaseDate = value.orEmpty()) }
-    fun onTypeChange(value: String) { _uiState.value = _uiState.value.copy(type = value) }
-    fun onCategoryChange(value: String) { _uiState.value = _uiState.value.copy(category = value) }
-    fun onConditionChange(value: String) { _uiState.value = _uiState.value.copy(condition = value) }
-    fun onOriginChange(value: String) { _uiState.value = _uiState.value.copy(origin = value) }
-    fun onTemporaryStorageLabelChange(value: String) { _uiState.value = _uiState.value.copy(temporaryStorageLabel = value) }
+    fun onNameChange(value: String) {
+        _uiState.value = _uiState.value.copy(name = value, nameError = null, formError = null)
+    }
+
+    fun onDescriptionChange(value: String) {
+        _uiState.value = _uiState.value.copy(description = value)
+    }
+
+    fun onNotesChange(value: String) {
+        _uiState.value = _uiState.value.copy(notes = value)
+    }
+
+    fun onQuantityChange(value: String) {
+        _uiState.value = _uiState.value.copy(quantity = value, quantityError = null, formError = null)
+    }
+
+    fun onPurchaseDateChange(value: String) {
+        _uiState.value = _uiState.value.copy(purchaseDate = value)
+    }
+
+    fun onPurchasePriceChange(value: String) {
+        _uiState.value = _uiState.value.copy(purchasePrice = value)
+    }
+
+    fun onPurchaseDateSelected(value: String?) {
+        _uiState.value = _uiState.value.copy(purchaseDate = value.orEmpty())
+    }
+
+    fun onTypeChange(value: String) {
+        _uiState.value = _uiState.value.copy(type = value)
+    }
+
+    fun onCategoryChange(value: String) {
+        _uiState.value = _uiState.value.copy(category = value, categoryError = null, formError = null)
+    }
+
+    fun onConditionChange(value: String) {
+        _uiState.value = _uiState.value.copy(condition = value)
+    }
+
+    fun onOriginChange(value: String) {
+        _uiState.value = _uiState.value.copy(origin = value)
+    }
+
+    fun onTemporaryStorageLabelChange(value: String) {
+        _uiState.value = _uiState.value.copy(temporaryStorageLabel = value)
+    }
 
     fun onOrgUnitChange(unitId: String?) {
         _uiState.value = _uiState.value.copy(
             selectedOrgUnitId = unitId ?: "",
-            custodianId = unitId
+            custodianId = unitId,
+            orgUnitError = null,
+            formError = null
         )
     }
 
@@ -152,12 +193,94 @@ class InventoryAddEditViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedLocationId = locationId ?: "")
     }
 
-    fun showValidationError(message: String) {
-        _uiState.value = _uiState.value.copy(error = message)
+    fun createPrivateLocation(name: String) {
+        if (!_uiState.value.canManageLocations) {
+            _uiState.value = _uiState.value.copy(
+                formError = "Lokacijas gali parinkti arba kurti tik vadovai."
+            )
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isCreatingLocation = true, formError = null)
+            locationRepository.createLocation(
+                lt.skautai.android.data.remote.CreateLocationRequestDto(
+                    name = name,
+                    visibility = "PRIVATE"
+                )
+            ).onSuccess { location ->
+                _uiState.value = _uiState.value.copy(
+                    isCreatingLocation = false,
+                    locations = (_uiState.value.locations + location).distinctBy { it.id },
+                    selectedLocationId = location.id
+                )
+            }.onFailure { error ->
+                _uiState.value = _uiState.value.copy(
+                    isCreatingLocation = false,
+                    formError = error.message ?: "Nepavyko sukurti lokacijos."
+                )
+            }
+        }
     }
 
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+    fun showContextValidationErrors() {
+        val state = _uiState.value
+        val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategorija." else null
+        val orgUnitError = if (state.mode == "UNIT_OWN" && state.selectedOrgUnitId.isBlank()) {
+            "Pasirinkite aktyvu vieneta."
+        } else null
+        _uiState.value = state.copy(
+            categoryError = categoryError,
+            orgUnitError = orgUnitError,
+            formError = if (categoryError != null || orgUnitError != null) {
+                "Patikslinkite pazymetus laukus."
+            } else {
+                null
+            }
+        )
+    }
+
+    fun showInfoValidationErrors() {
+        val state = _uiState.value
+        val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
+        val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
+            "Kiekis turi buti teigiamas skaicius."
+        } else null
+        _uiState.value = state.copy(
+            nameError = nameError,
+            quantityError = quantityError,
+            formError = if (nameError != null || quantityError != null) {
+                "Patikslinkite pazymetus laukus."
+            } else {
+                null
+            }
+        )
+    }
+
+    fun showValidationError(message: String) {
+        val state = _uiState.value
+        _uiState.value = when {
+            "kategorij" in message.lowercase() -> state.copy(
+                categoryError = message,
+                formError = "Patikslinkite pazymetus laukus."
+            )
+            "vieneto" in message.lowercase() -> state.copy(
+                orgUnitError = message,
+                formError = "Patikslinkite pazymetus laukus."
+            )
+            "pavadinimas" in message.lowercase() -> state.copy(
+                nameError = message,
+                formError = "Patikslinkite pazymetus laukus."
+            )
+            "kiekis" in message.lowercase() -> state.copy(
+                quantityError = message,
+                formError = "Patikslinkite pazymetus laukus."
+            )
+            else -> state.copy(formError = message)
+        }
+    }
+
+    fun clearSnackbarMessage() {
+        _uiState.value = _uiState.value.copy(snackbarMessage = null)
     }
 
     fun uploadPhoto(uri: Uri) {
@@ -165,7 +288,7 @@ class InventoryAddEditViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(
                 isUploadingPhoto = true,
                 selectedPhotoUri = uri.toString(),
-                error = null
+                formError = null
             )
             uploadRepository.uploadImage(uri)
                 .onSuccess { url ->
@@ -177,7 +300,7 @@ class InventoryAddEditViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isUploadingPhoto = false,
-                        error = error.message ?: "Nepavyko ikelti nuotraukos"
+                        formError = error.message ?: "Nepavyko ikelti nuotraukos."
                     )
                 }
         }
@@ -191,6 +314,12 @@ class InventoryAddEditViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             isSuccess = false,
             isSaving = false,
+            formError = null,
+            snackbarMessage = null,
+            nameError = null,
+            quantityError = null,
+            categoryError = null,
+            orgUnitError = null,
             name = "",
             description = "",
             condition = "GOOD",
@@ -206,20 +335,39 @@ class InventoryAddEditViewModel @Inject constructor(
     fun save(itemId: String?) {
         val state = _uiState.value
 
-        if (state.name.isBlank()) {
-            _uiState.value = state.copy(error = "Pavadinimas privalomas")
-            return
+        val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
+        val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
+            "Kiekis turi buti teigiamas skaicius."
+        } else null
+        val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategorija." else null
+        val orgUnitError = if (state.mode == "UNIT_OWN" && state.selectedOrgUnitId.isBlank()) {
+            "Pasirinkite aktyvu vieneta."
+        } else {
+            null
         }
 
-        val qty = state.quantity.toIntOrNull()
-        if (qty == null || qty < 1) {
-            _uiState.value = state.copy(error = "Kiekis turi buti teigiamas skaicius")
+        if (nameError != null || quantityError != null || categoryError != null || orgUnitError != null) {
+            _uiState.value = state.copy(
+                nameError = nameError,
+                quantityError = quantityError,
+                categoryError = categoryError,
+                orgUnitError = orgUnitError,
+                formError = "Patikslinkite pazymetus laukus."
+            )
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = state.copy(isSaving = true, error = null)
+            _uiState.value = state.copy(
+                isSaving = true,
+                formError = null,
+                nameError = null,
+                quantityError = null,
+                categoryError = null,
+                orgUnitError = null
+            )
 
+            val quantity = state.quantity.toInt()
             val price = state.purchasePrice.toDoubleOrNull()
             val locationId = state.selectedLocationId.ifBlank { null }
             val custodianId = when (state.mode) {
@@ -236,7 +384,7 @@ class InventoryAddEditViewModel @Inject constructor(
                     category = state.category,
                     custodianId = custodianId,
                     origin = state.origin,
-                    quantity = qty,
+                    quantity = quantity,
                     condition = state.condition,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
@@ -247,12 +395,16 @@ class InventoryAddEditViewModel @Inject constructor(
                 )
                 itemRepository.createItem(request)
                     .onSuccess {
-                        _uiState.value = _uiState.value.copy(isSaving = false, isSuccess = true)
+                        _uiState.value = _uiState.value.copy(
+                            isSaving = false,
+                            isSuccess = true,
+                            snackbarMessage = "Issaugota. Galite prideti kita daikta."
+                        )
                     }
                     .onFailure { error ->
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
-                            error = error.message ?: "Nepavyko issaugoti daikto"
+                            formError = error.message ?: "Nepavyko issaugoti daikto."
                         )
                     }
             } else {
@@ -262,7 +414,7 @@ class InventoryAddEditViewModel @Inject constructor(
                     type = state.type,
                     category = state.category,
                     condition = state.condition,
-                    quantity = qty,
+                    quantity = quantity,
                     custodianId = custodianId,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
@@ -278,7 +430,7 @@ class InventoryAddEditViewModel @Inject constructor(
                     .onFailure { error ->
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
-                            error = error.message ?: "Nepavyko atnaujinti daikto"
+                            formError = error.message ?: "Nepavyko atnaujinti daikto."
                         )
                     }
             }

@@ -76,7 +76,6 @@ fun UnitListScreen(
                         val searchable = listOf(
                             unit.name,
                             unitTypeLabel(unit.type),
-                            unit.subtype?.let { subtypeLabel(it) }.orEmpty(),
                             unit.acceptedRankName.orEmpty()
                         ).joinToString(" ").lowercase()
 
@@ -138,7 +137,10 @@ fun UnitListScreen(
                         }
                     }
                     items(filteredUnits, key = { it.id }) { unit ->
-                        UnitCard(unit = unit, onClick = { onUnitClick(unit.id) })
+                        UnitCard(
+                            unit = unit,
+                            onClick = if (uiState.isReadOnly) null else ({ onUnitClick(unit.id) })
+                        )
                     }
                 }
             }
@@ -147,13 +149,13 @@ fun UnitListScreen(
 }
 
 @Composable
-private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
+private fun UnitCard(unit: OrganizationalUnitDto, onClick: (() -> Unit)?) {
     val palette = unit.palette()
 
     androidx.compose.material3.Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         colors = CardDefaults.cardColors(containerColor = palette.cardTone),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
@@ -193,7 +195,7 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = unitTypeLabel(unit.type) + (unit.subtype?.let { " / ${subtypeLabel(it)}" } ?: ""),
+                    text = unitTypeLabel(unit.type),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -205,7 +207,9 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
                     )
                 }
             }
-            Icon(Icons.Default.ChevronRight, contentDescription = null, tint = palette.accent)
+            if (onClick != null) {
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = palette.accent)
+            }
         }
     }
 }
@@ -235,8 +239,8 @@ fun unitTypeLabel(type: String): String = when (type) {
     "SKAUTU_DRAUGOVE" -> "Skautų draugovė"
     "PATYRUSIU_SKAUTU_DRAUGOVE" -> "Patyrusių skautų draugovė"
     "GILDIJA" -> "Gildija"
-    "VYR_SKAUTU_VIENETAS" -> "Vyr. skautų vienetas"
-    "VYR_SKAUCIU_VIENETAS" -> "Vyr. skaucių vienetas"
+    "VYR_SKAUTU_VIENETAS" -> "Vyr. skautų draugovė / būrelis"
+    "VYR_SKAUCIU_VIENETAS" -> "Vyr. skaučių draugovė / būrelis"
     else -> type
 }
 

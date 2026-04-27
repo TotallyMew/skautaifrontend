@@ -15,17 +15,16 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -41,7 +40,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
-import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.RegistrationValidation
 
@@ -52,7 +51,6 @@ fun RegisterScreen(
     viewModel: RegisterViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
@@ -62,25 +60,17 @@ fun RegisterScreen(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
-            snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
-        }
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Registracija — Tuntininkas") },
+                title = { Text("Registracija - Tuntininkas") },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
                     }
                 }
             )
-        },
-        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
+        }
     ) { padding ->
         Column(
             modifier = Modifier
@@ -94,15 +84,21 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Asmeninė informacija",
+                text = "Asmenine informacija",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
+
+            uiState.formError?.let { message ->
+                SkautaiInlineErrorBanner(message = message)
+            }
 
             OutlinedTextField(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChange,
                 label = { Text("Vardas *") },
+                isError = uiState.nameError != null,
+                supportingText = uiState.nameError?.let { message -> { Text(message) } },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -110,7 +106,9 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.surname,
                 onValueChange = viewModel::onSurnameChange,
-                label = { Text("Pavardė *") },
+                label = { Text("Pavarde *") },
+                isError = uiState.surnameError != null,
+                supportingText = uiState.surnameError?.let { message -> { Text(message) } },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -118,7 +116,9 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
-                label = { Text("El. paštas *") },
+                label = { Text("El. pastas *") },
+                isError = uiState.emailError != null,
+                supportingText = uiState.emailError?.let { message -> { Text(message) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -127,7 +127,9 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Slaptažodis *") },
+                label = { Text("Slaptazodis *") },
+                isError = uiState.passwordError != null,
+                supportingText = uiState.passwordError?.let { message -> { Text(message) } },
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
@@ -155,13 +157,16 @@ fun RegisterScreen(
                 value = uiState.tuntasName,
                 onValueChange = viewModel::onTuntasNameChange,
                 label = { Text("Tunto pavadinimas *") },
+                isError = uiState.tuntasNameError != null,
+                supportingText = uiState.tuntasNameError?.let { message -> { Text(message) } },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
             KrastasDropdown(
                 selectedKrastas = uiState.tuntasKrastas,
-                onKrastasSelected = viewModel::onTuntasKrastasChange
+                onKrastasSelected = viewModel::onTuntasKrastasChange,
+                errorText = uiState.tuntasKrastasError
             )
 
             Spacer(modifier = Modifier.height(4.dp))
@@ -197,7 +202,8 @@ fun RegisterScreen(
 @Composable
 private fun KrastasDropdown(
     selectedKrastas: String,
-    onKrastasSelected: (String) -> Unit
+    onKrastasSelected: (String) -> Unit,
+    errorText: String?
 ) {
     var expanded by remember { mutableStateOf(false) }
 
@@ -209,15 +215,17 @@ private fun KrastasDropdown(
             value = selectedKrastas,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Kraštas *") },
-            placeholder = { Text("Pasirinkite kraštą") },
+            label = { Text("Krastas *") },
+            placeholder = { Text("Pasirinkite krasta") },
+            isError = errorText != null,
+            supportingText = errorText?.let { message -> { Text(message) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             singleLine = true,
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor()
         )
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {

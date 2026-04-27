@@ -32,6 +32,8 @@ import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
 import lt.skautai.android.data.sync.ReservationMovementSyncPayload
+import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
+import lt.skautai.android.util.TUNTAS_SELECTION_REQUIRED_MESSAGE
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.errorMessage
 
@@ -45,10 +47,10 @@ class ReservationRepository @Inject constructor(
     private val gson = Gson()
 
     private suspend fun token() = tokenManager.token.first()
-        ?: throw Exception("Nav prisijungta")
+        ?: throw Exception(SESSION_EXPIRED_MESSAGE)
 
     private suspend fun tuntasId() = tokenManager.activeTuntasId.first()
-        ?: throw Exception("Tuntas nepasirinktas")
+        ?: throw Exception(TUNTAS_SELECTION_REQUIRED_MESSAGE)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeReservations(itemId: String? = null, status: String? = null): Flow<ReservationListDto> {
@@ -87,7 +89,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsertAll(reservations.toReservationEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant rezervacijas")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijų.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -106,7 +108,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant rezervacija")))
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijos.")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,7 +124,7 @@ class ReservationRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedReservations.isNotEmpty()) {
             Result.success(ReservationListDto(cachedReservations, cachedReservations.size))
         } else {
-            Result.failure(Exception("Rezervaciju nepavyko atnaujinti. Prisijunkite prie interneto bent karta, kad jos butu issaugotos offline."))
+            Result.failure(Exception("Nepavyko atnaujinti rezervacijų. Prisijunkite prie interneto bent kartą, kad jos būtų išsaugotos naudoti neprisijungus."))
         }
     }
 
@@ -133,7 +135,7 @@ class ReservationRepository @Inject constructor(
         return if (cachedReservation != null) {
             Result.success(cachedReservation)
         } else {
-            Result.failure(Exception("Rezervacijos nepavyko atnaujinti. Prisijunkite prie interneto bent karta, kad ji butu issaugota offline."))
+            Result.failure(Exception("Nepavyko atnaujinti rezervacijos. Prisijunkite prie interneto bent kartą, kad ji būtų išsaugota naudoti neprisijungus."))
         }
     }
 
@@ -145,11 +147,11 @@ class ReservationRepository @Inject constructor(
                 reservationDao.upsert(reservation.toEntity())
                 Result.success(reservation)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida kuriant rezervacija")))
+                Result.failure(Exception(response.errorMessage("Nepavyko sukurti rezervacijos.")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
-                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+                ?: return Result.failure(Exception(TUNTAS_SELECTION_REQUIRED_MESSAGE))
             val userId = tokenManager.userId.first().orEmpty()
             val now = Instant.now().toString()
             val reservation = ReservationDto(
@@ -199,22 +201,22 @@ class ReservationRepository @Inject constructor(
         return try {
             val response = reservationApiService.getAvailability("Bearer ${token()}", tuntasId(), startDate, endDate)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorMessage("Klaida gaunant prieinama kieki")))
+            else Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervavimo likučių.")))
         } catch (e: Exception) { Result.failure(e) }
     }
 
     suspend fun updateReservationStatus(id: String, request: UpdateReservationStatusRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_STATUS, request, "Klaida atnaujinant rezervacija") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_STATUS, request, "Nepavyko atnaujinti rezervacijos.") {
             reservationApiService.updateReservationStatus("Bearer ${token()}", tuntasId(), id, request)
         }
 
     suspend fun updateReservationPickupTime(id: String, request: UpdateReservationPickupRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_PICKUP, request, "Klaida atnaujinant atsiemimo laika") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_PICKUP, request, "Nepavyko atnaujinti atsiėmimo laiko.") {
             reservationApiService.updateReservationPickupTime("Bearer ${token()}", tuntasId(), id, request)
         }
 
     suspend fun updateReservationReturnTime(id: String, request: UpdateReservationReturnTimeRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_RETURN, request, "Klaida atnaujinant grazinimo laika") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_RETURN, request, "Nepavyko atnaujinti grąžinimo laiko.") {
             reservationApiService.updateReservationReturnTime("Bearer ${token()}", tuntasId(), id, request)
         }
 

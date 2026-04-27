@@ -39,7 +39,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -64,6 +63,7 @@ import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.locations.LocationPickerField
 import lt.skautai.android.ui.common.itemConditionLabel
@@ -98,7 +98,7 @@ fun InventoryAddEditScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             if (saveAndAddAnother && isCreateFlow) {
-                snackbarHostState.showSnackbar("Issaugota. Gali prideti kita daikta.")
+                snackbarHostState.showSnackbar("Išsaugota. Galite pridėti kitą daiktą.")
                 viewModel.prepareNextItem()
                 currentStep = STEP_INFO
             } else {
@@ -108,10 +108,10 @@ fun InventoryAddEditScreen(
         }
     }
 
-    LaunchedEffect(uiState.error) {
-        uiState.error?.let {
+    LaunchedEffect(uiState.snackbarMessage) {
+        uiState.snackbarMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
+            viewModel.clearSnackbarMessage()
         }
     }
 
@@ -151,6 +151,10 @@ fun InventoryAddEditScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    uiState.formError?.let { message ->
+                        SkautaiInlineErrorBanner(message = message)
+                    }
+
                     if (isCreateFlow) {
                         StepHeader(currentStep = currentStep)
                     }
@@ -194,8 +198,8 @@ fun InventoryAddEditScreen(
                                     Text(
                                         when (currentStep) {
                                             STEP_CONTEXT -> "Toliau"
-                                            STEP_INFO -> if (saveImmediately) "Issaugoti" else "Perziureti"
-                                            else -> "Issaugoti"
+                                            STEP_INFO -> if (saveImmediately) "Išsaugoti" else "Peržiūrėti"
+                                            else -> "Išsaugoti"
                                         }
                                     )
                                 }
@@ -218,7 +222,7 @@ fun InventoryAddEditScreen(
                                 enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text("Issaugoti ir prideti kita")
+                                Text("Išsaugoti ir pridėti kitą")
                             }
                         }
                     } else {
@@ -287,7 +291,8 @@ private fun ContextStep(
             label = "Inventoriaus kategorija",
             selected = uiState.category,
             options = inventoryCategoryOptions(),
-            onSelected = viewModel::onCategoryChange
+            onSelected = viewModel::onCategoryChange,
+            errorText = uiState.categoryError
         )
 
         if (uiState.mode == "UNIT_OWN") {
@@ -304,19 +309,33 @@ private fun ContextStep(
             }
         }
 
-        LocationPickerField(
-            label = "Permanent lokacija",
-            locations = uiState.locations,
-            selectedId = uiState.selectedLocationId,
-            onSelected = { viewModel.onLocationChange(it?.id) },
-            filter = { location ->
-                when (uiState.mode) {
-                    "PERSONAL" -> location.visibility == "PRIVATE"
-                    "UNIT_OWN" -> location.visibility == "UNIT" && location.ownerUnitId == uiState.selectedOrgUnitId
-                    else -> location.visibility == "PUBLIC"
-                }
-            }
-        )
+        if (uiState.canManageLocations) {
+            LocationPickerField(
+                label = "Permanent lokacija",
+                locations = uiState.locations,
+                selectedId = uiState.selectedLocationId,
+                onSelected = { viewModel.onLocationChange(it?.id) },
+                filter = { location ->
+                    when (uiState.mode) {
+                        "PERSONAL" -> location.visibility == "PRIVATE"
+                        "UNIT_OWN" -> location.visibility == "UNIT" && location.ownerUnitId == uiState.selectedOrgUnitId
+                        else -> location.visibility == "PUBLIC"
+                    }
+                },
+                onQuickCreate = if (uiState.mode == "PERSONAL") {
+                    { name, _ -> viewModel.createPrivateLocation(name) }
+                } else {
+                    null
+                },
+                errorText = null
+            )
+        } else {
+            Text(
+                text = "Lokacija siame sraute parenkama vadovo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
 
         OutlinedTextField(
             value = uiState.temporaryStorageLabel,
@@ -331,7 +350,8 @@ private fun ContextStep(
                 units = uiState.orgUnits,
                 selectedId = uiState.selectedOrgUnitId,
                 onSelected = viewModel::onOrgUnitChange,
-                enabled = uiState.mode != "UNIT_OWN"
+                enabled = uiState.mode != "UNIT_OWN",
+                errorText = uiState.orgUnitError
             )
         }
 
@@ -358,6 +378,8 @@ private fun ItemInfoStep(
             value = uiState.name,
             onValueChange = viewModel::onNameChange,
             label = { Text("Pavadinimas *") },
+            isError = uiState.nameError != null,
+            supportingText = uiState.nameError?.let { message -> { Text(message) } },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -373,7 +395,8 @@ private fun ItemInfoStep(
 
         QuantityStepper(
             quantity = uiState.quantity,
-            onQuantityChange = viewModel::onQuantityChange
+            onQuantityChange = viewModel::onQuantityChange,
+            errorText = uiState.quantityError
         )
 
         ConditionSelector(
@@ -555,7 +578,8 @@ private fun PurchaseDateField(
 @Composable
 private fun QuantityStepper(
     quantity: String,
-    onQuantityChange: (String) -> Unit
+    onQuantityChange: (String) -> Unit,
+    errorText: String?
 ) {
     val numeric = quantity.toIntOrNull() ?: 1
     Row(
@@ -573,6 +597,8 @@ private fun QuantityStepper(
             value = quantity,
             onValueChange = onQuantityChange,
             label = { Text("Kiekis *") },
+            isError = errorText != null,
+            supportingText = errorText?.let { message -> { Text(message) } },
             modifier = Modifier.weight(1f),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -699,7 +725,8 @@ private fun DropdownField(
     label: String,
     selected: String,
     options: List<Pair<String, String>>,
-    onSelected: (String) -> Unit
+    onSelected: (String) -> Unit,
+    errorText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = options.firstOrNull { it.first == selected }?.second ?: selected
@@ -709,6 +736,8 @@ private fun DropdownField(
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
+            isError = errorText != null,
+            supportingText = errorText?.let { message -> { Text(message) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -737,7 +766,8 @@ private fun CustodianUnitDropdown(
     units: List<OrganizationalUnitDto>,
     selectedId: String,
     onSelected: (String?) -> Unit,
-    enabled: Boolean
+    enabled: Boolean,
+    errorText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkti vieneta"
@@ -748,6 +778,8 @@ private fun CustodianUnitDropdown(
             readOnly = true,
             enabled = enabled,
             label = { Text("Atsakingas vienetas") },
+            isError = errorText != null,
+            supportingText = errorText?.let { message -> { Text(message) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -822,11 +854,11 @@ private fun validateContextStep(
     viewModel: InventoryAddEditViewModel
 ): Boolean {
     if (uiState.category.isBlank()) {
-        viewModel.showValidationError("Pasirink inventoriaus kategorija")
+        viewModel.showValidationError("Pasirinkite inventoriaus kategoriją.")
         return false
     }
     if (uiState.mode == "UNIT_OWN" && uiState.selectedOrgUnitId.isBlank()) {
-        viewModel.showValidationError("Aktyviam vienetui reikia pasirinkto vieneto")
+        viewModel.showValidationError("Aktyviam vienetui reikia pasirinkto vieneto.")
         return false
     }
     return true
@@ -837,11 +869,11 @@ private fun validateInfoStep(
     viewModel: InventoryAddEditViewModel
 ): Boolean {
     if (uiState.name.isBlank()) {
-        viewModel.showValidationError("Pavadinimas privalomas")
+        viewModel.showValidationError("Pavadinimas yra privalomas.")
         return false
     }
     if (uiState.quantity.toIntOrNull() == null || uiState.quantity.toInt() < 1) {
-        viewModel.showValidationError("Kiekis turi buti teigiamas skaicius")
+        viewModel.showValidationError("Kiekis turi būti teigiamas skaičius.")
         return false
     }
     return true

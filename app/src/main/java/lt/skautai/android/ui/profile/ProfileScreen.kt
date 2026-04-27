@@ -24,8 +24,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -74,7 +74,7 @@ fun ProfileScreen(
 
             uiState.profile == null -> {
                 SkautaiErrorState(
-                    message = uiState.error ?: "Profilis nerastas",
+                    message = uiState.error ?: "Profilis nerastas.",
                     onRetry = viewModel::loadProfile,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )
@@ -102,7 +102,11 @@ fun ProfileScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("Pagrindiniai duomenys", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Pagrindiniai duomenys",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
                             HorizontalDivider()
                             OutlinedTextField(
                                 value = uiState.name,
@@ -159,7 +163,11 @@ fun ProfileScreen(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text("Slaptažodis", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                            Text(
+                                "Slaptažodis",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
                             HorizontalDivider()
                             OutlinedTextField(
                                 value = uiState.currentPassword,
