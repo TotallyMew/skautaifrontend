@@ -11,12 +11,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDone
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.SyncProblem
 import androidx.compose.material3.Button
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,25 +51,61 @@ fun SyncStatusScreen(
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text(
-                            text = "Sinchronizavimo busena",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        StatusMetricRow("Laukia", syncStatus.pendingCount.toString())
-                        StatusMetricRow("Nepavyko", syncStatus.failedCount.toString())
-                        StatusMetricRow(
-                            "Tinklas",
-                            if (syncStatus.isOffline) "Offline" else "Prisijungta"
-                        )
-                        Button(
-                            onClick = viewModel::retryFailed,
-                            enabled = syncStatus.failedCount > 0,
-                            modifier = Modifier.fillMaxWidth()
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Bandyti dar karta")
+                            Icon(
+                                imageVector = when {
+                                    syncStatus.isOffline -> Icons.Default.CloudOff
+                                    syncStatus.failedCount > 0 -> Icons.Default.SyncProblem
+                                    syncStatus.pendingCount > 0 -> Icons.Default.CloudDone
+                                    else -> Icons.Default.CloudDone
+                                },
+                                contentDescription = null
+                            )
+                            Text(
+                                text = when {
+                                    syncStatus.isOffline -> "Nera interneto rysio"
+                                    syncStatus.failedCount > 0 -> "Kai kurie pakeitimai neissaugoti"
+                                    syncStatus.pendingCount > 0 -> "Sinchronizuojama..."
+                                    else -> "Visi pakeitimai issaugoti"
+                                },
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        Text(
+                            text = when {
+                                syncStatus.isOffline ->
+                                    "Pakeitimai issaugoti sirenginyje. Kai tinklas atsiras, jie bus automatiskai issiunti i serveri."
+                                syncStatus.failedCount > 0 ->
+                                    "Dalis pakeitimu nepavyko issaugoti. Patikrink interneto rysi ir bandyk dar karta."
+                                syncStatus.pendingCount > 0 ->
+                                    "Laukia, kol bus nusiusti ${syncStatus.pendingCount} pakeitim(-ai) i serveri."
+                                else ->
+                                    "Visi vietiniai pakeitimai jau sinchronizuoti su serveriu."
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (syncStatus.failedCount > 0) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = viewModel::retryFailed,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Bandyti dar karta")
+                                }
+                                OutlinedButton(
+                                    onClick = viewModel::dismissFailed,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Panaikinti")
+                                }
+                            }
                         }
                     }
                 }
@@ -89,62 +127,44 @@ fun SyncStatusScreen(
             } else {
                 items(syncStatus.operations, key = { it.id }) { operation ->
                     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
-                        Column(
-                            modifier = Modifier.padding(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        Row(
+                            modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    imageVector = if (operation.error != null) Icons.Default.SyncProblem else Icons.Default.CloudDone,
-                                    contentDescription = null,
-                                    tint = if (operation.error != null) {
-                                        MaterialTheme.colorScheme.error
-                                    } else {
-                                        MaterialTheme.colorScheme.primary
-                                    }
+                            Icon(
+                                imageVector = if (operation.error != null) Icons.Default.SyncProblem else Icons.Default.CloudDone,
+                                contentDescription = null,
+                                tint = if (operation.error != null) MaterialTheme.colorScheme.error
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                Text(
+                                    text = operation.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.SemiBold
                                 )
-                                Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "${operation.subtitle} • ${operation.createdAt}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                operation.error?.let {
                                     Text(
-                                        text = operation.title,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                    Text(
-                                        text = operation.subtitle,
+                                        text = it,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        color = MaterialTheme.colorScheme.error
                                     )
                                 }
-                                SkautaiStatusPill(
-                                    label = operation.statusLabel,
-                                    containerColor = if (operation.error != null) {
-                                        MaterialTheme.colorScheme.errorContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.secondaryContainer
-                                    },
-                                    contentColor = if (operation.error != null) {
-                                        MaterialTheme.colorScheme.onErrorContainer
-                                    } else {
-                                        MaterialTheme.colorScheme.onSecondaryContainer
-                                    }
-                                )
                             }
-                            Text(
-                                text = "Sukurta: ${operation.createdAt}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            operation.error?.let {
-                                HorizontalDivider()
-                                Text(
-                                    text = it,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.error
-                                )
+                            if (operation.error != null) {
+                                IconButton(onClick = { viewModel.dismissOperation(operation.id) }) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Panaikinti",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -154,22 +174,3 @@ fun SyncStatusScreen(
     }
 }
 
-@Composable
-private fun StatusMetricRow(
-    label: String,
-    value: String
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(
-            text = value,
-            fontWeight = FontWeight.SemiBold
-        )
-    }
-}

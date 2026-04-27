@@ -202,11 +202,22 @@ class TuntasSelectViewModel @Inject constructor(
         if (tuntas.status != "ACTIVE") {
             return Result.failure(Exception("Tuntas dar nepatvirtintas"))
         }
+        val cachedPerms = tokenManager.permissionsForTuntas(tuntasId)
         return userRepository.getMyPermissions(tuntasId)
             .mapCatching { permissions ->
                 tokenManager.setActiveTuntas(tuntasId, tuntas.name)
                 tokenManager.setActiveOrgUnit(null)
                 tokenManager.savePermissions(permissions)
+                tokenManager.cachePermissionsForTuntas(tuntasId, permissions)
+            }
+            .recoverCatching { error ->
+                if (cachedPerms != null) {
+                    tokenManager.setActiveTuntas(tuntasId, tuntas.name)
+                    tokenManager.setActiveOrgUnit(null)
+                    tokenManager.savePermissions(cachedPerms.toList())
+                } else {
+                    throw error
+                }
             }
     }
 }

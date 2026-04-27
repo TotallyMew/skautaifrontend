@@ -12,7 +12,7 @@ import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import javax.inject.Inject
 
 data class UnitListUiState(
-    val isLoading: Boolean = false,
+    val isLoading: Boolean = true,
     val units: List<OrganizationalUnitDto> = emptyList(),
     val error: String? = null
 )
@@ -44,21 +44,13 @@ class UnitListViewModel @Inject constructor(
 
     fun loadUnits() {
         viewModelScope.launch {
-            if (_uiState.value.units.isEmpty()) {
-                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            }
             orgUnitRepository.refreshUnits()
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(isLoading = false, error = null)
-                }
                 .onFailure { error ->
                     if (_uiState.value.units.isEmpty()) {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
                             error = error.message ?: "Klaida gaunant vienetus"
                         )
-                    } else {
-                        _uiState.value = _uiState.value.copy(isLoading = false)
                     }
                 }
         }

@@ -23,6 +23,7 @@ import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberLeadershipRoleDto
 import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.MemberRankDto
+import lt.skautai.android.data.remote.UpdateLeadershipRoleRequestDto
 import lt.skautai.android.data.sync.MemberAssignmentPayload
 import lt.skautai.android.data.sync.MemberRankPayload
 import lt.skautai.android.data.sync.PendingEntityType
@@ -187,6 +188,31 @@ class MemberRepository @Inject constructor(
                 payload = MemberAssignmentPayload(userId, assignmentId)
             )
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun updateLeadershipRole(
+        userId: String,
+        assignmentId: String,
+        request: UpdateLeadershipRoleRequestDto
+    ): Result<MemberLeadershipRoleDto> {
+        return try {
+            val response = memberApiService.updateLeadershipRole(
+                "Bearer ${token()}",
+                tuntasId(),
+                userId,
+                assignmentId,
+                request
+            )
+            if (response.isSuccessful) {
+                val role = response.body()!!
+                refreshMember(userId)
+                Result.success(role)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant pareigas")))
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

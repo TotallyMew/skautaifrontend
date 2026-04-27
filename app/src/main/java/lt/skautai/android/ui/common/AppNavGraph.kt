@@ -1,19 +1,28 @@
 package lt.skautai.android.ui.common
 
+import android.app.Activity
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import androidx.navigation.NavGraph.Companion.findStartDestination
 import lt.skautai.android.MainViewModel
 import lt.skautai.android.ui.auth.LoginScreen
 import lt.skautai.android.ui.auth.RegisterInviteScreen
@@ -34,6 +43,7 @@ import lt.skautai.android.ui.members.InviteAcceptScreen
 import lt.skautai.android.ui.members.InviteCreateScreen
 import lt.skautai.android.ui.members.MemberDetailScreen
 import lt.skautai.android.ui.members.MemberListScreen
+import lt.skautai.android.ui.profile.ProfileScreen
 import lt.skautai.android.ui.requests.RequestCreateScreen
 import lt.skautai.android.ui.requests.RequestDetailScreen
 import lt.skautai.android.ui.requests.RequestListScreen
@@ -105,12 +115,52 @@ fun AppNavGraph(
         }
 
         composable(NavRoutes.Home.route) {
+            var showExitConfirmDialog by rememberSaveable { mutableStateOf(false) }
+            val context = LocalContext.current
+
+            BackHandler {
+                showExitConfirmDialog = true
+            }
+
+            if (showExitConfirmDialog) {
+                AlertDialog(
+                    onDismissRequest = { showExitConfirmDialog = false },
+                    title = { Text("Iseiti is programeles?") },
+                    text = { Text("Ar tikrai norite iseiti?") },
+                    confirmButton = {
+                        TextButton(
+                            onClick = {
+                                showExitConfirmDialog = false
+                                (context as? Activity)?.finish()
+                            }
+                        ) {
+                            Text("Iseiti")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showExitConfirmDialog = false }) {
+                            Text("Atsaukti")
+                        }
+                    }
+                )
+            }
+
             MainScaffold(
                 navController = navController,
                 tokenManager = tokenManager,
                 onLogout = onLogout
             ) {
                 HomeScreen(navController = navController, permissions = permissions)
+            }
+        }
+
+        composable(NavRoutes.Profile.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout
+            ) {
+                ProfileScreen()
             }
         }
 

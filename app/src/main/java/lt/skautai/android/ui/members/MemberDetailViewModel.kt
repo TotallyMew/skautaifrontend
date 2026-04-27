@@ -27,6 +27,7 @@ data class MemberDetailUiState(
     val isDone: Boolean = false,
     val showRemoveMemberDialog: Boolean = false,
     val showAssignRoleDialog: Boolean = false,
+    val showEditRoleDialog: Boolean = false,
     val showAssignRankDialog: Boolean = false,
     val showMoveMemberDialog: Boolean = false,
     val leadershipRoles: List<RoleDto> = emptyList(),
@@ -34,6 +35,10 @@ data class MemberDetailUiState(
     val availableUnits: List<OrganizationalUnitDto> = emptyList(),
     val selectedRoleId: String = "",
     val selectedUnitId: String? = null,
+    val selectedTermStatus: String = "ACTIVE",
+    val startsAt: String = "",
+    val expiresAt: String = "",
+    val editingAssignmentId: String? = null,
     val selectedMoveUnitId: String = "",
     val selectedRankRoleId: String = ""
 )
@@ -157,8 +162,37 @@ class MemberDetailViewModel @Inject constructor(
             selectedRoleId = "", selectedUnitId = null)
     }
 
+    fun openEditRoleDialog(role: MemberLeadershipRoleDto) {
+        viewModelScope.launch {
+            val unitsResult = orgUnitRepository.getUnits()
+            _uiState.value = _uiState.value.copy(
+                availableUnits = unitsResult.getOrDefault(emptyList()),
+                showEditRoleDialog = true,
+                editingAssignmentId = role.id,
+                selectedUnitId = role.organizationalUnitId,
+                selectedTermStatus = role.termStatus,
+                startsAt = role.startsAt?.take(10).orEmpty(),
+                expiresAt = role.expiresAt?.take(10).orEmpty()
+            )
+        }
+    }
+
+    fun hideEditRoleDialog() {
+        _uiState.value = _uiState.value.copy(
+            showEditRoleDialog = false,
+            editingAssignmentId = null,
+            selectedUnitId = null,
+            selectedTermStatus = "ACTIVE",
+            startsAt = "",
+            expiresAt = ""
+        )
+    }
+
     fun onRoleSelected(roleId: String) { _uiState.value = _uiState.value.copy(selectedRoleId = roleId) }
     fun onRoleUnitSelected(unitId: String?) { _uiState.value = _uiState.value.copy(selectedUnitId = unitId) }
+    fun onTermStatusSelected(value: String) { _uiState.value = _uiState.value.copy(selectedTermStatus = value) }
+    fun onStartsAtChanged(value: String) { _uiState.value = _uiState.value.copy(startsAt = value) }
+    fun onExpiresAtChanged(value: String) { _uiState.value = _uiState.value.copy(expiresAt = value) }
 
     fun assignLeadershipRole(userId: String) {
         val state = _uiState.value
@@ -198,6 +232,34 @@ class MemberDetailViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(isSaving = false,
                         actionError = e.message ?: "Klaida šalinant pareigas")
                 }
+        }
+    }
+
+    fun updateLeadershipRole(userId: String) {
+        val state = _uiState.value
+        val assignmentId = state.editingAssignmentId ?: return
+        viewModelScope.launch {
+            _uiState.value = state.copy(isSaving = true, actionError = null)
+            memberRepository.updateLeadershipRole(
+                userId = userId,
+                assignmentId = assignmentId,
+                request = UpdateLeadershipRoleRequestDto(
+                    startsAt = state.startsAt.ifBlank { null },
+                    expiresAt = state.expiresAt.ifBlank { null },
+                    termStatus = state.selectedTermStatus,
+                    organizationalUnitId = state.selectedUnitId
+                )
+            ).onSuccess {
+                refreshPermissionsIfCurrentUser(userId)
+                _uiState.value = _uiState.value.copy(isSaving = false)
+                hideEditRoleDialog()
+                loadMember(userId)
+            }.onFailure { e ->
+                _uiState.value = _uiState.value.copy(
+                    isSaving = false,
+                    actionError = e.message ?: "Klaida atnaujinant pareigas"
+                )
+            }
         }
     }
 

@@ -28,20 +28,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
@@ -61,15 +56,6 @@ fun UnitListScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var query by remember { mutableStateOf("") }
 
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadUnits()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
     Box(modifier = Modifier.fillMaxSize()) {
         when {
             uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -79,8 +65,8 @@ fun UnitListScreen(
                 modifier = Modifier.align(Alignment.Center)
             )
             uiState.units.isEmpty() -> SkautaiEmptyState(
-                title = "Vienetu dar nera",
-                subtitle = "Cia bus draugoves, gildijos ir kiti tunto vienetai.",
+                title = "Vienetų dar nėra",
+                subtitle = "Čia bus draugovės, gildijos ir kiti tunto vienetai.",
                 icon = Icons.Default.AccountTree,
                 modifier = Modifier.align(Alignment.Center)
             )
@@ -95,7 +81,7 @@ fun UnitListScreen(
                         ).joinToString(" ").lowercase()
 
                         searchable.contains(query.trim().lowercase())
-                    }
+                    }.sortedWith(compareBy({ unitTypeSortOrder(it.type) }, { it.name }))
                 }
 
                 LazyColumn(
@@ -126,7 +112,7 @@ fun UnitListScreen(
                                             fontWeight = FontWeight.SemiBold
                                         )
                                         Text(
-                                            text = "Tunto struktura ir vienetu kontekstas.",
+                                            text = "Tunto struktūra ir vienetų kontekstas.",
                                             style = MaterialTheme.typography.bodySmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             fontWeight = FontWeight.Medium
@@ -136,7 +122,7 @@ fun UnitListScreen(
                                 SkautaiSearchBar(
                                     value = query,
                                     onValueChange = { query = it },
-                                    placeholder = "Ieskoti vieneto",
+                                    placeholder = "Ieškoti vieneto",
                                     leadingIcon = Icons.Default.Search
                                 )
                             }
@@ -146,7 +132,7 @@ fun UnitListScreen(
                         item {
                             SkautaiEmptyState(
                                 title = "Nieko nerasta",
-                                subtitle = "Pabandyk ieskoti pagal pavadinima, tipa ar priimama laipsni.",
+                                subtitle = "Pabandyk ieškoti pagal pavadinima, tipą ar priimama laipsni.",
                                 icon = Icons.Default.AccountTree
                             )
                         }
@@ -211,19 +197,12 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: () -> Unit) {
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                unit.acceptedRankName?.let {
                     SkautaiStatusPill(
-                        label = unit.subtype?.let { subtypeLabel(it) } ?: "Vienetas",
-                        containerColor = palette.accent,
-                        contentColor = Color.White
+                        label = "Priima: $it",
+                        containerColor = palette.iconTone,
+                        contentColor = palette.accent
                     )
-                    unit.acceptedRankName?.let {
-                        SkautaiStatusPill(
-                            label = "Priima: $it",
-                            containerColor = palette.iconTone,
-                            contentColor = palette.accent
-                        )
-                    }
                 }
             }
             Icon(Icons.Default.ChevronRight, contentDescription = null, tint = palette.accent)
@@ -241,19 +220,29 @@ private fun OrganizationalUnitDto.palette(): ScoutUnitPalette = when (type) {
     else -> ScoutUnitColors.Default
 }
 
+private fun unitTypeSortOrder(type: String): Int = when (type) {
+    "VILKU_DRAUGOVE" -> 5
+    "SKAUTU_DRAUGOVE" -> 4
+    "PATYRUSIU_SKAUTU_DRAUGOVE" -> 3
+    "VYR_SKAUTU_VIENETAS" -> 0
+    "VYR_SKAUCIU_VIENETAS" -> 1
+    "GILDIJA" -> 2
+    else -> 6
+}
+
 fun unitTypeLabel(type: String): String = when (type) {
-    "VILKU_DRAUGOVE" -> "Vilku draugove"
-    "SKAUTU_DRAUGOVE" -> "Skautu draugove"
-    "PATYRUSIU_SKAUTU_DRAUGOVE" -> "Patyrusiu skautu draugove"
+    "VILKU_DRAUGOVE" -> "Vilkų draugovė"
+    "SKAUTU_DRAUGOVE" -> "Skautų draugovė"
+    "PATYRUSIU_SKAUTU_DRAUGOVE" -> "Patyrusių skautų draugovė"
     "GILDIJA" -> "Gildija"
-    "VYR_SKAUTU_VIENETAS" -> "Vyr. skautu vienetas"
-    "VYR_SKAUCIU_VIENETAS" -> "Vyr. skauciu vienetas"
+    "VYR_SKAUTU_VIENETAS" -> "Vyr. skautų vienetas"
+    "VYR_SKAUCIU_VIENETAS" -> "Vyr. skaucių vienetas"
     else -> type
 }
 
 fun subtypeLabel(subtype: String): String = when (subtype) {
-    "DRAUGOVE" -> "Draugove"
-    "BURELIS" -> "Burelis"
+    "DRAUGOVE" -> "Draugovė"
+    "BURELIS" -> "Būrelis"
     else -> subtype
 }
 

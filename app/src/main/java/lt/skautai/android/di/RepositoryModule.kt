@@ -82,9 +82,16 @@ object RepositoryModule {
         orgUnitApiService: OrganizationalUnitApiService,
         tokenManager: TokenManager,
         organizationalUnitDao: OrganizationalUnitDao,
+        memberDao: MemberDao,
         pendingOperationRepository: PendingOperationRepository
     ): OrganizationalUnitRepository {
-        return OrganizationalUnitRepository(orgUnitApiService, tokenManager, organizationalUnitDao, pendingOperationRepository)
+        return OrganizationalUnitRepository(
+            orgUnitApiService,
+            tokenManager,
+            organizationalUnitDao,
+            memberDao,
+            pendingOperationRepository
+        )
     }
 
     @Provides

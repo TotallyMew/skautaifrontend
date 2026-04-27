@@ -34,8 +34,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        val isSuperAdminDeepLink = intent?.data?.scheme == "skautai" &&
-                intent?.data?.host == "superadmin"
+        val uri = intent?.data
+        val isSuperAdminDeepLink = uri?.scheme == "skautai" &&
+                uri.host == "superadmin" &&
+                uri.queryParameterNames.isEmpty()
 
         setContent {
             SkautuInventoriusTheme {

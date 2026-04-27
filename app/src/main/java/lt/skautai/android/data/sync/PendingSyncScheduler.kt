@@ -23,17 +23,21 @@ class PendingSyncScheduler @Inject constructor(
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     fun schedule() {
+        enqueueWork(ExistingWorkPolicy.KEEP)
+    }
+
+    private fun scheduleNow() {
+        enqueueWork(ExistingWorkPolicy.REPLACE)
+    }
+
+    private fun enqueueWork(policy: ExistingWorkPolicy) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setConstraints(constraints)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            WORK_NAME,
-            ExistingWorkPolicy.KEEP,
-            request
-        )
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 
     fun startWatchingNetwork() {
@@ -41,7 +45,7 @@ class PendingSyncScheduler @Inject constructor(
 
         networkCallback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                schedule()
+                scheduleNow()
             }
 
             override fun onCapabilitiesChanged(
@@ -49,7 +53,7 @@ class PendingSyncScheduler @Inject constructor(
                 networkCapabilities: NetworkCapabilities
             ) {
                 if (networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                    schedule()
+                    scheduleNow()
                 }
             }
         }.also { callback ->

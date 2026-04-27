@@ -1,6 +1,7 @@
 package lt.skautai.android.ui.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,17 +10,22 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MarkEmailUnread
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
@@ -47,6 +53,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -81,9 +88,129 @@ fun MainScaffold(
     val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
 
     val topBarTitle = currentRouteTitle(currentRoute)
+    val drawerScrollState = rememberScrollState()
 
     val visibleNavItems = BottomNavItem.all.filter { item ->
         shouldShowBottomNavItem(item, permissions)
+    }
+
+    val quickAccessItems = buildList {
+        add(
+            DrawerNavItem(
+                label = "Pradzia",
+                icon = Icons.Default.Home,
+                selected = currentRoute == NavRoutes.Home.route,
+                onClick = { navController.navigate(NavRoutes.Home.route) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Inventorius",
+                icon = Icons.Default.Inventory2,
+                selected = currentRoute == NavRoutes.InventoryList.route,
+                onClick = { navController.navigate(NavRoutes.InventoryList.createRoute()) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Rezervacijos",
+                icon = Icons.Default.EventAvailable,
+                selected = currentRoute == NavRoutes.ReservationList.route,
+                onClick = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Pirkimai",
+                icon = Icons.Default.ShoppingCart,
+                selected = currentRoute == NavRoutes.RequestList.route,
+                onClick = { navController.navigate(NavRoutes.RequestList.createRoute()) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Paemimai",
+                icon = Icons.Default.Inbox,
+                selected = currentRoute == NavRoutes.SharedRequestList.route,
+                onClick = { navController.navigate(NavRoutes.SharedRequestList.route) }
+            )
+        )
+    }
+
+    val managementItems = buildList {
+        add(
+            DrawerNavItem(
+                label = "Lokacijos",
+                icon = Icons.Default.Place,
+                selected = currentRoute == NavRoutes.LocationList.route,
+                onClick = { navController.navigate(NavRoutes.LocationList.route) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Kvietimai",
+                icon = Icons.Default.MarkEmailUnread,
+                selected = currentRoute == NavRoutes.InviteAccept.route,
+                onClick = { navController.navigate(NavRoutes.InviteAccept.route) }
+            )
+        )
+
+        if ("members.view" in permissions) {
+            add(
+                DrawerNavItem(
+                    label = "Nariai",
+                    icon = BottomNavItem.Members.icon,
+                    selected = currentRoute == NavRoutes.MemberList.route,
+                    onClick = { navController.navigate(NavRoutes.MemberList.route) }
+                )
+            )
+        }
+
+        if (
+            "organizational_units.manage" in permissions ||
+            "unit.members.manage" in permissions ||
+            "unit.members.manage:ALL" in permissions ||
+            "unit.members.manage:OWN_UNIT" in permissions
+        ) {
+            add(
+                DrawerNavItem(
+                    label = "Vienetai",
+                    icon = Icons.Default.AccountTree,
+                    selected = currentRoute == NavRoutes.UnitList.route,
+                    onClick = { navController.navigate(NavRoutes.UnitList.route) }
+                )
+            )
+        }
+    }
+
+    val accountItems = buildList {
+        add(
+            DrawerNavItem(
+                label = "Profilis",
+                icon = Icons.Default.Person,
+                selected = currentRoute == NavRoutes.Profile.route,
+                onClick = { navController.navigate(NavRoutes.Profile.route) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = if (activeTuntasId != null) "Keisti tunta" else "Pasirinkti tunta",
+                icon = Icons.Default.SwapHoriz,
+                selected = currentRoute == NavRoutes.TuntasSelect.route,
+                onClick = { navController.navigate(NavRoutes.TuntasSelect.route) }
+            )
+        )
+
+        if (syncStatus.failedCount > 0) {
+            add(
+                DrawerNavItem(
+                    label = "Bandyti sync dar karta",
+                    icon = Icons.Default.SwapHoriz,
+                    selected = false,
+                    onClick = { pendingSyncViewModel.retryFailed() }
+                )
+            )
+        }
     }
 
     ModalNavigationDrawer(
@@ -97,6 +224,7 @@ fun MainScaffold(
                     modifier = Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surface)
+                        .verticalScroll(drawerScrollState)
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -130,150 +258,49 @@ fun MainScaffold(
                             )
                         }
                     }
-                }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-
-                Text(
-                    text = "Navigacija",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text(if (activeTuntasId != null) "Keisti tunta" else "Pasirinkti tunta") },
-                    icon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.TuntasSelect.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.TuntasSelect.route)
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Kvietimai") },
-                    icon = { Icon(Icons.Default.MarkEmailUnread, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.InviteAccept.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.InviteAccept.route)
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Inventorius") },
-                    icon = { Icon(Icons.Default.Inventory2, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.InventoryList.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.InventoryList.createRoute())
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Lokacijos") },
-                    icon = { Icon(Icons.Default.Place, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.LocationList.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.LocationList.route)
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Rezervacijos") },
-                    icon = { Icon(Icons.Default.EventAvailable, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.ReservationList.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.ReservationList.createRoute())
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Pirkimai") },
-                    icon = { Icon(Icons.Default.ShoppingCart, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.RequestList.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.RequestList.createRoute())
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                NavigationDrawerItem(
-                    label = { Text("Paemimai") },
-                    icon = { Icon(Icons.Default.Inbox, contentDescription = null) },
-                    selected = currentRoute == NavRoutes.SharedRequestList.route,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        navController.navigate(NavRoutes.SharedRequestList.route)
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
-
-                if ("members.view" in permissions) {
-                    NavigationDrawerItem(
-                        label = { Text("Nariai") },
-                        icon = { Icon(BottomNavItem.Members.icon, contentDescription = null) },
-                        selected = currentRoute == NavRoutes.MemberList.route,
-                        onClick = {
+                    DrawerSection(
+                        title = "Greita prieiga",
+                        items = quickAccessItems,
+                        onItemClick = { action ->
                             scope.launch { drawerState.close() }
-                            navController.navigate(NavRoutes.MemberList.route)
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                            action()
+                        }
                     )
-                }
 
-                if (
-                    "organizational_units.manage" in permissions ||
-                    "unit.members.manage" in permissions ||
-                    "unit.members.manage:ALL" in permissions ||
-                    "unit.members.manage:OWN_UNIT" in permissions
-                ) {
-                    NavigationDrawerItem(
-                        label = { Text("Vienetai") },
-                        icon = { Icon(Icons.Default.AccountTree, contentDescription = null) },
-                        selected = currentRoute == NavRoutes.UnitList.route,
-                        onClick = {
+                    if (managementItems.isNotEmpty()) {
+                        DrawerSection(
+                            title = "Valdymas",
+                            items = managementItems,
+                            onItemClick = { action ->
+                                scope.launch { drawerState.close() }
+                                action()
+                            }
+                        )
+                    }
+
+                    DrawerSection(
+                        title = "Paskyra",
+                        items = accountItems,
+                        onItemClick = { action ->
                             scope.launch { drawerState.close() }
-                            navController.navigate(NavRoutes.UnitList.route)
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                            action()
+                        }
                     )
-                }
 
-                if (syncStatus.failedCount > 0) {
+                    HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))
+
                     NavigationDrawerItem(
-                        label = { Text("Bandyti sync dar karta") },
-                        icon = { Icon(Icons.Default.SwapHoriz, contentDescription = null) },
+                        label = { Text("Atsijungti") },
+                        icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
                         selected = false,
                         onClick = {
                             scope.launch { drawerState.close() }
-                            pendingSyncViewModel.retryFailed()
+                            onLogout()
                         },
-                        modifier = Modifier.padding(horizontal = 12.dp)
+                        modifier = Modifier.padding(horizontal = 4.dp)
                     )
                 }
-
-                HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
-
-                NavigationDrawerItem(
-                    label = { Text("Atsijungti") },
-                    icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
-                    selected = false,
-                    onClick = {
-                        scope.launch { drawerState.close() }
-                        onLogout()
-                    },
-                    modifier = Modifier.padding(horizontal = 12.dp)
-                )
             }
         }
     ) {
@@ -342,12 +369,14 @@ fun MainScaffold(
                                             }
                                         }
                                     } else {
+                                        val isFromBottomNavRoute = BottomNavItem.all.any { it.route == currentRoute }
                                         navController.navigate(destination) {
                                             popUpTo(NavRoutes.Home.route) {
-                                                saveState = true
+                                                saveState = isFromBottomNavRoute
+                                                inclusive = false
                                             }
                                             launchSingleTop = true
-                                            restoreState = true
+                                            restoreState = isFromBottomNavRoute
                                         }
                                     }
                                 }
@@ -457,6 +486,7 @@ private fun currentRouteTitle(currentRoute: String?): String = when (currentRout
     NavRoutes.RequestCreate.route -> "Naujas pirkimas"
     NavRoutes.InviteCreate.route -> "Naujas kvietimas"
     NavRoutes.InviteAccept.route -> "Kvietimai"
+    NavRoutes.Profile.route -> "Mano profilis"
     NavRoutes.SharedRequestList.route -> "Paemimai"
     NavRoutes.SharedRequestDetail.route -> "Paemimo informacija"
     NavRoutes.MemberList.route -> "Nariai"
@@ -475,6 +505,57 @@ private fun currentRouteTitle(currentRoute: String?): String = when (currentRout
     NavRoutes.SyncStatus.route -> "Sinchronizavimas"
     else -> ""
 }
+
+@Composable
+private fun DrawerSection(
+    title: String,
+    items: List<DrawerNavItem>,
+    onItemClick: ((() -> Unit)) -> Unit
+) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+    )
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            items.forEachIndexed { index, item ->
+                NavigationDrawerItem(
+                    label = { Text(item.label) },
+                    icon = { Icon(item.icon, contentDescription = null) },
+                    selected = item.selected,
+                    onClick = { onItemClick(item.onClick) },
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+
+                if (index != items.lastIndex) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                    )
+                }
+            }
+        }
+    }
+
+    Spacer(modifier = Modifier.size(4.dp))
+}
+
+private data class DrawerNavItem(
+    val label: String,
+    val icon: ImageVector,
+    val selected: Boolean,
+    val onClick: () -> Unit
+)
 
 private data class Quadruple<A, B, C, D>(
     val first: A,

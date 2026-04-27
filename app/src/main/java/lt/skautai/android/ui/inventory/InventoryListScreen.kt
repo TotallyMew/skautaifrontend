@@ -44,7 +44,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -57,12 +56,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiChip
@@ -72,12 +69,10 @@ import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
-import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
-import lt.skautai.android.ui.common.itemOriginLabel
 import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.NavRoutes
 
@@ -103,20 +98,13 @@ fun InventoryListScreen(
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
     val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
+    val selectedLocationId by viewModel.selectedLocationId.collectAsStateWithLifecycle()
+    val locations by viewModel.locations.collectAsStateWithLifecycle()
     val canApprove = "items.transfer" in permissions
     val openedCustodianId = viewModel.openedCustodianId
     val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadItems)
 
     val pendingItems = (uiState as? InventoryListUiState.Success)?.pendingItems.orEmpty()
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadItems()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
 
     Box(
         modifier = Modifier
@@ -129,13 +117,6 @@ fun InventoryListScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            InventoryHeaderCard(
-                openedCustodianId = openedCustodianId,
-                selectedType = selectedType,
-                selectedCategory = selectedCategory,
-                items = (uiState as? InventoryListUiState.Success)?.activeItems.orEmpty()
-            )
-
             SkautaiSearchBar(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
@@ -157,6 +138,8 @@ fun InventoryListScreen(
                 state = uiState,
                 selectedType = selectedType,
                 selectedCategory = selectedCategory,
+                selectedLocationId = selectedLocationId,
+                locations = locations,
                 openedCustodianId = openedCustodianId,
                 canCreate = "items.create" in permissions,
                 viewModel = viewModel,
@@ -169,32 +152,6 @@ fun InventoryListScreen(
             modifier = Modifier.align(Alignment.TopCenter)
         )
     }
-}
-
-@Composable
-private fun InventoryHeaderCard(
-    openedCustodianId: String?,
-    selectedType: String?,
-    selectedCategory: String?,
-    items: List<ItemDto>
-) {
-    val title = inventoryContextTitle(openedCustodianId, selectedType, selectedCategory, items)
-    val subtitle = inventoryContextSubtitle(openedCustodianId, selectedType, selectedCategory)
-    val totalQuantity = items.sumOf { it.quantity }
-    SkautaiSummaryCard(
-        eyebrow = "Inventoriaus katalogas",
-        title = title,
-        subtitle = subtitle,
-        metrics = listOf(
-            "Irasai" to items.size.toString(),
-            "Vnt." to totalQuantity.toString(),
-            "Kategorijos" to items.map { it.category }.distinct().size.toString()
-        ),
-        foresty = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp)
-    )
 }
 
 @Composable
@@ -267,6 +224,8 @@ private fun InventoryBody(
     state: InventoryListUiState,
     selectedType: String?,
     selectedCategory: String?,
+    selectedLocationId: String?,
+    locations: List<LocationDto>,
     openedCustodianId: String?,
     canCreate: Boolean,
     viewModel: InventoryListViewModel,
@@ -327,12 +286,15 @@ private fun InventoryBody(
                 filteredItems = filtered,
                 selectedType = selectedType,
                 selectedCategory = selectedCategory,
+                selectedLocationId = selectedLocationId,
+                locations = locations,
                 openedCustodianId = openedCustodianId,
                 typeFilters = typeFilters,
                 categoryFilters = categoryFilters,
                 onClearFilters = viewModel::clearFilters,
                 onTypeSelected = viewModel::onTypeSelected,
                 onCategorySelected = viewModel::onCategorySelected,
+                onLocationSelected = viewModel::onLocationSelected,
                 onOpenItem = { itemId -> navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId)) }
             )
         }
@@ -346,12 +308,15 @@ private fun InventoryCatalogContent(
     filteredItems: List<ItemDto>,
     selectedType: String?,
     selectedCategory: String?,
+    selectedLocationId: String?,
+    locations: List<LocationDto>,
     openedCustodianId: String?,
     typeFilters: List<Pair<String, Pair<String, Int>>>,
     categoryFilters: List<Pair<String, Pair<String, Int>>>,
     onClearFilters: () -> Unit,
     onTypeSelected: (String?) -> Unit,
     onCategorySelected: (String?) -> Unit,
+    onLocationSelected: (String?) -> Unit,
     onOpenItem: (String) -> Unit
 ) {
     val groups = remember(filteredItems) { filteredItems.toInventoryGroups() }
@@ -407,6 +372,20 @@ private fun InventoryCatalogContent(
                                     selected = selectedCategory == category,
                                     onClick = { onCategorySelected(if (selectedCategory == category) null else category) }
                                 )
+                            }
+                        }
+                        if (locations.isNotEmpty()) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(bottom = 2.dp)
+                            ) {
+                                items(locations, key = { it.id }) { location ->
+                                    SkautaiChip(
+                                        label = location.name,
+                                        selected = selectedLocationId == location.id,
+                                        onClick = { onLocationSelected(if (selectedLocationId == location.id) null else location.id) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -509,10 +488,6 @@ private fun InventoryDenseRow(item: ItemDto, onOpen: () -> Unit) {
                 label = itemConditionLabel(item.condition),
                 tone = conditionTone(item.condition)
             )
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            SkautaiStatusPill(label = inventoryTypeLabel(item.type), tone = SkautaiStatusTone.Neutral)
-            SkautaiStatusPill(label = itemOriginLabel(item.origin), tone = originTone(item.origin))
         }
     }
 }
@@ -634,12 +609,6 @@ private fun conditionTone(condition: String): SkautaiStatusTone = when (conditio
     "GOOD" -> SkautaiStatusTone.Success
     "DAMAGED" -> SkautaiStatusTone.Warning
     "WRITTEN_OFF" -> SkautaiStatusTone.Danger
-    else -> SkautaiStatusTone.Neutral
-}
-
-private fun originTone(origin: String): SkautaiStatusTone = when (origin) {
-    "TRANSFERRED_FROM_TUNTAS" -> SkautaiStatusTone.Info
-    "UNIT_ACQUIRED" -> SkautaiStatusTone.Neutral
     else -> SkautaiStatusTone.Neutral
 }
 

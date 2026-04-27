@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -30,6 +31,31 @@ fun StabasCard(
     canManage: Boolean,
     onRemoveRole: (String) -> Unit
 ) {
+    var pendingRoleRemoval by remember { mutableStateOf<EventRoleDto?>(null) }
+
+    pendingRoleRemoval?.let { role ->
+        AlertDialog(
+            onDismissRequest = { pendingRoleRemoval = null },
+            title = { Text("Salinti is stabo?") },
+            text = {
+                Text("${role.userName ?: role.userId} bus pasalintas is renginio stabo pareigu ${eventRoleLabel(role.role)}.")
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRoleRemoval = null
+                        onRemoveRole(role.id)
+                    }
+                ) {
+                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atsaukti") }
+            }
+        )
+    }
+
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -60,7 +86,7 @@ fun StabasCard(
                         )
                     }
                     if (canManage && role.role != "VIRSININKAS") {
-                        TextButton(onClick = { onRemoveRole(role.id) }) {
+                        TextButton(onClick = { pendingRoleRemoval = role }) {
                             Text("Salinti")
                         }
                     }

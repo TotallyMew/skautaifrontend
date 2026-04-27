@@ -38,7 +38,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,9 +49,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
@@ -77,15 +73,6 @@ fun MemberListScreen(
     var query by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(AllFilter) }
     val listState = rememberLazyListState()
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.loadMembers()
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         when (val state = uiState) {
@@ -114,7 +101,10 @@ fun MemberListScreen(
                 } else {
                     val unitFilters = remember(state.members) {
                         state.members
-                            .flatMap { it.safeUnitAssignments().map { assignment -> assignment.organizationalUnitName } }
+                            .flatMap { member ->
+                                member.safeUnitAssignments().map { it.organizationalUnitName } +
+                                    member.leadershipRoles.mapNotNull { it.organizationalUnitName }
+                            }
                             .distinct()
                             .sorted()
                     }
@@ -125,7 +115,11 @@ fun MemberListScreen(
                         state.members
                             .filter { member -> member.matchesFilter(selectedFilter) }
                             .filter { member -> member.matchesQuery(query) }
-                            .sortedWith(compareBy<MemberDto> { it.primaryUnitName() }.thenBy { it.displayName() })
+                            .sortedWith(
+                                compareBy<MemberDto> {
+                                    if (it.primaryUnitName() == NoUnitLabel) "￿" else it.primaryUnitName()
+                                }.thenBy { it.displayName() }
+                            )
                     }
                     val groupedMembers = remember(filteredMembers) {
                         filteredMembers.groupBy { it.primaryUnitName() }

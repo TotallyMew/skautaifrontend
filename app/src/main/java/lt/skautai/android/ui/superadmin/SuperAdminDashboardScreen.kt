@@ -46,6 +46,8 @@ fun SuperAdminDashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingRoleRemoval by remember { mutableStateOf<MemberLeadershipRoleDto?>(null) }
+    var pendingRankRemoval by remember { mutableStateOf<MemberRankDto?>(null) }
 
     LaunchedEffect(uiState.error, uiState.actionSuccess) {
         uiState.error?.let {
@@ -97,6 +99,62 @@ fun SuperAdminDashboardScreen(
             onExpiresAtChanged = viewModel::onExpiresAtChanged,
             onConfirm = viewModel::updateLeadershipRole,
             onDismiss = viewModel::closeEditRoleDialog
+        )
+    }
+
+    pendingRoleRemoval?.let { role ->
+        AlertDialog(
+            onDismissRequest = { pendingRoleRemoval = null },
+            title = { Text("Salinti pareigas?") },
+            text = {
+                Text(
+                    buildString {
+                        append("Pareigos ")
+                        append(role.roleName)
+                        role.organizationalUnitName?.let {
+                            append(" vienete ")
+                            append(it)
+                        }
+                        append(" bus pasalintos.")
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRoleRemoval = null
+                        viewModel.removeLeadershipRole(role.id)
+                    },
+                    enabled = !uiState.isSaving
+                ) {
+                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atsaukti") }
+            }
+        )
+    }
+
+    pendingRankRemoval?.let { rank ->
+        AlertDialog(
+            onDismissRequest = { pendingRankRemoval = null },
+            title = { Text("Salinti laipsni?") },
+            text = { Text("Laipsnis ${rank.roleName} bus pasalintas is nario.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRankRemoval = null
+                        viewModel.removeRank(rank.id)
+                    },
+                    enabled = !uiState.isSaving
+                ) {
+                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atsaukti") }
+            }
         )
     }
 
@@ -181,9 +239,9 @@ fun SuperAdminDashboardScreen(
                             isSaving = uiState.isSaving,
                             onAssignRole = viewModel::openAssignRoleDialog,
                             onEditRole = viewModel::openEditRoleDialog,
-                            onRemoveRole = viewModel::removeLeadershipRole,
+                            onRemoveRole = { role -> pendingRoleRemoval = role },
                             onAssignRank = viewModel::openAssignRankDialog,
-                            onRemoveRank = viewModel::removeRank
+                            onRemoveRank = { rank -> pendingRankRemoval = rank }
                         )
                     }
                 }
@@ -358,9 +416,9 @@ private fun MemberDetailSection(
     isSaving: Boolean,
     onAssignRole: () -> Unit,
     onEditRole: (MemberLeadershipRoleDto) -> Unit,
-    onRemoveRole: (String) -> Unit,
+    onRemoveRole: (MemberLeadershipRoleDto) -> Unit,
     onAssignRank: () -> Unit,
-    onRemoveRank: (String) -> Unit
+    onRemoveRank: (MemberRankDto) -> Unit
 ) {
     SectionCard(title = "Nario detales") {
         when {
@@ -426,7 +484,7 @@ private fun RoleBlock(
     isSaving: Boolean,
     onAdd: () -> Unit,
     onEdit: (MemberLeadershipRoleDto) -> Unit,
-    onRemove: (String) -> Unit
+    onRemove: (MemberLeadershipRoleDto) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -471,7 +529,7 @@ private fun RoleBlock(
                             IconButton(onClick = { onEdit(role) }, enabled = !isSaving) {
                                 Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
                             }
-                            IconButton(onClick = { onRemove(role.id) }, enabled = !isSaving) {
+                            IconButton(onClick = { onRemove(role) }, enabled = !isSaving) {
                                 Icon(
                                     Icons.Default.Delete,
                                     contentDescription = "Salinti",
@@ -492,7 +550,7 @@ private fun RankBlock(
     ranks: List<MemberRankDto>,
     isSaving: Boolean,
     onAdd: () -> Unit,
-    onRemove: (String) -> Unit
+    onRemove: (MemberRankDto) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
@@ -525,7 +583,7 @@ private fun RankBlock(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    IconButton(onClick = { onRemove(rank.id) }, enabled = !isSaving) {
+                    IconButton(onClick = { onRemove(rank) }, enabled = !isSaving) {
                         Icon(
                             Icons.Default.Delete,
                             contentDescription = "Salinti",

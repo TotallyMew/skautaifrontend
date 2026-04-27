@@ -48,6 +48,18 @@ class PendingSyncViewModel @Inject constructor(
         }
     }
 
+    fun dismissFailed() {
+        viewModelScope.launch {
+            pendingOperationRepository.dismissFailed()
+        }
+    }
+
+    fun dismissOperation(operationId: String) {
+        viewModelScope.launch {
+            pendingOperationRepository.dismissOperation(operationId)
+        }
+    }
+
     private fun observeOnline(): Flow<Boolean> = callbackFlow {
         val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
@@ -148,6 +160,8 @@ private fun operationTypeLabel(type: String): String = when (type) {
     PendingOperationType.REQUISITION_REVIEW_UNIT -> "Perziuretas pirkimo prasymas"
     PendingOperationType.REQUISITION_REVIEW_TOP_LEVEL -> "Patvirtintas pirkimo prasymas"
     PendingOperationType.LOCATION_CREATE -> "Sukurta vieta"
+    PendingOperationType.LOCATION_UPDATE -> "Atnaujinta vieta"
+    PendingOperationType.LOCATION_DELETE -> "Istrinta vieta"
     PendingOperationType.MEMBER_ASSIGN_LEADERSHIP_ROLE -> "Priskirta pareiga"
     PendingOperationType.MEMBER_REMOVE_LEADERSHIP_ROLE -> "Panaikinta pareiga"
     PendingOperationType.MEMBER_STEP_DOWN_LEADERSHIP_ROLE -> "Atsisakyta pareigu"
@@ -164,5 +178,34 @@ private fun operationTypeLabel(type: String): String = when (type) {
     PendingOperationType.EVENT_CREATE -> "Sukurtas renginys"
     PendingOperationType.EVENT_UPDATE -> "Atnaujintas renginys"
     PendingOperationType.EVENT_CANCEL -> "Atsauktas renginys"
+    PendingOperationType.EVENT_ASSIGN_ROLE -> "Priskirta renginio pareiga"
+    PendingOperationType.EVENT_REMOVE_ROLE -> "Pasalinta renginio pareiga"
+    PendingOperationType.EVENT_CREATE_BUCKET -> "Sukurtas plano bucket"
+    PendingOperationType.EVENT_UPDATE_BUCKET -> "Atnaujintas plano bucket"
+    PendingOperationType.EVENT_DELETE_BUCKET -> "Istrintas plano bucket"
+    PendingOperationType.EVENT_CREATE_ITEM -> "Sukurta plano eilute"
+    PendingOperationType.EVENT_CREATE_ITEMS_BULK -> "Sukurtos plano eilutes"
+    PendingOperationType.EVENT_UPDATE_ITEM -> "Atnaujinta plano eilute"
+    PendingOperationType.EVENT_DELETE_ITEM -> "Istrinta plano eilute"
+    PendingOperationType.EVENT_CREATE_ALLOCATION -> "Sukurtas paskirstymas"
+    PendingOperationType.EVENT_UPDATE_ALLOCATION -> "Atnaujintas paskirstymas"
+    PendingOperationType.EVENT_DELETE_ALLOCATION -> "Istrintas paskirstymas"
+    PendingOperationType.EVENT_CREATE_PASTOVYKLE -> "Sukurta pastovykle"
+    PendingOperationType.EVENT_UPDATE_PASTOVYKLE -> "Atnaujinta pastovykle"
+    PendingOperationType.EVENT_DELETE_PASTOVYKLE -> "Istrinta pastovykle"
+    PendingOperationType.EVENT_ASSIGN_PASTOVYKLE_INVENTORY -> "Priskirtas pastovykles inventorius"
+    PendingOperationType.EVENT_UPDATE_PASTOVYKLE_INVENTORY -> "Atnaujintas pastovykles inventorius"
+    PendingOperationType.EVENT_DELETE_PASTOVYKLE_INVENTORY -> "Istrintas pastovykles inventorius"
+    PendingOperationType.EVENT_CREATE_PASTOVYKLE_REQUEST -> "Sukurtas pastovykles poreikis"
+    PendingOperationType.EVENT_APPROVE_PASTOVYKLE_REQUEST -> "Patvirtintas pastovykles poreikis"
+    PendingOperationType.EVENT_REJECT_PASTOVYKLE_REQUEST -> "Atmestas pastovykles poreikis"
+    PendingOperationType.EVENT_SELF_PROVIDE_PASTOVYKLE_REQUEST -> "Pastovykles poreikis pazymetas savo jegomis"
+    PendingOperationType.EVENT_FULFILL_PASTOVYKLE_REQUEST -> "Ivykdytas pastovykles poreikis"
+    PendingOperationType.EVENT_ASSIGN_FROM_UNIT_INVENTORY -> "Pazymetas inventorius is vieneto"
+    PendingOperationType.EVENT_CREATE_PURCHASE -> "Sukurtas pirkimas"
+    PendingOperationType.EVENT_ATTACH_PURCHASE_INVOICE -> "Prisegta pirkimo saskaita"
+    PendingOperationType.EVENT_COMPLETE_PURCHASE -> "Uzbaigtas pirkimas"
+    PendingOperationType.EVENT_ADD_PURCHASE_TO_INVENTORY -> "Pirkimas pridetas i inventoriu"
+    PendingOperationType.EVENT_CREATE_INVENTORY_MOVEMENT -> "Registruotas renginio judejimas"
     else -> type
 }

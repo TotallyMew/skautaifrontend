@@ -20,6 +20,7 @@ import lt.skautai.android.data.remote.CreateLocationRequestDto
 import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.UpdateLocationRequestDto
+import lt.skautai.android.data.sync.IdPayload
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
@@ -54,8 +55,8 @@ class LocationRepository @Inject constructor(
             val response = locationApiService.getLocations("Bearer ${token()}", currentTuntasId)
             if (response.isSuccessful) {
                 val locations = response.body()?.locations.orEmpty()
-                locationDao.deleteForTuntas(currentTuntasId)
                 locationDao.upsertAll(locations.toLocationEntities())
+                locationDao.deleteStaleForTuntas(currentTuntasId, locations.map { it.id })
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida gaunant lokacijas")))
@@ -154,6 +155,35 @@ class LocationRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida atnaujinant lokacija")))
             }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val cached = locationDao.getLocation(locationId, currentTuntasId)?.toDto()
+                ?: return Result.failure(Exception("Lokacija nerasta"))
+            val merged = cached.copy(
+                name = request.name ?: cached.name,
+                visibility = request.visibility ?: cached.visibility,
+                address = request.address ?: cached.address,
+                description = request.description ?: cached.description,
+                latitude = request.latitude ?: cached.latitude,
+                longitude = request.longitude ?: cached.longitude
+            )
+            locationDao.upsert(merged.toEntity())
+            val replaced = pendingOperationRepository.replaceCreatePayloadIfPending(
+                entityType = PendingEntityType.LOCATION,
+                entityId = locationId,
+                createOperationType = PendingOperationType.LOCATION_CREATE,
+                payload = request
+            )
+            if (!replaced) {
+                pendingOperationRepository.enqueue(
+                    tuntasId = currentTuntasId,
+                    entityType = PendingEntityType.LOCATION,
+                    entityId = locationId,
+                    operationType = PendingOperationType.LOCATION_UPDATE,
+                    payload = request
+                )
+            }
+            Result.success(merged)
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -169,6 +199,24 @@ class LocationRepository @Inject constructor(
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida trinant lokacija")))
             }
+        } catch (e: IOException) {
+            val currentTuntasId = tuntasId()
+            val deletedCreate = pendingOperationRepository.deletePendingCreateIfExists(
+                entityType = PendingEntityType.LOCATION,
+                entityId = locationId,
+                createOperationType = PendingOperationType.LOCATION_CREATE
+            )
+            locationDao.deleteLocation(locationId, currentTuntasId)
+            if (!deletedCreate) {
+                pendingOperationRepository.enqueue(
+                    tuntasId = currentTuntasId,
+                    entityType = PendingEntityType.LOCATION,
+                    entityId = locationId,
+                    operationType = PendingOperationType.LOCATION_DELETE,
+                    payload = IdPayload(locationId)
+                )
+            }
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

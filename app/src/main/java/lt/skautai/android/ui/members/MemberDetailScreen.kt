@@ -6,6 +6,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.PersonRemove
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
@@ -29,6 +30,9 @@ fun MemberDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
+    var pendingStepDownRole by remember { mutableStateOf<MemberLeadershipRoleDto?>(null) }
+    var pendingRoleRemoval by remember { mutableStateOf<MemberLeadershipRoleDto?>(null) }
+    var pendingRankRemoval by remember { mutableStateOf<MemberRankDto?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(userId) { viewModel.loadMember(userId) }
@@ -86,6 +90,23 @@ fun MemberDetailScreen(
         )
     }
 
+    if (uiState.showEditRoleDialog) {
+        EditRoleDialog(
+            units = uiState.availableUnits,
+            selectedUnitId = uiState.selectedUnitId,
+            selectedTermStatus = uiState.selectedTermStatus,
+            startsAt = uiState.startsAt,
+            expiresAt = uiState.expiresAt,
+            isSaving = uiState.isSaving,
+            onUnitSelected = viewModel::onRoleUnitSelected,
+            onTermStatusSelected = viewModel::onTermStatusSelected,
+            onStartsAtChanged = viewModel::onStartsAtChanged,
+            onExpiresAtChanged = viewModel::onExpiresAtChanged,
+            onConfirm = { viewModel.updateLeadershipRole(userId) },
+            onDismiss = viewModel::hideEditRoleDialog
+        )
+    }
+
     if (uiState.showMoveMemberDialog) {
         MoveMemberDialog(
             units = uiState.availableUnits,
@@ -94,6 +115,96 @@ fun MemberDetailScreen(
             onUnitSelected = viewModel::onMoveUnitSelected,
             onConfirm = { viewModel.moveMember(userId) },
             onDismiss = viewModel::hideMoveMemberDialog
+        )
+    }
+
+    pendingStepDownRole?.let { role ->
+        AlertDialog(
+            onDismissRequest = { pendingStepDownRole = null },
+            title = { Text("Atsistatydinti is pareigu?") },
+            text = {
+                Text(
+                    buildString {
+                        append("Bus uzdarytos pareigos ")
+                        append(role.roleName)
+                        role.organizationalUnitName?.let {
+                            append(" vienete ")
+                            append(it)
+                        }
+                        append(".")
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingStepDownRole = null
+                        viewModel.stepDownLeadershipRole(userId, role.id)
+                    },
+                    enabled = !uiState.isSaving
+                ) {
+                    Text("Atsistatydinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingStepDownRole = null }) { Text("Atsaukti") }
+            }
+        )
+    }
+
+    pendingRoleRemoval?.let { role ->
+        AlertDialog(
+            onDismissRequest = { pendingRoleRemoval = null },
+            title = { Text("Salinti pareigas?") },
+            text = {
+                Text(
+                    buildString {
+                        append("Pareigos ")
+                        append(role.roleName)
+                        role.organizationalUnitName?.let {
+                            append(" vienete ")
+                            append(it)
+                        }
+                        append(" bus pasalintos.")
+                    }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRoleRemoval = null
+                        viewModel.removeLeadershipRole(userId, role.id)
+                    },
+                    enabled = !uiState.isSaving
+                ) {
+                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atsaukti") }
+            }
+        )
+    }
+
+    pendingRankRemoval?.let { rank ->
+        AlertDialog(
+            onDismissRequest = { pendingRankRemoval = null },
+            title = { Text("Salinti laipsni?") },
+            text = { Text("Laipsnis ${rank.roleName} bus pasalintas is sio nario.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingRankRemoval = null
+                        viewModel.removeRank(userId, rank.id)
+                    },
+                    enabled = !uiState.isSaving
+                ) {
+                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atsaukti") }
+            }
         )
     }
 
@@ -135,10 +246,11 @@ fun MemberDetailScreen(
                     canMoveMember = "unit.members.manage:ALL" in permissions,
                     onMoveMember = viewModel::openMoveMemberDialog,
                     onAssignRole = viewModel::openAssignRoleDialog,
-                    onStepDownRole = { assignmentId -> viewModel.stepDownLeadershipRole(userId, assignmentId) },
-                    onRemoveRole = { assignmentId -> viewModel.removeLeadershipRole(userId, assignmentId) },
+                    onEditRole = viewModel::openEditRoleDialog,
+                    onStepDownRole = { role -> pendingStepDownRole = role },
+                    onRemoveRole = { role -> pendingRoleRemoval = role },
                     onAssignRank = viewModel::openAssignRankDialog,
-                    onRemoveRank = { rankId -> viewModel.removeRank(userId, rankId) }
+                    onRemoveRank = { rank -> pendingRankRemoval = rank }
                 )
             }
         }
@@ -154,10 +266,11 @@ private fun MemberDetailContent(
     canMoveMember: Boolean,
     onMoveMember: () -> Unit,
     onAssignRole: () -> Unit,
-    onStepDownRole: (String) -> Unit,
-    onRemoveRole: (String) -> Unit,
+    onEditRole: (MemberLeadershipRoleDto) -> Unit,
+    onStepDownRole: (MemberLeadershipRoleDto) -> Unit,
+    onRemoveRole: (MemberLeadershipRoleDto) -> Unit,
     onAssignRank: () -> Unit,
-    onRemoveRank: (String) -> Unit
+    onRemoveRank: (MemberRankDto) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -197,6 +310,7 @@ private fun MemberDetailContent(
             isCurrentUser = isCurrentUser,
             canManageRoles = canManageRoles,
             onAssignRole = onAssignRole,
+            onEditRole = onEditRole,
             onStepDownRole = onStepDownRole,
             onRemoveRole = onRemoveRole
         )
@@ -270,8 +384,9 @@ private fun MemberRolesSection(
     isCurrentUser: Boolean,
     canManageRoles: Boolean,
     onAssignRole: () -> Unit,
-    onStepDownRole: (String) -> Unit,
-    onRemoveRole: (String) -> Unit
+    onEditRole: (MemberLeadershipRoleDto) -> Unit,
+    onStepDownRole: (MemberLeadershipRoleDto) -> Unit,
+    onRemoveRole: (MemberLeadershipRoleDto) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -312,12 +427,15 @@ private fun MemberRolesSection(
                         }
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isCurrentUser && role.termStatus == "ACTIVE") {
-                                TextButton(onClick = { onStepDownRole(role.id) }, enabled = !isSaving) {
+                                TextButton(onClick = { onStepDownRole(role) }, enabled = !isSaving) {
                                     Text("Atsistatydinti")
                                 }
                             }
                             if (canManageRoles) {
-                                IconButton(onClick = { onRemoveRole(role.id) }, enabled = !isSaving) {
+                                IconButton(onClick = { onEditRole(role) }, enabled = !isSaving) {
+                                    Icon(Icons.Default.Edit, contentDescription = "Redaguoti pareigas")
+                                }
+                                IconButton(onClick = { onRemoveRole(role) }, enabled = !isSaving) {
                                     Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas",
                                         tint = MaterialTheme.colorScheme.error)
                                 }
@@ -370,7 +488,7 @@ private fun MemberRanksSection(
     isSaving: Boolean,
     canManageRoles: Boolean,
     onAssignRank: () -> Unit,
-    onRemoveRank: (String) -> Unit
+    onRemoveRank: (MemberRankDto) -> Unit
 ) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -397,7 +515,7 @@ private fun MemberRanksSection(
                     ) {
                         Text(rank.roleName, style = MaterialTheme.typography.bodyMedium)
                         if (canManageRoles) {
-                            IconButton(onClick = { onRemoveRank(rank.id) }, enabled = !isSaving) {
+                            IconButton(onClick = { onRemoveRank(rank) }, enabled = !isSaving) {
                                 Icon(Icons.Default.Delete, contentDescription = "Šalinti laipsnį",
                                     tint = MaterialTheme.colorScheme.error)
                             }
@@ -581,6 +699,109 @@ private fun MoveMemberDialog(
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = selectedUnitId.isNotBlank() && !isSaving) {
                 Text("Perkelti")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditRoleDialog(
+    units: List<OrganizationalUnitDto>,
+    selectedUnitId: String?,
+    selectedTermStatus: String,
+    startsAt: String,
+    expiresAt: String,
+    isSaving: Boolean,
+    onUnitSelected: (String?) -> Unit,
+    onTermStatusSelected: (String) -> Unit,
+    onStartsAtChanged: (String) -> Unit,
+    onExpiresAtChanged: (String) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var unitExpanded by remember { mutableStateOf(false) }
+    var statusExpanded by remember { mutableStateOf(false) }
+    val selectedUnit = units.find { it.id == selectedUnitId }
+    val statuses = listOf("ACTIVE", "COMPLETED", "RESIGNED")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Redaguoti pareigas") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ExposedDropdownMenuBox(expanded = statusExpanded, onExpandedChange = { statusExpanded = it }) {
+                    OutlinedTextField(
+                        value = selectedTermStatus,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Statusas") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(statusExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(expanded = statusExpanded, onDismissRequest = { statusExpanded = false }) {
+                        statuses.forEach { status ->
+                            DropdownMenuItem(
+                                text = { Text(status) },
+                                onClick = {
+                                    onTermStatusSelected(status)
+                                    statusExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (units.isNotEmpty()) {
+                    ExposedDropdownMenuBox(expanded = unitExpanded, onExpandedChange = { unitExpanded = it }) {
+                        OutlinedTextField(
+                            value = selectedUnit?.name ?: "Vienetas (neprivaloma)",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Vienetas") },
+                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
+                            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                        )
+                        ExposedDropdownMenu(expanded = unitExpanded, onDismissRequest = { unitExpanded = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Nepriskirtas") },
+                                onClick = {
+                                    onUnitSelected(null)
+                                    unitExpanded = false
+                                }
+                            )
+                            units.forEach { unit ->
+                                DropdownMenuItem(
+                                    text = { Text(unit.name) },
+                                    onClick = {
+                                        onUnitSelected(unit.id)
+                                        unitExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+
+                OutlinedTextField(
+                    value = startsAt,
+                    onValueChange = onStartsAtChanged,
+                    label = { Text("Pradzia (YYYY-MM-DD)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                OutlinedTextField(
+                    value = expiresAt,
+                    onValueChange = onExpiresAtChanged,
+                    label = { Text("Pabaiga (YYYY-MM-DD)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, enabled = !isSaving) {
+                Text("Issaugoti")
             }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }

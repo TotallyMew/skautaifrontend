@@ -45,12 +45,12 @@ class EventListViewModel @Inject constructor(
             if (_uiState.value !is EventListUiState.Success) {
                 _uiState.value = EventListUiState.Loading
             }
-            eventRepository.refreshEvents(type = type)
-                .onSuccess {
-                    val current = _uiState.value as? EventListUiState.Success
-                    if (current != null) {
-                        _uiState.value = current.copy(activeFilter = currentTypeFilter)
-                    }
+            eventRepository.getEvents(type = type)
+                .onSuccess { events ->
+                    _uiState.value = EventListUiState.Success(
+                        events = events.events,
+                        activeFilter = currentTypeFilter
+                    )
                 }
                 .onFailure { error ->
                     val current = _uiState.value as? EventListUiState.Success

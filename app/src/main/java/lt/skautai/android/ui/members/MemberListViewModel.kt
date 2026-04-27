@@ -26,22 +26,31 @@ class MemberListViewModel @Inject constructor(
     val uiState: StateFlow<MemberListUiState> = _uiState.asStateFlow()
 
     init {
+        observeCachedMembers()
         loadMembers()
+    }
+
+    private fun observeCachedMembers() {
+        viewModelScope.launch {
+            memberRepository.observeMembers().collect { memberList ->
+                if (memberList.members.isNotEmpty()) {
+                    _uiState.value = MemberListUiState.Success(memberList.members)
+                } else if (_uiState.value !is MemberListUiState.Loading) {
+                    _uiState.value = MemberListUiState.Success(emptyList())
+                }
+            }
+        }
     }
 
     fun loadMembers() {
         viewModelScope.launch {
-            if (_uiState.value !is MemberListUiState.Success) {
-                _uiState.value = MemberListUiState.Loading
-            }
-            memberRepository.getMembers()
-                .onSuccess { response ->
-                    _uiState.value = MemberListUiState.Success(response.members)
-                }
+            memberRepository.refreshMembers()
                 .onFailure { error ->
-                    _uiState.value = MemberListUiState.Error(
-                        error.message ?: "Klaida gaunant narius"
-                    )
+                    if (_uiState.value is MemberListUiState.Loading) {
+                        _uiState.value = MemberListUiState.Error(
+                            error.message ?: "Klaida gaunant narius"
+                        )
+                    }
                 }
         }
     }

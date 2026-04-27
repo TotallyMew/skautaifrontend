@@ -26,6 +26,15 @@ interface MemberApiService {
         @Body request: AssignLeadershipRoleRequestDto
     ): Response<MemberLeadershipRoleDto>
 
+    @PUT("api/members/{userId}/leadership-roles/{assignmentId}")
+    suspend fun updateLeadershipRole(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("userId") userId: String,
+        @Path("assignmentId") assignmentId: String,
+        @Body request: UpdateLeadershipRoleRequestDto
+    ): Response<MemberLeadershipRoleDto>
+
     @DELETE("api/members/{userId}/leadership-roles/{assignmentId}")
     suspend fun removeLeadershipRole(
         @Header("Authorization") token: String,

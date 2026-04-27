@@ -12,8 +12,10 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
@@ -30,6 +32,7 @@ sealed interface InventoryListUiState {
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
+    private val locationRepository: LocationRepository,
     private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -49,11 +52,17 @@ class InventoryListViewModel @Inject constructor(
     private val _selectedCategory = MutableStateFlow(savedStateHandle.get<String?>("category"))
     val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
 
+    private val _selectedLocationId = MutableStateFlow<String?>(null)
+    val selectedLocationId: StateFlow<String?> = _selectedLocationId.asStateFlow()
+
     private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
     val openedCustodianId: String? = initialCustodianId
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val locations: StateFlow<List<LocationDto>> = locationRepository.observeLocations()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         observeCachedItems()
@@ -182,9 +191,15 @@ class InventoryListViewModel @Inject constructor(
         _selectedCategory.value = category
     }
 
+    fun onLocationSelected(locationId: String?) {
+        _selectedLocationId.value = locationId
+        loadItems()
+    }
+
     fun clearFilters() {
         _selectedType.value = null
         _selectedCategory.value = null
+        _selectedLocationId.value = null
     }
 
     fun filteredItems(items: List<ItemDto>): List<ItemDto> {
@@ -195,13 +210,15 @@ class InventoryListViewModel @Inject constructor(
         val byCategory = _selectedCategory.value?.let { selected ->
             byType.filter { it.category == selected }
         } ?: byType
+        val byLocation = _selectedLocationId.value?.let { selected ->
+            byCategory.filter { it.locationId == selected }
+        } ?: byCategory
 
-        if (query.isBlank()) return byCategory
-        return byCategory.filter {
+        if (query.isBlank()) return byLocation
+        return byLocation.filter {
             it.name.contains(query, ignoreCase = true) ||
                 it.notes?.contains(query, ignoreCase = true) == true ||
-                it.custodianName?.contains(query, ignoreCase = true) == true ||
-                it.locationId?.contains(query, ignoreCase = true) == true
+                it.custodianName?.contains(query, ignoreCase = true) == true
         }
     }
 }

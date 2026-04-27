@@ -34,7 +34,10 @@ class AuthRepository @Inject constructor(
             val tuntasId = tuntas.id
             tokenManager.setActiveTuntas(tuntasId, tuntas.name)
             userRepository.getMyPermissions(tuntasId)
-                .onSuccess { tokenManager.savePermissions(it) }
+                .onSuccess {
+                    tokenManager.savePermissions(it)
+                    tokenManager.cachePermissionsForTuntas(tuntasId, it)
+                }
         }
     }
 

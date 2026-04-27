@@ -201,7 +201,7 @@ private fun ItemDetailContent(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = listOfNotNull(item.locationId, item.custodianName).joinToString(" · ").ifBlank {
+                            text = listOfNotNull(item.locationPath ?: item.locationName, item.custodianName).joinToString(" · ").ifBlank {
                                 "Vieta dar nenurodyta"
                             },
                             style = MaterialTheme.typography.bodyMedium,
@@ -300,7 +300,7 @@ private fun ItemDetailContent(
                 MetadataRow("Bukle", itemConditionLabel(item.condition))
                 MetadataRow("Kilme", itemOriginLabel(item.origin))
                 MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandelis")
-                MetadataRow("Vieta", item.locationId ?: "Nenurodyta")
+                MetadataRow("Vieta", item.locationPath ?: item.locationName ?: "Nenurodyta")
                 item.purchaseDate?.let { MetadataRow("Pirkta", it.take(10)) }
                 item.purchasePrice?.let { MetadataRow("Kaina", String.format("%.2f EUR", it)) }
             }

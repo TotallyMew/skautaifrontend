@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import lt.skautai.android.data.local.dao.MemberDao
 import lt.skautai.android.data.local.dao.OrganizationalUnitDao
 import lt.skautai.android.data.local.mapper.toDto
 import lt.skautai.android.data.local.mapper.toEntity
@@ -34,6 +35,7 @@ class OrganizationalUnitRepository @Inject constructor(
     private val orgUnitApiService: OrganizationalUnitApiService,
     private val tokenManager: TokenManager,
     private val organizationalUnitDao: OrganizationalUnitDao,
+    private val memberDao: MemberDao,
     private val pendingOperationRepository: PendingOperationRepository
 ) {
     private suspend fun token() = tokenManager.token.first()
@@ -211,7 +213,11 @@ class OrganizationalUnitRepository @Inject constructor(
             if (response.isSuccessful) Result.success(response.body()!!.members)
             else Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
         } catch (e: Exception) {
-            Result.failure(e)
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+            val cachedMembers = currentTuntasId
+                ?.let { cachedUnitMembers(it, unitId) }
+                .orEmpty()
+            if (cachedMembers.isNotEmpty()) Result.success(cachedMembers) else Result.failure(e)
         }
     }
 
@@ -222,6 +228,7 @@ class OrganizationalUnitRepository @Inject constructor(
             else Result.failure(Exception(response.errorMessage("Klaida priskiriant nari")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
+            addUnitAssignmentToCachedMember(currentTuntasId, unitId, request.userId, request.assignmentType)
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
                 entityType = PendingEntityType.ORGANIZATIONAL_UNIT,
@@ -242,6 +249,7 @@ class OrganizationalUnitRepository @Inject constructor(
             else Result.failure(Exception(response.errorMessage("Klaida salinant nari")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
+            removeUnitAssignmentFromCachedMember(currentTuntasId, unitId, userId)
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
                 entityType = PendingEntityType.ORGANIZATIONAL_UNIT,
@@ -262,6 +270,8 @@ class OrganizationalUnitRepository @Inject constructor(
             else Result.failure(Exception(response.errorMessage("Klaida paliekant vieneta")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
+            val currentUserId = tokenManager.userId.first().orEmpty()
+            removeUnitAssignmentFromCachedMember(currentTuntasId, unitId, currentUserId)
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
                 entityType = PendingEntityType.ORGANIZATIONAL_UNIT,
@@ -282,6 +292,7 @@ class OrganizationalUnitRepository @Inject constructor(
             else Result.failure(Exception(response.errorMessage("Klaida perkeliant nari")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
+            addUnitAssignmentToCachedMember(currentTuntasId, unitId, userId, "PRIMARY")
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
                 entityType = PendingEntityType.ORGANIZATIONAL_UNIT,
@@ -315,5 +326,64 @@ class OrganizationalUnitRepository @Inject constructor(
             joinedAt = Instant.now().toString(),
             leftAt = null
         )
+    }
+
+    private suspend fun cachedUnitMembers(currentTuntasId: String, unitId: String): List<UnitMembershipDto> {
+        val unitName = organizationalUnitDao.getUnit(unitId, currentTuntasId)?.toDto()?.name.orEmpty()
+        return memberDao.getMembers(currentTuntasId)
+            .map { it.toDto() }
+            .flatMap { member ->
+                member.unitAssignments.orEmpty()
+                    .filter { it.organizationalUnitId == unitId }
+                    .map { assignment ->
+                        UnitMembershipDto(
+                            id = assignment.id,
+                            userId = member.userId,
+                            userName = member.name,
+                            userSurname = member.surname,
+                            organizationalUnitId = assignment.organizationalUnitId,
+                            organizationalUnitName = assignment.organizationalUnitName.ifBlank { unitName },
+                            tuntasId = currentTuntasId,
+                            assignmentType = assignment.assignmentType,
+                            assignedByUserId = null,
+                            joinedAt = assignment.joinedAt,
+                            leftAt = null
+                        )
+                    }
+            }
+            .sortedWith(compareBy({ it.userSurname.lowercase() }, { it.userName.lowercase() }))
+    }
+
+    private suspend fun addUnitAssignmentToCachedMember(
+        currentTuntasId: String,
+        unitId: String,
+        userId: String,
+        assignmentType: String
+    ) {
+        val cachedMember = memberDao.getMember(userId, currentTuntasId)?.toDto() ?: return
+        val unit = organizationalUnitDao.getUnit(unitId, currentTuntasId)?.toDto()
+        val updatedAssignments = cachedMember.unitAssignments.orEmpty()
+            .filterNot { it.organizationalUnitId == unitId }
+            .plus(
+                lt.skautai.android.data.remote.MemberUnitAssignmentDto(
+                    id = "local-${UUID.randomUUID()}",
+                    organizationalUnitId = unitId,
+                    organizationalUnitName = unit?.name.orEmpty(),
+                    assignmentType = assignmentType,
+                    joinedAt = Instant.now().toString()
+                )
+            )
+        memberDao.upsert(cachedMember.copy(unitAssignments = updatedAssignments).toEntity(currentTuntasId))
+    }
+
+    private suspend fun removeUnitAssignmentFromCachedMember(
+        currentTuntasId: String,
+        unitId: String,
+        userId: String
+    ) {
+        val cachedMember = memberDao.getMember(userId, currentTuntasId)?.toDto() ?: return
+        val updatedAssignments = cachedMember.unitAssignments.orEmpty()
+            .filterNot { it.organizationalUnitId == unitId }
+        memberDao.upsert(cachedMember.copy(unitAssignments = updatedAssignments).toEntity(currentTuntasId))
     }
 }

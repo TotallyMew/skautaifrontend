@@ -31,6 +31,8 @@ object PendingOperationType {
     const val REQUISITION_REVIEW_UNIT = "REQUISITION_REVIEW_UNIT"
     const val REQUISITION_REVIEW_TOP_LEVEL = "REQUISITION_REVIEW_TOP_LEVEL"
     const val LOCATION_CREATE = "LOCATION_CREATE"
+    const val LOCATION_UPDATE = "LOCATION_UPDATE"
+    const val LOCATION_DELETE = "LOCATION_DELETE"
     const val MEMBER_ASSIGN_LEADERSHIP_ROLE = "MEMBER_ASSIGN_LEADERSHIP_ROLE"
     const val MEMBER_REMOVE_LEADERSHIP_ROLE = "MEMBER_REMOVE_LEADERSHIP_ROLE"
     const val MEMBER_STEP_DOWN_LEADERSHIP_ROLE = "MEMBER_STEP_DOWN_LEADERSHIP_ROLE"
@@ -47,6 +49,35 @@ object PendingOperationType {
     const val EVENT_CREATE = "EVENT_CREATE"
     const val EVENT_UPDATE = "EVENT_UPDATE"
     const val EVENT_CANCEL = "EVENT_CANCEL"
+    const val EVENT_ASSIGN_ROLE = "EVENT_ASSIGN_ROLE"
+    const val EVENT_REMOVE_ROLE = "EVENT_REMOVE_ROLE"
+    const val EVENT_CREATE_BUCKET = "EVENT_CREATE_BUCKET"
+    const val EVENT_UPDATE_BUCKET = "EVENT_UPDATE_BUCKET"
+    const val EVENT_DELETE_BUCKET = "EVENT_DELETE_BUCKET"
+    const val EVENT_CREATE_ITEM = "EVENT_CREATE_ITEM"
+    const val EVENT_CREATE_ITEMS_BULK = "EVENT_CREATE_ITEMS_BULK"
+    const val EVENT_UPDATE_ITEM = "EVENT_UPDATE_ITEM"
+    const val EVENT_DELETE_ITEM = "EVENT_DELETE_ITEM"
+    const val EVENT_CREATE_ALLOCATION = "EVENT_CREATE_ALLOCATION"
+    const val EVENT_UPDATE_ALLOCATION = "EVENT_UPDATE_ALLOCATION"
+    const val EVENT_DELETE_ALLOCATION = "EVENT_DELETE_ALLOCATION"
+    const val EVENT_CREATE_PASTOVYKLE = "EVENT_CREATE_PASTOVYKLE"
+    const val EVENT_UPDATE_PASTOVYKLE = "EVENT_UPDATE_PASTOVYKLE"
+    const val EVENT_DELETE_PASTOVYKLE = "EVENT_DELETE_PASTOVYKLE"
+    const val EVENT_ASSIGN_PASTOVYKLE_INVENTORY = "EVENT_ASSIGN_PASTOVYKLE_INVENTORY"
+    const val EVENT_UPDATE_PASTOVYKLE_INVENTORY = "EVENT_UPDATE_PASTOVYKLE_INVENTORY"
+    const val EVENT_DELETE_PASTOVYKLE_INVENTORY = "EVENT_DELETE_PASTOVYKLE_INVENTORY"
+    const val EVENT_CREATE_PASTOVYKLE_REQUEST = "EVENT_CREATE_PASTOVYKLE_REQUEST"
+    const val EVENT_APPROVE_PASTOVYKLE_REQUEST = "EVENT_APPROVE_PASTOVYKLE_REQUEST"
+    const val EVENT_REJECT_PASTOVYKLE_REQUEST = "EVENT_REJECT_PASTOVYKLE_REQUEST"
+    const val EVENT_SELF_PROVIDE_PASTOVYKLE_REQUEST = "EVENT_SELF_PROVIDE_PASTOVYKLE_REQUEST"
+    const val EVENT_FULFILL_PASTOVYKLE_REQUEST = "EVENT_FULFILL_PASTOVYKLE_REQUEST"
+    const val EVENT_ASSIGN_FROM_UNIT_INVENTORY = "EVENT_ASSIGN_FROM_UNIT_INVENTORY"
+    const val EVENT_CREATE_PURCHASE = "EVENT_CREATE_PURCHASE"
+    const val EVENT_ATTACH_PURCHASE_INVOICE = "EVENT_ATTACH_PURCHASE_INVOICE"
+    const val EVENT_COMPLETE_PURCHASE = "EVENT_COMPLETE_PURCHASE"
+    const val EVENT_ADD_PURCHASE_TO_INVENTORY = "EVENT_ADD_PURCHASE_TO_INVENTORY"
+    const val EVENT_CREATE_INVENTORY_MOVEMENT = "EVENT_CREATE_INVENTORY_MOVEMENT"
 }
 
 data class IdPayload(val id: String)
@@ -55,3 +86,109 @@ data class ReservationReviewPayload(val id: String, val status: String, val note
 data class MemberAssignmentPayload(val userId: String, val assignmentId: String)
 data class MemberRankPayload(val userId: String, val rankId: String)
 data class UnitMemberPayload(val unitId: String, val userId: String)
+data class EventRoleRemovalPayload(val eventId: String, val roleId: String)
+data class EventBucketCreatePayload(
+    val eventId: String,
+    val request: lt.skautai.android.data.remote.CreateEventInventoryBucketRequestDto
+)
+data class EventBucketUpdatePayload(
+    val eventId: String,
+    val bucketId: String,
+    val request: lt.skautai.android.data.remote.UpdateEventInventoryBucketRequestDto
+)
+data class EventBucketDeletePayload(
+    val eventId: String,
+    val bucketId: String
+)
+data class EventItemCreatePayload(
+    val eventId: String,
+    val request: lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
+)
+data class EventItemsBulkCreatePayload(
+    val eventId: String,
+    val request: lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
+)
+data class EventItemUpdatePayload(
+    val eventId: String,
+    val inventoryItemId: String,
+    val request: lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
+)
+data class EventItemDeletePayload(
+    val eventId: String,
+    val inventoryItemId: String
+)
+data class EventAllocationCreatePayload(
+    val eventId: String,
+    val request: lt.skautai.android.data.remote.CreateEventInventoryAllocationRequestDto
+)
+data class EventAllocationUpdatePayload(
+    val eventId: String,
+    val allocationId: String,
+    val request: lt.skautai.android.data.remote.UpdateEventInventoryAllocationRequestDto
+)
+data class EventAllocationDeletePayload(
+    val eventId: String,
+    val allocationId: String
+)
+data class EventPastovykleUpsertPayload(
+    val eventId: String,
+    val request: lt.skautai.android.data.remote.CreatePastovykleRequestDto
+)
+data class EventPastovykleUpdatePayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val request: lt.skautai.android.data.remote.UpdatePastovykleRequestDto
+)
+data class EventPastovykleDeletePayload(
+    val eventId: String,
+    val pastovykleId: String
+)
+data class EventPastovykleInventoryAssignPayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val request: lt.skautai.android.data.remote.AssignPastovykleInventoryRequestDto
+)
+data class EventPastovykleInventoryUpdatePayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val inventoryId: String,
+    val request: lt.skautai.android.data.remote.UpdatePastovykleInventoryRequestDto
+)
+data class EventPastovykleInventoryDeletePayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val inventoryId: String
+)
+data class EventPastovykleRequestCreatePayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val request: lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
+)
+data class EventPastovykleRequestActionPayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val requestId: String,
+    val quantity: Int? = null,
+    val notes: String? = null
+)
+data class EventAssignFromUnitInventoryPayload(
+    val eventId: String,
+    val pastovykleId: String,
+    val itemId: String,
+    val quantity: Int,
+    val notes: String? = null
+)
+data class EventPurchasePayload(
+    val eventId: String,
+    val purchaseId: String
+)
+data class EventAttachPurchaseInvoicePayload(
+    val eventId: String,
+    val purchaseId: String,
+    val invoiceFileUrl: String? = null,
+    val stagedDocumentUrl: String? = null
+)
+data class EventInventoryMovementPayload(
+    val eventId: String,
+    val request: lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
+)

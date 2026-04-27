@@ -1,5 +1,16 @@
 package lt.skautai.android.data.remote
 
+enum class LocationVisibility(val apiValue: String, val displayName: String) {
+    PUBLIC("PUBLIC", "Vieša"),
+    UNIT("UNIT", "Padalinio"),
+    PRIVATE("PRIVATE", "Privati");
+
+    companion object {
+        fun fromApiValue(value: String): LocationVisibility =
+            entries.firstOrNull { it.apiValue == value } ?: PUBLIC
+    }
+}
+
 data class LocationDto(
     val id: String,
     val tuntasId: String,

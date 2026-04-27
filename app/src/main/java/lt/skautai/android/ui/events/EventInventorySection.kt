@@ -400,12 +400,56 @@ fun UkvedysCard(
     var allocationItemId by remember { mutableStateOf<String?>(null) }
     var allocationBucketId by remember { mutableStateOf<String?>(null) }
     var allocationQuantity by remember { mutableStateOf("") }
+    var pendingBucketDeletion by remember { mutableStateOf<EventInventoryBucketDto?>(null) }
+    var pendingAllocationDeletion by remember { mutableStateOf<EventInventoryAllocationDto?>(null) }
     val shortageItems = inventoryPlan?.items.orEmpty().filter { it.shortageQuantity > 0 }
     val planItems = inventoryPlan?.items.orEmpty()
     val buckets = inventoryPlan?.buckets.orEmpty()
     val allocations = inventoryPlan?.allocations.orEmpty()
     val allRequests = pastovykleRequestsById.values.flatten().sortedByDescending { it.createdAt }
     val returnMode = eventStatus == "COMPLETED"
+
+    pendingBucketDeletion?.let { bucket ->
+        AlertDialog(
+            onDismissRequest = { pendingBucketDeletion = null },
+            title = { Text("Trinti bucket?") },
+            text = { Text("Bucket ${bucket.name} bus istrintas.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingBucketDeletion = null
+                        onDeleteBucket(bucket.id)
+                    }
+                ) {
+                    Text("Trinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingBucketDeletion = null }) { Text("Atsaukti") }
+            }
+        )
+    }
+
+    pendingAllocationDeletion?.let { allocation ->
+        AlertDialog(
+            onDismissRequest = { pendingAllocationDeletion = null },
+            title = { Text("Trinti paskirstyma?") },
+            text = { Text("Paskirstymas ${allocation.bucketName} bus istrintas.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingAllocationDeletion = null
+                        onDeleteAllocation(allocation.id)
+                    }
+                ) {
+                    Text("Trinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingAllocationDeletion = null }) { Text("Atsaukti") }
+            }
+        )
+    }
 
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -489,7 +533,7 @@ fun UkvedysCard(
                             Text(bucket.type, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (canManage) {
-                            TextButton(onClick = { onDeleteBucket(bucket.id) }) { Text("Trinti") }
+                            TextButton(onClick = { pendingBucketDeletion = bucket }) { Text("Trinti") }
                         }
                     }
                 }
@@ -534,7 +578,7 @@ fun UkvedysCard(
                             Text("${allocation.quantity} vnt.", color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         if (canManage) {
-                            TextButton(onClick = { onDeleteAllocation(allocation.id) }) { Text("Trinti") }
+                            TextButton(onClick = { pendingAllocationDeletion = allocation }) { Text("Trinti") }
                         }
                     }
                 }
@@ -657,6 +701,7 @@ fun PlanCard(
     onDeleteNeed: (String) -> Unit
 ) {
     var editing by remember { mutableStateOf<EventInventoryItemDto?>(null) }
+    var pendingNeedDeletion by remember { mutableStateOf<EventInventoryItemDto?>(null) }
     val buckets = inventoryPlan?.buckets.orEmpty()
 
     editing?.let { item ->
@@ -669,6 +714,28 @@ fun PlanCard(
             onSave = { name, quantity, bucketId, responsibleUserId, notes ->
                 onUpdateNeed(item, name, quantity, bucketId, responsibleUserId, notes)
                 editing = null
+            }
+        )
+    }
+
+    pendingNeedDeletion?.let { item ->
+        AlertDialog(
+            onDismissRequest = { pendingNeedDeletion = null },
+            title = { Text("Trinti poreiki?") },
+            text = { Text("Poreikis ${item.name} bus istrintas is plano.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingNeedDeletion = null
+                        onDeleteNeed(item.id)
+                    },
+                    enabled = !isWorking
+                ) {
+                    Text("Trinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingNeedDeletion = null }) { Text("Atsaukti") }
             }
         )
     }
@@ -708,7 +775,7 @@ fun PlanCard(
                                                     Text("Redaguoti")
                                                 }
                                                 TextButton(
-                                                    onClick = { onDeleteNeed(item.id) },
+                                                    onClick = { pendingNeedDeletion = item },
                                                     contentPadding = PaddingValues(0.dp)
                                                 ) {
                                                     Text("Trinti")

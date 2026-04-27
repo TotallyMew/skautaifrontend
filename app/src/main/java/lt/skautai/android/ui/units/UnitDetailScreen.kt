@@ -33,6 +33,7 @@ fun UnitDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    var memberPendingRemoval by remember { mutableStateOf<UnitMembershipDto?>(null) }
     val canManageUnit = "organizational_units.manage" in permissions
     val canManageMembers = "unit.members.manage:ALL" in permissions ||
         ("unit.members.manage:OWN_UNIT" in permissions && uiState.canCurrentUserManageThisUnit)
@@ -95,6 +96,32 @@ fun UnitDetailScreen(
             onAssignmentTypeSelected = viewModel::onAssignmentTypeSelected,
             onConfirm = { viewModel.assignMember(unitId) },
             onDismiss = viewModel::hideAssignMemberDialog
+        )
+    }
+
+    memberPendingRemoval?.let { membership ->
+        AlertDialog(
+            onDismissRequest = { memberPendingRemoval = null },
+            title = { Text("Salinti nari is vieneto?") },
+            text = {
+                Text(
+                    "Narys ${membership.userName} ${membership.userSurname} bus pasalintas is sio vieneto."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        memberPendingRemoval = null
+                        viewModel.removeUnitMember(unitId, membership.userId)
+                    },
+                    enabled = !uiState.isSaving
+                ) {
+                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { memberPendingRemoval = null }) { Text("Atsaukti") }
+            }
         )
     }
 
@@ -189,7 +216,7 @@ fun UnitDetailScreen(
                             UnitMemberCard(
                                 membership = membership,
                                 canManageMembers = canManageMembers,
-                                onRemove = { viewModel.removeUnitMember(unitId, membership.userId) },
+                                onRemove = { memberPendingRemoval = membership },
                                 isRemoving = uiState.isSaving
                             )
                         }
