@@ -49,7 +49,7 @@ class RequisitionDetailViewModel @Inject constructor(
                 .onSuccess { _uiState.value = RequisitionDetailUiState.Success(it) }
                 .onFailure {
                     _uiState.value = RequisitionDetailUiState.Error(
-                        it.message ?: "Klaida gaunant prasyma"
+                        it.message ?: "Klaida gaunant prašymą"
                     )
                 }
         }

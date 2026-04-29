@@ -8,23 +8,30 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -69,10 +76,10 @@ fun EventListScreen(
 
                     if (state.events.isEmpty()) {
                         SkautaiEmptyState(
-                            title = "Renginiu nera",
-                            subtitle = "Cia matysi stovyklas, sueigas ir kitus vieneto renginius, kai tik jie bus sukurti.",
+                            title = "Renginių nėra",
+                            subtitle = "Čia matysi stovyklas, sueigas ir kitus vieneto renginius, kai tik jie bus sukurti.",
                             icon = Icons.Default.CalendarMonth,
-                            actionLabel = "Kurti rengini",
+                            actionLabel = "Kurti renginį",
                             onAction = onCreateClick,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp)
                         )
@@ -98,7 +105,10 @@ fun EventListScreen(
                     onClick = onCreateClick,
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(16.dp)
+                        .padding(16.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Naujas renginys")
                 }
@@ -110,9 +120,9 @@ fun EventListScreen(
 @Composable
 private fun EventListOverview(events: List<EventDto>, activeFilter: String?) {
     SkautaiSummaryCard(
-        eyebrow = "Renginiu kalendorius",
+        eyebrow = "Renginių kalendorius",
         title = activeFilter?.let(::eventTypeLabel) ?: "Visi renginiai",
-        subtitle = "Greita aktyviu, planuojamu ir uzbaigtu renginiu apzvalga.",
+        subtitle = "Greita aktyvių, planuojamų ir užbaigtų renginių apžvalga.",
         metrics = listOf(
             "Visi" to events.size.toString(),
             "Aktyvus" to events.count { it.status == "ACTIVE" }.toString(),
@@ -134,16 +144,24 @@ private fun EventTypeFilterRow(
         "SUEIGA" to "Sueiga",
         "RENGINYS" to "Renginys"
     )
-    LazyRow(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.large
     ) {
-        items(filters) { (type, label) ->
-            SkautaiChip(
-                label = label,
-                selected = activeFilter == type,
-                onClick = { onFilterSelected(type) }
-            )
+        LazyRow(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            items(filters) { (type, label) ->
+                SkautaiChip(
+                    label = label,
+                    selected = activeFilter == type,
+                    onClick = { onFilterSelected(type) }
+                )
+            }
         }
     }
 }
@@ -156,58 +174,85 @@ fun EventCard(
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onClick,
-        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+        tonal = MaterialTheme.colorScheme.surfaceBright
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = RoundedCornerShape(16.dp)
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = event.name,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.SemiBold
+                Box(
+                    modifier = Modifier.size(52.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.EventAvailable,
+                        contentDescription = null,
+                        modifier = Modifier.size(26.dp)
                     )
+                }
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = event.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    EventStatusChip(status = event.status)
+                }
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    SkautaiStatusPill(label = eventTypeLabel(event.type), tone = SkautaiStatusTone.Info)
+                    event.inventorySummary?.let { summary ->
+                        SkautaiStatusPill(
+                            label = "${summary.totalAvailableQuantity}/${summary.totalPlannedQuantity} aprupinta",
+                            tone = if (summary.totalShortageQuantity > 0) SkautaiStatusTone.Warning else SkautaiStatusTone.Success
+                        )
+                    }
+                }
+                event.notes?.takeIf { it.isNotBlank() }?.let {
                     Text(
-                        text = "${event.startDate.take(10)} - ${event.endDate.take(10)}",
+                        text = it,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                EventStatusChip(status = event.status)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                SkautaiStatusPill(label = eventTypeLabel(event.type), tone = SkautaiStatusTone.Info)
-            }
-            event.notes?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 2
-                )
-            }
-            event.inventorySummary?.let { summary ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    EventMetricMini(
-                        icon = Icons.Default.Groups,
-                        label = "Planas",
-                        value = summary.totalPlannedQuantity.toString(),
-                        modifier = Modifier.weight(1f)
-                    )
-                    EventMetricMini(
-                        icon = Icons.Default.CalendarMonth,
-                        label = "Pirkti",
-                        value = summary.itemsNeedingPurchase.toString(),
-                        modifier = Modifier.weight(1f)
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -223,7 +268,7 @@ private fun EventMetricMini(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(10.dp),
+                .padding(horizontal = 12.dp, vertical = 10.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -256,8 +301,8 @@ fun EventStatusChip(status: String) {
     val label = when (status) {
         "PLANNING" -> "Planuojamas"
         "ACTIVE" -> "Aktyvus"
-        "COMPLETED" -> "Ivykdytas"
-        "CANCELLED" -> "Atsauktas"
+        "COMPLETED" -> "Įvykdytas"
+        "CANCELLED" -> "Atšauktas"
         else -> status
     }
     SkautaiStatusPill(label = label, tone = tone)

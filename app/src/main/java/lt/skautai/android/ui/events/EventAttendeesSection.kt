@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -28,6 +26,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.MemberDto
+import lt.skautai.android.ui.common.SkautaiCard
 
 @Composable
 fun StabasCard(
@@ -40,9 +39,9 @@ fun StabasCard(
     pendingRoleRemoval?.let { role ->
         AlertDialog(
             onDismissRequest = { pendingRoleRemoval = null },
-            title = { Text("Salinti is stabo?") },
+            title = { Text("Šalinti iš štabo?") },
             text = {
-                Text("${role.userName ?: role.userId} bus pasalintas is renginio stabo pareigu ${eventRoleLabel(role.role)}.")
+                Text("${role.userName ?: role.userId} bus pašalintas is renginio štabo pareigų: ${eventRoleLabel(role.role)}.")
             },
             confirmButton = {
                 TextButton(
@@ -51,24 +50,24 @@ fun StabasCard(
                         onRemoveRole(role.id)
                     }
                 ) {
-                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atšaukti") }
             }
         )
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Stabas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Štabas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             HorizontalDivider()
             if (roles.isEmpty()) {
-                EmptyStateText("Stabo nariu dar nera.")
+                EmptyStateText("Štabo narių dar nėra.")
             }
             roles.forEach { role ->
                 Row(
@@ -91,7 +90,7 @@ fun StabasCard(
                     }
                     if (canManage && role.role != "VIRSININKAS") {
                         TextButton(onClick = { pendingRoleRemoval = role }) {
-                            Text("Salinti")
+                            Text("Šalinti")
                         }
                     }
                 }
@@ -128,15 +127,16 @@ fun StaffPickerSheet(
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Prideti i staba", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text("Pridėti į štabą", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            label = { Text("Ieskoti zmogaus") },
+            label = { Text("Ieškoti žmogaus") },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            colors = eventFormFieldColors()
         )
-        Card(modifier = Modifier.fillMaxWidth()) {
+        SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(
                 modifier = Modifier.heightIn(max = 280.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -164,25 +164,23 @@ fun StaffPickerSheet(
             }
         }
         DropdownField(
-            label = "Role",
+            label = "Pareigos",
             value = eventRoleLabel(selectedRole),
             options = roleOptions.map { it to eventRoleLabel(it) },
             onSelect = { selectedRole = it }
         )
-        Button(
+        EventPrimaryButton(
+            text = "Prideti",
             onClick = { selectedUserId?.let { onAssignRole(it, selectedRole) } },
-            enabled = !isWorking && selectedUserId != null,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Prideti")
-        }
+            enabled = !isWorking && selectedUserId != null
+        )
     }
 }
 
 private fun eventRoleLabel(role: String): String = when (role) {
-    "VIRSININKAS" -> "Virsininkas"
+    "VIRSININKAS" -> "Viršininkas"
     "KOMENDANTAS" -> "Komendantas"
-    "UKVEDYS" -> "Ukvedys"
+    "UKVEDYS" -> "Ūkvedys"
     "PROGRAMERIS" -> "Programeris"
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"

@@ -198,7 +198,7 @@ class TuntasSelectViewModel @Inject constructor(
 
     private suspend fun activateTuntas(tuntai: List<UserTuntasDto>, tuntasId: String): Result<Unit> {
         val tuntas = tuntai.firstOrNull { it.id == tuntasId }
-            ?: return Result.failure(Exception("Tuntas nerastas"))
+            ?: return Result.failure(Exception("Tuntas n?rastas"))
         if (tuntas.status != "ACTIVE") {
             return Result.failure(Exception("Tuntas dar nepatvirtintas"))
         }

@@ -1,16 +1,39 @@
 package lt.skautai.android.ui.events
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.ui.common.SkautaiSummaryCard
 import java.time.Instant
 import java.time.ZoneId
 
@@ -67,89 +90,116 @@ fun EventCreateScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (uiState.isEditMode) "Redaguoti rengini" else "Naujas renginys") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
-                    }
-                }
-            )
-        },
-        snackbarHost = { lt.skautai.android.ui.common.SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
+    EventScreenScaffold(
+        title = if (uiState.isEditMode) "Redaguoti rengini" else "Naujas renginys",
+        onBack = onBack,
+        snackbarHostState = snackbarHostState
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            if (uiState.isLoading) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    CircularProgressIndicator(modifier = Modifier.padding(vertical = 24.dp))
+            EventCreateHero(uiState = uiState)
+
+            EventFormSection(
+                title = "Pagrindine informacija",
+                subtitle = "Aiskus pavadinimas, tipas ir datos padeda komandai greitai suprasti renginio remus."
+            ) {
+                if (uiState.isLoading) {
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        CircularProgressIndicator(modifier = Modifier.padding(vertical = 24.dp))
+                    }
+                }
+
+                OutlinedTextField(
+                    value = uiState.name,
+                    onValueChange = viewModel::onNameChange,
+                    label = { Text("Pavadinimas *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = eventFormFieldColors()
+                )
+
+                EventTypeDropdown(
+                    selectedType = uiState.type,
+                    onTypeSelected = viewModel::onTypeChange,
+                    enabled = !uiState.isEditMode
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    EventTonalDateButton(
+                        label = "Prad?ia",
+                        value = uiState.startDate.takeIf { it.isNotBlank() },
+                        onClick = { selectingDate = "start" },
+                        enabled = !uiState.isEditMode,
+                        modifier = Modifier.weight(1f)
+                    )
+                    EventTonalDateButton(
+                        label = "Pabaiga",
+                        value = uiState.endDate.takeIf { it.isNotBlank() },
+                        onClick = { selectingDate = "end" },
+                        enabled = !uiState.isEditMode,
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
 
-            OutlinedTextField(
-                value = uiState.name,
-                onValueChange = viewModel::onNameChange,
-                label = { Text("Pavadinimas *") },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-
-            EventTypeDropdown(
-                selectedType = uiState.type,
-                onTypeSelected = viewModel::onTypeChange,
-                enabled = !uiState.isEditMode
-            )
-
-            OutlinedButton(
-                onClick = { selectingDate = "start" },
-                enabled = !uiState.isEditMode,
-                modifier = Modifier.fillMaxWidth()
+            EventFormSection(
+                title = "Pastabos",
+                subtitle = "Trumpai apra?yk tik tai, kas svarbu vadovams, ?kved?iui ar stabui."
             ) {
-                Text(if (uiState.startDate.isBlank()) "Pasirinkti pradzios data" else "Pradzia: ${uiState.startDate}")
+                OutlinedTextField(
+                    value = uiState.notes,
+                    onValueChange = viewModel::onNotesChange,
+                    label = { Text("Pastabos") },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 4,
+                    maxLines = 6,
+                    colors = eventFormFieldColors()
+                )
             }
 
-            OutlinedButton(
-                onClick = { selectingDate = "end" },
-                enabled = !uiState.isEditMode,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (uiState.endDate.isBlank()) "Pasirinkti pabaigos data" else "Pabaiga: ${uiState.endDate}")
-            }
-
-            OutlinedTextField(
-                value = uiState.notes,
-                onValueChange = viewModel::onNotesChange,
-                label = { Text("Pastabos") },
-                modifier = Modifier.fillMaxWidth(),
-                minLines = 2,
-                maxLines = 4
-            )
-
-            Button(
+            EventPrimaryButton(
+                text = if (uiState.isSaving) "Saugoma..." else if (uiState.isEditMode) "Issaugoti pakeitimus" else "Sukurti rengini",
                 onClick = viewModel::saveEvent,
-                enabled = !uiState.isSaving && !uiState.isLoading,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isSaving) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text(if (uiState.isEditMode) "Issaugoti" else "Sukurti")
+                enabled = !uiState.isSaving && !uiState.isLoading
+            )
+
+            if (uiState.isSaving) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    CircularProgressIndicator(modifier = Modifier.size(22.dp))
                 }
             }
         }
     }
+}
+
+@Composable
+private fun EventCreateHero(uiState: EventCreateUiState) {
+    val subtitle = if (uiState.isEditMode) {
+        "Atnaujink svarbiausius duomenis, kad tolesni planavimo ekranai liktu aiskus visam stabui."
+    } else {
+        "Susikurk renginio pagrinda, nuo kurio prasides planas, poreikiai, stabas ir inventoriaus eiga."
+    }
+
+    SkautaiSummaryCard(
+        eyebrow = "Renginio nustatymai",
+        title = if (uiState.isEditMode) "Renginio redagavimas" else "Naujas renginys",
+        subtitle = subtitle,
+        foresty = true,
+        metrics = listOf(
+            "Tipas" to eventTypeLabel(uiState.type),
+            "Prad?ia" to uiState.startDate.ifBlank { "--" },
+            "Pabaiga" to uiState.endDate.ifBlank { "--" }
+        )
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -180,7 +230,8 @@ private fun EventTypeDropdown(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            colors = eventFormFieldColors()
         )
         ExposedDropdownMenu(
             expanded = expanded,

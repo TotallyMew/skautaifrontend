@@ -15,7 +15,7 @@ fun BendrasRequestDto.toEntity(): BendrasRequestEntity {
         requestedByUserId = requestedByUserId,
         requestedByUserName = requestedByUserName,
         itemId = itemId,
-        itemName = itemName ?: itemDescription ?: safeItems.firstOrNull()?.itemName ?: "Prasymas",
+        itemName = itemName ?: itemDescription ?: safeItems.firstOrNull()?.itemName ?: "Prašymas",
         itemDescription = itemDescription,
         quantity = quantity,
         neededByDate = neededByDate,

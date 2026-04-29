@@ -282,7 +282,7 @@ private fun RequiredOrgUnitDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedUnit?.name ?: "Pasirinkite vienetÄ…",
+            value = selectedUnit?.name ?: "Pasirinkite vienetą",
             onValueChange = {},
             readOnly = true,
             label = { Text("Vienetas") },

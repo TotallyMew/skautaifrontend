@@ -220,6 +220,67 @@ data class AttachEventPurchaseInvoiceRequestDto(
     @SerializedName("invoiceFileUrl") val invoiceFileUrl: String
 )
 
+data class EventReconciliationReturnLineDto(
+    @SerializedName("custodyId") val custodyId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemId") val itemId: String?,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("pastovykleId") val pastovykleId: String?,
+    @SerializedName("pastovykleName") val pastovykleName: String?,
+    @SerializedName("holderUserId") val holderUserId: String?,
+    @SerializedName("holderUserName") val holderUserName: String?,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("returnedQuantity") val returnedQuantity: Int,
+    @SerializedName("remainingQuantity") val remainingQuantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("notes") val notes: String?
+)
+
+data class EventReconciliationPurchaseLineDto(
+    @SerializedName("purchaseId") val purchaseId: String,
+    @SerializedName("purchaseItemId") val purchaseItemId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemId") val itemId: String?,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("purchasedQuantity") val purchasedQuantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("invoiceFileUrl") val invoiceFileUrl: String?,
+    @SerializedName("notes") val notes: String?
+)
+
+data class EventReconciliationDto(
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("openReturns") val openReturns: List<EventReconciliationReturnLineDto>,
+    @SerializedName("returnedToEventStorage") val returnedToEventStorage: List<EventReconciliationReturnLineDto>,
+    @SerializedName("unresolvedPurchases") val unresolvedPurchases: List<EventReconciliationPurchaseLineDto>,
+    @SerializedName("canComplete") val canComplete: Boolean
+)
+
+data class ReconcileEventReturnLineRequestDto(
+    @SerializedName("custodyId") val custodyId: String,
+    @SerializedName("decision") val decision: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class ReconcileEventReturnsRequestDto(
+    @SerializedName("returns") val returns: List<ReconcileEventReturnLineRequestDto>
+)
+
+data class ReconcileEventPurchaseLineRequestDto(
+    @SerializedName("purchaseItemId") val purchaseItemId: String,
+    @SerializedName("decision") val decision: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("existingItemId") val existingItemId: String? = null,
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class ReconcileEventPurchasesRequestDto(
+    @SerializedName("purchases") val purchases: List<ReconcileEventPurchaseLineRequestDto>
+)
+
 data class PastovykleDto(
     @SerializedName("id") val id: String,
     @SerializedName("eventId") val eventId: String,

@@ -60,10 +60,10 @@ fun EventEntity.toDto(): EventDto = EventDto(
     inventorySummary = null
 )
 
-fun EventEntity.cachedPastovykles(): List<PastovykleDto> =
+fun EventEntity.cachedPastovyklės(): List<PastovykleDto> =
     offlineDetailsOrLegacy().pastovykles
 
-fun EventEntity.withCachedPastovykles(pastovykles: List<PastovykleDto>): EventEntity =
+fun EventEntity.withCachedPastovyklės(pastovykles: List<PastovykleDto>): EventEntity =
     withOfflineDetails(offlineDetailsOrLegacy().copy(pastovykles = pastovykles))
 
 fun EventEntity.cachedPurchases(): List<EventPurchaseDto> =
@@ -109,8 +109,8 @@ private fun EventEntity.withOfflineDetails(details: EventOfflineDetails): EventE
 
 private fun EventEntity.offlineDetailsOrLegacy(): EventOfflineDetails {
     fromJsonOrNull<EventOfflineDetails>(stovyklaDetailsJson, offlineDetailsType)?.let { return it }
-    val legacyPastovykles = fromJsonOrNull<List<PastovykleDto>>(stovyklaDetailsJson, pastovyklesType).orEmpty()
-    return EventOfflineDetails(pastovykles = legacyPastovykles)
+    val legacyPastovyklės = fromJsonOrNull<List<PastovykleDto>>(stovyklaDetailsJson, pastovyklesType).orEmpty()
+    return EventOfflineDetails(pastovykles = legacyPastovyklės)
 }
 
 fun List<EventEntity>.toEventDtos(): List<EventDto> = map { it.toDto() }

@@ -72,7 +72,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsertAll(entities)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant prasymus")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant prašymus")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -87,7 +87,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -134,7 +134,7 @@ class RequestRepository @Inject constructor(
                 requestedByUserId = tokenManager.userId.first().orEmpty(),
                 requestedByUserName = tokenManager.userName.first(),
                 itemId = null,
-                itemName = request.itemDescription ?: request.items.firstOrNull()?.itemId ?: "Prasymas",
+                itemName = request.itemDescription ?: request.items.firstOrNull()?.itemId ?: "Prašymas",
                 itemDescription = request.itemDescription,
                 quantity = request.quantity ?: request.items.sumOf { it.quantity },
                 neededByDate = request.neededByDate,
@@ -226,7 +226,7 @@ class RequestRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = bendrasRequestDao.getRequest(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Prasymas nerastas offline cache"))
+                ?: return Result.failure(Exception("Prašymas n?rastas offline cache"))
             val updated = if (topLevel) {
                 cached.copy(topLevelStatus = action, topLevelRejectionReason = rejectionReason, updatedAt = Instant.now().toString())
             } else {

@@ -76,7 +76,7 @@ class MemberRepository @Inject constructor(
                 memberDao.upsertAll(members.toMemberEntities(currentTuntasId))
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant nariųs")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -107,7 +107,7 @@ class MemberRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedMembers.isNotEmpty()) {
             Result.success(MemberListDto(cachedMembers, cachedMembers.size))
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant narius"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant nariųs"))
         }
     }
 
@@ -227,7 +227,7 @@ class MemberRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val userId = findMemberByLeadershipAssignment(currentTuntasId, assignmentId)
-                ?: return Result.failure(Exception("Nario pareigos nerastos offline cache"))
+                ?: return Result.failure(Exception("Nario pareigos n?rastos offline cache"))
             updateCachedMember(currentTuntasId, userId) { member ->
                 member.copy(leadershipRoles = member.leadershipRoles.filterNot { it.id == assignmentId })
             }
@@ -271,7 +271,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(rank)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida priskiriant laipsni")))
+                Result.failure(Exception(response.errorMessage("Klaida priskiriant laipsnį")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -305,7 +305,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida salinant laipsni")))
+                Result.failure(Exception(response.errorMessage("Klaida šalinant laipsnį")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()

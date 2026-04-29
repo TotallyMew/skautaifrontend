@@ -2,29 +2,40 @@ package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 
@@ -53,18 +64,10 @@ fun EventPlanScreen(
         (state as? EventPlanUiState.Success)?.event?.eventRoles
             ?.any { it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Inventoriaus planas") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
-                    }
-                }
-            )
-        },
-        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
+    EventScreenScaffold(
+        title = "Inventoriaus planas",
+        onBack = onBack,
+        snackbarHostState = snackbarHostState
     ) { padding ->
         Box(
             modifier = Modifier
@@ -79,24 +82,126 @@ fun EventPlanScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 is EventPlanUiState.Success -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            PlanCard(
+                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    var searchQuery by remember { mutableStateOf("") }
+                    var selectedBucketId by remember { mutableStateOf<String?>(null) }
+                    var editingItem by remember { mutableStateOf<EventInventoryItemDto?>(null) }
+                    var deletingItem by remember { mutableStateOf<EventInventoryItemDto?>(null) }
+                    var showMemberPicker by remember { mutableStateOf(false) }
+
+                    val buckets = state.inventoryPlan?.buckets.orEmpty()
+                    val planItems = state.inventoryPlan?.items.orEmpty()
+                    val filteredGrouped = remember(planItems, searchQuery, selectedBucketId) {
+                        planItems
+                            .filter { item ->
+                                (selectedBucketId == null || item.bucketId == selectedBucketId) &&
+                                (searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true))
+                            }
+                            .sortedWith(compareBy({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
+                            .groupBy { it.bucketName ?: "Be paskirties" }
+                    }
+
+                    if (!readOnly) editingItem?.let { item ->
+                        if (showMemberPicker) {
+                            ModalBottomSheet(onDismissRequest = { showMemberPicker = false }) {
+                                MemberPickerSheet(
+                                    members = state.members,
+                                    title = "Atsakingas zmogus",
+                                    onSelect = { _ -> showMemberPicker = false },
+                                    onDismiss = { showMemberPicker = false }
+                                )
+                            }
+                        }
+                        EditNeedDialog(
+                            item = item,
+                            buckets = buckets,
+                            members = state.members,
+                            isWorking = state.isWorking,
+                            onDismiss = { editingItem = null },
+                            onSave = { name, quantity, bucketId, responsibleUserId, notes ->
+                                viewModel.updateNeed(eventId, item.id, name, quantity, bucketId, responsibleUserId, notes)
+                                editingItem = null
+                            }
+                        )
+                    }
+
+                    if (!readOnly) deletingItem?.let { item ->
+                        AlertDialog(
+                            onDismissRequest = { deletingItem = null },
+                            title = { Text("Trinti poreiki?") },
+                            text = { Text("Poreikis ${item.name} bus ištrintas iš plano.") },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = { viewModel.deleteNeed(eventId, item.id); deletingItem = null },
+                                    enabled = !state.isWorking
+                                ) { Text("Trinti") }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { deletingItem = null }) { Text("Atšaukti") }
+                            }
+                        )
+                    }
+
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            EventDetailHero(
                                 event = state.event,
-                                inventoryPlan = state.inventoryPlan,
-                                members = state.members,
-                                canEdit = canInventory,
-                                isWorking = state.isWorking,
-                                onUpdateNeed = { item, name, quantity, bucketId, responsibleUserId, notes ->
-                                    viewModel.updateNeed(eventId, item.id, name, quantity, bucketId, responsibleUserId, notes)
-                                },
-                                onDeleteNeed = { inventoryItemId ->
-                                    viewModel.deleteNeed(eventId, inventoryItemId)
-                                }
+                                subtitle = "Inventoriaus planas · ${planItems.size} eil."
                             )
+                            EventDetailSearchBar(
+                                value = searchQuery,
+                                onValueChange = { searchQuery = it },
+                                placeholder = "Ieškoti plano eilučių",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                        BucketFilterChips(
+                            buckets = buckets,
+                            selectedBucketId = selectedBucketId,
+                            onSelect = { selectedBucketId = it }
+                        )
+                        LazyColumn(
+                            modifier = Modifier.weight(1f),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 20.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            item(key = "header") {
+                                PlanCard(event = state.event, inventoryPlan = state.inventoryPlan)
+                            }
+                            if (planItems.isEmpty()) {
+                                item { EmptyStateText("Planas dar tuščias.") }
+                            } else if (filteredGrouped.isEmpty()) {
+                                item { EmptyStateText("Nerasta eilučių pagal paiešką.") }
+                            } else {
+                                filteredGrouped.forEach { (bucketName, bucketItems) ->
+                                    item(key = "grp_$bucketName") {
+                                        EventListGroupHeader(bucketName, bucketItems.size)
+                                    }
+                                    items(bucketItems, key = { it.id }) { item ->
+                                        EventInventoryListRow(
+                                            item = item,
+                                            bottom = if (canInventory && !readOnly) ({
+                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    TextButton(
+                                                        onClick = {
+                                                            viewModel.loadMembers()
+                                                            editingItem = item
+                                                        },
+                                                        contentPadding = PaddingValues(0.dp)
+                                                    ) { Text("Redaguoti") }
+                                                    TextButton(
+                                                        onClick = { deletingItem = item },
+                                                        contentPadding = PaddingValues(0.dp)
+                                                    ) { Text("Trinti") }
+                                                }
+                                            }) else null
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

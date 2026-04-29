@@ -83,16 +83,16 @@ fun ReservationListScreen(
                 if (state.reservations.isEmpty()) {
                     SkautaiEmptyState(
                         title = when {
-                            isAssignedMode -> "Tvirtinimu nera"
-                            isMyActiveMode -> "Aktyviu rezervaciju nera"
-                            isTrackedMode -> "Sekamu rezervaciju nera"
-                            else -> "Rezervaciju dar nera"
+                            isAssignedMode -> "Tvirtinimų nėra"
+                            isMyActiveMode -> "Aktyvių rezervacijų nėra"
+                            isTrackedMode -> "Sekamų rezervacijų nėra"
+                            else -> "Rezervacijų dar nėra"
                         },
                         subtitle = when {
-                            isAssignedMode -> "Siuo metu nera rezervaciju, kurios lauktu tavo patvirtinimo."
-                            isMyActiveMode -> "Cia matysi tik savo patvirtintas ir aktyvias rezervacijas."
-                            isTrackedMode -> "Cia matysi patvirtintas rezervacijas, kurias reikia isduoti arba priimti."
-                            else -> "Rezervacija skirta uzsakyti jau esama inventoriaus daikta konkreciam laikotarpiui."
+                            isAssignedMode -> "Šiuo metu nėra rezervacijų, kurios lauktų tavo patvirtinimo."
+                            isMyActiveMode -> "Čia matysi tik savo patvirtintas ir aktyvias rezervacijas."
+                            isTrackedMode -> "Čia matysi patvirtintas rezervacijas, kurias reikia išduoti arba priimti."
+                            else -> "Rezervacija skirta užsakyti jau esamą inventoriaus daiktą konkrečiam laikotarpiui."
                         },
                         icon = Icons.Default.EventAvailable,
                         actionLabel = when {
@@ -122,6 +122,7 @@ fun ReservationListScreen(
                                 myCount = state.myCount,
                                 assignedCount = state.assignedCount,
                                 trackedCount = state.trackedCount,
+                                canUseReviewModes = state.canUseReviewModes,
                                 onModeClick = onModeClick
                             )
                         }
@@ -155,6 +156,7 @@ private fun ReservationModeHeader(
     myCount: Int,
     assignedCount: Int,
     trackedCount: Int,
+    canUseReviewModes: Boolean,
     onModeClick: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -168,14 +170,16 @@ private fun ReservationModeHeader(
             subtitle = when (mode) {
                 "assigned" -> "Rezervacijos, kurios laukia tavo sprendimo."
                 "my_active" -> "Tik tavo patvirtintos ir aktyvios rezervacijos."
-                "tracked" -> "Patvirtintos rezervacijos, kurias reikia isduoti arba priimti."
-                else -> "Cia matai visa rezervaciju istorija."
+                "tracked" -> "Patvirtintos rezervacijos, kurias reikia išduoti arba priimti."
+                else -> "Čia matai visą rezervacijų istoriją."
             },
-            metrics = listOf(
-                "Mano" to myCount.toString(),
-                "Skirtos" to assignedCount.toString(),
-                "Sekamos" to trackedCount.toString()
-            ),
+            metrics = listOf("Mano" to myCount.toString()) + (
+                if (canUseReviewModes) {
+                    listOf("Skirtos" to assignedCount.toString(), "Sekamos" to trackedCount.toString())
+                } else {
+                    emptyList()
+                }
+                ),
             foresty = true,
             modifier = Modifier.fillMaxWidth()
         )
@@ -188,22 +192,24 @@ private fun ReservationModeHeader(
                 onClick = { onModeClick("my_active") },
                 modifier = Modifier.weight(1f)
             )
-            ReservationModeTile(
-                title = "Man skirta",
-                count = assignedCount,
-                selected = mode == "assigned",
-                icon = Icons.Default.Inbox,
-                onClick = { onModeClick("assigned") },
-                modifier = Modifier.weight(1f)
-            )
-            ReservationModeTile(
-                title = "Sekamos",
-                count = trackedCount,
-                selected = mode == "tracked",
-                icon = Icons.Default.Visibility,
-                onClick = { onModeClick("tracked") },
-                modifier = Modifier.weight(1f)
-            )
+            if (canUseReviewModes) {
+                ReservationModeTile(
+                    title = "Man skirta",
+                    count = assignedCount,
+                    selected = mode == "assigned",
+                    icon = Icons.Default.Inbox,
+                    onClick = { onModeClick("assigned") },
+                    modifier = Modifier.weight(1f)
+                )
+                ReservationModeTile(
+                    title = "Sekamos",
+                    count = trackedCount,
+                    selected = mode == "tracked",
+                    icon = Icons.Default.Visibility,
+                    onClick = { onModeClick("tracked") },
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
     }
 }
@@ -274,7 +280,7 @@ fun ReservationCard(
             }
             ReservationPhysicalStatusPill(status = reservation.items.physicalStatus())
             Text(
-                text = "${reservation.totalItems} daiktu rusys / ${reservation.totalQuantity} vnt.",
+                text = "${reservation.totalItems} daiktų rusys / ${reservation.totalQuantity} vnt.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -303,12 +309,12 @@ fun ReservationPhysicalStatusPill(status: ReservationPhysicalStatus) {
             ScoutStatusColors.OnPendingContainer
         )
         ReservationPhysicalStatus.ISSUED -> Triple(
-            "Isduota",
+            "Išduota",
             MaterialTheme.colorScheme.primaryContainer,
             MaterialTheme.colorScheme.onPrimaryContainer
         )
         ReservationPhysicalStatus.MARKED_RETURNED -> Triple(
-            "Grazinta, laukia gavimo",
+            "Grąžinta, laukia gavimo",
             ScoutStatusColors.PendingContainer,
             ScoutStatusColors.OnPendingContainer
         )
@@ -349,8 +355,8 @@ fun ReservationStatusChip(status: String) {
         "PENDING" -> Triple("Laukia", ScoutStatusColors.PendingContainer, ScoutStatusColors.OnPendingContainer)
         "APPROVED" -> Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         "ACTIVE" -> Triple("Aktyvi", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        "RETURNED" -> Triple("Grazinta", ScoutStatusColors.InfoContainer, ScoutStatusColors.OnInfoContainer)
-        "CANCELLED" -> Triple("Atsaukta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
+        "RETURNED" -> Triple("Grąžinta", ScoutStatusColors.InfoContainer, ScoutStatusColors.OnInfoContainer)
+        "CANCELLED" -> Triple("Atšaukta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         "REJECTED" -> Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
         else -> Triple(status, ScoutStatusColors.NeutralContainer, ScoutStatusColors.OnNeutralContainer)
     }

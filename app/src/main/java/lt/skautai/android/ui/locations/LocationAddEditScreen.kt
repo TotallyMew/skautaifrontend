@@ -214,7 +214,7 @@ fun LocationAddEditScreen(
                     ) {
                         SkautaiSectionHeader(
                             title = "Kontaktine vieta",
-                            subtitle = "Adresas ir trumpas aprasymas, kurie padeda rasti vieta."
+                            subtitle = "Adresas ir trumpas apra?ymas, kurie padeda rasti viet?."
                         )
 
                         OutlinedTextField(
@@ -227,7 +227,7 @@ fun LocationAddEditScreen(
                         OutlinedTextField(
                             value = uiState.description,
                             onValueChange = viewModel::onDescriptionChange,
-                            label = { Text("Aprasymas") },
+                            label = { Text("Aprašymas") },
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 3
                         )
@@ -289,7 +289,7 @@ fun LocationAddEditScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     } else {
-                        Text(if (isCreateMode) "Sukurti lokacija" else "Issaugoti pakeitimus")
+                        Text(if (isCreateMode) "Sukurti lokacija" else "Išsaugoti pakeitimus")
                     }
                 }
             }
@@ -526,7 +526,7 @@ class LocationAddEditViewModel @Inject constructor(
         val nameError = if (trimmedName.isBlank()) "Iveskite pavadinima." else null
         val ownerUnitError = when {
             state.visibility != "UNIT" -> null
-            state.ownerUnitId == null -> "Pasirinkite vieneta."
+            state.ownerUnitId == null -> "Pasirinkite vienetą."
             !state.canManageAllUnits && state.ownerUnitId !in state.allowedUnitIds ->
                 "Galite pasirinkti tik savo vieneta."
             else -> null

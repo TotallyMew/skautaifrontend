@@ -73,7 +73,7 @@ class RequisitionRepository @Inject constructor(
                 requisitionDao.upsertAll(entities)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -88,7 +88,7 @@ class RequisitionRepository @Inject constructor(
                 requisitionDao.upsert(response.body()!!.toEntity())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -197,7 +197,7 @@ class RequisitionRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = requisitionDao.getRequest(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Prasymas nerastas offline cache"))
+                ?: return Result.failure(Exception("Prašymas n?rastas offline cache"))
             val updated = if (topLevel) {
                 cached.copy(topLevelReviewStatus = action, lastAction = action, updatedAt = Instant.now().toString())
             } else {

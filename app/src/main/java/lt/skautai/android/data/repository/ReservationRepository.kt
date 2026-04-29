@@ -328,7 +328,7 @@ class ReservationRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = reservationDao.getReservation(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Rezervacija nerasta offline cache"))
+                ?: return Result.failure(Exception("Rezervacija n?rasta offline cache"))
             val updated = when (payload) {
                 is ReviewReservationRequestDto -> cached.copy(
                     unitReviewStatus = if (operationType == PendingOperationType.RESERVATION_REVIEW_UNIT) payload.status else cached.unitReviewStatus,

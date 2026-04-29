@@ -115,7 +115,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoadingMember = false,
-                        error = error.message ?: "Klaida gaunant nario informacija"
+                        error = error.message ?: "Klaida gaunant nario informaciją"
                     )
                 }
         }
@@ -311,7 +311,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = error.message ?: "Klaida priskiriant laipsni"
+                    error = error.message ?: "Klaida priskiriant laipsnį"
                 )
             }
         }
@@ -331,7 +331,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Klaida salinant laipsni"
+                        error = error.message ?: "Klaida šalinant laipsnį"
                     )
                 }
         }
@@ -356,7 +356,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = error.message ?: "Klaida atliekant veiksma"
+                    error = error.message ?: "Klaida atliekant veiksm?"
                 )
             }
         }
@@ -383,7 +383,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
                 return@launch
             }
             val members = membersResult.getOrElse {
-                _uiState.value = _uiState.value.copy(isLoadingContext = false, error = it.message ?: "Klaida gaunant narius")
+                _uiState.value = _uiState.value.copy(isLoadingContext = false, error = it.message ?: "Klaida gaunant nariųs")
                 return@launch
             }.members
 

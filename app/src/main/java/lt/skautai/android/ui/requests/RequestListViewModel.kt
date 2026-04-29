@@ -54,7 +54,7 @@ class RequestListViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _uiState.value = RequestListUiState.Error(
-                        error.message ?: "Klaida gaunant prasymus"
+                        error.message ?: "Klaida gaunant prašymus"
                     )
                 }
         }

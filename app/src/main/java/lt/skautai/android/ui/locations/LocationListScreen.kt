@@ -1,12 +1,17 @@
 package lt.skautai.android.ui.locations
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,18 +21,20 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GroupWork
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +45,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,7 +69,6 @@ import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
-import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.util.TokenManager
 
@@ -98,23 +106,36 @@ fun LocationListScreen(
         return
     }
 
+    val allLocations = uiState.locations
     val displayed = uiState.filteredLocations
-    val publicRoots = displayed.filter { it.visibility == "PUBLIC" }
-    val unitRoots = displayed.filter { it.visibility == "UNIT" && it.ownerUnitId == uiState.activeUnitId }
-    val privateRoots = displayed.filter { it.visibility == "PRIVATE" }
+    val chipScrollState = rememberScrollState()
+    val publicAccent = MaterialTheme.colorScheme.tertiaryContainer
+    val unitAccent = MaterialTheme.colorScheme.primaryContainer
+    val privateAccent = MaterialTheme.colorScheme.secondaryContainer
+    val publicLocations = displayed.filter { it.visibility == "PUBLIC" }
+    val unitLocations = displayed.filter { it.visibility == "UNIT" && it.ownerUnitId == uiState.activeUnitId }
+    val privateLocations = displayed.filter { it.visibility == "PRIVATE" }
+    val publicRootCount = allLocations.count { it.visibility == "PUBLIC" && it.parentLocationId == null }
+    val unitRootCount = allLocations.count {
+        it.visibility == "UNIT" &&
+            it.ownerUnitId == uiState.activeUnitId &&
+            it.parentLocationId == null
+    }
+    val privateRootCount = allLocations.count { it.visibility == "PRIVATE" && it.parentLocationId == null }
 
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 120.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        contentPadding = PaddingValues(top = 12.dp, bottom = 136.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         item {
             LocationHeroCard(
-                totalCount = uiState.locations.size,
+                totalCount = allLocations.size,
                 filteredCount = displayed.size,
-                onCreateClick = onCreateClick
+                filter = uiState.filter,
+                searchQuery = uiState.searchQuery
             )
         }
 
@@ -122,30 +143,39 @@ fun LocationListScreen(
             SkautaiSearchBar(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::onSearchChange,
-                placeholder = "Ieskoti pagal pavadinima, adresa ar kelia",
-                leadingIcon = Icons.Default.Search
+                placeholder = "Ieskoti pagal pavadinima, adresa ar tevine vieta",
+                leadingIcon = Icons.Default.Search,
+                trailingIcon = if (uiState.hasActiveSearchOrFilter) Icons.Default.Tune else null,
+                onTrailingIconClick = if (uiState.hasActiveSearchOrFilter) viewModel::clearFilters else null
             )
         }
 
         item {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(chipScrollState),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 SkautaiChip(
-                    label = "Viesos ${publicRoots.size}",
-                    selected = false,
-                    onClick = {}
+                    label = "Visos ${publicRootCount + unitRootCount + privateRootCount}",
+                    selected = uiState.filter == LocationFilter.All,
+                    onClick = { viewModel.onFilterChange(LocationFilter.All) }
                 )
                 SkautaiChip(
-                    label = "Vieneto ${unitRoots.size}",
-                    selected = false,
-                    onClick = {}
+                    label = "Viesos $publicRootCount",
+                    selected = uiState.filter == LocationFilter.Public,
+                    onClick = { viewModel.onFilterChange(LocationFilter.Public) }
                 )
                 SkautaiChip(
-                    label = "Mano ${privateRoots.size}",
-                    selected = false,
-                    onClick = {}
+                    label = "Vieneto $unitRootCount",
+                    selected = uiState.filter == LocationFilter.Unit,
+                    onClick = { viewModel.onFilterChange(LocationFilter.Unit) }
+                )
+                SkautaiChip(
+                    label = "Mano $privateRootCount",
+                    selected = uiState.filter == LocationFilter.Private,
+                    onClick = { viewModel.onFilterChange(LocationFilter.Private) }
                 )
             }
         }
@@ -175,9 +205,11 @@ fun LocationListScreen(
         if (displayed.isEmpty()) {
             item {
                 SkautaiEmptyState(
-                    title = "Nieko nerasta",
-                    subtitle = "Pabandyk kita paieskos fraze arba atidaryk lokaciju medi placiau.",
-                    icon = Icons.Default.Search
+                    title = "Lokaciju nerasta",
+                    subtitle = "Pabandyk kita paieska arba nuimk aktyvu filtra, kad vel matytum visa medi.",
+                    icon = Icons.Default.Search,
+                    actionLabel = if (uiState.hasActiveSearchOrFilter) "Isvalyti filtrus" else null,
+                    onAction = if (uiState.hasActiveSearchOrFilter) viewModel::clearFilters else null
                 )
             }
             return@LazyColumn
@@ -185,30 +217,33 @@ fun LocationListScreen(
 
         locationSection(
             title = "Viesos lokacijos",
-            subtitle = "Bendros vietos, kurias gali matyti visi.",
+            subtitle = "Bendros vietos, kurias gali matyti visi nariai.",
             icon = Icons.Default.Public,
-            rootCandidates = publicRoots,
+            rootCandidates = publicLocations,
             expandedIds = uiState.expandedIds,
             onToggle = viewModel::toggleExpanded,
-            onLocationClick = onLocationClick
+            onLocationClick = onLocationClick,
+            accentColor = publicAccent
         )
         locationSection(
             title = "Mano vieneto lokacijos",
-            subtitle = "Vietos, priskirtos aktyviam vienetui.",
+            subtitle = "Aktyviam vienetui priskirtos vietos ir ju sakos.",
             icon = Icons.Default.GroupWork,
-            rootCandidates = unitRoots,
+            rootCandidates = unitLocations,
             expandedIds = uiState.expandedIds,
             onToggle = viewModel::toggleExpanded,
-            onLocationClick = onLocationClick
+            onLocationClick = onLocationClick,
+            accentColor = unitAccent
         )
         locationSection(
             title = "Asmenines lokacijos",
             subtitle = "Privacios vietos tavo asmeniniam naudojimui.",
             icon = Icons.Default.Person,
-            rootCandidates = privateRoots,
+            rootCandidates = privateLocations,
             expandedIds = uiState.expandedIds,
             onToggle = viewModel::toggleExpanded,
-            onLocationClick = onLocationClick
+            onLocationClick = onLocationClick,
+            accentColor = privateAccent
         )
     }
 }
@@ -217,7 +252,8 @@ fun LocationListScreen(
 private fun LocationHeroCard(
     totalCount: Int,
     filteredCount: Int,
-    onCreateClick: () -> Unit
+    filter: LocationFilter,
+    searchQuery: String
 ) {
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
@@ -243,7 +279,7 @@ private fun LocationHeroCard(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Viesos, vieneto ir asmenines vietos viename mediui patogiame sarase.",
+                        text = "Perzvelk visa medzi, filtruok pagal matomuma ir greiciau surask konkrecia saka.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
                     )
@@ -267,12 +303,13 @@ private fun LocationHeroCard(
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
-            }
-
-            Button(onClick = onCreateClick, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Prideti lokacija")
+                if (filter != LocationFilter.All || searchQuery.isNotBlank()) {
+                    SkautaiStatusPill(
+                        label = activeScopeLabel(filter, searchQuery),
+                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
         }
     }
@@ -285,15 +322,24 @@ private fun LazyListScope.locationSection(
     rootCandidates: List<LocationDto>,
     expandedIds: Set<String>,
     onToggle: (String) -> Unit,
-    onLocationClick: (String) -> Unit
+    onLocationClick: (String) -> Unit,
+    accentColor: Color
 ) {
+    val nodesByParent = rootCandidates.groupBy { it.parentLocationId }
+    val roots = rootCandidates
+        .filter { it.parentLocationId == null }
+        .sortedBy { it.fullPath.lowercase() }
+
     item(key = "section_$title") {
-        SkautaiCard(
+        Surface(
             modifier = Modifier.fillMaxWidth(),
-            tonal = MaterialTheme.colorScheme.surfaceContainerLow
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            shape = RoundedCornerShape(26.dp),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
         ) {
             Column(
-                modifier = Modifier.padding(14.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Row(
@@ -301,13 +347,14 @@ private fun LazyListScope.locationSection(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Surface(
-                        color = MaterialTheme.colorScheme.secondaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = accentColor,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                        shape = RoundedCornerShape(16.dp)
                     ) {
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
-                                .padding(8.dp),
+                                .size(42.dp)
+                                .padding(10.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(icon, contentDescription = null)
@@ -317,7 +364,7 @@ private fun LazyListScope.locationSection(
                         Text(
                             text = title,
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = subtitle,
@@ -326,8 +373,8 @@ private fun LazyListScope.locationSection(
                         )
                     }
                     SkautaiStatusPill(
-                        label = rootCandidates.size.toString(),
-                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        label = roots.size.toString(),
+                        containerColor = accentColor,
                         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
@@ -339,18 +386,13 @@ private fun LazyListScope.locationSection(
         item(key = "empty_$title") {
             Text(
                 text = "Siame skyriuje lokaciju dar nera.",
-                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
+                modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
         return
     }
-
-    val nodesByParent = rootCandidates.groupBy { it.parentLocationId }
-    val roots = rootCandidates
-        .filter { it.parentLocationId == null }
-        .sortedBy { it.fullPath.lowercase() }
 
     items(flattenLocations(roots, nodesByParent, expandedIds), key = { it.location.id }) { node ->
         LocationRow(
@@ -359,7 +401,6 @@ private fun LazyListScope.locationSection(
             onToggle = onToggle,
             onLocationClick = onLocationClick
         )
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
@@ -372,80 +413,141 @@ private fun LocationRow(
 ) {
     val location = node.location
     val address = location.address?.takeIf { it.isNotBlank() }
+    val parentTrail = parentTrail(location.fullPath, location.name)
+    val rowTone = if (location.hasChildren) {
+        MaterialTheme.colorScheme.surfaceContainerLow
+    } else {
+        MaterialTheme.colorScheme.surfaceBright
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onLocationClick(location.id) }
-            .padding(start = (node.depth * 18).dp, top = 12.dp, bottom = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+            .padding(top = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (location.hasChildren) {
-            IconButton(onClick = { onToggle(location.id) }, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Sutraukti" else "Isskleisti"
-                )
-            }
-        } else {
-            Surface(
-                modifier = Modifier.size(36.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(
-                        imageVector = Icons.Default.Place,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        }
-
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        TreeGuides(depth = node.depth)
+        SkautaiCard(
+            modifier = Modifier.fillMaxWidth(),
+            tonal = rowTone,
+            onClick = { onLocationClick(location.id) }
         ) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = location.name,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
                 if (location.hasChildren) {
-                    SkautaiStatusPill(
-                        label = "Saka",
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    IconButton(onClick = { onToggle(location.id) }, modifier = Modifier.size(34.dp)) {
+                        Icon(
+                            imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (expanded) "Sutraukti" else "Isskleisti"
+                        )
+                    }
+                } else {
+                    Spacer(modifier = Modifier.width(34.dp))
+                }
+
+                Surface(
+                    modifier = Modifier.size(40.dp),
+                    color = locationIconContainer(node.depth, location.hasChildren),
+                    contentColor = locationIconContent(node.depth, location.hasChildren),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = locationIcon(node.depth, location.hasChildren),
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = location.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        if (location.hasChildren) {
+                            SkautaiStatusPill(
+                                label = "Saka",
+                                containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+
+                    if (parentTrail != null) {
+                        Text(
+                            text = parentTrail,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Text(
+                        text = rowSubtitle(location, address),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
             }
-            Text(
-                text = location.fullPath,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            if (address != null) {
-                Text(
-                    text = address,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+        }
+    }
+}
+
+@Composable
+private fun TreeGuides(depth: Int) {
+    if (depth == 0) {
+        Spacer(modifier = Modifier.width(4.dp))
+        return
+    }
+
+    Row(
+        modifier = Modifier
+            .width((depth * 14 + 8).dp)
+            .height(70.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        repeat(depth) {
+            Box(
+                modifier = Modifier
+                    .width(14.dp)
+                    .fillMaxHeight(),
+                contentAlignment = Alignment.Center
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(2.dp)
+                        .fillMaxHeight()
+                        .clip(RoundedCornerShape(999.dp))
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
                 )
             }
         }
+        Box(
+            modifier = Modifier
+                .width(8.dp)
+                .height(2.dp)
+                .clip(RoundedCornerShape(999.dp))
+                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+        )
     }
 }
 
@@ -475,25 +577,95 @@ private fun flattenLocations(
     return result
 }
 
+private fun parentTrail(fullPath: String, currentName: String): String? {
+    val segments = fullPath.split("/").map { it.trim() }.filter { it.isNotEmpty() }
+    if (segments.isEmpty()) return null
+    val withoutCurrent = if (segments.lastOrNull() == currentName) segments.dropLast(1) else segments
+    return withoutCurrent.takeIf { it.isNotEmpty() }?.joinToString(" / ")
+}
+
+private fun rowSubtitle(location: LocationDto, address: String?): String {
+    val parts = buildList {
+        add(visibilityLabel(location.visibility))
+        location.ownerUnitName?.takeIf { location.visibility == "UNIT" }?.let(::add)
+        address?.let(::add)
+    }
+    return parts.joinToString(" • ")
+}
+
+@Composable
+private fun locationIcon(depth: Int, hasChildren: Boolean): ImageVector = when {
+    depth == 0 && hasChildren -> Icons.Default.Business
+    hasChildren -> Icons.Default.Folder
+    else -> Icons.Default.Place
+}
+
+@Composable
+private fun locationIconContainer(depth: Int, hasChildren: Boolean): Color = when {
+    depth == 0 && hasChildren -> MaterialTheme.colorScheme.primaryContainer
+    hasChildren -> MaterialTheme.colorScheme.tertiaryContainer
+    else -> MaterialTheme.colorScheme.secondaryContainer
+}
+
+@Composable
+private fun locationIconContent(depth: Int, hasChildren: Boolean): Color = when {
+    depth == 0 && hasChildren -> MaterialTheme.colorScheme.onPrimaryContainer
+    hasChildren -> MaterialTheme.colorScheme.onTertiaryContainer
+    else -> MaterialTheme.colorScheme.onSecondaryContainer
+}
+
+private fun visibilityLabel(value: String): String = when (value) {
+    "PRIVATE" -> "Asmenine"
+    "UNIT" -> "Vieneto"
+    else -> "Viesa"
+}
+
+private fun activeScopeLabel(filter: LocationFilter, searchQuery: String): String = when {
+    searchQuery.isNotBlank() && filter != LocationFilter.All -> "Paieska + ${filter.label}"
+    searchQuery.isNotBlank() -> "Paieska aktyvi"
+    else -> filter.label
+}
+
+enum class LocationFilter(val label: String) {
+    All("Visos"),
+    Public("Viesos"),
+    Unit("Vieneto"),
+    Private("Asmenines")
+}
+
 data class LocationListUiState(
     val isLoading: Boolean = true,
     val locations: List<LocationDto> = emptyList(),
     val expandedIds: Set<String> = emptySet(),
     val activeUnitId: String? = null,
     val searchQuery: String = "",
+    val filter: LocationFilter = LocationFilter.All,
     val error: String? = null,
     val isEmpty: Boolean = false
 ) {
     val filteredLocations: List<LocationDto>
-        get() = if (searchQuery.isBlank()) locations
-        else {
+        get() {
+            val filteredByScope = when (filter) {
+                LocationFilter.All -> locations
+                LocationFilter.Public -> locations.filter { it.visibility == "PUBLIC" }
+                LocationFilter.Unit -> locations.filter {
+                    it.visibility == "UNIT" && it.ownerUnitId == activeUnitId
+                }
+                LocationFilter.Private -> locations.filter { it.visibility == "PRIVATE" }
+            }
+
+            if (searchQuery.isBlank()) return filteredByScope
+
             val q = searchQuery.trim().lowercase()
-            locations.filter {
+            return filteredByScope.filter {
                 it.name.lowercase().contains(q) ||
                     it.fullPath.lowercase().contains(q) ||
                     it.address?.lowercase()?.contains(q) == true
             }
         }
+
+    val hasActiveSearchOrFilter: Boolean
+        get() = searchQuery.isNotBlank() || filter != LocationFilter.All
 }
 
 @HiltViewModel
@@ -551,5 +723,16 @@ class LocationListViewModel @Inject constructor(
 
     fun onSearchChange(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
+    }
+
+    fun onFilterChange(filter: LocationFilter) {
+        _uiState.value = _uiState.value.copy(filter = filter)
+    }
+
+    fun clearFilters() {
+        _uiState.value = _uiState.value.copy(
+            searchQuery = "",
+            filter = LocationFilter.All
+        )
     }
 }

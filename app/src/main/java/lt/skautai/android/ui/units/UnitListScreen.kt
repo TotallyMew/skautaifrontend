@@ -130,8 +130,8 @@ fun UnitListScreen(
                     if (filteredUnits.isEmpty()) {
                         item {
                             SkautaiEmptyState(
-                                title = "Nieko nerasta",
-                                subtitle = "Pabandyk ieškoti pagal pavadinima, tipą ar priimama laipsni.",
+                                title = "Nieko n?rasta",
+                                subtitle = "Pabandyk ieškoti pagal pavadinimą, tipą ar priimamą laipsnį.",
                                 icon = Icons.Default.AccountTree
                             )
                         }
@@ -189,7 +189,7 @@ private fun UnitCard(unit: OrganizationalUnitDto, onClick: (() -> Unit)?) {
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "${unit.memberCount} ${unit.memberCount.nounForm("narys", "nariai", "nariu")} • ${unit.itemCount} ${unit.itemCount.nounForm("daiktas", "daiktai", "daiktu")}",
+                    text = "${unit.memberCount} ${unit.memberCount.nounForm("narys", "nariai", "narių")} • ${unit.itemCount} ${unit.itemCount.nounForm("daiktas", "daiktai", "daiktų")}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium

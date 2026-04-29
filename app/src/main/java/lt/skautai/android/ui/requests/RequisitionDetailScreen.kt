@@ -108,7 +108,7 @@ fun RequisitionDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pirkimo prasymas") },
+                title = { Text("Pirkimo prašymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -183,12 +183,12 @@ private fun RequisitionDetailContent(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(
-            text = item?.itemName ?: "Pirkimo prasymas",
+            text = item?.itemName ?: "Pirkimo prašymas",
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Pirkimo arba papildymo prasymas naujam / trukstamam inventoriui",
+            text = "Pirkimo arba papildymo pra?ymas naujam / tr?kstam?m inventori?i",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -209,14 +209,14 @@ private fun RequisitionDetailContent(
             ) {
                 Text("Detales", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 HorizontalDivider()
-                item?.itemDescription?.let { RequisitionInfoRow("Aprasymas", it) }
+                item?.itemDescription?.let { RequisitionInfoRow("Aprašymas", it) }
                 item?.let { RequisitionInfoRow("Kiekis", "${it.quantityRequested}") }
                 request.requestingUnitName?.let { RequisitionInfoRow("Vienetas", it) }
                 request.neededByDate?.let { RequisitionInfoRow("Reikia iki", it) }
                 request.notes?.let { RequisitionInfoRow("Pagrindimas", it) }
                 RequisitionInfoRow("Sukurta", request.createdAt.take(10))
                 if (isOwnRequest) {
-                    RequisitionInfoRow("Kontekstas", "Tai tavo sukurtas prasymas")
+                    RequisitionInfoRow("Kontekstas", "Tai tavo sukurtas pra?ymas")
                 }
             }
         }

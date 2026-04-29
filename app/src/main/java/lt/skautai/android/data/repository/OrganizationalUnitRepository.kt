@@ -99,7 +99,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 if (cachedUnit != null) {
                     Result.success(cachedUnit)
                 } else {
-                    Result.failure(Exception(response.errorMessage("Vienetas nerastas")))
+                    Result.failure(Exception(response.errorMessage("Vienetas n?rastas")))
                 }
             }
         } catch (e: Exception) {
@@ -162,7 +162,7 @@ class OrganizationalUnitRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = organizationalUnitDao.getUnit(unitId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Vienetas nerastas offline cache"))
+                ?: return Result.failure(Exception("Vienetas n?rastas offline cache"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 acceptedRankId = request.acceptedRankId ?: cached.acceptedRankId
@@ -211,7 +211,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.getUnitMembers("Bearer ${token()}", tuntasId(), unitId)
             if (response.isSuccessful) Result.success(response.body()!!.members)
-            else Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
+            else Result.failure(Exception(response.errorMessage("Klaida gaunant nariųs")))
         } catch (e: Exception) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
             val cachedMembers = currentTuntasId
@@ -267,7 +267,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.leaveUnit("Bearer ${token()}", tuntasId(), unitId)
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorMessage("Klaida paliekant vieneta")))
+            else Result.failure(Exception(response.errorMessage("Klaida paliekant vienetą")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val currentUserId = tokenManager.userId.first().orEmpty()

@@ -47,14 +47,14 @@ class LoginViewModel @Inject constructor(
 
     fun login() {
         val state = _uiState.value
-        val emailError = if (state.email.isBlank()) "Iveskite el. pasta." else null
-        val passwordError = if (state.password.isBlank()) "Iveskite slaptazodi." else null
+        val emailError = if (state.email.isBlank()) "Įveskite el. paštą." else null
+        val passwordError = if (state.password.isBlank()) "Įveskite slaptažodį." else null
 
         if (emailError != null || passwordError != null) {
             _uiState.value = state.copy(
                 emailError = emailError,
                 passwordError = passwordError,
-                formError = "Uzpildykite privalomus laukus."
+                formError = "Užpildykite privalomus laukus."
             )
             return
         }

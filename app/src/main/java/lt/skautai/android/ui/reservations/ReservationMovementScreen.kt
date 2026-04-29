@@ -55,18 +55,18 @@ fun ReservationMovementScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val title = when (viewModel.mode) {
         "return" -> "Gavimas"
-        "mark_returned" -> "Grazinimas"
-        else -> "Isdavimas"
+        "mark_returned" -> "Grąžinimas"
+        else -> "Išdavimas"
     }
     val description = when (viewModel.mode) {
-        "return" -> "Pasirink, kiek daiktu inventorininkas gavo."
-        "mark_returned" -> "Pasirink, kiek daiktu grazinai."
-        else -> "Pasirink, kiek daiktu isduodama."
+        "return" -> "Pasirink, kiek daiktų inventorininkas gavo."
+        "mark_returned" -> "Pasirink, kiek daiktų grazinai."
+        else -> "Pasirink, kiek daiktų isduodama."
     }
     val actionLabel = when (viewModel.mode) {
-        "return" -> "Pazymeti gauta"
-        "mark_returned" -> "Pazymeti grazinta"
-        else -> "Pazymeti isduota"
+        "return" -> "Pažymėti gautą"
+        "mark_returned" -> "Pažymėti grąžintą"
+        else -> "Pažymėti išduotą"
     }
 
     LaunchedEffect(uiState.isSuccess) {

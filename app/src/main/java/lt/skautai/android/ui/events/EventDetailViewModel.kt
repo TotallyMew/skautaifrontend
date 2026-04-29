@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.util.TokenManager
@@ -22,6 +23,7 @@ sealed interface EventDetailUiState {
     data class Success(
         val event: EventDto,
         val currentUserId: String? = null,
+        val pastovykles: List<PastovykleDto> = emptyList(),
         val isCancelling: Boolean = false,
         val isWorking: Boolean = false,
         val error: String? = null
@@ -51,6 +53,7 @@ class EventDetailViewModel @Inject constructor(
                     _uiState.value = EventDetailUiState.Success(
                         event = event,
                         currentUserId = current?.currentUserId,
+                        pastovykles = current?.pastovykles.orEmpty(),
                         isCancelling = current?.isCancelling == true,
                         isWorking = current?.isWorking == true,
                         error = current?.error
@@ -75,7 +78,8 @@ class EventDetailViewModel @Inject constructor(
                 }
             val currentUserId = tokenManager.userId.first()
             val current = _uiState.value as? EventDetailUiState.Success ?: return@launch
-            _uiState.value = current.copy(currentUserId = currentUserId)
+            val pastovykles = eventRepository.getPastovyklės(id).getOrNull()?.pastovykles.orEmpty()
+            _uiState.value = current.copy(currentUserId = currentUserId, pastovykles = pastovykles)
         }
     }
 

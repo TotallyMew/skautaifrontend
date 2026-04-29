@@ -14,6 +14,8 @@ interface ItemDao {
         SELECT * FROM items
         WHERE tuntasId = :tuntasId
             AND (:custodianId IS NULL OR custodianId = :custodianId)
+            AND (:sharedOnly = 0 OR (custodianId IS NULL AND type != 'INDIVIDUAL'))
+            AND (:createdByUserId IS NULL OR createdByUserId = :createdByUserId)
             AND (:status IS NULL OR status = :status)
             AND (:type IS NULL OR type = :type)
             AND (:category IS NULL OR category = :category)
@@ -23,6 +25,8 @@ interface ItemDao {
     fun observeItems(
         tuntasId: String,
         custodianId: String?,
+        sharedOnly: Boolean,
+        createdByUserId: String?,
         status: String?,
         type: String?,
         category: String?
@@ -33,6 +37,8 @@ interface ItemDao {
         SELECT * FROM items
         WHERE tuntasId = :tuntasId
             AND (:custodianId IS NULL OR custodianId = :custodianId)
+            AND (:sharedOnly = 0 OR (custodianId IS NULL AND type != 'INDIVIDUAL'))
+            AND (:createdByUserId IS NULL OR createdByUserId = :createdByUserId)
             AND (:status IS NULL OR status = :status)
             AND (:type IS NULL OR type = :type)
             AND (:category IS NULL OR category = :category)
@@ -42,6 +48,8 @@ interface ItemDao {
     suspend fun getItems(
         tuntasId: String,
         custodianId: String?,
+        sharedOnly: Boolean,
+        createdByUserId: String?,
         status: String?,
         type: String?,
         category: String?
@@ -64,6 +72,8 @@ interface ItemDao {
         DELETE FROM items
         WHERE tuntasId = :tuntasId
             AND (:custodianId IS NULL OR custodianId = :custodianId)
+            AND (:sharedOnly = 0 OR (custodianId IS NULL AND type != 'INDIVIDUAL'))
+            AND (:createdByUserId IS NULL OR createdByUserId = :createdByUserId)
             AND (:status IS NULL OR status = :status)
             AND (:type IS NULL OR type = :type)
             AND (:category IS NULL OR category = :category)
@@ -72,6 +82,8 @@ interface ItemDao {
     suspend fun deleteForQuery(
         tuntasId: String,
         custodianId: String?,
+        sharedOnly: Boolean,
+        createdByUserId: String?,
         status: String?,
         type: String?,
         category: String?

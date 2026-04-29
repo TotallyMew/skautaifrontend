@@ -310,7 +310,7 @@ class MemberDetailViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
-                        actionError = e.message ?: "Klaida gaunant narius"
+                        actionError = e.message ?: "Klaida gaunant nariųs"
                     )
                 }
         }

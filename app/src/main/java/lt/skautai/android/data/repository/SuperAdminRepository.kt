@@ -69,7 +69,7 @@ class SuperAdminRepository @Inject constructor(
     suspend fun getMembers(tuntasId: String): Result<MemberListDto> = runCatching {
         val response = superAdminApiService.getMembers("Bearer ${token()}", tuntasId)
         if (!response.isSuccessful) {
-            throw Exception(response.errorMessage("Klaida gaunant narius"))
+            throw Exception(response.errorMessage("Klaida gaunant nariųs"))
         }
         response.body() ?: MemberListDto(emptyList(), 0)
     }
@@ -79,7 +79,7 @@ class SuperAdminRepository @Inject constructor(
         if (!response.isSuccessful) {
             throw Exception(response.errorMessage("Klaida gaunant nario informaciją"))
         }
-        response.body() ?: throw Exception("Narys nerastas")
+        response.body() ?: throw Exception("Narys n?rastas")
     }
 
     suspend fun assignLeadershipRole(

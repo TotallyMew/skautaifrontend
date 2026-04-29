@@ -75,7 +75,7 @@ class RegisterInviteViewModel @Inject constructor(
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = e.message ?: "Registracija nepavyko"
+                    error = e.message ?: "Registracija nepavyko."
                 )
             }
         }

@@ -15,8 +15,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.AlertDialog
@@ -114,7 +116,7 @@ fun LocationDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         )
@@ -243,7 +245,7 @@ fun LocationDetailScreen(
                                     verticalArrangement = Arrangement.spacedBy(8.dp)
                                 ) {
                                     Text(
-                                        text = "Aprasymas",
+                                        text = "Aprašymas",
                                         style = MaterialTheme.typography.titleMedium,
                                         color = MaterialTheme.colorScheme.onSecondaryContainer,
                                         fontWeight = FontWeight.SemiBold
@@ -280,7 +282,7 @@ fun LocationDetailScreen(
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null)
                                     Spacer(modifier = Modifier.size(8.dp))
-                                    Text("Prideti sublokacija")
+                                    Text("Pridėti sublokacija")
                                 }
                             }
                         }
@@ -312,6 +314,7 @@ fun LocationDetailScreen(
 
 @Composable
 private fun LocationHeaderCard(location: LocationDto) {
+    val parentTrail = locationParentTrail(location.fullPath, location.name)
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
         tonal = MaterialTheme.colorScheme.primaryContainer
@@ -329,19 +332,27 @@ private fun LocationHeaderCard(location: LocationDto) {
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    parentTrail?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                     Text(
                         text = location.name,
                         style = MaterialTheme.typography.headlineMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                     Text(
-                        text = location.fullPath,
+                        text = if (parentTrail == null) "Saknis" else "Pilnas kelias: ${location.fullPath}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
                     )
                 }
                 Icon(
-                    imageVector = Icons.Default.Public,
+                    imageVector = detailLocationIcon(location),
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(28.dp)
@@ -364,6 +375,20 @@ private fun HeaderPill(label: String) {
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     )
+}
+
+private fun detailLocationIcon(location: LocationDto) = when {
+    location.parentLocationId == null && location.hasChildren -> Icons.Default.Business
+    location.hasChildren -> Icons.Default.Folder
+    location.visibility == "PUBLIC" -> Icons.Default.Public
+    else -> Icons.Default.Place
+}
+
+private fun locationParentTrail(fullPath: String, currentName: String): String? {
+    val segments = fullPath.split("/").map { it.trim() }.filter { it.isNotEmpty() }
+    if (segments.isEmpty()) return null
+    val withoutCurrent = if (segments.lastOrNull() == currentName) segments.dropLast(1) else segments
+    return withoutCurrent.takeIf { it.isNotEmpty() }?.joinToString(" / ")
 }
 
 private fun visibilityLabel(value: String): String = when (value) {

@@ -2,21 +2,16 @@ package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -28,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,8 +36,17 @@ fun EventNeedsScreen(
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showInventoryPicker by remember { mutableStateOf(false) }
+    var showHelp by remember { mutableStateOf(false) }
 
-    LaunchedEffect(eventId) { viewModel.load(eventId) }
+    LaunchedEffect(eventId) {
+        viewModel.load(eventId)
+    }
+
+    LaunchedEffect((uiState as? EventNeedsUiState.Success)?.event?.id) {
+        if (uiState is EventNeedsUiState.Success) {
+            viewModel.loadMembers()
+        }
+    }
 
     LaunchedEffect((uiState as? EventNeedsUiState.Success)?.error) {
         (uiState as? EventNeedsUiState.Success)?.error?.let {
@@ -57,13 +60,12 @@ fun EventNeedsScreen(
         (state as? EventNeedsUiState.Success)?.event?.eventRoles
             ?.any { it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
-    if (showInventoryPicker && state is EventNeedsUiState.Success) {
+    if (showInventoryPicker && state is EventNeedsUiState.Success && !isEventReadOnlyStatus(state.event.status)) {
         LaunchedEffect(Unit) { viewModel.loadItemCatalog(eventId) }
         ModalBottomSheet(onDismissRequest = { showInventoryPicker = false }) {
             InventoryPickerSheet(
                 items = state.items,
                 buckets = state.inventoryPlan?.buckets.orEmpty(),
-                members = state.members,
                 isWorking = state.isWorking,
                 onCreateNeedsBulk = { selected, bucketId, responsibleId, notes ->
                     viewModel.createNeedsBulk(eventId, selected, bucketId, responsibleId, notes)
@@ -73,18 +75,10 @@ fun EventNeedsScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Poreikiai") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
-                    }
-                }
-            )
-        },
-        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
+    EventScreenScaffold(
+        title = "Poreikiai",
+        onBack = onBack,
+        snackbarHostState = snackbarHostState
     ) { padding ->
         Box(
             modifier = Modifier
@@ -99,19 +93,43 @@ fun EventNeedsScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 is EventNeedsUiState.Success -> {
-                    LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
+                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        item {
+                        EventDetailHero(
+                            event = state.event,
+                            subtitle = "Poreikiu kurimas · ${state.inventoryPlan?.items?.size ?: 0} plano eil."
+                        )
+                        EventDetailSection(
+                            title = "Kurti poreikius",
+                            subtitle = "Pasirink kurti poreikius is inventoriaus arba ranka.",
+                            actionLabel = if (showHelp) "Maziau" else "Kaip veikia",
+                            onAction = { showHelp = !showHelp }
+                        ) {
+                            if (showHelp) {
+                                Text(
+                                    "Sandelio pasirinkimas tinka jau turimiems daiktams. Rankinis ivedimas skirtas naujam pirkiniui, paslaugai arba daiktui, kurio kataloge dar nera.",
+                                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall
+                                )
+                            }
+                        }
+                        if (readOnly) {
+                            EmptyStateText("Renginys baigtas arba atšauktas. Poreikius galima tik peržiūrėti.")
+                        } else if (!canInventory) {
+                            EmptyStateText("Neturite teisės kurti renginio poreikių.")
+                        } else {
                             NeedsCard(
                                 inventoryPlan = state.inventoryPlan,
-                                members = state.members,
-                                canEdit = canInventory,
                                 isWorking = state.isWorking,
                                 onOpenInventoryPicker = { showInventoryPicker = true },
-                                onCreateNeed = { itemId, name, quantity, bucketId, responsibleUserId, notes ->
-                                    viewModel.createNeed(eventId, itemId, name, quantity, bucketId, responsibleUserId, notes)
+                                onCreateManualNeeds = { needs ->
+                                    viewModel.createManualNeedsBulk(eventId, needs)
                                 }
                             )
                         }

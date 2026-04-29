@@ -76,9 +76,9 @@ class RegisterViewModel @Inject constructor(
 
     fun register() {
         val state = _uiState.value
-        val nameError = if (state.name.isBlank()) "Iveskite varda." else null
-        val surnameError = if (state.surname.isBlank()) "Iveskite pavarde." else null
-        val tuntasNameError = if (state.tuntasName.isBlank()) "Iveskite tunto pavadinima." else null
+        val nameError = if (state.name.isBlank()) "Įveskite vardą." else null
+        val surnameError = if (state.surname.isBlank()) "Įveskite pavardę." else null
+        val tuntasNameError = if (state.tuntasName.isBlank()) "Įveskite tunto pavadinimą." else null
         val emailError = RegistrationValidation.emailError(state.email)?.normalizeLithuanianAscii()
         val passwordError = RegistrationValidation.passwordError(state.password)?.normalizeLithuanianAscii()
         val krastasError = RegistrationValidation.krastasError(state.tuntasKrastas)?.normalizeLithuanianAscii()
@@ -98,7 +98,7 @@ class RegisterViewModel @Inject constructor(
                 passwordError = passwordError,
                 tuntasNameError = tuntasNameError,
                 tuntasKrastasError = krastasError,
-                formError = "Patikslinkite pazymetus laukus."
+                formError = "Patikslinkite pažymėtus laukus."
             )
             return
         }

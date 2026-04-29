@@ -72,7 +72,7 @@ class ReservationDetailViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = current.copy(
                         isCancelling = false,
-                        error = error.message ?: "Klaida atsaukiant rezervacija"
+                        error = error.message ?: "Klaida atšaukiant rezervaciją"
                     )
                 }
         }
@@ -118,7 +118,7 @@ class ReservationDetailViewModel @Inject constructor(
                 loadReservation(id)
             }.onFailure { error ->
                 _uiState.value = current.copy(
-                    error = error.message ?: "Klaida atnaujinant grazinimo laika"
+                    error = error.message ?: "Klaida atnaujinant grąžinimo laiką"
                 )
             }
         }

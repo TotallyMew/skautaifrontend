@@ -99,7 +99,7 @@ fun LoginScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = "Skautu inventorius",
+                            text = "Skautų inventori?s",
                             style = MaterialTheme.typography.labelLarge,
                             color = ScoutGradients.HeroTextMuted
                         )
@@ -109,7 +109,7 @@ fun LoginScreen(
                             color = MaterialTheme.colorScheme.onPrimary
                         )
                         Text(
-                            text = "Vienoje vietoje matysi bendra tunto, vieneto ir savo siuloma skolinti inventoriu.",
+                            text = "Vienoje vietoje matysi bendrą tunto, vieneto ir savo siūlomą inventorių.",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f)
                         )
@@ -142,7 +142,7 @@ fun LoginScreen(
                     AuthTextField(
                         value = uiState.email,
                         onValueChange = viewModel::onEmailChange,
-                        label = "El. pastas",
+                        label = "El. paštas",
                         icon = Icons.Outlined.AlternateEmail,
                         keyboardType = KeyboardType.Email,
                         errorText = uiState.emailError
@@ -151,7 +151,7 @@ fun LoginScreen(
                     AuthTextField(
                         value = uiState.password,
                         onValueChange = viewModel::onPasswordChange,
-                        label = "Slaptazodis",
+                        label = "Slaptažodis",
                         icon = Icons.Outlined.Lock,
                         keyboardType = KeyboardType.Password,
                         isPassword = true,
@@ -183,14 +183,14 @@ fun LoginScreen(
                             .fillMaxWidth()
                             .height(52.dp)
                     ) {
-                        Text("Turi pakvietima? Kurti paskyra")
+                        Text("Turi pakvietimą? Susikūrk paskyrą!")
                     }
 
                     TextButton(
                         onClick = { navController.navigate(NavRoutes.Register.route) },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Tavo tunto nera programoj? Sukurk")
+                        Text("Tavo tunto nėra programoje? Užregistruok!")
                     }
                 }
             }

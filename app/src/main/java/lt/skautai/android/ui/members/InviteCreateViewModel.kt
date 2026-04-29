@@ -150,7 +150,7 @@ class InviteCreateViewModel @Inject constructor(
         }
 
         if (roleRequiresOrgUnit(selectedRole) && (state.lockedOrgUnitId ?: state.selectedOrgUnitId).isNullOrBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite vienetÄ…")
+            _uiState.value = state.copy(error = "Pasirinkite vienetą")
             return
         }
 

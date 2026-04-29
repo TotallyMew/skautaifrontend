@@ -84,7 +84,7 @@ fun InviteAcceptScreen(
                         modifier = Modifier.height(20.dp)
                     )
                 } else {
-                    Text("Priimti pakvietima")
+                    Text("Priimti pakvietimą")
                 }
             }
 

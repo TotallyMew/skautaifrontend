@@ -86,7 +86,7 @@ class EventMovementViewModel @Inject constructor(
                     return@launch
                 }
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
-            val pastovykles = eventRepository.getPastovykles(eventId).getOrNull()?.pastovykles.orEmpty()
+            val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
             val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody.orEmpty()
             val movements = eventRepository.getInventoryMovements(eventId).getOrNull()?.movements.orEmpty()

@@ -45,6 +45,9 @@ class InventoryDetailViewModel @Inject constructor(
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    val activeOrgUnitId: StateFlow<String?> = tokenManager.activeOrgUnitId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     private val _deleted = MutableStateFlow(false)
     val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
 
@@ -130,7 +133,7 @@ class InventoryDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val activeUnitId = tokenManager.activeOrgUnitId.first()
             if (activeUnitId.isNullOrBlank()) {
-                _actionError.value = "Pasirink aktyvu vieneta, kuriam nori gauti daikta"
+                _actionError.value = "Pasirink aktyvų vienetą, kuriam nori gauti daiktą"
                 return@launch
             }
 
@@ -141,13 +144,13 @@ class InventoryDetailViewModel @Inject constructor(
                 CreateBendrasRequestDto(
                     requestingUnitId = activeUnitId,
                     neededByDate = null,
-                    notes = "Prasymas paimti daikta is bendro tunto inventoriaus",
+                    notes = "Prašymas paimti daiktą iš bendro tunto inventoriaus",
                     items = listOf(CreateBendrasRequestItemDto(itemId = itemId, quantity = 1))
                 )
             ).onSuccess {
                 _sharedRequestCreated.value = true
             }.onFailure { error ->
-                _actionError.value = error.message ?: "Nepavyko sukurti paemimo prasymo"
+                _actionError.value = error.message ?: "Nepavyko sukurti paėmimo prašymo"
             }
             _isCreatingSharedRequest.value = false
         }

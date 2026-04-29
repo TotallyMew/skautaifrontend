@@ -22,6 +22,7 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canManageSharedInventory
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -113,7 +114,7 @@ class HomeViewModel @Inject constructor(
             }
 
             val itemsResult = itemRepository.getItems()
-            val pendingItemsResult = if ("items.transfer" in permissions) {
+            val pendingItemsResult = if (permissions.canManageSharedInventory()) {
                 itemRepository.getItems(status = "PENDING_APPROVAL")
             } else {
                 Result.success(emptyList())
@@ -173,7 +174,7 @@ class HomeViewModel @Inject constructor(
                         )
             }
             val sharedItems = items.filter { it.custodianId == null && it.type != "INDIVIDUAL" }
-            val personalItems = items.filter { it.type == "INDIVIDUAL" }
+            val personalItems = items.filter { it.type == "INDIVIDUAL" && it.createdByUserId == userId }
 
             _uiState.value = HomeUiState(
                 isLoading = false,

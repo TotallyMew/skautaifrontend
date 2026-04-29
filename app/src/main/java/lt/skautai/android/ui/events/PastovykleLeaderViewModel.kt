@@ -90,7 +90,7 @@ class PastovykleLeaderViewModel @Inject constructor(
                 }
             val currentUserId = tokenManager.userId.first()
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first()
-            val pastovykles = eventRepository.getPastovykles(eventId).getOrNull()?.pastovykles.orEmpty()
+            val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
             val inventoryByPastovykle = pastovykles.associate { p ->
                 p.id to eventRepository.getPastovykleInventory(eventId, p.id).getOrNull()?.inventory.orEmpty()

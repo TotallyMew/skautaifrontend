@@ -67,14 +67,14 @@ fun RequisitionListScreen(
                 if (state.requests.isEmpty()) {
                     SkautaiEmptyState(
                         title = when {
-                            isAssignedMode -> "Tvirtinimu nera"
-                            isMyActiveMode -> "Mano prasymu nera"
-                            else -> "Pirkimo prasymu dar nera"
+                            isAssignedMode -> "Tvirtinimų nėra"
+                            isMyActiveMode -> "Mano prašymų nėra"
+                            else -> "Pirkimo prašymų dar nėra"
                         },
                         subtitle = when {
-                            isAssignedMode -> "Siuo metu nera prasymu, kurie lauktu tavo sprendimo."
-                            isMyActiveMode -> "Cia matysi visus savo pirkimo ir papildymo prasymus: laukiancius, patvirtintus ir atmestus."
-                            else -> "Cia bus inventoriaus pirkimo ir papildymo prasymai."
+                            isAssignedMode -> "Šiuo metu nėra prašymų, kurie lauktų tavo sprendimo."
+                            isMyActiveMode -> "Čia matysi visus savo pirkimo ir papildymo prašymus: laukiančius, patvirtintus ir atmestus."
+                            else -> "Čia bus inventoriaus pirkimo ir papildymo prašymai."
                         },
                         icon = Icons.Default.ShoppingCart,
                         modifier = Modifier.align(Alignment.Center)
@@ -91,13 +91,13 @@ fun RequisitionListScreen(
                             SkautaiSummaryCard(
                                 title = when {
                                     isAssignedMode -> "Man skirti tvirtinti"
-                                    isMyActiveMode -> "Mano prasymai"
-                                    else -> "Visi pirkimo ir papildymo prasymai"
+                                    isMyActiveMode -> "Mano prašymai"
+                                    else -> "Visi pirkimo ir papildymo prašymai"
                                 },
                                 subtitle = when {
-                                    isAssignedMode -> "Prasymai, kurie laukia tavo sprendimo."
-                                    isMyActiveMode -> "Visa tavo prasymu istorija, nepriklausomai nuo busenos."
-                                    else -> "Visa prasymu istorija: laukiantys, patvirtinti ir atmesti."
+                                    isAssignedMode -> "Prašymai, kurie laukia tavo sprendimo."
+                                    isMyActiveMode -> "Visa tavo prašymų istorija, nepriklausomai nuo būsenos."
+                                    else -> "Visa prašymų istorija: laukiantys, patvirtinti ir atmesti."
                                 },
                                 metrics = listOf(
                                     "Visi" to state.requests.size.toString(),
@@ -124,7 +124,7 @@ fun RequisitionListScreen(
                             .align(Alignment.BottomEnd)
                             .padding(16.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Naujas pirkimo prasymas")
+                        Icon(Icons.Default.Add, contentDescription = "Naujas pirkimo prašymas")
                     }
                 }
             }
@@ -157,7 +157,7 @@ private fun RequisitionCard(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = firstItem?.itemName ?: "Pirkimo prasymas",
+                        text = firstItem?.itemName ?: "Pirkimo prašymas",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )

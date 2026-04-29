@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,6 +18,7 @@ import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canManageSharedInventory
 import javax.inject.Inject
 
 sealed interface InventoryListUiState {
@@ -56,6 +58,8 @@ class InventoryListViewModel @Inject constructor(
     val selectedLocationId: StateFlow<String?> = _selectedLocationId.asStateFlow()
 
     private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
+    private val initialType = savedStateHandle.get<String?>("type")
+    private val initialSharedOnly = initialCustodianId == null && initialType == null
     val openedCustodianId: String? = initialCustodianId
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
@@ -71,12 +75,19 @@ class InventoryListViewModel @Inject constructor(
 
     private fun observeCachedItems() {
         viewModelScope.launch {
+            val currentUserId = tokenManager.userId.first()
+            val personalOwnerId = if (initialType == "INDIVIDUAL") currentUserId else null
             combine(
-                itemRepository.observeItems(custodianId = initialCustodianId),
+                itemRepository.observeItems(
+                    custodianId = initialCustodianId,
+                    type = initialType,
+                    sharedOnly = initialSharedOnly,
+                    createdByUserId = personalOwnerId
+                ),
                 itemRepository.observeItems(status = "PENDING_APPROVAL"),
                 permissions
             ) { activeItems, pendingItems, permissions ->
-                val visiblePendingItems = if ("items.transfer" in permissions) pendingItems else emptyList()
+                val visiblePendingItems = if (permissions.canManageSharedInventory()) pendingItems else emptyList()
                 if (activeItems.isEmpty() && visiblePendingItems.isEmpty()) {
                     InventoryListUiState.Empty
                 } else {
@@ -100,8 +111,15 @@ class InventoryListViewModel @Inject constructor(
                 _uiState.value = InventoryListUiState.Loading
             }
             try {
-                val itemsResult = itemRepository.refreshItems(custodianId = initialCustodianId)
-                val canApprovePending = "items.transfer" in permissions.value
+                val currentUserId = tokenManager.userId.first()
+                val personalOwnerId = if (initialType == "INDIVIDUAL") currentUserId else null
+                val itemsResult = itemRepository.refreshItems(
+                    custodianId = initialCustodianId,
+                    type = initialType,
+                    sharedOnly = initialSharedOnly,
+                    createdByUserId = personalOwnerId
+                )
+                val canApprovePending = permissions.value.canManageSharedInventory()
 
                 val pendingItemsResult = if (canApprovePending) {
                     itemRepository.refreshItems(status = "PENDING_APPROVAL")
@@ -211,7 +229,8 @@ class InventoryListViewModel @Inject constructor(
             byType.filter { it.category == selected }
         } ?: byType
         val byLocation = _selectedLocationId.value?.let { selected ->
-            byCategory.filter { it.locationId == selected }
+            val selectedAndChildren = selectedLocationTreeIds(selected)
+            byCategory.filter { item -> item.locationId?.let { it in selectedAndChildren } == true }
         } ?: byCategory
 
         if (query.isBlank()) return byLocation
@@ -220,5 +239,20 @@ class InventoryListViewModel @Inject constructor(
                 it.notes?.contains(query, ignoreCase = true) == true ||
                 it.custodianName?.contains(query, ignoreCase = true) == true
         }
+    }
+
+    fun selectedLocationTreeIds(locationId: String): Set<String> {
+        val allLocations = locations.value
+        val result = mutableSetOf(locationId)
+        var added: Boolean
+        do {
+            added = false
+            allLocations.forEach { location ->
+                if (location.parentLocationId in result && result.add(location.id)) {
+                    added = true
+                }
+            }
+        } while (added)
+        return result
     }
 }

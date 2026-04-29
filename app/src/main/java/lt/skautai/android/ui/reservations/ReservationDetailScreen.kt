@@ -90,14 +90,14 @@ fun ReservationDetailScreen(
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atsaukti rezervacija") },
-            text = { Text("Ar tikrai norite atsaukti sia rezervacija?") },
+            title = { Text("Atšaukti rezervacija") },
+            text = { Text("Ar tikrai norite atšaukti šią rezervaciją?") },
             confirmButton = {
                 TextButton(onClick = {
                     showCancelDialog = false
                     viewModel.cancelReservation(reservationId)
                 }) {
-                    Text("Atsaukti", color = MaterialTheme.colorScheme.error)
+                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -331,7 +331,7 @@ private fun ReservationDetailContent(
                                 enabled = reservation.items.any { it.remainingToReceive > 0 },
                                 modifier = Modifier.weight(1f)
                             ) {
-                                Text("Pazymeti gauta")
+                                Text("Pažymėti gautą")
                             }
                         }
                     }
@@ -341,7 +341,7 @@ private fun ReservationDetailContent(
                             enabled = reservation.items.any { it.remainingToMarkReturned > 0 },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Pazymeti grazinta")
+                            Text("Pažymėti grąžintą")
                         }
                     }
                 }
@@ -380,7 +380,7 @@ private fun ReservationDetailContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Rezervacijos veiksmai",
+                        text = "Rezervacijos veiksm?i",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -416,7 +416,7 @@ private fun ReservationDetailContent(
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else {
-                                Text("Atsaukti rezervacija")
+                                Text("Atšaukti rezervacija")
                             }
                         }
                     }
@@ -706,7 +706,7 @@ private fun ReservationItemRow(item: ReservationItemDto) {
             )
             item.remainingAfterReservation?.let { remaining ->
                 Text(
-                    text = "Liks: $remaining • Isduota: ${item.issuedQuantity} • Grazinta: ${item.returnedQuantity}",
+                    text = "Liks: $remaining • Išduota: ${item.issuedQuantity} • Grąžinta: ${item.returnedQuantity}",
                     style = MaterialTheme.typography.labelSmall,
                     color = if (remaining == 0) {
                         MaterialTheme.colorScheme.error

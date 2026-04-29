@@ -20,6 +20,8 @@ data class ItemDto(
     val quantityBreakdown: List<ItemDistributionDto> = emptyList(),
     val totalQuantityAcrossCustodians: Int = quantity,
     val responsibleUserId: String?,
+    val createdByUserId: String?,
+    val createdByUserName: String?,
     val photoUrl: String?,
     val purchaseDate: String?,
     val purchasePrice: Double?,
@@ -74,5 +76,9 @@ data class UpdateItemRequestDto(
     val purchaseDate: String? = null,
     val purchasePrice: Double? = null,
     val notes: String? = null,
-    val status: String? = null
+    val status: String? = null,
+    val clearCustodianId: Boolean = false,
+    val clearLocationId: Boolean = false,
+    val clearSourceSharedItemId: Boolean = false,
+    val clearResponsibleUserId: Boolean = false
 )

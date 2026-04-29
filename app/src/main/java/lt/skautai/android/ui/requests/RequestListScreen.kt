@@ -66,8 +66,8 @@ fun RequestListScreen(
             is RequestListUiState.Success -> {
                 if (state.requests.isEmpty()) {
                     SkautaiEmptyState(
-                        title = "Paemimo prasymu nera",
-                        subtitle = "Cia matysi savo, savo vieneto arba viso tunto paemimo prasymus pagal turimas teises.",
+                        title = "Pa?mimo pra?ym? n?ra",
+                        subtitle = "?ia matysi savo, savo vieneto arba viso tunto pa?mimo pra?ym?s pagal turimas teises.",
                         icon = Icons.Default.Inbox,
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -82,9 +82,9 @@ fun RequestListScreen(
                         item {
                             SkautaiSummaryCard(
                                 title = "Reikia paimti turima daikta is tunto?",
-                                subtitle = "Cia vienetas praso gauti jau esama bendro tunto inventoriaus daikta, o ne pirkti nauja.",
+                                subtitle = "?ia vienetas praso gauti jau esama bendro tunto inventoriaus daikta, o ne pirkti nauja.",
                                 metrics = listOf(
-                                    "Prasymai" to state.requests.size.toString(),
+                                    "Prašymai" to state.requests.size.toString(),
                                     "Laukia" to state.requests.count { it.topLevelStatus == "PENDING" }.toString(),
                                     "Perduota" to state.requests.count { it.topLevelStatus == "FORWARDED" }.toString()
                                 ),

@@ -52,9 +52,11 @@ import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
-import lt.skautai.android.ui.common.itemOriginLabel
 import lt.skautai.android.ui.common.itemStatusLabel
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.canManageAllItems
+import lt.skautai.android.util.canManageSharedInventory
+import lt.skautai.android.util.hasPermissionOwnUnit
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -70,6 +72,7 @@ fun InventoryDetailScreen(
     val isCreatingSharedRequest by viewModel.isCreatingSharedRequest.collectAsStateWithLifecycle()
     val isUpdatingStatus by viewModel.isUpdatingStatus.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(itemId) {
@@ -97,9 +100,16 @@ fun InventoryDetailScreen(
     }
 
     val currentItem = (uiState as? InventoryDetailUiState.Success)?.item
-    val canManageShared = "items.transfer" in permissions
+    val canManageShared = permissions.canManageSharedInventory()
     val isTransferredFromTuntas = currentItem?.origin == "TRANSFERRED_FROM_TUNTAS"
-    val canEdit = "items.update" in permissions && (!isTransferredFromTuntas || canManageShared)
+    val canEdit = currentItem?.let { item ->
+        when {
+            isTransferredFromTuntas -> canManageShared
+            item.custodianId == null -> permissions.canManageAllItems()
+            permissions.canManageAllItems() -> true
+            else -> permissions.hasPermissionOwnUnit("items.update") && item.custodianId == activeOrgUnitId
+        }
+    } ?: false
     val canChangeStatus = canEdit
 
     Scaffold(
@@ -170,6 +180,7 @@ private fun ItemDetailContent(
 ) {
     val isSharedTransfer = item.origin == "TRANSFERRED_FROM_TUNTAS"
     val canRequestForUnit = item.custodianId == null && item.status == "ACTIVE" && item.quantity > 0
+    val originDisplay = itemOriginDisplay(item)
 
     Column(
         modifier = Modifier
@@ -227,7 +238,7 @@ private fun ItemDetailContent(
                     text = if (isSharedTransfer) {
                         "Sis daiktas atkeliaves is bendro inventoriaus, todel jo valdymas ribojamas pagal role."
                     } else {
-                        "Savo vieneto daiktas gali buti pilnai tvarkomas, jei naudotojas turi tam reikiamas teises."
+                        "Savo vieneto daiktas gali b?ti pilnai tvarkomas, jei naudotojas turi tam reikiamas teises."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
@@ -280,7 +291,7 @@ private fun ItemDetailContent(
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                     )
                     Text(
-                        text = itemOriginLabel(item.origin),
+                        text = originDisplay,
                         style = MaterialTheme.typography.titleLarge,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
@@ -298,7 +309,7 @@ private fun ItemDetailContent(
                 MetadataRow("Kategorija", inventoryCategoryLabel(item.category))
                 MetadataRow("Busena", itemStatusLabel(item.status))
                 MetadataRow("Bukle", itemConditionLabel(item.condition))
-                MetadataRow("Kilme", itemOriginLabel(item.origin))
+                MetadataRow("Kilme", originDisplay)
                 MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandelis")
                 MetadataRow("Vieta", item.locationPath ?: item.locationName ?: "Nenurodyta")
                 item.purchaseDate?.let { MetadataRow("Pirkta", it.take(10)) }
@@ -315,7 +326,7 @@ private fun ItemDetailContent(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(text = "Aprasymas", style = MaterialTheme.typography.titleMedium)
+                    Text(text = "Aprašymas", style = MaterialTheme.typography.titleMedium)
                     Text(text = it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -358,13 +369,13 @@ private fun ItemDetailContent(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Gauti i vieneta",
+                        text = "Gauti į vienetą",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Jei daiktas jau yra bendrame tunto inventoriuje, kurk paemimo prasyma, o ne pirkimo prasyma.",
+                        text = "Jei daiktas jau yra bendrame tunto inventori?je, kurk paėmimo prašymą, o ne pirkimo prašymą.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
                     )
@@ -379,7 +390,7 @@ private fun ItemDetailContent(
                                 modifier = Modifier.size(18.dp)
                             )
                         } else {
-                            Text("Prasyti paemimo i aktyvu vieneta")
+                            Text("Prašyti paėmimo į aktyvų vienetą")
                         }
                     }
                 }
@@ -414,6 +425,14 @@ private fun ItemDetailContent(
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
+}
+
+private fun itemOriginDisplay(item: ItemDto): String = when {
+    item.type == "INDIVIDUAL" -> item.createdByUserName?.takeIf { it.isNotBlank() } ?: "Asmeninis daiktas"
+    item.custodianName?.isNotBlank() == true -> item.custodianName!!
+    item.custodianId == null -> "Tunto inventori?s"
+    item.origin == "TRANSFERRED_FROM_TUNTAS" -> "Tunto inventori?s"
+    else -> "Nenurodyta"
 }
 
 @Composable

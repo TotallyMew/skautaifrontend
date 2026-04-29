@@ -205,8 +205,38 @@ interface EventApiService {
         @Path("purchaseId") purchaseId: String
     ): Response<EventPurchaseDto>
 
+    @GET("api/events/{id}/reconciliation")
+    suspend fun getReconciliation(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventReconciliationDto>
+
+    @POST("api/events/{id}/reconciliation/returns")
+    suspend fun reconcileReturns(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: ReconcileEventReturnsRequestDto
+    ): Response<EventReconciliationDto>
+
+    @POST("api/events/{id}/reconciliation/purchases")
+    suspend fun reconcilePurchases(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: ReconcileEventPurchasesRequestDto
+    ): Response<EventReconciliationDto>
+
+    @POST("api/events/{id}/complete")
+    suspend fun completeEvent(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventDto>
+
     @GET("api/events/{id}/pastovykles")
-    suspend fun getPastovykles(
+    suspend fun getPastovyklės(
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String,
         @Path("id") id: String

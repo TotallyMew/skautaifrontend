@@ -24,6 +24,8 @@ data class ItemEntity(
     val quantityBreakdownJson: String,
     val totalQuantityAcrossCustodians: Int,
     val responsibleUserId: String?,
+    val createdByUserId: String?,
+    val createdByUserName: String?,
     val photoUrl: String?,
     val purchaseDate: String?,
     val purchasePrice: Double?,

@@ -37,6 +37,13 @@ sealed interface EventNeedsUiState {
     data class Error(val message: String) : EventNeedsUiState
 }
 
+data class ManualEventNeedInput(
+    val name: String,
+    val quantity: Int,
+    val bucketId: String?,
+    val notes: String
+)
+
 @HiltViewModel
 class EventNeedsViewModel @Inject constructor(
     private val eventRepository: EventRepository,
@@ -83,9 +90,19 @@ class EventNeedsViewModel @Inject constructor(
                     return@launch
                 }
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
-            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
             val current = _uiState.value as? EventNeedsUiState.Success ?: return@launch
-            _uiState.value = current.copy(inventoryPlan = inventoryPlan, members = members)
+            _uiState.value = current.copy(inventoryPlan = inventoryPlan)
+        }
+    }
+
+    fun loadMembers() {
+        val current = _uiState.value as? EventNeedsUiState.Success ?: return
+        if (current.members.isNotEmpty()) return
+        viewModelScope.launch {
+            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            (_uiState.value as? EventNeedsUiState.Success)?.let {
+                _uiState.value = it.copy(members = members)
+            }
         }
     }
 
@@ -167,6 +184,39 @@ class EventNeedsViewModel @Inject constructor(
                         bucketId = bucketId,
                         responsibleUserId = responsibleUserId,
                         notes = notes.ifBlank { null }
+                    )
+                }
+            )
+            eventRepository.createInventoryItemsBulk(eventId, request)
+                .onSuccess { load(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? EventNeedsUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti poreikių.")
+                    }
+                }
+        }
+    }
+
+    fun createManualNeedsBulk(eventId: String, needs: List<ManualEventNeedInput>) {
+        val current = _uiState.value as? EventNeedsUiState.Success ?: return
+        val validNeeds = needs
+            .map { it.copy(name = it.name.trim(), notes = it.notes.trim()) }
+            .filter { it.name.isNotBlank() && it.quantity > 0 }
+        if (validNeeds.isEmpty()) {
+            _uiState.value = current.copy(error = "Įtraukite bent vieną poreikį su pavadinimu ir kiekiu.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            val request = CreateEventInventoryItemsBulkRequestDto(
+                items = validNeeds.map { need ->
+                    CreateEventInventoryItemRequestDto(
+                        itemId = null,
+                        name = need.name,
+                        plannedQuantity = need.quantity,
+                        bucketId = need.bucketId,
+                        responsibleUserId = null,
+                        notes = need.notes.ifBlank { null }
                     )
                 }
             )

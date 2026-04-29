@@ -93,9 +93,9 @@ fun TuntasSelectScreen(
     tuntasToLeave?.let { tuntas ->
         AlertDialog(
             onDismissRequest = { tuntasToLeave = null },
-            title = { Text("Palikti tunta?") },
+            title = { Text("Palikti tuntą?") },
             text = {
-                Text("Tuntas nebus istrintas is sistemos. Bus uzdaryta tik tavo prieiga prie sio tunto; vel prisijungti galesi tik gave pakvietima.")
+                Text("Tuntas nebus istrintas is sistemos. Bus uzdaryta tik tavo prieiga prie sio tunto; vel prisijungti galesi tik gaves pakvietima.")
             },
             confirmButton = {
                 TextButton(
@@ -229,12 +229,12 @@ private fun EmptyTuntasContent(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = "Neturi aktyviu tuntu",
+            text = "Neturi aktyvių tuntų",
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            text = "Jei ka tik sukurei tunta, jis atsiras cia kaip laukiantis patvirtinimo. Atnaujink sarasa arba priimk pakvietima.",
+            text = "Jei ką tik sukūrei tuntą, jis atsiras čia kaip laukiantis patvirtinimo. Atnaujink sąrašą arba priimk pakvietimą.",
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         InviteCard(
@@ -294,7 +294,7 @@ private fun InviteCard(
                         modifier = Modifier.height(20.dp)
                     )
                 } else {
-                    Text("Priimti pakvietima")
+                    Text("Priimti pakvietimą")
                 }
             }
         }

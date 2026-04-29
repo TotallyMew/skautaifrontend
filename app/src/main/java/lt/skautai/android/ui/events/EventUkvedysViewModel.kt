@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.events
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -16,15 +17,17 @@ import lt.skautai.android.data.remote.CreateEventInventoryBucketRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseItemRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
-import lt.skautai.android.data.remote.CreatePastovykleRequestDto
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
+import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
 import lt.skautai.android.data.remote.UpdateEventInventoryAllocationRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryBucketRequestDto
+import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
 import lt.skautai.android.data.repository.EventRepository
+import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
 
 sealed interface EventUkvedysUiState {
@@ -33,6 +36,9 @@ sealed interface EventUkvedysUiState {
         val event: EventDto,
         val inventoryPlan: EventInventoryPlanDto? = null,
         val pastovykles: List<PastovykleDto> = emptyList(),
+        val purchases: List<EventPurchaseDto> = emptyList(),
+        val createdPurchase: EventPurchaseDto? = null,
+        val selectedPastovykleId: String? = null,
         val pastovykleInventoryById: Map<String, List<PastovykleInventoryDto>> = emptyMap(),
         val pastovykleRequestsById: Map<String, List<EventInventoryRequestDto>> = emptyMap(),
         val isWorking: Boolean = false,
@@ -44,6 +50,7 @@ sealed interface EventUkvedysUiState {
 @HiltViewModel
 class EventUkvedysViewModel @Inject constructor(
     private val eventRepository: EventRepository,
+    private val uploadRepository: UploadRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -53,6 +60,9 @@ class EventUkvedysViewModel @Inject constructor(
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
+    private val inventoryCache = mutableMapOf<String, List<PastovykleInventoryDto>>()
+    private val requestsCache = mutableMapOf<String, List<EventInventoryRequestDto>>()
 
     fun load(eventId: String) {
         observeJob?.cancel()
@@ -64,6 +74,9 @@ class EventUkvedysViewModel @Inject constructor(
                         event = event,
                         inventoryPlan = current?.inventoryPlan,
                         pastovykles = current?.pastovykles.orEmpty(),
+                        purchases = current?.purchases.orEmpty(),
+                        createdPurchase = current?.createdPurchase,
+                        selectedPastovykleId = current?.selectedPastovykleId,
                         pastovykleInventoryById = current?.pastovykleInventoryById.orEmpty(),
                         pastovykleRequestsById = current?.pastovykleRequestsById.orEmpty(),
                         isWorking = current?.isWorking == true,
@@ -86,29 +99,85 @@ class EventUkvedysViewModel @Inject constructor(
                     return@launch
                 }
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
-            val pastovykles = eventRepository.getPastovykles(eventId).getOrNull()?.pastovykles.orEmpty()
-            val inventoryByPastovykle = pastovykles.associate { p ->
-                p.id to eventRepository.getPastovykleInventory(eventId, p.id).getOrNull()?.inventory.orEmpty()
-            }
-            val requestsByPastovykle = pastovykles.associate { p ->
-                p.id to eventRepository.getPastovykleRequests(eventId, p.id).getOrNull()?.requests.orEmpty()
-            }
+            val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
+            val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
             val current = _uiState.value as? EventUkvedysUiState.Success ?: return@launch
+            val firstId = current.selectedPastovykleId ?: pastovykles.firstOrNull()?.id
             _uiState.value = current.copy(
                 inventoryPlan = inventoryPlan,
                 pastovykles = pastovykles,
-                pastovykleInventoryById = inventoryByPastovykle,
-                pastovykleRequestsById = requestsByPastovykle
+                purchases = purchases,
+                selectedPastovykleId = firstId
             )
+            if (firstId != null) selectPastovykle(eventId, firstId)
+        }
+    }
+
+    fun selectPastovykle(eventId: String, pastovykleId: String) {
+        val current = _uiState.value as? EventUkvedysUiState.Success ?: return
+        if (inventoryCache.containsKey(pastovykleId) && requestsCache.containsKey(pastovykleId)) {
+            _uiState.value = current.copy(
+                selectedPastovykleId = pastovykleId,
+                pastovykleInventoryById = current.pastovykleInventoryById + (pastovykleId to inventoryCache[pastovykleId].orEmpty()),
+                pastovykleRequestsById = current.pastovykleRequestsById + (pastovykleId to requestsCache[pastovykleId].orEmpty())
+            )
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(selectedPastovykleId = pastovykleId, isWorking = true)
+            val inventory = eventRepository.getPastovykleInventory(eventId, pastovykleId).getOrNull()?.inventory.orEmpty()
+            val requests = eventRepository.getPastovykleRequests(eventId, pastovykleId).getOrNull()?.requests.orEmpty()
+            inventoryCache[pastovykleId] = inventory
+            requestsCache[pastovykleId] = requests
+            (_uiState.value as? EventUkvedysUiState.Success)?.let {
+                _uiState.value = it.copy(
+                    isWorking = false,
+                    pastovykleInventoryById = it.pastovykleInventoryById + (pastovykleId to inventory),
+                    pastovykleRequestsById = it.pastovykleRequestsById + (pastovykleId to requests)
+                )
+            }
+        }
+    }
+
+    fun selectAllPastovyklės(eventId: String) {
+        val current = _uiState.value as? EventUkvedysUiState.Success ?: return
+        val missingPastovyklės = current.pastovykles.filter {
+            !inventoryCache.containsKey(it.id) || !requestsCache.containsKey(it.id)
+        }
+        if (missingPastovyklės.isEmpty()) {
+            _uiState.value = current.copy(selectedPastovykleId = null)
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(selectedPastovykleId = null, isWorking = true)
+            missingPastovyklės.forEach { pastovykle ->
+                val inventory = eventRepository.getPastovykleInventory(eventId, pastovykle.id).getOrNull()?.inventory.orEmpty()
+                val requests = eventRepository.getPastovykleRequests(eventId, pastovykle.id).getOrNull()?.requests.orEmpty()
+                inventoryCache[pastovykle.id] = inventory
+                requestsCache[pastovykle.id] = requests
+            }
+            (_uiState.value as? EventUkvedysUiState.Success)?.let {
+                _uiState.value = it.copy(
+                    isWorking = false,
+                    selectedPastovykleId = null,
+                    pastovykleInventoryById = inventoryCache.toMap(),
+                    pastovykleRequestsById = requestsCache.toMap()
+                )
+            }
         }
     }
 
     fun createPurchaseFromSelected(eventId: String, selectedInventoryItemIds: Set<String>) {
         val current = _uiState.value as? EventUkvedysUiState.Success ?: return
+        val activePurchaseItemIds = current.purchases
+            .filter { it.status in listOf("DRAFT", "PURCHASED") }
+            .flatMap { it.items }
+            .map { it.eventInventoryItemId }
+            .toSet()
         val selected = current.inventoryPlan?.items.orEmpty()
-            .filter { it.id in selectedInventoryItemIds && it.shortageQuantity > 0 }
+            .filter { it.id in selectedInventoryItemIds && it.shortageQuantity > 0 && it.id !in activePurchaseItemIds }
         if (selected.isEmpty()) {
-            _uiState.value = current.copy(error = "Pažymėkite bent vieną trūkstamą daiktą.")
+            _uiState.value = current.copy(error = "Pažymėkite bent vieną trūkstamą daiktą, kuris dar nėra aktyviame pirkime.")
             return
         }
         viewModelScope.launch {
@@ -123,7 +192,19 @@ class EventUkvedysViewModel @Inject constructor(
                 }
             )
             eventRepository.createPurchase(eventId, request)
-                .onSuccess { load(eventId) }
+                .onSuccess { purchase ->
+                    val updatedPurchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
+                    val updatedPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
+                    (_uiState.value as? EventUkvedysUiState.Success)?.let {
+                        _uiState.value = it.copy(
+                            inventoryPlan = updatedPlan ?: it.inventoryPlan,
+                            purchases = if (updatedPurchases.isEmpty()) it.purchases + purchase else updatedPurchases,
+                            createdPurchase = purchase,
+                            isWorking = false,
+                            error = null
+                        )
+                    }
+                }
                 .onFailure { error ->
                     (_uiState.value as? EventUkvedysUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti pirkimo.")
@@ -132,10 +213,55 @@ class EventUkvedysViewModel @Inject constructor(
         }
     }
 
+    fun saveCreatedPurchaseDetails(eventId: String, purchaseId: String, totalAmountText: String, invoiceUri: Uri?) {
+        val current = _uiState.value as? EventUkvedysUiState.Success ?: return
+        val totalAmount = totalAmountText.replace(',', '.').toDoubleOrNull()
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            if (totalAmount != null) {
+                val updateResult = eventRepository.updatePurchase(
+                    eventId,
+                    purchaseId,
+                    UpdateEventPurchaseRequestDto(totalAmount = totalAmount)
+                )
+                if (updateResult.isFailure) {
+                    _uiState.value = current.copy(isWorking = false, error = updateResult.exceptionOrNull()?.message ?: "Nepavyko išsaugoti pirkimo sumos.")
+                    return@launch
+                }
+            }
+            if (invoiceUri != null) {
+                val uploadResult = uploadRepository.uploadDocument(invoiceUri)
+                if (uploadResult.isFailure) {
+                    _uiState.value = current.copy(isWorking = false, error = uploadResult.exceptionOrNull()?.message ?: "Nepavyko įkelti sąskaitos.")
+                    return@launch
+                }
+                val attachResult = eventRepository.attachPurchaseInvoice(eventId, purchaseId, uploadResult.getOrThrow())
+                if (attachResult.isFailure) {
+                    _uiState.value = current.copy(isWorking = false, error = attachResult.exceptionOrNull()?.message ?: "Nepavyko prisegti sąskaitos.")
+                    return@launch
+                }
+            }
+            val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
+            (_uiState.value as? EventUkvedysUiState.Success)?.let {
+                _uiState.value = it.copy(
+                    purchases = if (purchases.isEmpty()) it.purchases else purchases,
+                    createdPurchase = null,
+                    isWorking = false
+                )
+            }
+        }
+    }
+
+    fun dismissCreatedPurchase() {
+        (_uiState.value as? EventUkvedysUiState.Success)?.let {
+            _uiState.value = it.copy(createdPurchase = null)
+        }
+    }
+
     fun createInventoryBucket(eventId: String, name: String, type: String, pastovykleId: String?, notes: String) {
         val current = _uiState.value as? EventUkvedysUiState.Success ?: return
         if (name.isBlank()) {
-            _uiState.value = current.copy(error = "Įveskite bucket pavadinimą.")
+            _uiState.value = current.copy(error = "Įveskite paskirties pavadinimą.")
             return
         }
         viewModelScope.launch {
@@ -147,7 +273,7 @@ class EventUkvedysViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventUkvedysUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti bucket.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti paskirties.")
                     }
                 }
         }
@@ -164,7 +290,7 @@ class EventUkvedysViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventUkvedysUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko atnaujinti bucket.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko atnaujinti paskirties.")
                     }
                 }
         }
@@ -178,7 +304,7 @@ class EventUkvedysViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventUkvedysUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti bucket.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti paskirties.")
                     }
                 }
         }
@@ -188,7 +314,7 @@ class EventUkvedysViewModel @Inject constructor(
         val current = _uiState.value as? EventUkvedysUiState.Success ?: return
         val quantity = quantityText.toIntOrNull()
         if (eventInventoryItemId.isBlank() || bucketId.isBlank() || quantity == null || quantity <= 0) {
-            _uiState.value = current.copy(error = "Pasirinkite daiktą, bucket ir teigiamą kiekį.")
+            _uiState.value = current.copy(error = "Pasirinkite daiktą, paskirtį ir teigiamą kiekį.")
             return
         }
         viewModelScope.launch {

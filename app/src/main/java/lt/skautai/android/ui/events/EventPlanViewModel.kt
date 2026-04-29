@@ -75,9 +75,19 @@ class EventPlanViewModel @Inject constructor(
                     return@launch
                 }
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
-            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
             val current = _uiState.value as? EventPlanUiState.Success ?: return@launch
-            _uiState.value = current.copy(inventoryPlan = inventoryPlan, members = members)
+            _uiState.value = current.copy(inventoryPlan = inventoryPlan)
+        }
+    }
+
+    fun loadMembers() {
+        val current = _uiState.value as? EventPlanUiState.Success ?: return
+        if (current.members.isNotEmpty()) return
+        viewModelScope.launch {
+            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            (_uiState.value as? EventPlanUiState.Success)?.let {
+                _uiState.value = it.copy(members = members)
+            }
         }
     }
 

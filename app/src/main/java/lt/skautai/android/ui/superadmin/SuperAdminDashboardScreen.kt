@@ -105,7 +105,7 @@ fun SuperAdminDashboardScreen(
     pendingRoleRemoval?.let { role ->
         AlertDialog(
             onDismissRequest = { pendingRoleRemoval = null },
-            title = { Text("Salinti pareigas?") },
+            title = { Text("Šalinti pareigas?") },
             text = {
                 Text(
                     buildString {
@@ -127,11 +127,11 @@ fun SuperAdminDashboardScreen(
                     },
                     enabled = !uiState.isSaving
                 ) {
-                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -139,8 +139,8 @@ fun SuperAdminDashboardScreen(
     pendingRankRemoval?.let { rank ->
         AlertDialog(
             onDismissRequest = { pendingRankRemoval = null },
-            title = { Text("Salinti laipsni?") },
-            text = { Text("Laipsnis ${rank.roleName} bus pasalintas is nario.") },
+            title = { Text("Šalinti laipsnį?") },
+            text = { Text("Laipsnis ${rank.roleName} bus pašalintas iš nario.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -149,11 +149,11 @@ fun SuperAdminDashboardScreen(
                     },
                     enabled = !uiState.isSaving
                 ) {
-                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -183,7 +183,7 @@ fun SuperAdminDashboardScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("Tuntu nera")
+                    Text("Tuntų nėra")
                 }
             }
 
@@ -336,7 +336,7 @@ private fun SelectedTuntasCard(
 private fun UnitsSection(units: List<OrganizationalUnitDto>) {
     SectionCard(title = "Vienetai") {
         if (units.isEmpty()) {
-            Text("Vienetu nera", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Vienetų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 units.forEachIndexed { index, unit ->
@@ -371,7 +371,7 @@ private fun MembersSection(
 ) {
     SectionCard(title = "Nariai") {
         if (members.isEmpty()) {
-            Text("Nariu nera", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Narių nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 members.forEachIndexed { index, member ->
@@ -395,7 +395,7 @@ private fun MembersSection(
                         )
                         val unitsText = member.unitAssignments.orEmpty()
                             .joinToString { it.organizationalUnitName }
-                            .ifBlank { "Vienetu nera" }
+                            .ifBlank { "Vienetų nėra" }
                         Text(
                             unitsText,
                             style = MaterialTheme.typography.bodySmall,
@@ -466,7 +466,7 @@ private fun MemberUnitAssignmentsBlock(member: MemberDto) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Vienetai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
         if (member.unitAssignments.isNullOrEmpty()) {
-            Text("Vienetu nera", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Vienetų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             member.unitAssignments.forEach { assignment ->
                 Text(
@@ -496,12 +496,12 @@ private fun RoleBlock(
             Button(onClick = onAdd, enabled = !isSaving) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Prideti")
+                Text("Pridėti")
             }
         }
 
         if (roles.isEmpty()) {
-            Text("Pareigu nera", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Pareigų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             roles.forEachIndexed { index, role ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -532,7 +532,7 @@ private fun RoleBlock(
                             IconButton(onClick = { onRemove(role) }, enabled = !isSaving) {
                                 Icon(
                                     Icons.Default.Delete,
-                                    contentDescription = "Salinti",
+                                    contentDescription = "Šalinti",
                                     tint = MaterialTheme.colorScheme.error
                                 )
                             }
@@ -562,12 +562,12 @@ private fun RankBlock(
             Button(onClick = onAdd, enabled = !isSaving) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Prideti")
+                Text("Pridėti")
             }
         }
 
         if (ranks.isEmpty()) {
-            Text("Laipsniu nera", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Laipsnių nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             ranks.forEachIndexed { index, rank ->
                 Row(
@@ -586,7 +586,7 @@ private fun RankBlock(
                     IconButton(onClick = { onRemove(rank) }, enabled = !isSaving) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Salinti",
+                            contentDescription = "Šalinti",
                             tint = MaterialTheme.colorScheme.error
                         )
                     }
@@ -780,7 +780,7 @@ private fun AssignSuperAdminRoleDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Atsaukti")
+                Text("Atšaukti")
             }
         }
     )
@@ -801,11 +801,11 @@ private fun AssignSuperAdminRankDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Priskirti laipsni") },
+        title = { Text("Priskirti laipsnį") },
         text = {
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                 OutlinedTextField(
-                    value = selectedRole?.name ?: "Pasirinkite laipsni",
+                    value = selectedRole?.name ?: "Pasirinkite laipsnį",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Laipsnis") },
@@ -835,7 +835,7 @@ private fun AssignSuperAdminRankDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Atsaukti")
+                Text("Atšaukti")
             }
         }
     )
@@ -927,7 +927,7 @@ private fun EditSuperAdminRoleDialog(
                 OutlinedTextField(
                     value = startsAt,
                     onValueChange = onStartsAtChanged,
-                    label = { Text("Pradzia (YYYY-MM-DD)") },
+                    label = { Text("Prad?ia (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -941,12 +941,12 @@ private fun EditSuperAdminRoleDialog(
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !isSaving) {
-                Text("Issaugoti")
+                Text("Išsaugoti")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Atsaukti")
+                Text("Atšaukti")
             }
         }
     )

@@ -91,14 +91,14 @@ fun MemberListScreen(
             is MemberListUiState.Success -> {
                 if (state.members.isEmpty()) {
                     SkautaiEmptyState(
-                        title = "Nariu dar nera",
+                        title = "Narių dar nėra",
                         subtitle = if (state.isReadOnly) {
-                            "Cia matysi tunto vadovus pagal turimas teises."
+                            "Čia matysi tunto vadovus pagal turimas teises."
                         } else {
-                            "Cia matysi savo vieneto arba tunto narius pagal turimas teises."
+                            "Čia matysi savo vieneto arba tunto narius pagal turimas teises."
                         },
                         icon = Icons.Default.Groups,
-                        actionLabel = if (canInvite) "Pakviesti nari" else "Grizti i pradzia",
+                        actionLabel = if (canInvite) "Pakviesti nar?" else "Gr??ti ? prad?i?",
                         onAction = if (canInvite) onInviteClick else onEmptyActionClick,
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -150,8 +150,8 @@ fun MemberListScreen(
                             if (filteredMembers.isEmpty()) {
                                 item {
                                     SkautaiEmptyState(
-                                        title = "Nieko nerasta",
-                                        subtitle = "Pabandyk ieskoti pagal varda, el. pasta, telefona, pareigas ar vieneta.",
+                                        title = "Nieko n?rasta",
+                                        subtitle = "Pabandyk ieškoti pagal vardą, el. paštą, telefoną, pareigas ar vienetą.",
                                         icon = Icons.Default.Person
                                     )
                                 }
@@ -180,7 +180,7 @@ fun MemberListScreen(
                             .align(Alignment.BottomEnd)
                             .padding(16.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Pakviesti nari")
+                        Icon(Icons.Default.Add, contentDescription = "Pakviesti nar?")
                     }
                 }
             }

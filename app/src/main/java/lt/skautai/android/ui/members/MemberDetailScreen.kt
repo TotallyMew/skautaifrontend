@@ -165,7 +165,7 @@ fun MemberDetailScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingStepDownRole = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingStepDownRole = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -173,7 +173,7 @@ fun MemberDetailScreen(
     pendingRoleRemoval?.let { role ->
         AlertDialog(
             onDismissRequest = { pendingRoleRemoval = null },
-            title = { Text("Salinti pareigas?") },
+            title = { Text("Šalinti pareigas?") },
             text = {
                 Text(
                     buildString {
@@ -195,11 +195,11 @@ fun MemberDetailScreen(
                     },
                     enabled = !uiState.isSaving
                 ) {
-                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -207,8 +207,8 @@ fun MemberDetailScreen(
     pendingRankRemoval?.let { rank ->
         AlertDialog(
             onDismissRequest = { pendingRankRemoval = null },
-            title = { Text("Salinti laipsni?") },
-            text = { Text("Laipsnis ${rank.roleName} bus pasalintas is sio nario.") },
+            title = { Text("Šalinti laipsnį?") },
+            text = { Text("Laipsnis ${rank.roleName} bus pašalintas iš šio nario.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -217,11 +217,11 @@ fun MemberDetailScreen(
                     },
                     enabled = !uiState.isSaving
                 ) {
-                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -316,7 +316,7 @@ private fun MemberDetailContent(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("Perkelti i kita vieneta")
+                Text("Perkelti į kitą vienetą")
             }
         }
 
@@ -353,7 +353,7 @@ private fun MemberUnitsSection(assignments: List<MemberUnitAssignmentDto>) {
             HorizontalDivider()
             if (assignments.isEmpty()) {
                 Text(
-                    "Aktyviu vienetu nera",
+                    "Aktyvių vienetų nėra",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -477,7 +477,7 @@ private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto
             HorizontalDivider()
             if (history.isEmpty()) {
                 Text(
-                    "Buvusiu pareigu nera",
+                    "Buvusių pareigų nėra",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodyMedium
                 )
@@ -689,13 +689,13 @@ private fun MoveMemberDialog(
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Bus pakeista tik pagrindine nario naryste to paties vieneto tipo ribose. Pareigos ir laipsniai nebus keiciami.",
+                    text = "Bus pakeista tik pagrindinė nario narystė to paties vieneto tipo ribose. Pareigos ir laipsniai nebus keičiami.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                     OutlinedTextField(
-                        value = selectedUnit?.name ?: "Pasirinkite vieneta",
+                        value = selectedUnit?.name ?: "Pasirinkite vienetą",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Naujas vienetas") },
@@ -721,7 +721,7 @@ private fun MoveMemberDialog(
                 Text("Perkelti")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atšaukti") } }
     )
 }
 
@@ -807,7 +807,7 @@ private fun EditRoleDialog(
                 OutlinedTextField(
                     value = startsAt,
                     onValueChange = onStartsAtChanged,
-                    label = { Text("Pradzia (YYYY-MM-DD)") },
+                    label = { Text("Prad?ia (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -821,10 +821,10 @@ private fun EditRoleDialog(
         },
         confirmButton = {
             TextButton(onClick = onConfirm, enabled = !isSaving) {
-                Text("Issaugoti")
+                Text("Išsaugoti")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atšaukti") } }
     )
 }
 
@@ -891,7 +891,7 @@ private fun TransferTuntininkasDialog(
                 Text("Perleisti")
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Atsaukti") } }
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atšaukti") } }
     )
 }
 

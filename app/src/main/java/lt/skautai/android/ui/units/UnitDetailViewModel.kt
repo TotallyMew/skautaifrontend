@@ -62,7 +62,7 @@ class UnitDetailViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     accessDenied = true,
-                    error = "Vieneto detale prieinama tik vadovams."
+                    error = "Vieneto detalė prieinama tik vadovams."
                 )
                 return@launch
             }
@@ -134,7 +134,7 @@ class UnitDetailViewModel @Inject constructor(
                     )
                 }
                 .onFailure { e ->
-                    _uiState.value = _uiState.value.copy(actionError = e.message ?: "Klaida gaunant narius")
+                    _uiState.value = _uiState.value.copy(actionError = e.message ?: "Klaida gaunant nariųs")
                 }
         }
     }
@@ -207,7 +207,7 @@ class UnitDetailViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         showLeaveDialog = false,
-                        actionError = e.message ?: "Klaida paliekant vieneta"
+                        actionError = e.message ?: "Klaida paliekant vienetą"
                     )
                 }
         }

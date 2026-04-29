@@ -61,6 +61,8 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.launch
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.canManageLocations
+import lt.skautai.android.util.canViewMembers
 import lt.skautai.android.util.TokenManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -97,7 +99,7 @@ fun MainScaffold(
     val quickAccessItems = buildList {
         add(
             DrawerNavItem(
-                label = "Pradzia",
+                label = "Pradžia",
                 icon = Icons.Default.Home,
                 selected = currentRoute == NavRoutes.Home.route,
                 onClick = { navController.navigate(NavRoutes.Home.route) }
@@ -129,7 +131,7 @@ fun MainScaffold(
         )
         add(
             DrawerNavItem(
-                label = "Paemimai",
+                label = "Paėmimai",
                 icon = Icons.Default.Inbox,
                 selected = currentRoute == NavRoutes.SharedRequestList.route,
                 onClick = { navController.navigate(NavRoutes.SharedRequestList.route) }
@@ -138,11 +140,7 @@ fun MainScaffold(
     }
 
     val managementItems = buildList {
-        if (
-            "locations.manage" in permissions ||
-            "locations.manage:ALL" in permissions ||
-            "locations.manage:OWN_UNIT" in permissions
-        ) {
+        if (permissions.canManageLocations()) {
             add(
                 DrawerNavItem(
                     label = "Lokacijos",
@@ -161,7 +159,7 @@ fun MainScaffold(
             )
         )
 
-        if ("members.view" in permissions) {
+        if (permissions.canViewMembers()) {
             add(
                 DrawerNavItem(
                     label = "Nariai",
@@ -193,7 +191,7 @@ fun MainScaffold(
         )
         add(
             DrawerNavItem(
-                label = if (activeTuntasId != null) "Keisti tunta" else "Pasirinkti tunta",
+                label = if (activeTuntasId != null) "Keisti tuntą" else "Pasirinkti tuntą",
                 icon = Icons.Default.SwapHoriz,
                 selected = currentRoute == NavRoutes.TuntasSelect.route,
                 onClick = { navController.navigate(NavRoutes.TuntasSelect.route) }
@@ -203,7 +201,7 @@ fun MainScaffold(
         if (syncStatus.failedCount > 0) {
             add(
                 DrawerNavItem(
-                    label = "Bandyti sync dar karta",
+                    label = "Bandyti sinchronizaciją dar kartą",
                     icon = Icons.Default.SwapHoriz,
                     selected = false,
                     onClick = { pendingSyncViewModel.retryFailed() }
@@ -238,7 +236,7 @@ fun MainScaffold(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = "Skautu Inventorius",
+                                text = "Skautų Inventorius",
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -345,59 +343,65 @@ fun MainScaffold(
                 )
             },
             bottomBar = {
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp
-                ) {
-                    visibleNavItems.take(4).forEach { item ->
-                        val selected = currentRoute == item.route
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                if (currentRoute != item.route) {
-                                    val destination = bottomNavDestination(item)
-                                    if (item.route == NavRoutes.Home.route) {
-                                        val poppedToHome = navController.popBackStack(
-                                            route = NavRoutes.Home.route,
-                                            inclusive = false
-                                        )
-                                        if (!poppedToHome) {
-                                            navController.navigate(NavRoutes.Home.route) {
-                                                popUpTo(0) { inclusive = true }
-                                                launchSingleTop = true
-                                            }
-                                        }
-                                    } else {
-                                        val isFromBottomNavRoute = BottomNavItem.all.any { it.route == currentRoute }
-                                        navController.navigate(destination) {
-                                            popUpTo(NavRoutes.Home.route) {
-                                                saveState = isFromBottomNavRoute
+                Column {
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant
+                    )
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        tonalElevation = 0.dp
+                    ) {
+                        visibleNavItems.take(4).forEach { item ->
+                            val selected = currentRoute == item.route
+                            NavigationBarItem(
+                                selected = selected,
+                                onClick = {
+                                    if (currentRoute != item.route) {
+                                        val destination = bottomNavDestination(item)
+                                        if (item.route == NavRoutes.Home.route) {
+                                            val poppedToHome = navController.popBackStack(
+                                                route = NavRoutes.Home.route,
                                                 inclusive = false
+                                            )
+                                            if (!poppedToHome) {
+                                                navController.navigate(NavRoutes.Home.route) {
+                                                    popUpTo(0) { inclusive = true }
+                                                    launchSingleTop = true
+                                                }
                                             }
-                                            launchSingleTop = true
-                                            restoreState = isFromBottomNavRoute
+                                        } else {
+                                            val isFromBottomNavRoute = BottomNavItem.all.any { it.route == currentRoute }
+                                            navController.navigate(destination) {
+                                                popUpTo(NavRoutes.Home.route) {
+                                                    saveState = isFromBottomNavRoute
+                                                    inclusive = false
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = isFromBottomNavRoute
+                                            }
                                         }
                                     }
-                                }
-                            },
-                            icon = { Icon(item.icon, contentDescription = item.label) },
-                            label = {
-                                Text(
-                                    text = item.label,
-                                    maxLines = 1,
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                                },
+                                icon = { Icon(item.icon, contentDescription = item.label) },
+                                label = {
+                                    Text(
+                                        text = item.label,
+                                        maxLines = 1,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                                        )
                                     )
+                                },
+                                colors = NavigationBarItemDefaults.colors(
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                                    selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedIconColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                selectedTextColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                                unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
                             )
-                        )
+                        }
                     }
                 }
             },
@@ -427,7 +431,7 @@ private fun SyncStatusPill(
 ) {
     val (label, icon, containerColor, contentColor) = when {
         status.failedCount > 0 -> Quadruple(
-            "${status.failedCount} sync klaid.",
+            "${status.failedCount} sinchronizacijos klaida",
             Icons.Default.SwapHoriz,
             MaterialTheme.colorScheme.errorContainer,
             MaterialTheme.colorScheme.onErrorContainer
@@ -439,7 +443,7 @@ private fun SyncStatusPill(
             MaterialTheme.colorScheme.onTertiaryContainer
         )
         status.isOffline -> Quadruple(
-            "Offline",
+            "Interneto nėra",
             Icons.Default.CloudOff,
             MaterialTheme.colorScheme.errorContainer,
             MaterialTheme.colorScheme.onErrorContainer
@@ -472,22 +476,22 @@ private fun SyncStatusPill(
 }
 
 private fun currentRouteTitle(currentRoute: String?): String = when (currentRoute) {
-    NavRoutes.Home.route -> "Pradzia"
+    NavRoutes.Home.route -> "Pradžia"
     NavRoutes.InventoryList.route -> "Inventorius"
     NavRoutes.InventoryDetail.route -> "Daikto informacija"
     NavRoutes.InventoryAddEdit.route -> "Inventoriaus forma"
     NavRoutes.ReservationList.route -> "Rezervacijos"
     NavRoutes.ReservationCreate.route -> "Nauja rezervacija"
     NavRoutes.ReservationDetail.route -> "Rezervacijos informacija"
-    NavRoutes.ReservationMovement.route -> "Issdavimas ir grazinimas"
+    NavRoutes.ReservationMovement.route -> "Išdavimas ir grąžinimas"
     NavRoutes.RequestList.route -> "Pirkimai"
     NavRoutes.RequestDetail.route -> "Pirkimo informacija"
     NavRoutes.RequestCreate.route -> "Naujas pirkimas"
     NavRoutes.InviteCreate.route -> "Naujas kvietimas"
     NavRoutes.InviteAccept.route -> "Kvietimai"
     NavRoutes.Profile.route -> "Mano profilis"
-    NavRoutes.SharedRequestList.route -> "Paemimai"
-    NavRoutes.SharedRequestDetail.route -> "Paemimo informacija"
+    NavRoutes.SharedRequestList.route -> "Paėmimai"
+    NavRoutes.SharedRequestDetail.route -> "Paėmimo informacija"
     NavRoutes.MemberList.route -> "Nariai"
     NavRoutes.MemberDetail.route -> "Nario informacija"
     NavRoutes.UnitList.route -> "Vienetai"

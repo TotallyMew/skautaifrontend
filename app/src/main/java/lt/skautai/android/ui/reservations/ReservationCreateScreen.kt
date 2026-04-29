@@ -129,7 +129,7 @@ fun ReservationCreateScreen(
                             .padding(16.dp)
                     ) {
                         Text(
-                            text = "Pasirinkta daiktu: ${uiState.selectedItems.sumOf { it.quantity }}",
+                            text = "Pasirinkta daiktų: ${uiState.selectedItems.sumOf { it.quantity }}",
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -183,12 +183,12 @@ fun ReservationCreateScreen(
                             verticalArrangement = Arrangement.spacedBy(4.dp)
                         ) {
                             Text(
-                                text = "Rezervuok esama inventoriu",
+                                text = "Rezervuok esamą inventorių",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Pasirink datas ir daiktus, kuriuos nori uzsakyti tam laikotarpiui.",
+                                text = "Pasirink datas ir daiktųs, kuriuos nori uzsakyti tam laikotarpiui.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -240,7 +240,7 @@ fun ReservationCreateScreen(
                     OutlinedTextField(
                         value = uiState.searchQuery,
                         onValueChange = viewModel::onSearchQueryChange,
-                        label = { Text("Ieskoti daikto") },
+                        label = { Text("Ieškoti daikto") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -268,7 +268,7 @@ fun ReservationCreateScreen(
 
                 stickyHeader {
                     ReservationSectionHeader(
-                        title = "Tunto inventorius",
+                        title = "Tunto inventori?s",
                         subtitle = "Tvirtina inventorininkas arba tuntininkas"
                     )
                 }
@@ -277,9 +277,9 @@ fun ReservationCreateScreen(
                     item {
                         EmptyInventorySection(
                             message = if (uiState.searchQuery.isBlank()) {
-                                "Tunto inventorius tuscias"
+                                "Tunto inventori?s tuščias"
                             } else {
-                                "Tunto inventoriuje nieko nerasta pagal paieska"
+                                "Tunto inventori?je nieko n?rasta pagal paiešką"
                             }
                         )
                     }
@@ -298,7 +298,7 @@ fun ReservationCreateScreen(
 
                 stickyHeader {
                     ReservationSectionHeader(
-                        title = "Tavo vieneto inventorius",
+                        title = "Tavo vieneto inventori?s",
                         subtitle = "Tvirtina vieneto vadovas"
                     )
                 }
@@ -307,9 +307,9 @@ fun ReservationCreateScreen(
                     item {
                         EmptyInventorySection(
                             message = if (uiState.searchQuery.isBlank()) {
-                                "Vieneto inventorius tuscias"
+                                "Vieneto inventori?s tuščias"
                             } else {
-                                "Vieneto inventoriuje nieko nerasta pagal paieska"
+                                "Vieneto inventori?je nieko n?rasta pagal paiešką"
                             }
                         )
                     }
@@ -365,8 +365,8 @@ private fun SelectedItemsSummary(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
-            BasketGroup(title = "Tunto inventorius", items = sharedItems)
-            BasketGroup(title = "Tavo vieneto inventorius", items = unitItems)
+            BasketGroup(title = "Tunto inventori?s", items = sharedItems)
+            BasketGroup(title = "Tavo vieneto inventori?s", items = unitItems)
         }
     }
 }
@@ -472,7 +472,7 @@ private fun DatePickerField(
             },
             dismissButton = {
                 TextButton(onClick = { showPicker = false }) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         ) {

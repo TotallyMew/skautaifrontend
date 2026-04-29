@@ -59,6 +59,9 @@ import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.LithuanianNameVocativeFormatter
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.canCreateItems
+import lt.skautai.android.util.canManageLocations
+import lt.skautai.android.util.canManageSharedInventory
 
 @Composable
 fun HomeScreen(
@@ -69,11 +72,9 @@ fun HomeScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val userName by viewModel.userName.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
-    val canCreateItems = "items.create" in permissions
-    val canApproveInventory = "items.transfer" in permissions
-    val canManageLocations = "locations.manage" in permissions ||
-        "locations.manage:ALL" in permissions ||
-        "locations.manage:OWN_UNIT" in permissions
+    val canCreateItems = permissions.canCreateItems()
+    val canApproveInventory = permissions.canManageSharedInventory()
+    val canManageLocations = permissions.canManageLocations()
 
     if (uiState.isLoading && uiState.availableUnits.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -110,7 +111,7 @@ fun HomeScreen(
             item {
                 SkautaiSectionHeader(
                     title = "Aktyvus vienetas",
-                    subtitle = "Perjunk konteksta tarp vienetu, kuriems priklausai."
+                    subtitle = "Perjunk kontekstą tarp vienetų, kuriems priklausai."
                 )
             }
             item {
@@ -130,7 +131,7 @@ fun HomeScreen(
             item {
                 SkautaiSectionHeader(
                     title = "Reikalauja demesio",
-                    subtitle = "Svarbiausi veiksmai, kuriuos verta atlikti pirmiausia."
+                    subtitle = "Svarbiausi veiksm?i, kuriuos verta atlikti pirmiausia."
                 )
             }
             item {
@@ -159,9 +160,9 @@ fun HomeScreen(
                     }
                     if (hasAssignedRequisitions) {
                         ActionTile(
-                            title = "Prasymai, laukiantys sprendimo",
+                            title = "Prašymai, laukiantys sprendimo",
                             count = uiState.assignedRequisitionCount,
-                            subtitle = "Pirkimo ir papildymo prasymai",
+                            subtitle = "Pirkimo ir papildymo prašymai",
                             icon = Icons.Default.Assignment,
                             tone = MaterialTheme.colorScheme.surfaceBright,
                             badgeTone = SkautaiStatusTone.Warning,
@@ -252,15 +253,15 @@ fun HomeScreen(
 
         item {
             SkautaiSectionHeader(
-                title = "Prasymai",
-                subtitle = "Pirkimo, papildymo ir paemimo uzklausos vienoje vietoje."
+                title = "Prašymai",
+                subtitle = "Pirkimo, papildymo ir pa?mimo u?klausos vienoje vietoje."
             )
         }
 
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 ActionTile(
-                    title = "Mano pirkimo prasymai",
+                    title = "Mano pirkimo prašymai",
                     count = uiState.myRequisitionCount,
                     subtitle = "Kuriuos pats pateikei",
                     icon = Icons.Default.Assignment,
@@ -269,9 +270,9 @@ fun HomeScreen(
                     onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active")) }
                 )
                 ActionTile(
-                    title = "Paemimo prasymai",
+                    title = "Paėmimo prašymai",
                     count = null,
-                    subtitle = "Paimti esamus daiktus is bendro tunto inventoriaus",
+                    subtitle = "Paimti esamus daiktųs is bendro tunto inventoriaus",
                     icon = Icons.Default.Inbox,
                     tone = MaterialTheme.colorScheme.surfaceBright,
                     badgeTone = SkautaiStatusTone.Info,
@@ -292,9 +293,9 @@ private fun OverviewCard(
         uiState.assignedReservationCount +
         uiState.assignedRequisitionCount
     SkautaiSummaryCard(
-        eyebrow = "Pagrindine apzvalga",
+        eyebrow = "Pagrindinė apžvalga",
         title = "Labas, $userName",
-        subtitle = "Svarbiausi inventoriaus, rezervaciju ir prasymu srautai vienoje vietoje.",
+        subtitle = "Svarbiausi inventoriaus, rezervacijų ir prašymų srautai vienoje vietoje.",
         metrics = listOf(
             "Veiksmai" to actionCount.toString(),
             "Vieneto daiktai" to uiState.activeUnitItemCount.toString(),
@@ -427,7 +428,7 @@ private fun InventoryScopeColumn(
         }
         add(
             ScopeTile(
-                title = "Tunto bendras inventorius",
+                title = "Tunto bendras inventori?s",
                 count = sharedInventoryCount,
                 icon = Icons.Default.Flag,
                 tone = MaterialTheme.colorScheme.secondaryContainer,
@@ -437,18 +438,20 @@ private fun InventoryScopeColumn(
                 onAdd = onAddToShared
             )
         )
-        add(
-            ScopeTile(
-                title = "Mano asmeniniai daiktai",
-                count = personalLendingCount,
-                icon = Icons.Default.Person,
-                tone = MaterialTheme.colorScheme.surfaceContainerLow,
-                toneLabel = "Asmeninis",
-                onOpen = onOpenPersonal,
-                showAdd = canCreateItems,
-                onAdd = onAddPersonal
+        if (canCreateItems) {
+            add(
+                ScopeTile(
+                    title = "Mano asmeniniai daiktai",
+                    count = personalLendingCount,
+                    icon = Icons.Default.Person,
+                    tone = MaterialTheme.colorScheme.surfaceContainerLow,
+                    toneLabel = "Asmeninis",
+                    onOpen = onOpenPersonal,
+                    showAdd = true,
+                    onAdd = onAddPersonal
+                )
             )
-        )
+        }
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -533,7 +536,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.Add,
-                                contentDescription = "Prideti",
+                                contentDescription = "Pridėti",
                                 modifier = Modifier.size(16.dp)
                             )
                         }

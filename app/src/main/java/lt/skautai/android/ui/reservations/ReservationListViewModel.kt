@@ -21,7 +21,8 @@ sealed interface ReservationListUiState {
         val reservations: List<ReservationDto>,
         val myCount: Int,
         val assignedCount: Int,
-        val trackedCount: Int
+        val trackedCount: Int,
+        val canUseReviewModes: Boolean
     ) : ReservationListUiState
     data class Error(val message: String) : ReservationListUiState
 }
@@ -51,11 +52,13 @@ class ReservationListViewModel @Inject constructor(
                 val permissions = tokenManager.permissions.first()
                 val activeUnitId = tokenManager.activeOrgUnitId.first()
                 val allReservations = response.reservations
+                val canUseReviewModes = permissions.canUseReviewModes()
                 _uiState.value = ReservationListUiState.Success(
                     reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),
                     myCount = allReservations.filterForMode("my_active", userId, permissions, activeUnitId).size,
-                    assignedCount = allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size,
-                    trackedCount = allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size
+                    assignedCount = if (canUseReviewModes) allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size else 0,
+                    trackedCount = if (canUseReviewModes) allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size else 0,
+                    canUseReviewModes = canUseReviewModes
                 )
             }
         }
@@ -72,11 +75,13 @@ class ReservationListViewModel @Inject constructor(
                     val permissions = tokenManager.permissions.first()
                     val activeUnitId = tokenManager.activeOrgUnitId.first()
                     val allReservations = reservationRepository.getReservations().getOrNull()?.reservations.orEmpty()
+                    val canUseReviewModes = permissions.canUseReviewModes()
                     _uiState.value = ReservationListUiState.Success(
                         reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),
                         myCount = allReservations.filterForMode("my_active", userId, permissions, activeUnitId).size,
-                        assignedCount = allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size,
-                        trackedCount = allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size
+                        assignedCount = if (canUseReviewModes) allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size else 0,
+                        trackedCount = if (canUseReviewModes) allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size else 0,
+                        canUseReviewModes = canUseReviewModes
                     )
                 }
                 .onFailure { error ->
@@ -118,8 +123,23 @@ private fun List<ReservationDto>.filterForMode(
                         it.items.any { item -> item.remainingToReturn > 0 }
                     )
         }
-        else -> this
+        else -> filter { it.canBeViewedBy(userId, permissions, activeUnitId) }
     }
+
+private fun ReservationDto.canBeViewedBy(
+    userId: String?,
+    permissions: Set<String>,
+    activeUnitId: String?
+): Boolean =
+    reservedByUserId == userId ||
+        permissions.canApproveTopLevelReservations() ||
+        (
+            permissions.canApproveUnitReservations() &&
+                (
+                    requestingUnitId == activeUnitId ||
+                        items.any { item -> item.custodianId != null && item.custodianId == activeUnitId }
+                    )
+            )
 
 private fun ReservationDto.canBeManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
     items.any { item ->
@@ -143,3 +163,6 @@ private fun Set<String>.canApproveTopLevelReservations(): Boolean =
 
 private fun Set<String>.canApproveUnitReservations(): Boolean =
     "reservations.approve:OWN_UNIT" in this || canApproveTopLevelReservations()
+
+private fun Set<String>.canUseReviewModes(): Boolean =
+    canApproveUnitReservations() || canApproveTopLevelReservations()

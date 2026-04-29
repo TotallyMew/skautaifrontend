@@ -84,7 +84,7 @@ fun RegisterScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Asmenine informacija",
+                text = "Asmeninė informacija",
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.primary
             )
@@ -106,7 +106,7 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.surname,
                 onValueChange = viewModel::onSurnameChange,
-                label = { Text("Pavarde *") },
+                label = { Text("Pavardė *") },
                 isError = uiState.surnameError != null,
                 supportingText = uiState.surnameError?.let { message -> { Text(message) } },
                 singleLine = true,
@@ -116,7 +116,7 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
-                label = { Text("El. pastas *") },
+                label = { Text("El. paštas *") },
                 isError = uiState.emailError != null,
                 supportingText = uiState.emailError?.let { message -> { Text(message) } },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
@@ -127,7 +127,7 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Slaptazodis *") },
+                label = { Text("Slaptažodis *") },
                 isError = uiState.passwordError != null,
                 supportingText = uiState.passwordError?.let { message -> { Text(message) } },
                 visualTransformation = PasswordVisualTransformation(),
@@ -139,7 +139,7 @@ fun RegisterScreen(
             OutlinedTextField(
                 value = uiState.phone,
                 onValueChange = viewModel::onPhoneChange,
-                label = { Text("Telefono numeris (neprivaloma)") },
+                label = { Text("Telefono numeris") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -215,8 +215,8 @@ private fun KrastasDropdown(
             value = selectedKrastas,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Krastas *") },
-            placeholder = { Text("Pasirinkite krasta") },
+            label = { Text("Kraštas *") },
+            placeholder = { Text("Pasirinkite kraštą") },
             isError = errorText != null,
             supportingText = errorText?.let { message -> { Text(message) } },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },

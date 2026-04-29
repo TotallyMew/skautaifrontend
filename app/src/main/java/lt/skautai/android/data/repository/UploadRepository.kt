@@ -99,12 +99,12 @@ class UploadRepository @Inject constructor(
             val request = DownloadManager.Request(Uri.parse(url))
                 .addRequestHeader("Authorization", "Bearer $token")
                 .addRequestHeader("X-Tuntas-Id", tuntasId)
-                .setTitle("Saskaita faktura")
-                .setDescription("Renginio pirkimo saskaita")
+                .setTitle("S?skaita fakt?r?")
+                .setDescription("Renginio pirkimo s?skaita")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalPublicDir(
                     Environment.DIRECTORY_DOWNLOADS,
-                    "saskaita-$purchaseId.${invoiceExtension(invoiceFileUrl)}"
+                    "s?skaita-$purchaseId.${invoiceExtension(invoiceFileUrl)}"
                 )
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             Result.success(manager.enqueue(request))

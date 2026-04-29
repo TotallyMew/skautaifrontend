@@ -226,13 +226,13 @@ class InventoryAddEditViewModel @Inject constructor(
         val state = _uiState.value
         val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategorija." else null
         val orgUnitError = if (state.mode == "UNIT_OWN" && state.selectedOrgUnitId.isBlank()) {
-            "Pasirinkite aktyvu vieneta."
+            "Pasirinkite aktyvų vienetą."
         } else null
         _uiState.value = state.copy(
             categoryError = categoryError,
             orgUnitError = orgUnitError,
             formError = if (categoryError != null || orgUnitError != null) {
-                "Patikslinkite pazymetus laukus."
+                "Patikslinkite pažymėtus laukus."
             } else {
                 null
             }
@@ -243,13 +243,13 @@ class InventoryAddEditViewModel @Inject constructor(
         val state = _uiState.value
         val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
         val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
-            "Kiekis turi buti teigiamas skaicius."
+            "Kiekis turi b?ti teigiamas skai?ius."
         } else null
         _uiState.value = state.copy(
             nameError = nameError,
             quantityError = quantityError,
             formError = if (nameError != null || quantityError != null) {
-                "Patikslinkite pazymetus laukus."
+                "Patikslinkite pažymėtus laukus."
             } else {
                 null
             }
@@ -261,19 +261,19 @@ class InventoryAddEditViewModel @Inject constructor(
         _uiState.value = when {
             "kategorij" in message.lowercase() -> state.copy(
                 categoryError = message,
-                formError = "Patikslinkite pazymetus laukus."
+                formError = "Patikslinkite pažymėtus laukus."
             )
             "vieneto" in message.lowercase() -> state.copy(
                 orgUnitError = message,
-                formError = "Patikslinkite pazymetus laukus."
+                formError = "Patikslinkite pažymėtus laukus."
             )
             "pavadinimas" in message.lowercase() -> state.copy(
                 nameError = message,
-                formError = "Patikslinkite pazymetus laukus."
+                formError = "Patikslinkite pažymėtus laukus."
             )
             "kiekis" in message.lowercase() -> state.copy(
                 quantityError = message,
-                formError = "Patikslinkite pazymetus laukus."
+                formError = "Patikslinkite pažymėtus laukus."
             )
             else -> state.copy(formError = message)
         }
@@ -337,11 +337,11 @@ class InventoryAddEditViewModel @Inject constructor(
 
         val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
         val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
-            "Kiekis turi buti teigiamas skaicius."
+            "Kiekis turi b?ti teigiamas skai?ius."
         } else null
         val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategorija." else null
         val orgUnitError = if (state.mode == "UNIT_OWN" && state.selectedOrgUnitId.isBlank()) {
-            "Pasirinkite aktyvu vieneta."
+            "Pasirinkite aktyvų vienetą."
         } else {
             null
         }
@@ -352,7 +352,7 @@ class InventoryAddEditViewModel @Inject constructor(
                 quantityError = quantityError,
                 categoryError = categoryError,
                 orgUnitError = orgUnitError,
-                formError = "Patikslinkite pazymetus laukus."
+                formError = "Patikslinkite pažymėtus laukus."
             )
             return
         }
@@ -398,7 +398,7 @@ class InventoryAddEditViewModel @Inject constructor(
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
                             isSuccess = true,
-                            snackbarMessage = "Issaugota. Galite prideti kita daikta."
+                            snackbarMessage = "Išsaugota. Galite pridėti kitą daiktą."
                         )
                     }
                     .onFailure { error ->
@@ -421,7 +421,9 @@ class InventoryAddEditViewModel @Inject constructor(
                     photoUrl = state.photoUrl.ifBlank { null },
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
-                    purchasePrice = price
+                    purchasePrice = price,
+                    clearCustodianId = custodianId == null,
+                    clearLocationId = locationId == null
                 )
                 itemRepository.updateItem(itemId, request)
                     .onSuccess {

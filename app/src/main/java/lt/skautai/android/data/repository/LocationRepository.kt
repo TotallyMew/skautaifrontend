@@ -160,7 +160,7 @@ class LocationRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = locationDao.getLocation(locationId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Lokacija nerasta"))
+                ?: return Result.failure(Exception("Lokacija n?rasta"))
             val merged = cached.copy(
                 name = request.name ?: cached.name,
                 visibility = request.visibility ?: cached.visibility,

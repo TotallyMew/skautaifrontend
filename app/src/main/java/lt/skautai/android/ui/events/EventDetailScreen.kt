@@ -5,32 +5,28 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Assignment
-import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,11 +36,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -55,9 +51,11 @@ fun EventDetailScreen(
     onEdit: (String) -> Unit,
     onOpenMovement: (String) -> Unit,
     onOpenPastovykleLeader: (String) -> Unit,
+    onOpenPastovyklės: (String) -> Unit,
     onOpenNeeds: (String) -> Unit,
     onOpenUkvedys: (String) -> Unit,
     onOpenPurchases: (String) -> Unit,
+    onOpenReconciliation: (String) -> Unit,
     onOpenPlan: (String) -> Unit,
     onOpenStaff: (String) -> Unit,
     viewModel: EventDetailViewModel = hiltViewModel()
@@ -81,8 +79,8 @@ fun EventDetailScreen(
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atsaukti rengini") },
-            text = { Text("Ar tikrai? Visi suplanuoti poreikiai ir pirkimai liks istorijoje, bet renginys bus pazymetas kaip atsauktas.") },
+            title = { Text("Atšaukti renginį") },
+            text = { Text("Ar tikrai? Visi suplanuoti poreikiai ir pirkimai liks istorijoje, bet renginys bus pažymėtas kaip atšauktas.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -90,29 +88,21 @@ fun EventDetailScreen(
                         viewModel.cancelEvent(eventId, onSuccess = onBack)
                     }
                 ) {
-                    Text("Atsaukti", color = MaterialTheme.colorScheme.error)
+                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uzdaryti")
+                    Text("Uždaryti")
                 }
             }
         )
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Renginys") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
-                    }
-                }
-            )
-        },
-        snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
+    EventScreenScaffold(
+        title = "Renginys",
+        onBack = onBack,
+        snackbarHostState = snackbarHostState
     ) { padding ->
         Box(
             modifier = Modifier
@@ -133,19 +123,22 @@ fun EventDetailScreen(
                 }
 
                 is EventDetailUiState.Success -> {
+                    val readOnly = isEventReadOnlyStatus(state.event.status)
                     val myRoles = state.event.eventRoles
                         .filter { it.userId == state.currentUserId }
                         .map { it.role }
                         .toSet()
-                    val canManage = "events.manage" in permissions || "VIRSININKAS" in myRoles
-                    val canStart = "events.manage" in permissions || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS") }
-                    val canInventory = "events.inventory.distribute" in permissions || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
-                    val myPastovykles = state.event.eventRoles
-                        .filter { it.userId == state.currentUserId && it.role == "PASTOVYKLE_LEADER" }
+                    val canManage = !readOnly && ("events.manage" in permissions || "VIRSININKAS" in myRoles)
+                    val canStart = !readOnly && ("events.manage" in permissions || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS") })
+                    val canInventory = "events.manage" in permissions ||
+                        "events.inventory.distribute" in permissions ||
+                        myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
+                    val myPastovyklės = state.pastovykles
+                        .filter { it.responsibleUserId == state.currentUserId }
 
                     LazyColumn(
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 20.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         item {
                             EventHeader(
@@ -155,68 +148,95 @@ fun EventDetailScreen(
                                 canStart = canStart,
                                 onEdit = { onEdit(eventId) },
                                 onActivate = { viewModel.updateStatus(eventId, "ACTIVE") },
-                                onComplete = { viewModel.updateStatus(eventId, "COMPLETED") },
+                                onComplete = { viewModel.updateStatus(eventId, "WRAP_UP") },
                                 onCancel = { showCancelDialog = true }
                             )
                         }
-                        item {
-                            MovementEntryCard(onOpenMovement = { onOpenMovement(eventId) })
-                        }
-                        if (myPastovykles.isNotEmpty()) {
+
+                        if (myPastovyklės.isNotEmpty()) {
                             item {
-                                PastovykleLeaderEntryCard(
-                                    count = myPastovykles.size,
-                                    onOpen = { onOpenPastovykleLeader(eventId) }
-                                )
+                                EventDetailSection(
+                                    title = "Mano atsakomybės",
+                                    subtitle = "Pastovyklės, kurias valdai šiame renginyje."
+                                ) {
+                                    PastovykleLeaderEntryCard(
+                                        count = myPastovyklės.size,
+                                        onOpen = { onOpenPastovykleLeader(eventId) }
+                                    )
+                                }
                             }
                         }
+
                         item {
-                            EventSectionNavCard(
-                                icon = Icons.Default.Checklist,
-                                title = "Poreikiai",
-                                subtitle = state.event.inventorySummary?.let {
-                                    "${it.totalPlannedQuantity} vnt. planuota, ${it.totalShortageQuantity} truksta"
-                                } ?: "Inventoriaus poreikiai",
-                                onClick = { onOpenNeeds(eventId) }
-                            )
-                        }
-                        if (canInventory) {
-                            item {
-                                EventSectionNavCard(
-                                    icon = Icons.Default.Inventory2,
-                                    title = "Ukvedys",
-                                    subtitle = "Buckets, paskirstymai, pastovykliu prasymai",
-                                    onClick = { onOpenUkvedys(eventId) }
-                                )
+                            EventDetailSection(
+                                title = "Darbo sritys",
+                                subtitle = "Planavimas, inventorius ir komanda vienoje vietoje."
+                            ) {
+                                val workAreas = buildList {
+                                    if (canInventory) {
+                                        add(EventWorkArea(Icons.Default.SwapHoriz, "Judėjimas", "Išdavimas ir grąžinimas") { onOpenMovement(eventId) })
+                                        add(EventWorkArea(Icons.Default.Checklist, "Poreikiai", "Greitas kūrimas") { onOpenNeeds(eventId) })
+                                        add(
+                                            EventWorkArea(
+                                                Icons.AutoMirrored.Filled.Assignment,
+                                                "Planas",
+                                                state.event.inventorySummary?.let {
+                                                    "${it.totalAvailableQuantity}/${it.totalPlannedQuantity} aprūpinta"
+                                                } ?: "Eilutės ir atsakingi"
+                                            ) { onOpenPlan(eventId) }
+                                        )
+                                        add(EventWorkArea(Icons.Default.ShoppingCart, "Pirkimai", "Būsena ir sąskaitos") { onOpenPurchases(eventId) })
+                                        if (state.event.status in listOf("WRAP_UP", "COMPLETED")) {
+                                            add(EventWorkArea(Icons.Default.Inventory2, "Suvedimas", "Grąžinimai ir pirkimai") { onOpenReconciliation(eventId) })
+                                        }
+                                        add(EventWorkArea(Icons.Default.Inventory2, "Ūkvedys", "Trūkumai ir atsargos") { onOpenUkvedys(eventId) })
+                                    }
+                                    if (canManage || canInventory) {
+                                        add(EventWorkArea(Icons.Default.Groups, "Pastovyklės", "Grupės ir vadovai") { onOpenPastovyklės(eventId) })
+                                    }
+                                    if (canManage) {
+                                        add(EventWorkArea(Icons.Default.Groups, "Štabas", "${state.event.eventRoles.size} nariai") { onOpenStaff(eventId) })
+                                    }
+                                }
+                                EventWorkAreaGrid(workAreas = workAreas)
                             }
-                        }
-                        item {
-                            EventSectionNavCard(
-                                icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                                title = "Pirkimai",
-                                subtitle = "Pirkimu busena ir saskaitu valdymas",
-                                onClick = { onOpenPurchases(eventId) }
-                            )
-                        }
-                        item {
-                            EventSectionNavCard(
-                                icon = Icons.AutoMirrored.Filled.Assignment,
-                                title = "Inventoriaus planas",
-                                subtitle = state.event.inventorySummary?.let {
-                                    "Turima ${it.totalAvailableQuantity}/${it.totalPlannedQuantity} vnt., paskirstyta ${it.totalAllocatedQuantity}"
-                                } ?: "Plano eilutes ir paskirstymas",
-                                onClick = { onOpenPlan(eventId) }
-                            )
-                        }
-                        item {
-                            EventSectionNavCard(
-                                icon = Icons.Default.Groups,
-                                title = "Stabas",
-                                subtitle = "${state.event.eventRoles.size} nariai",
-                                onClick = { onOpenStaff(eventId) }
-                            )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+private data class EventWorkArea(
+    val icon: ImageVector,
+    val title: String,
+    val subtitle: String,
+    val onClick: () -> Unit
+)
+
+@Composable
+private fun EventWorkAreaGrid(workAreas: List<EventWorkArea>) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        workAreas.chunked(2).forEach { rowItems ->
+            EventNavTileRow {
+                rowItems.forEach { area ->
+                    EventSectionNavCard(
+                        icon = area.icon,
+                        title = area.title,
+                        subtitle = area.subtitle,
+                        onClick = area.onClick,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(132.dp)
+                    )
+                }
+                if (rowItems.size == 1) {
+                    Spacer(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(132.dp)
+                    )
                 }
             }
         }
@@ -228,63 +248,25 @@ private fun EventSectionNavCard(
     icon: ImageVector,
     title: String,
     subtitle: String,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    EventDetailNavTile(
+        icon = icon,
+        title = title,
+        subtitle = subtitle,
+        modifier = modifier,
         onClick = onClick
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(28.dp)
-            )
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                Text(
-                    subtitle,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun MovementEntryCard(onOpenMovement: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Default.SwapHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Text(
-                text = "Inventoriaus judejimas",
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f)
-            )
-            Button(onClick = onOpenMovement) {
-                Text("Atidaryti")
-            }
-        }
-    }
+    )
 }
 
 @Composable
 private fun PastovykleLeaderEntryCard(count: Int, onOpen: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onOpen,
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -294,13 +276,24 @@ private fun PastovykleLeaderEntryCard(count: Int, onOpen: () -> Unit) {
         ) {
             Icon(Icons.Default.Groups, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             Text(
-                text = if (count == 1) "Mano pastovykle" else "Mano pastovyklės ($count)",
+                text = if (count == 1) "Mano pastovyklė" else "Mano pastovyklės ($count)",
                 style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
-            Button(onClick = onOpen) {
-                Text("Atidaryti")
-            }
+            Text("Atidaryti", color = MaterialTheme.colorScheme.primary)
         }
     }
 }
+
+@Composable
+private fun EventNavTileRow(content: @Composable RowScope.() -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content
+    )
+}
+

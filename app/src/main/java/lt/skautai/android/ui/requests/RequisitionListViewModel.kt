@@ -72,7 +72,7 @@ class RequisitionListViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _uiState.value = RequisitionListUiState.Error(
-                        error.message ?: "Klaida gaunant prasymus"
+                        error.message ?: "Klaida gaunant prašymus"
                     )
                 }
         }
@@ -96,5 +96,16 @@ private fun List<RequisitionDto>.filterForMode(
                 it.topLevelReviewStatus == "PENDING"
             waitsForActiveUnit || waitsForTopLevel
         }
-        else -> this
+        else -> filter {
+            it.createdByUserId == userId ||
+                "requisitions.approve:ALL" in permissions ||
+                (
+                    it.requestingUnitId == activeUnitId &&
+                        (
+                            "requisitions.create:OWN_UNIT" in permissions ||
+                            "requisitions.approve:OWN_UNIT" in permissions ||
+                                "items.request.forward.bendras:OWN_UNIT" in permissions
+                            )
+                    )
+        }
     }

@@ -631,7 +631,7 @@ fun itemStatusLabel(status: String): String = when (status) {
 
 fun itemConditionLabel(condition: String): String = when (condition) {
     "GOOD" -> "Gera"
-    "DAMAGED" -> "Vidutine"
+    "DAMAGED" -> "Vidutinė"
     "WRITTEN_OFF" -> "Bloga"
     else -> condition
 }
@@ -645,7 +645,7 @@ fun inventoryTypeLabel(type: String): String = when (type) {
 
 fun inventoryCategoryLabel(category: String): String = when (category) {
     "CAMPING" -> "Stovyklavimas"
-    "TOOLS" -> "Irankiai"
+    "TOOLS" -> "Įrankiai"
     "COOKING" -> "Maistas"
     "FIRST_AID" -> "Pirmoji pagalba"
     "UNIFORMS" -> "Uniformos"
@@ -656,6 +656,6 @@ fun inventoryCategoryLabel(category: String): String = when (category) {
 
 fun itemOriginLabel(origin: String): String = when (origin) {
     "UNIT_ACQUIRED" -> "Savo vieneto"
-    "TRANSFERRED_FROM_TUNTAS" -> "Is bendro inventoriaus"
+    "TRANSFERRED_FROM_TUNTAS" -> "Tunto"
     else -> origin
 }

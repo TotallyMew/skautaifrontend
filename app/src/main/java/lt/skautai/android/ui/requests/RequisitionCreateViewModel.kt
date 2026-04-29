@@ -112,7 +112,7 @@ class RequisitionCreateViewModel @Inject constructor(
         }
         val quantity = state.quantity.toIntOrNull()
         if (quantity == null || quantity < 1) {
-            _uiState.value = state.copy(error = "Kiekis turi buti teigiamas skaicius")
+            _uiState.value = state.copy(error = "Kiekis turi b?ti teigiamas skai?ius")
             return
         }
 

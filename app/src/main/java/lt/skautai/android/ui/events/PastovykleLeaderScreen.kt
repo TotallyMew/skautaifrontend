@@ -1,6 +1,7 @@
 package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,28 +11,39 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.data.remote.EventInventoryAllocationDto
+import lt.skautai.android.data.remote.EventInventoryItemDto
+import lt.skautai.android.data.remote.EventInventoryRequestDto
+import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.PastovykleInventoryDto
+import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,178 +53,137 @@ fun PastovykleLeaderScreen(
     viewModel: PastovykleLeaderViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(eventId) {
         viewModel.load(eventId)
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Mano pastovykle") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
-                    }
-                }
-            )
+    LaunchedEffect((uiState as? PastovykleLeaderUiState.Success)?.error) {
+        (uiState as? PastovykleLeaderUiState.Success)?.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
         }
+    }
+
+    EventScreenScaffold(
+        title = "Mano pastovykle",
+        onBack = onBack,
+        snackbarHostState = snackbarHostState
     ) { padding ->
-        when (val state = uiState) {
-            PastovykleLeaderUiState.Loading -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator()
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            when (val state = uiState) {
+                PastovykleLeaderUiState.Loading -> {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
-            }
 
-            is PastovykleLeaderUiState.Error -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding)
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(state.message, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { viewModel.load(eventId) }) {
-                        Text("Bandyti dar karta")
+                is PastovykleLeaderUiState.Error -> {
+                    SkautaiErrorState(
+                        message = state.message,
+                        onRetry = { viewModel.load(eventId) },
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+
+                is PastovykleLeaderUiState.Success -> {
+                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    val myPastovyklės = state.pastovykles.filter { it.responsibleUserId == state.currentUserId }
+                    var selectedPastovykleId by remember(myPastovyklės) {
+                        mutableStateOf(myPastovyklės.firstOrNull()?.id)
                     }
-                }
-            }
+                    val selectedPastovykle = myPastovyklės.firstOrNull { it.id == selectedPastovykleId }
+                    val inventory = state.pastovykleInventoryById[selectedPastovykleId].orEmpty()
+                    val requests = state.pastovykleRequestsById[selectedPastovykleId].orEmpty()
+                    val unitItems = state.items.filter { it.custodianId == state.activeOrgUnitId }
+                    val pastovykleBucketIds = state.inventoryPlan?.buckets
+                        .orEmpty()
+                        .filter { it.pastovykleId == selectedPastovykleId }
+                        .map { it.id }
+                        .toSet()
+                    val allocations = state.inventoryPlan?.allocations
+                        .orEmpty()
+                        .filter { it.bucketId in pastovykleBucketIds }
 
-            is PastovykleLeaderUiState.Success -> {
-                val myPastovykles = state.pastovykles.filter { it.responsibleUserId == state.currentUserId }
-                var selectedPastovykleId by remember(myPastovykles) {
-                    mutableStateOf(myPastovykles.firstOrNull()?.id)
-                }
-                val selectedPastovykle = myPastovykles.firstOrNull { it.id == selectedPastovykleId }
-                val inventory = state.pastovykleInventoryById[selectedPastovykleId].orEmpty()
-                val requests = state.pastovykleRequestsById[selectedPastovykleId].orEmpty()
-                val unitItems = state.items.filter { it.custodianId == state.activeOrgUnitId }
-                val pastovykleBucketIds = state.inventoryPlan?.buckets
-                    .orEmpty()
-                    .filter { it.pastovykleId == selectedPastovykleId }
-                    .map { it.id }
-                    .toSet()
-                val allocations = state.inventoryPlan?.allocations
-                    .orEmpty()
-                    .filter { it.bucketId in pastovykleBucketIds }
-
-                if (myPastovykles.isEmpty()) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding)
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Text("Jums dar nepriskirta nei viena pastovyklė.")
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(padding),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        item {
-                            DropdownField(
-                                label = "Pastovykle",
-                                value = selectedPastovykle?.name ?: "Pasirinkti",
-                                options = myPastovykles.map { it.id to it.name },
-                                onSelect = { selectedPastovykleId = it }
-                            )
-                        }
-
-                        if (selectedPastovykle != null) {
+                    if (myPastovyklės.isEmpty()) {
+                        SkautaiEmptyState(
+                            title = "Pastovyklė nepriskirta",
+                            subtitle = "Kai būsi paskirtas pastovyklės vadovu, čia matysi savo poreikius, paskirtą inventorių ir veiksmus.",
+                            icon = Icons.Default.Groups,
+                            modifier = Modifier.align(Alignment.Center)
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             item {
-                                RequestNeedCard(
-                                    inventoryItems = state.inventoryPlan?.items.orEmpty(),
-                                    isWorking = state.isWorking,
-                                    onCreateRequest = { inventoryItemId, quantity, notes ->
-                                        viewModel.createPastovykleRequest(eventId, selectedPastovykle.id, inventoryItemId, quantity, notes)
-                                    }
+                                EventDetailHero(
+                                    event = state.event,
+                                    subtitle = selectedPastovykle?.let { "Pastovyklė · ${it.name}" } ?: "Pastovyklė"
                                 )
                             }
+
                             item {
-                                BringFromUnitCard(
-                                    unitItems = unitItems,
-                                    isWorking = state.isWorking,
-                                    onAssign = { itemId, quantity, notes ->
-                                        viewModel.assignFromUnitInventory(eventId, selectedPastovykle.id, itemId, quantity, notes)
-                                    }
+                                DropdownField(
+                                    label = "Pastovyklė",
+                                    value = selectedPastovykle?.name ?: "Pasirinkti",
+                                    options = myPastovyklės.map { it.id to it.name },
+                                    onSelect = { selectedPastovykleId = it }
                                 )
                             }
-                            item {
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text("Jau paskirta man", style = MaterialTheme.typography.titleMedium)
-                                        if (allocations.isEmpty()) {
-                                            Text("Ukvedys dar nesuplanuavo paskirstymo.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        } else {
-                                            allocations.forEach { allocation ->
-                                                Text("${allocation.bucketName}: ${allocation.quantity} vnt.")
-                                            }
-                                        }
-                                    }
+
+                            if (selectedPastovykle != null) {
+                                item {
+                                    EventDetailMetricRow(
+                                        metrics = listOf(
+                                            "Paskirta" to allocations.sumOf { it.quantity }.toString(),
+                                            "Inventorius" to inventory.sumOf { it.quantityAssigned - it.quantityReturned }.toString(),
+                                            "Poreikiai" to requests.size.toString()
+                                        )
+                                    )
                                 }
-                            }
-                            item {
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text("Mano pastovyklės inventorius", style = MaterialTheme.typography.titleMedium)
-                                        if (inventory.isEmpty()) {
-                                            Text("Inventorius dar nepriskirtas.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        } else {
-                                            inventory.forEach { row ->
-                                                Text("${row.itemName}: ${row.quantityAssigned - row.quantityReturned} / ${row.quantityAssigned}")
-                                            }
+                                item {
+                                    RequestNeedCard(
+                                        inventoryItems = state.inventoryPlan?.items.orEmpty(),
+                                        isWorking = state.isWorking || readOnly,
+                                        onCreateRequest = { inventoryItemId, quantity, notes ->
+                                            viewModel.createPastovykleRequest(eventId, selectedPastovykle.id, inventoryItemId, quantity, notes)
                                         }
-                                    }
+                                    )
                                 }
-                            }
-                            item {
-                                Card(modifier = Modifier.fillMaxWidth()) {
-                                    Column(
-                                        modifier = Modifier.padding(16.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Text("Poreikiai", style = MaterialTheme.typography.titleMedium)
-                                        if (requests.isEmpty()) {
-                                            Text("Poreikių dar nėra.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                        } else {
-                                            requests.forEach { request ->
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween
-                                                ) {
-                                                    Column(Modifier.weight(1f)) {
-                                                        Text("${request.itemName}: ${request.quantity} vnt.")
-                                                        Text(request.status, color = MaterialTheme.colorScheme.primary)
-                                                    }
-                                                    if (request.status in listOf("PENDING", "APPROVED")) {
-                                                        Button(onClick = {
-                                                            viewModel.selfProvidePastovykleRequest(eventId, selectedPastovykle.id, request.id, "Pasirūpinta savo jėgomis")
-                                                        }) {
-                                                            Text("Pasirupinau pats")
-                                                        }
-                                                    }
-                                                }
-                                            }
+                                item {
+                                    BringFromUnitCard(
+                                        unitItems = unitItems,
+                                        isWorking = state.isWorking || readOnly,
+                                        onAssign = { itemId, quantity, notes ->
+                                            viewModel.assignFromUnitInventory(eventId, selectedPastovykle.id, itemId, quantity, notes)
                                         }
-                                    }
+                                    )
+                                }
+                                item {
+                                    AllocationSummaryCard(allocations = allocations)
+                                }
+                                item {
+                                    PastovykleInventoryCard(inventory = inventory)
+                                }
+                                item {
+                                    PastovykleRequestsCard(
+                                        requests = requests,
+                                        isWorking = state.isWorking || readOnly,
+                                        onSelfProvide = { requestId ->
+                                            viewModel.selfProvidePastovykleRequest(
+                                                eventId,
+                                                selectedPastovykle.id,
+                                                requestId,
+                                                "Pasirūpinta savo jėgomis"
+                                            )
+                                        }
+                                    )
                                 }
                             }
                         }
@@ -225,7 +196,7 @@ fun PastovykleLeaderScreen(
 
 @Composable
 private fun RequestNeedCard(
-    inventoryItems: List<lt.skautai.android.data.remote.EventInventoryItemDto>,
+    inventoryItems: List<EventInventoryItemDto>,
     isWorking: Boolean,
     onCreateRequest: (String, String, String) -> Unit
 ) {
@@ -233,45 +204,46 @@ private fun RequestNeedCard(
     var quantity by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Ko man reikia", style = MaterialTheme.typography.titleMedium)
-            DropdownField(
-                label = "Daiktas",
-                value = inventoryItems.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
-                options = inventoryItems.map { it.id to it.name },
-                onSelect = { selectedItemId = it }
-            )
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { quantity = it.filter(Char::isDigit) },
-                label = { Text("Kiekis") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = { Text("Pastabos") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Button(
-                onClick = {
-                    selectedItemId?.let { onCreateRequest(it, quantity, notes) }
-                    quantity = ""
-                    notes = ""
-                },
-                enabled = !isWorking && selectedItemId != null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Prasyti is ukvedzio")
-            }
-        }
+    EventDetailSection(
+        title = "Ko reikia pastovyklei",
+        subtitle = "Prašymas keliauja ūkvedžiui, kad daiktas būtų suplanuotas arba nupirktas."
+    ) {
+        DropdownField(
+            label = "Daiktas",
+            value = inventoryItems.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
+            options = inventoryItems.map { it.id to it.name },
+            onSelect = { selectedItemId = it }
+        )
+        OutlinedTextField(
+            value = quantity,
+            onValueChange = { quantity = it.filter(Char::isDigit) },
+            label = { Text("Kiekis") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            colors = eventFormFieldColors()
+        )
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = { Text("Pastabos") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = eventFormFieldColors()
+        )
+        EventPrimaryButton(
+            text = "Prasyti is ukvedzio",
+            onClick = {
+                selectedItemId?.let { onCreateRequest(it, quantity, notes) }
+                quantity = ""
+                notes = ""
+            },
+            enabled = !isWorking && selectedItemId != null
+        )
     }
 }
 
 @Composable
 private fun BringFromUnitCard(
-    unitItems: List<lt.skautai.android.data.remote.ItemDto>,
+    unitItems: List<ItemDto>,
     isWorking: Boolean,
     onAssign: (String, String, String) -> Unit
 ) {
@@ -279,38 +251,189 @@ private fun BringFromUnitCard(
     var quantity by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Atsivesiu is savo vieneto", style = MaterialTheme.typography.titleMedium)
-            DropdownField(
-                label = "Vieneto daiktas",
-                value = unitItems.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
-                options = unitItems.map { it.id to "${it.name} (${it.quantity})" },
-                onSelect = { selectedItemId = it }
-            )
-            OutlinedTextField(
-                value = quantity,
-                onValueChange = { quantity = it.filter(Char::isDigit) },
-                label = { Text("Kiekis") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = notes,
-                onValueChange = { notes = it },
-                label = { Text("Pastabos") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Button(
-                onClick = {
-                    selectedItemId?.let { onAssign(it, quantity, notes) }
-                    quantity = ""
-                    notes = ""
-                },
-                enabled = !isWorking && selectedItemId != null,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Pazymeti, kad atsivesiu")
+    EventDetailSection(
+        title = "Atsivešiu iš savo vieneto",
+        subtitle = "Pažymėk, ką pastovyklė pasirūpins savo jėgomis."
+    ) {
+        DropdownField(
+            label = "Vieneto daiktas",
+            value = unitItems.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
+            options = unitItems.map { it.id to "${it.name} (${it.quantity})" },
+            onSelect = { selectedItemId = it }
+        )
+        OutlinedTextField(
+            value = quantity,
+            onValueChange = { quantity = it.filter(Char::isDigit) },
+            label = { Text("Kiekis") },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            colors = eventFormFieldColors()
+        )
+        OutlinedTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = { Text("Pastabos") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = eventFormFieldColors()
+        )
+        EventPrimaryButton(
+            text = "Pazymeti, kad atsivesiu",
+            onClick = {
+                selectedItemId?.let { onAssign(it, quantity, notes) }
+                quantity = ""
+                notes = ""
+            },
+            enabled = !isWorking && selectedItemId != null
+        )
+    }
+}
+
+@Composable
+private fun AllocationSummaryCard(allocations: List<EventInventoryAllocationDto>) {
+    EventDetailSection(
+        title = "Jau paskirta man",
+        subtitle = "Ūkvedžio suplanuotas inventoriaus paskirstymas."
+    ) {
+        if (allocations.isEmpty()) {
+            EmptyStateText("Ūkvedys dar nesuplanuavo paskirstymo.")
+        } else {
+            allocations.forEach { allocation ->
+                CompactInventoryRow(
+                    title = allocation.bucketName,
+                    subtitle = allocation.notes,
+                    trailing = "${allocation.quantity} vnt."
+                )
             }
         }
     }
+}
+
+@Composable
+private fun PastovykleInventoryCard(inventory: List<PastovykleInventoryDto>) {
+    EventDetailSection(
+        title = "Mano pastovyklės inventori?s",
+        subtitle = "Faktiškai pastovyklei priskirti ir dar negrąžinti daiktai."
+    ) {
+        if (inventory.isEmpty()) {
+            EmptyStateText("Inventorius dar nepriskirtas.")
+        } else {
+            inventory.forEach { row ->
+                CompactInventoryRow(
+                    title = row.itemName,
+                    subtitle = "Grąžinta ${row.quantityReturned} iš ${row.quantityAssigned}",
+                    trailing = "${row.quantityAssigned - row.quantityReturned}"
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PastovykleRequestsCard(
+    requests: List<EventInventoryRequestDto>,
+    isWorking: Boolean,
+    onSelfProvide: (String) -> Unit
+) {
+    EventDetailSection(
+        title = "Poreikiai",
+        subtitle = "Pastovyklės prašymai ir jų būsena."
+    ) {
+        if (requests.isEmpty()) {
+            EmptyStateText("Poreikių dar nėra.")
+        } else {
+            requests.forEach { request ->
+                SkautaiCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonal = MaterialTheme.colorScheme.surfaceContainerLow
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = request.itemName,
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                Text(
+                                    text = "${request.quantity} vnt.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    style = MaterialTheme.typography.bodySmall
+                                )
+                            }
+                            RequestStatusPill(request.status)
+                        }
+                        request.notes?.takeIf { it.isNotBlank() }?.let {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (request.status in listOf("PENDING", "APPROVED")) {
+                            EventPrimaryButton(
+                                text = "Pasirupinau pats",
+                                onClick = { onSelfProvide(request.id) },
+                                enabled = !isWorking
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CompactInventoryRow(
+    title: String,
+    subtitle: String?,
+    trailing: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column {
+                Text(title, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                subtitle?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+        Text(trailing, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+    }
+    HorizontalDivider()
+}
+
+@Composable
+private fun RequestStatusPill(status: String) {
+    val (label, tone) = when (status) {
+        "PENDING" -> "Laukia" to SkautaiStatusTone.Warning
+        "APPROVED" -> "Patvirtinta" to SkautaiStatusTone.Info
+        "FULFILLED" -> "Įvykdyta" to SkautaiStatusTone.Success
+        "REJECTED" -> "Atmesta" to SkautaiStatusTone.Danger
+        "SELF_PROVIDED" -> "Savo jėgomis" to SkautaiStatusTone.Neutral
+        else -> status to SkautaiStatusTone.Neutral
+    }
+    SkautaiStatusPill(label = label, tone = tone)
 }

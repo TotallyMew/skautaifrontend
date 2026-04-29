@@ -78,7 +78,7 @@ fun RequisitionCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas prasymas") },
+                title = { Text("Naujas pra?ymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -112,14 +112,14 @@ fun RequisitionCreateScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Pirkimo arba papildymo prasymas",
+                            text = "Pirkimo arba papildymo pra?ymas",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Aprasyk trukstama inventoriu. Vieneto vadovas gales pats patvirtinti arba perduoti inventorininkui.",
+                            text = "Apra?yk tr?kstam? inventori?. Vieneto vadovas gales pats patvirtinti arba perduoti inventorininkui.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -139,7 +139,7 @@ fun RequisitionCreateScreen(
                     value = uiState.itemDescription,
                     onValueChange = viewModel::onItemDescriptionChange,
                     label = { Text("Paaiskinimas") },
-                    placeholder = { Text("Kuo tiksliau aprasyk, ko reikia") },
+                    placeholder = { Text("Kuo tiksliau apra?yk, ko reikia") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4
@@ -238,7 +238,7 @@ private fun RequisitionDatePickerField(
             },
             dismissButton = {
                 TextButton(onClick = { showPicker = false }) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         ) {
@@ -272,7 +272,7 @@ private fun RequisitionOrgUnitDropdown(
             value = selectedUnit?.name ?: selectedOrgUnitName ?: "Tuntui",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Kam teikiamas prasymas") },
+            label = { Text("Kam teikiamas pra?ymas") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()

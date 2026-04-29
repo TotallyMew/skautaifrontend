@@ -12,8 +12,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import lt.skautai.android.data.remote.CreateEventPurchaseItemRequestDto
-import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
@@ -76,7 +74,7 @@ class EventPurchasesViewModel @Inject constructor(
                 }
             val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
             val current = _uiState.value as? EventPurchasesUiState.Success ?: return@launch
-            _uiState.value = current.copy(purchases = purchases)
+            _uiState.value = current.copy(purchases = purchases, isWorking = false)
         }
     }
 
@@ -86,12 +84,14 @@ class EventPurchasesViewModel @Inject constructor(
             _uiState.value = current.copy(isWorking = true, error = null)
             if (totalAmount != null) {
                 val updateResult = eventRepository.updatePurchase(
-                    eventId, purchaseId, UpdateEventPurchaseRequestDto(totalAmount = totalAmount)
+                    eventId,
+                    purchaseId,
+                    UpdateEventPurchaseRequestDto(totalAmount = totalAmount)
                 )
                 if (updateResult.isFailure) {
                     _uiState.value = current.copy(
                         isWorking = false,
-                        error = updateResult.exceptionOrNull()?.message ?: "Nepavyko issaugoti pirkimo sumos."
+                        error = updateResult.exceptionOrNull()?.message ?: "Nepavyko išsaugoti pirkimo sumos."
                     )
                     return@launch
                 }
@@ -106,15 +106,19 @@ class EventPurchasesViewModel @Inject constructor(
         }
     }
 
-    fun addPurchaseToInventory(eventId: String, purchaseId: String) {
+    fun updatePurchaseAmount(eventId: String, purchaseId: String, totalAmount: Double?) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
-            eventRepository.addPurchaseToInventory(eventId, purchaseId)
+            eventRepository.updatePurchase(
+                eventId,
+                purchaseId,
+                UpdateEventPurchaseRequestDto(totalAmount = totalAmount)
+            )
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pridėti į inventorių.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išsaugoti pirkimo sumos.")
                     }
                 }
         }

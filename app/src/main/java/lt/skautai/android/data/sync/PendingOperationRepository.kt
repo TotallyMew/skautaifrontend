@@ -27,7 +27,7 @@ import lt.skautai.android.data.local.entity.PendingOperationEntity
 import lt.skautai.android.data.local.mapper.cachedInventoryPlan
 import lt.skautai.android.data.local.mapper.cachedInventoryCustody
 import lt.skautai.android.data.local.mapper.cachedInventoryMovements
-import lt.skautai.android.data.local.mapper.cachedPastovykles
+import lt.skautai.android.data.local.mapper.cachedPastovyklės
 import lt.skautai.android.data.local.mapper.cachedPastovykleInventoryById
 import lt.skautai.android.data.local.mapper.cachedPastovykleRequestsById
 import lt.skautai.android.data.local.mapper.cachedPurchases
@@ -35,7 +35,7 @@ import lt.skautai.android.data.local.mapper.toEntity
 import lt.skautai.android.data.local.mapper.withCachedInventoryPlan
 import lt.skautai.android.data.local.mapper.withCachedInventoryCustody
 import lt.skautai.android.data.local.mapper.withCachedInventoryMovements
-import lt.skautai.android.data.local.mapper.withCachedPastovykles
+import lt.skautai.android.data.local.mapper.withCachedPastovyklės
 import lt.skautai.android.data.local.mapper.withCachedPastovykleInventoryById
 import lt.skautai.android.data.local.mapper.withCachedPastovykleRequestsById
 import lt.skautai.android.data.local.mapper.withCachedPurchases
@@ -267,7 +267,7 @@ class PendingOperationRepository @Inject constructor(
                 reservationDao.upsert(reservation.toEntity())
             }
             PendingOperationType.RESERVATION_CANCEL -> {
-                requireSuccessfulUnit(reservationApiService.cancelReservation(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant rezervacija")
+                requireSuccessfulUnit(reservationApiService.cancelReservation(auth, operation.tuntasId, operation.entityId), "Klaida atšaukiant rezervaciją")
                 reservationDao.deleteReservation(operation.entityId, operation.tuntasId)
             }
             PendingOperationType.RESERVATION_REVIEW_UNIT -> {
@@ -377,12 +377,12 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.MEMBER_ASSIGN_RANK -> {
                 val request = gson.fromJson(operation.payloadJson, AssignRankRequestDto::class.java)
-                requireSuccessful(memberApiService.assignRank(auth, operation.tuntasId, operation.entityId, request), "Klaida priskiriant laipsni")
+                requireSuccessful(memberApiService.assignRank(auth, operation.tuntasId, operation.entityId, request), "Klaida priskiriant laipsnį")
                 refreshMemberAfterSync(auth, operation.tuntasId, operation.entityId)
             }
             PendingOperationType.MEMBER_REMOVE_RANK -> {
                 val payload = gson.fromJson(operation.payloadJson, MemberRankPayload::class.java)
-                requireSuccessfulEmpty(memberApiService.removeRank(auth, operation.tuntasId, payload.userId, payload.rankId), "Klaida salinant laipsni")
+                requireSuccessfulEmpty(memberApiService.removeRank(auth, operation.tuntasId, payload.userId, payload.rankId), "Klaida šalinant laipsnį")
                 refreshMemberAfterSync(auth, operation.tuntasId, payload.userId)
             }
             PendingOperationType.MEMBER_REMOVE -> {
@@ -415,7 +415,7 @@ class PendingOperationRepository @Inject constructor(
                 refreshMemberAfterSync(auth, operation.tuntasId, payload.userId)
             }
             PendingOperationType.UNIT_LEAVE -> {
-                requireSuccessfulEmpty(orgUnitApiService.leaveUnit(auth, operation.tuntasId, operation.entityId), "Klaida paliekant vieneta")
+                requireSuccessfulEmpty(orgUnitApiService.leaveUnit(auth, operation.tuntasId, operation.entityId), "Klaida paliekant vienetą")
             }
             PendingOperationType.UNIT_MOVE_MEMBER -> {
                 val payload = gson.fromJson(operation.payloadJson, UnitMemberPayload::class.java)
@@ -503,7 +503,7 @@ class PendingOperationRepository @Inject constructor(
                     eventApiService.createPastovykle(auth, operation.tuntasId, payload.eventId, payload.request),
                     "Klaida kuriant pastovykle"
                 )
-                refreshPastovyklesAfterSync(auth, operation.tuntasId, payload.eventId)
+                refreshPastovyklėsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_UPDATE_PASTOVYKLE -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleUpdatePayload::class.java)
@@ -511,7 +511,7 @@ class PendingOperationRepository @Inject constructor(
                     eventApiService.updatePastovykle(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.request),
                     "Klaida atnaujinant pastovykle"
                 )
-                refreshPastovyklesAfterSync(auth, operation.tuntasId, payload.eventId)
+                refreshPastovyklėsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_DELETE_PASTOVYKLE -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleDeletePayload::class.java)
@@ -519,21 +519,21 @@ class PendingOperationRepository @Inject constructor(
                     eventApiService.deletePastovykle(auth, operation.tuntasId, payload.eventId, payload.pastovykleId),
                     "Klaida trinant pastovykle"
                 )
-                refreshPastovyklesAfterSync(auth, operation.tuntasId, payload.eventId)
+                refreshPastovyklėsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_ASSIGN_PASTOVYKLE_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleInventoryAssignPayload::class.java)
-                requireSuccessful(eventApiService.assignPastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.request), "Klaida priskiriant pastovykles inventoriu")
+                requireSuccessful(eventApiService.assignPastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.request), "Klaida priskiriant pastovykles inventori?")
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_UPDATE_PASTOVYKLE_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleInventoryUpdatePayload::class.java)
-                requireSuccessful(eventApiService.updatePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId, payload.request), "Klaida atnaujinant pastovykles inventoriu")
+                requireSuccessful(eventApiService.updatePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId, payload.request), "Klaida atnaujinant pastovykles inventori?")
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_DELETE_PASTOVYKLE_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleInventoryDeletePayload::class.java)
-                requireSuccessfulEmpty(eventApiService.deletePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId), "Klaida trinant pastovykles inventoriu")
+                requireSuccessfulEmpty(eventApiService.deletePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId), "Klaida trinant pastovykles inventori?")
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_CREATE_PASTOVYKLE_REQUEST -> {
@@ -591,7 +591,7 @@ class PendingOperationRepository @Inject constructor(
                         payload.pastovykleId,
                         AssignUnitInventoryToPastovykleRequestDto(payload.itemId, payload.quantity, payload.notes)
                     ),
-                    "Klaida priskiriant inventoriu is vieneto"
+                    "Klaida priskiriant inventori? i? vieneto"
                 )
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
@@ -614,7 +614,7 @@ class PendingOperationRepository @Inject constructor(
                         payload.purchaseId,
                         lt.skautai.android.data.remote.AttachEventPurchaseInvoiceRequestDto(invoiceUrl)
                     ),
-                    "Klaida prisegant saskaita"
+                    "Klaida prisegant s?skaita"
                 )
                 refreshPurchasesAfterSync(auth, operation.tuntasId, payload.eventId)
             }
@@ -628,10 +628,6 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.EVENT_ADD_PURCHASE_TO_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPurchasePayload::class.java)
-                requireSuccessful(
-                    eventApiService.addPurchaseToInventory(auth, operation.tuntasId, payload.eventId, payload.purchaseId),
-                    "Klaida pridedant pirkima i inventoriu"
-                )
                 refreshPurchasesAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_CREATE_INVENTORY_MOVEMENT -> {
@@ -655,13 +651,13 @@ class PendingOperationRepository @Inject constructor(
         eventDao.upsert(event.toEntity())
     }
 
-    private suspend fun refreshPastovyklesAfterSync(auth: String, tuntasId: String, eventId: String) {
+    private suspend fun refreshPastovyklėsAfterSync(auth: String, tuntasId: String, eventId: String) {
         val event = eventDao.getEvent(eventId, tuntasId) ?: return
         val pastovykles = requireSuccessful(
-            eventApiService.getPastovykles(auth, tuntasId, eventId),
+            eventApiService.getPastovyklės(auth, tuntasId, eventId),
             "Klaida atnaujinant pastovykles"
         ).pastovykles
-        eventDao.upsert(event.withCachedPastovykles(pastovykles))
+        eventDao.upsert(event.withCachedPastovyklės(pastovykles))
     }
 
     private suspend fun refreshPurchasesAfterSync(auth: String, tuntasId: String, eventId: String) {
@@ -702,7 +698,7 @@ class PendingOperationRepository @Inject constructor(
             "Klaida atnaujinant pirkimus"
         ).purchases
         val pastovykles = requireSuccessful(
-            eventApiService.getPastovykles(auth, tuntasId, eventId),
+            eventApiService.getPastovyklės(auth, tuntasId, eventId),
             "Klaida atnaujinant pastovykles"
         ).pastovykles
         val inventoryByPastovykleId = mutableMapOf<String, List<lt.skautai.android.data.remote.PastovykleInventoryDto>>()
@@ -710,7 +706,7 @@ class PendingOperationRepository @Inject constructor(
         for (pastovykle in pastovykles) {
             inventoryByPastovykleId[pastovykle.id] = requireSuccessful(
                 eventApiService.getPastovykleInventory(auth, tuntasId, eventId, pastovykle.id),
-                "Klaida atnaujinant pastovykles inventoriu"
+                "Klaida atnaujinant pastovykles inventori?"
             ).inventory
             requestsByPastovykleId[pastovykle.id] = requireSuccessful(
                 eventApiService.getPastovykleRequests(auth, tuntasId, eventId, pastovykle.id),
@@ -727,7 +723,7 @@ class PendingOperationRepository @Inject constructor(
         ).movements
         val merged = eventResponse.toEntity()
             .withCachedInventoryPlan(plan)
-            .withCachedPastovykles(pastovykles)
+            .withCachedPastovyklės(pastovykles)
             .withCachedPurchases(purchases)
             .withCachedPastovykleInventoryById(inventoryByPastovykleId)
             .withCachedPastovykleRequestsById(requestsByPastovykleId)
@@ -760,7 +756,7 @@ class PendingOperationRepository @Inject constructor(
         val displayName = uri.getQueryParameter("name") ?: File(absolutePath).name
         val mimeType = uri.getQueryParameter("mime") ?: "application/pdf"
         val stagedFile = File(absolutePath)
-        if (!stagedFile.exists()) throw Exception("Staged dokumentas nerastas")
+        if (!stagedFile.exists()) throw Exception("Staged dokumentas n?rastas")
         val requestBody = stagedFile.asRequestBody(mimeType.toMediaTypeOrNull())
         val filePart = MultipartBody.Part.createFormData("file", displayName, requestBody)
         val uploaded = requireSuccessful(uploadApiService.uploadDocument(auth, filePart), "Nepavyko ikelti dokumento")

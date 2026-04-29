@@ -19,7 +19,8 @@ interface ItemApiService {
         @Query("custodianId") custodianId: String? = null,
         @Query("type") type: String? = null,
         @Query("category") category: String? = null,
-        @Query("status") status: String? = null
+        @Query("status") status: String? = null,
+        @Query("sharedOnly") sharedOnly: Boolean = false
     ): Response<ItemListResponseDto>
 
     @GET("api/items/{itemId}")

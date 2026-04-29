@@ -132,7 +132,7 @@ class ReservationMovementViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Klaida registruojant veiksma"
+                        error = error.message ?: "Klaida registruojant veiksm?"
                     )
                 }
         }

@@ -115,13 +115,13 @@ class ReservationCreateViewModel @Inject constructor(
 
         val item = state.items.find { it.id == itemId }
             ?: run {
-                _uiState.value = state.copy(formError = "Daiktas nerastas.")
+                _uiState.value = state.copy(formError = "Daiktas n?rastas.")
                 return
             }
 
         val remaining = remainingAvailability(itemId)
         if (remaining < 1) {
-            _uiState.value = state.copy(formError = "Siam laikotarpiui daugiau vienetu nebera.")
+            _uiState.value = state.copy(formError = "Šiam laikotarpiui daugiau vienetų nebėra.")
             return
         }
 
@@ -158,13 +158,13 @@ class ReservationCreateViewModel @Inject constructor(
 
     fun createReservation() {
         val state = _uiState.value
-        val titleError = if (state.title.isBlank()) "Iveskite rezervacijos pavadinima." else null
+        val titleError = if (state.title.isBlank()) "Įveskite rezervacijos pavadinimą." else null
         val startDateError = if (state.startDate.isBlank()) "Pasirinkite pradzios data." else null
         val endDateError = if (state.endDate.isBlank()) "Pasirinkite pabaigos data." else null
         val formError = when {
             state.selectedItems.isEmpty() -> "Pridekite bent viena daikta."
             titleError != null || startDateError != null || endDateError != null ->
-                "Patikslinkite pazymetus laukus."
+                "Patikslinkite pažymėtus laukus."
             else -> null
         }
 

@@ -53,7 +53,7 @@ class MainActivity : ComponentActivity() {
                         var sessionIsValid = currentToken != null
                         val myTuntaiResult = if (currentToken != null) {
                             userRepository.getMyTuntai().onFailure { error ->
-                                if (error.message == SESSION_EXPIRED_MESSAGE || error.message == "Vartotojas nerastas.") {
+                                if (error.message == SESSION_EXPIRED_MESSAGE || error.message == "Vartotojas n?rastas.") {
                                     tokenManager.clearAll()
                                     sessionIsValid = false
                                 }

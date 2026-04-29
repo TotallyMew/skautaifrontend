@@ -68,10 +68,10 @@ fun SyncStatusScreen(
                             )
                             Text(
                                 text = when {
-                                    syncStatus.isOffline -> "Nera interneto rysio"
-                                    syncStatus.failedCount > 0 -> "Kai kurie pakeitimai neissaugoti"
+                                    syncStatus.isOffline -> "Nėra interneto ryšio"
+                                    syncStatus.failedCount > 0 -> "Kai kurie pakeitimai neišsaugoti"
                                     syncStatus.pendingCount > 0 -> "Sinchronizuojama..."
-                                    else -> "Visi pakeitimai issaugoti"
+                                    else -> "Visi pakeitimai išsaugoti"
                                 },
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.SemiBold
@@ -80,11 +80,11 @@ fun SyncStatusScreen(
                         Text(
                             text = when {
                                 syncStatus.isOffline ->
-                                    "Pakeitimai issaugoti sirenginyje. Kai tinklas atsiras, jie bus automatiskai issiunti i serveri."
+                                    "Pakeitimai išsaugoti įrenginyje. Kai tinklas atsiras, jie bus automatiškai įkelti."
                                 syncStatus.failedCount > 0 ->
-                                    "Dalis pakeitimu nepavyko issaugoti. Patikrink interneto rysi ir bandyk dar karta."
+                                    "Dalies pakeitimų nepavyko išsaugoti. Patikrinkite interneto ryšį ir bandykite dar kartą."
                                 syncStatus.pendingCount > 0 ->
-                                    "Laukia, kol bus nusiusti ${syncStatus.pendingCount} pakeitim(-ai) i serveri."
+                                    "Laukia, kol bus nusiųsti ${syncStatus.pendingCount} pakeitimas(-ai) į serverį."
                                 else ->
                                     "Visi vietiniai pakeitimai jau sinchronizuoti su serveriu."
                             },
@@ -97,7 +97,7 @@ fun SyncStatusScreen(
                                     onClick = viewModel::retryFailed,
                                     modifier = Modifier.weight(1f)
                                 ) {
-                                    Text("Bandyti dar karta")
+                                    Text("Bandyti dar kartą")
                                 }
                                 OutlinedButton(
                                     onClick = viewModel::dismissFailed,
@@ -114,11 +114,11 @@ fun SyncStatusScreen(
             if (syncStatus.operations.isEmpty()) {
                 item {
                     SkautaiEmptyState(
-                        title = "Nera laukianciu sinchronizavimu",
+                        title = "Nėra laukiančių sinchronizacijų",
                         subtitle = if (syncStatus.isOffline) {
-                            "Kai vel bus interneto rysys, nauji pakeitimai cia atsiras automatiskai."
+                            "Kai vėl bus interneto ryšys, nauji pakeitimai čia atsiras automatiškai."
                         } else {
-                            "Visi vietiniai pakeitimai jau issiusti i serveri."
+                            "Visi vietiniai pakeitimai jau išsiųsti į serveri."
                         },
                         icon = if (syncStatus.isOffline) Icons.Default.CloudOff else Icons.Default.CloudDone,
                         modifier = Modifier.fillMaxWidth()

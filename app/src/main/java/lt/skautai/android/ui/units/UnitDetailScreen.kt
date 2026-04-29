@@ -24,6 +24,7 @@ import lt.skautai.android.data.remote.UnitMembershipDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.members.displayRoleName
+import lt.skautai.android.util.canManageUnits
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -36,7 +37,7 @@ fun UnitDetailScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     var memberPendingRemoval by remember { mutableStateOf<UnitMembershipDto?>(null) }
-    val canManageUnit = "organizational_units.manage" in permissions
+    val canManageUnit = permissions.canManageUnits()
     val canManageMembers = "unit.members.manage:ALL" in permissions ||
         ("unit.members.manage:OWN_UNIT" in permissions && uiState.canCurrentUserManageThisUnit)
     val snackbarHostState = remember { SnackbarHostState() }
@@ -57,8 +58,8 @@ fun UnitDetailScreen(
     if (uiState.showDeleteDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideDeleteDialog,
-            title = { Text("Trinti vienetÄ…?") },
-            text = { Text("Å is veiksmas negrÄ¯Å¾tamas. Vienetas bus iÅ¡trintas.") },
+            title = { Text("Trinti vienetą?") },
+            text = { Text("Šis veiksm?s negrįžtamas. Vienetas bus ištrintas.") },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.deleteUnit(unitId) },
@@ -66,7 +67,7 @@ fun UnitDetailScreen(
                 ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::hideDeleteDialog) { Text("AtÅ¡aukti") }
+                TextButton(onClick = viewModel::hideDeleteDialog) { Text("Atšaukti") }
             }
         )
     }
@@ -74,8 +75,8 @@ fun UnitDetailScreen(
     if (uiState.showLeaveDialog) {
         AlertDialog(
             onDismissRequest = viewModel::hideLeaveDialog,
-            title = { Text("Palikti vieneta?") },
-            text = { Text("Paliksi si vieneta, bet liksi tunto nariu. Su siuo vienetu susieti nario priskyrimai bus uzdaryti.") },
+            title = { Text("Palikti vienetą?") },
+            text = { Text("Paliksi šį vienetą, bet liksi tunto nariu. Su šiuo vienetu susieti nario priskyrimai bus uždaryti.") },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.leaveUnit(unitId) },
@@ -83,7 +84,7 @@ fun UnitDetailScreen(
                 ) { Text("Palikti", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = viewModel::hideLeaveDialog) { Text("Atsaukti") }
+                TextButton(onClick = viewModel::hideLeaveDialog) { Text("Atšaukti") }
             }
         )
     }
@@ -104,10 +105,10 @@ fun UnitDetailScreen(
     memberPendingRemoval?.let { membership ->
         AlertDialog(
             onDismissRequest = { memberPendingRemoval = null },
-            title = { Text("Salinti nari is vieneto?") },
+            title = { Text("Šalinti narį iš vieneto?") },
             text = {
                 Text(
-                    "Narys ${membership.userName} ${membership.userSurname} bus pasalintas is sio vieneto."
+                    "Narys ${membership.userName} ${membership.userSurname} bus pašalintas iš šio vieneto."
                 )
             },
             confirmButton = {
@@ -118,11 +119,11 @@ fun UnitDetailScreen(
                     },
                     enabled = !uiState.isSaving
                 ) {
-                    Text("Salinti", color = MaterialTheme.colorScheme.error)
+                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
-                TextButton(onClick = { memberPendingRemoval = null }) { Text("Atsaukti") }
+                TextButton(onClick = { memberPendingRemoval = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -151,7 +152,7 @@ fun UnitDetailScreen(
                     }
                     if (uiState.unit != null && uiState.canCurrentUserLeaveThisUnit) {
                         IconButton(onClick = viewModel::showLeaveDialog) {
-                            Icon(Icons.Default.ExitToApp, contentDescription = "Palikti vieneta")
+                            Icon(Icons.Default.ExitToApp, contentDescription = "Palikti vienetą")
                         }
                     }
                 }
@@ -160,7 +161,7 @@ fun UnitDetailScreen(
         floatingActionButton = {
             if (uiState.unit != null && canManageMembers) {
                 FloatingActionButton(onClick = viewModel::openAssignMemberDialog) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = "Priskirti narÄ¯")
+                    Icon(Icons.Default.PersonAdd, contentDescription = "Priskirti narį")
                 }
             }
         },
@@ -226,7 +227,7 @@ fun UnitDetailScreen(
                     if (uiState.members.isEmpty()) {
                         item {
                             Text(
-                                "NariÅ³ nÄ—ra",
+                                "Narių nėra",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
@@ -278,7 +279,7 @@ private fun UnitMemberCard(
                 IconButton(onClick = onRemove, enabled = !isRemoving) {
                     Icon(
                         Icons.Default.PersonRemove,
-                        contentDescription = "Å alinti narÄ¯",
+                        contentDescription = "Šalinti narį",
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -301,23 +302,23 @@ private fun AssignMemberDialog(
 ) {
     var memberExpanded by remember { mutableStateOf(false) }
     var typeExpanded by remember { mutableStateOf(false) }
-    val assignmentTypes = listOf("MEMBER" to "Narys", "VADOVO_PADEJEJAS" to "Vadovo padÄ—jÄ—jas")
+    val assignmentTypes = listOf("MEMBER" to "Narys", "VADOVO_PADEJEJAS" to "Vadovo padėjėjas")
     val selectedMember = members.find { it.userId == selectedMemberId }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Priskirti narÄ¯") },
+        title = { Text("Priskirti narį") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (members.isEmpty()) {
                     Text(
-                        text = "Visi tunto nariai jau yra siame vienete.",
+                        text = "Visi tunto nariai jau yra šiame vienete.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
                 ExposedDropdownMenuBox(expanded = memberExpanded, onExpandedChange = { memberExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite narÄ¯",
+                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite narį",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Narys") },
@@ -363,7 +364,7 @@ private fun AssignMemberDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("AtÅ¡aukti") }
+            TextButton(onClick = onDismiss) { Text("Atšaukti") }
         }
     )
 }
@@ -400,7 +401,7 @@ private fun resolveUnitMemberRoleLabel(
 
     return when (membership.assignmentType) {
         "MEMBER" -> "Narys"
-        "VADOVO_PADEJEJAS" -> "Vadovo padÄ—jÄ—jas"
+        "VADOVO_PADEJEJAS" -> "Vadovo padėjėjas"
         else -> membership.assignmentType
     }
 }

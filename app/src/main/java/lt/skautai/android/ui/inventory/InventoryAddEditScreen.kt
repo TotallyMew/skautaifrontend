@@ -118,7 +118,7 @@ fun InventoryAddEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isCreateFlow) createTitle(uiState.mode) else "Redaguoti inventoriu") },
+                title = { Text(if (isCreateFlow) createTitle(uiState.mode) else "Redaguoti inventorių") },
                 navigationIcon = {
                     androidx.compose.material3.IconButton(
                         onClick = {
@@ -231,7 +231,7 @@ fun InventoryAddEditScreen(
                             enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (uiState.isSaving) CircularProgressIndicator() else Text("Issaugoti pakeitimus")
+                            if (uiState.isSaving) CircularProgressIndicator() else Text("Išsaugoti pakeitimus")
                         }
                     }
                 }
@@ -301,7 +301,7 @@ private fun ContextStep(
                 tonal = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Text(
-                    text = "Kuriamas naujas vieneto daiktas; paemimui is tunto naudok prasyma.",
+                    text = "Kuriamas naujas vieneto daiktas; paėmimui iš tunto naudok prašymą.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -387,7 +387,7 @@ private fun ItemInfoStep(
         OutlinedTextField(
             value = uiState.description,
             onValueChange = viewModel::onDescriptionChange,
-            label = { Text("Aprasymas") },
+            label = { Text("Aprašymas") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             maxLines = 4
@@ -497,7 +497,7 @@ private fun PhotoField(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("Prideti nuotrauka")
+                Text("Pridėti nuotrauka")
             }
             if (uiState.isUploadingPhoto) {
                 Row(
@@ -566,7 +566,7 @@ private fun PurchaseDateField(
             },
             dismissButton = {
                 TextButton(onClick = { showPicker = false }) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         ) {
@@ -675,12 +675,12 @@ private fun SaveFlowOptions(
         CheckboxRow(
             checked = saveImmediately,
             onCheckedChange = onSaveImmediatelyChange,
-            label = "Issaugoti iskart"
+            label = "Išsaugoti iskart"
         )
         CheckboxRow(
             checked = saveAndAddAnother,
             onCheckedChange = onSaveAndAddAnotherChange,
-            label = "Issaugoti ir prideti kita"
+            label = "Išsaugoti ir pridėti kitą"
         )
     }
 }
@@ -770,7 +770,7 @@ private fun CustodianUnitDropdown(
     errorText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkti vieneta"
+    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkti vienetą"
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = selectedName,
@@ -821,32 +821,32 @@ private fun conditionOptions(): List<Pair<String, String>> = listOf(
 private fun createTitle(mode: String): String = when (mode) {
     "UNIT_OWN" -> "Naujas vieneto daiktas"
     "PERSONAL" -> "Mano siulomas skolinti"
-    else -> "Prideti i tunto inventoriu"
+    else -> "Pridėti į tunto inventorių"
 }
 
 private fun contextTitle(mode: String): String = when (mode) {
-    "UNIT_OWN" -> "Aktyvaus vieneto inventorius"
+    "UNIT_OWN" -> "Aktyvaus vieneto inventori?s"
     "PERSONAL" -> "Mano siulomas skolinti"
-    else -> "Bendras tunto inventorius"
+    else -> "Bendras tunto inventori?s"
 }
 
 private fun contextDescription(mode: String): String = when (mode) {
     "UNIT_OWN" -> "Naujas tavo aktyvaus vieneto inventoriaus irasas."
     "PERSONAL" -> "Asmeninis daiktas, kuri gali skolinti kitiems."
-    else -> "Bendro tunto sandelio inventoriaus irasas."
+    else -> "Bendro tunto sandėlio inventoriaus įrašas."
 }
 
 private fun originLabelForMode(mode: String): String = when (mode) {
-    "SHARED" -> "Bendro tunto inventorius"
+    "SHARED" -> "Bendro tunto inventori?s"
     "PERSONAL" -> "Asmeninis daiktas skolinimui"
     "UNIT_OWN" -> "Naujas vieneto daiktas"
     else -> "Sukurtas naujai"
 }
 
 private fun approvalMessage(uiState: InventoryAddEditUiState): String = when (uiState.mode) {
-    "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventorius."
-    "PERSONAL" -> "Daiktas bus iskart matomas kaip tavo siulomas skolinti inventorius."
-    else -> "Bendro tunto inventorius gali reikalauti aukstesnio lygio patvirtinimo."
+    "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventori?s."
+    "PERSONAL" -> "Daiktas bus iškart matomas kaip tavo siūlomas skolinti inventori?s."
+    else -> "Bendro tunto inventori?s gali reikalauti aukštesnio lygio patvirtinimo."
 }
 
 private fun validateContextStep(

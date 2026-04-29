@@ -38,13 +38,15 @@ class ItemRepository @Inject constructor(
         custodianId: String? = null,
         status: String? = "ACTIVE",
         type: String? = null,
-        category: String? = null
+        category: String? = null,
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null
     ): Flow<List<ItemDto>> {
         return tokenManager.activeTuntasId.flatMapLatest { tuntasId ->
             if (tuntasId == null) {
                 flowOf(emptyList())
             } else {
-                itemDao.observeItems(tuntasId, custodianId, status, type, category)
+                itemDao.observeItems(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
                     .map { it.toItemDtos() }
             }
         }
@@ -65,7 +67,9 @@ class ItemRepository @Inject constructor(
         custodianId: String? = null,
         status: String? = "ACTIVE",
         type: String? = null,
-        category: String? = null
+        category: String? = null,
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null
     ): Result<Unit> {
         return try {
             val token = tokenManager.token.first()
@@ -78,15 +82,16 @@ class ItemRepository @Inject constructor(
                 custodianId = custodianId,
                 type = type,
                 category = category,
-                status = status
+                status = status,
+                sharedOnly = sharedOnly
             )
             if (response.isSuccessful) {
                 val items = response.body()?.items.orEmpty()
-                itemDao.deleteForQuery(tuntasId, custodianId, status, type, category)
+                itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
                 itemDao.upsertAll(items.toItemEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant inventoriu")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant inventori?")))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -122,17 +127,19 @@ class ItemRepository @Inject constructor(
         custodianId: String? = null,
         type: String? = null,
         category: String? = null,
-        status: String? = "ACTIVE"
+        status: String? = "ACTIVE",
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null
     ): Result<List<ItemDto>> {
-        val refreshResult = refreshItems(custodianId, status, type, category)
+        val refreshResult = refreshItems(custodianId, status, type, category, sharedOnly, createdByUserId)
         val tuntasId = tokenManager.activeTuntasId.first()
         val cachedItems = tuntasId
-            ?.let { itemDao.getItems(it, custodianId, status, type, category).toItemDtos() }
+            ?.let { itemDao.getItems(it, custodianId, sharedOnly, createdByUserId, status, type, category).toItemDtos() }
             .orEmpty()
         return if (refreshResult.isSuccess || cachedItems.isNotEmpty()) {
             Result.success(cachedItems)
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant inventoriu"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant inventori?"))
         }
     }
 
@@ -220,6 +227,8 @@ class ItemRepository @Inject constructor(
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val now = Instant.now().toString()
+            val currentUserId = tokenManager.userId.first()
+            val currentUserName = tokenManager.userName.first()
             val localItem = ItemDto(
                 id = "local-${UUID.randomUUID()}",
                 tuntasId = tuntasId,
@@ -239,6 +248,8 @@ class ItemRepository @Inject constructor(
                 sourceSharedItemId = request.sourceSharedItemId,
                 totalQuantityAcrossCustodians = request.quantity,
                 responsibleUserId = request.responsibleUserId,
+                createdByUserId = currentUserId,
+                createdByUserName = currentUserName,
                 photoUrl = request.photoUrl,
                 purchaseDate = request.purchaseDate,
                 purchasePrice = request.purchasePrice,
@@ -284,7 +295,7 @@ class ItemRepository @Inject constructor(
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = itemDao.getItem(itemId, tuntasId)?.toDto()
-                ?: return Result.failure(Exception("Daiktas nerastas offline cache"))
+                ?: return Result.failure(Exception("Daiktas n?rastas offline cache"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 description = request.description ?: cached.description,

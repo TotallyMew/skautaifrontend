@@ -74,7 +74,7 @@ fun ProfileScreen(
 
             uiState.profile == null -> {
                 SkautaiErrorState(
-                    message = uiState.error ?: "Profilis nerastas.",
+                    message = uiState.error ?: "Profilis n?rastas.",
                     onRetry = viewModel::loadProfile,
                     modifier = Modifier.align(Alignment.CenterHorizontally)
                 )

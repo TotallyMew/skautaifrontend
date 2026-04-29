@@ -32,8 +32,10 @@ import lt.skautai.android.ui.events.EventDetailScreen
 import lt.skautai.android.ui.events.EventListScreen
 import lt.skautai.android.ui.events.EventMovementScreen
 import lt.skautai.android.ui.events.EventNeedsScreen
+import lt.skautai.android.ui.events.EventPastovyklėsScreen
 import lt.skautai.android.ui.events.EventPlanScreen
 import lt.skautai.android.ui.events.EventPurchasesScreen
+import lt.skautai.android.ui.events.EventReconciliationScreen
 import lt.skautai.android.ui.events.EventStaffScreen
 import lt.skautai.android.ui.events.EventUkvedysScreen
 import lt.skautai.android.ui.events.PastovykleLeaderScreen
@@ -67,6 +69,9 @@ import lt.skautai.android.ui.units.UnitDetailScreen
 import lt.skautai.android.ui.units.UnitEditScreen
 import lt.skautai.android.ui.units.UnitListScreen
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.canCreateItems
+import lt.skautai.android.util.canInviteMembers
+import lt.skautai.android.util.canManageUnits
 import lt.skautai.android.util.TokenManager
 
 @Composable
@@ -130,8 +135,8 @@ fun AppNavGraph(
             if (showExitConfirmDialog) {
                 AlertDialog(
                     onDismissRequest = { showExitConfirmDialog = false },
-                    title = { Text("Iseiti is programeles?") },
-                    text = { Text("Ar tikrai norite iseiti?") },
+                    title = { Text("Išeiti iš programėlės?") },
+                    text = { Text("Ar tikrai norite išeiti?") },
                     confirmButton = {
                         TextButton(
                             onClick = {
@@ -139,12 +144,12 @@ fun AppNavGraph(
                                 (context as? Activity)?.finish()
                             }
                         ) {
-                            Text("Iseiti")
+                            Text("Išeiti")
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showExitConfirmDialog = false }) {
-                            Text("Atsaukti")
+                            Text("Atšaukti")
                         }
                     }
                 )
@@ -199,13 +204,13 @@ fun AppNavGraph(
                 showBackNavigation = true,
                 onNavigateBack = navigateBackToHome,
                 floatingActionButton = {
-                    if ("items.create" in permissions) {
+                    if (permissions.canCreateItems()) {
                         FloatingActionButton(
                             onClick = {
                                 navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
                             }
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Prideti daikta")
+                            Icon(Icons.Default.Add, contentDescription = "Pridėti daiktą")
                         }
                     }
                 }
@@ -294,7 +299,7 @@ fun AppNavGraph(
                             launchSingleTop = true
                         }
                     },
-                    canInvite = "invitations.create" in permissions
+                    canInvite = permissions.canInviteMembers()
                 )
             }
         }
@@ -305,11 +310,11 @@ fun AppNavGraph(
                 tokenManager = tokenManager,
                 onLogout = onLogout,
                 floatingActionButton = {
-                    if ("organizational_units.manage" in permissions) {
+                    if (permissions.canManageUnits()) {
                         FloatingActionButton(
                             onClick = { navController.navigate(NavRoutes.UnitCreate.route) }
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Prideti vieneta")
+                            Icon(Icons.Default.Add, contentDescription = "Pridėti vienetą")
                         }
                     }
                 }
@@ -333,7 +338,7 @@ fun AppNavGraph(
                 onLogout = onLogout,
                 floatingActionButton = {
                     FloatingActionButton(onClick = { navController.navigate(NavRoutes.LocationAddEdit.createRoute()) }) {
-                        Icon(Icons.Default.Add, contentDescription = "Prideti lokacija")
+                        Icon(Icons.Default.Add, contentDescription = "Pridėti lokaciją")
                     }
                 }
             ) {
@@ -582,9 +587,11 @@ fun AppNavGraph(
                 onEdit = { id -> navController.navigate(NavRoutes.EventAddEdit.createRoute(id)) },
                 onOpenMovement = { id -> navController.navigate(NavRoutes.EventMovement.createRoute(id)) },
                 onOpenPastovykleLeader = { id -> navController.navigate(NavRoutes.PastovykleLeader.createRoute(id)) },
+                onOpenPastovyklės = { id -> navController.navigate(NavRoutes.EventPastovyklės.createRoute(id)) },
                 onOpenNeeds = { id -> navController.navigate(NavRoutes.EventNeeds.createRoute(id)) },
                 onOpenUkvedys = { id -> navController.navigate(NavRoutes.EventUkvedys.createRoute(id)) },
                 onOpenPurchases = { id -> navController.navigate(NavRoutes.EventPurchases.createRoute(id)) },
+                onOpenReconciliation = { id -> navController.navigate(NavRoutes.EventReconciliation.createRoute(id)) },
                 onOpenPlan = { id -> navController.navigate(NavRoutes.EventPlan.createRoute(id)) },
                 onOpenStaff = { id -> navController.navigate(NavRoutes.EventStaff.createRoute(id)) }
             )
@@ -611,7 +618,19 @@ fun AppNavGraph(
             arguments = listOf(navArgument("eventId") { type = NavType.StringType })
         ) {
             val eventId = it.arguments?.getString("eventId")!!
-            EventPurchasesScreen(eventId = eventId, onBack = { navController.popBackStack() })
+            EventPurchasesScreen(
+                eventId = eventId,
+                onBack = { navController.popBackStack() },
+                onOpenReconciliation = { id -> navController.navigate(NavRoutes.EventReconciliation.createRoute(id)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EventReconciliation.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventReconciliationScreen(eventId = eventId, onBack = { navController.popBackStack() })
         }
 
         composable(
@@ -627,7 +646,22 @@ fun AppNavGraph(
             arguments = listOf(navArgument("eventId") { type = NavType.StringType })
         ) {
             val eventId = it.arguments?.getString("eventId")!!
-            EventStaffScreen(eventId = eventId, onBack = { navController.popBackStack() })
+            EventStaffScreen(
+                eventId = eventId,
+                onBack = { navController.popBackStack() },
+                onOpenPastovyklės = { id -> navController.navigate(NavRoutes.EventPastovyklės.createRoute(id)) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EventPastovyklės.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventPastovyklėsScreen(
+                eventId = eventId,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(

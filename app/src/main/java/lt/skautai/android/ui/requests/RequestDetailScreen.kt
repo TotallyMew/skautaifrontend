@@ -80,14 +80,14 @@ fun RequestDetailScreen(
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atsaukti paemimo prasyma") },
+            title = { Text("Atšaukti pa?mimo prasyma") },
             text = { Text("Ar tikrai nori atsaukti si prasyma paimti daikta is bendro inventoriaus?") },
             confirmButton = {
                 TextButton(onClick = {
                     showCancelDialog = false
                     viewModel.cancelRequest(requestId)
                 }) {
-                    Text("Atsaukti", color = MaterialTheme.colorScheme.error)
+                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -101,7 +101,7 @@ fun RequestDetailScreen(
     if (showRejectDialog) {
         AlertDialog(
             onDismissRequest = { showRejectDialog = false },
-            title = { Text("Atmesti paemimo prasyma") },
+            title = { Text("Atmesti pa?mimo prasyma") },
             text = {
                 Column {
                     Text("Atmetimo priezastis (neprivaloma):")
@@ -142,7 +142,7 @@ fun RequestDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Paemimo prasymas") },
+                title = { Text("Pa?mimo pra?ymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -252,9 +252,9 @@ private fun RequestDetailContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Paemimo informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Pa?mimo informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 HorizontalDivider()
-                request.itemDescription?.let { RequestInfoRow("Aprasymas", it) }
+                request.itemDescription?.let { RequestInfoRow("Aprašymas", it) }
                 RequestInfoRow("Kiekis", request.quantity.toString())
                 request.neededByDate?.let { RequestInfoRow("Reikalinga iki", it.take(10)) }
                 request.requestingUnitName?.let { RequestInfoRow("Vienetas", it) }
@@ -342,7 +342,7 @@ private fun RequestDetailContent(
                 if (isActioning) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 } else {
-                    Text("Atsaukti paemimo prasyma")
+                    Text("Atšaukti pa?mimo prasyma")
                 }
             }
         }

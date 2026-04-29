@@ -3,6 +3,7 @@ package lt.skautai.android.ui.events
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,18 +19,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventDto
@@ -52,115 +57,237 @@ import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
+import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.inventoryCategoryLabel
+
+private enum class NeedEntryMode { Inventory, Manual }
 
 @Composable
 fun NeedsCard(
     inventoryPlan: EventInventoryPlanDto?,
-    members: List<MemberDto>,
-    canEdit: Boolean,
     isWorking: Boolean,
     onOpenInventoryPicker: () -> Unit,
-    onCreateNeed: (String?, String, String, String?, String?, String) -> Unit
+    onCreateManualNeeds: (List<ManualEventNeedInput>) -> Unit
 ) {
+    var entryMode by remember { mutableStateOf(NeedEntryMode.Inventory) }
+    var showHelp by remember { mutableStateOf(false) }
     var name by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var selectedBucketId by remember { mutableStateOf<String?>(null) }
-    var responsibleUserId by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf("") }
+    var manualNeeds by remember { mutableStateOf<List<ManualEventNeedInput>>(emptyList()) }
     val buckets = inventoryPlan?.buckets.orEmpty()
-    val planItems = inventoryPlan?.items.orEmpty()
-    val shortageCount = planItems.count { it.shortageQuantity > 0 }
+    val currentQuantity = quantity.toIntOrNull()
+    val currentNeed = ManualEventNeedInput(
+        name = name.trim(),
+        quantity = currentQuantity ?: 0,
+        bucketId = selectedBucketId,
+        notes = notes.trim()
+    )
+    val canAddManualNeed = currentNeed.name.isNotBlank() && currentNeed.quantity > 0
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    fun clearManualForm() {
+        name = ""
+        quantity = ""
+        notes = ""
+    }
+
+    fun addCurrentManualNeed() {
+        if (!canAddManualNeed) return
+        manualNeeds = manualNeeds + currentNeed
+        clearManualForm()
+    }
+
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text("Poreikiai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Text(
-                "${planItems.size} daiktu, $shortageCount truksta (Pirkimai)",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider()
-
-            if (canEdit) {
-                Button(
-                    onClick = onOpenInventoryPicker,
-                    enabled = !isWorking,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(8.dp))
-                    Text("Prideti is inventoriaus")
-                }
-
-                EventListSection(title = "Naujas poreikis", subtitle = "Daiktui, kurio nera inventoriuje") {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Daiktas") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
+            EventFormEyebrow("Greitas veiksmas")
+            Text("Prideti poreiki", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                EventFormSupportText("Pasirink, ar poreikis bus is sandelio, ar rankinis.")
+                IconButton(onClick = { showHelp = !showHelp }) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = if (showHelp) "Paslepti pagalba" else "Rodyti pagalba"
                     )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedTextField(
-                            value = quantity,
-                            onValueChange = { quantity = it.filter(Char::isDigit) },
-                            label = { Text("Kiekis") },
-                            modifier = Modifier.weight(1f),
-                            singleLine = true
-                        )
-                        DropdownField(
-                            label = "Paskirtis",
-                            value = buckets.firstOrNull { it.id == selectedBucketId }?.name ?: "Pasirinkti",
-                            options = buckets.map { it.id to it.name },
-                            onSelect = { selectedBucketId = it },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    DropdownField(
-                        label = "Atsakingas",
-                        value = members.firstOrNull { it.userId == responsibleUserId }?.fullName() ?: "Nepasirinkta",
-                        options = members.map { it.userId to it.fullName() },
-                        onSelect = { responsibleUserId = it }
-                    )
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Pastabos") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Button(
-                        onClick = {
-                            onCreateNeed(null, name, quantity, selectedBucketId, responsibleUserId, notes)
-                            name = ""
-                            quantity = ""
-                            notes = ""
-                        },
-                        enabled = !isWorking,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Prideti poreiki")
-                    }
                 }
             }
+            if (showHelp) {
+                EventContextBanner(
+                    title = "Kaip kurti poreiki",
+                    subtitle = "Is inventoriaus rinkis jau sandelyje esantiems daiktams. Rankinis ivedimas tinka naujam pirkiniui, paslaugai arba daiktui, kurio kataloge dar nera."
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Box(modifier = Modifier.weight(1f)) {
+                    EventModeChip(
+                        selected = entryMode == NeedEntryMode.Inventory,
+                        text = "Is inventoriaus",
+                        onClick = { entryMode = NeedEntryMode.Inventory }
+                    )
+                }
+                Box(modifier = Modifier.weight(1f)) {
+                    EventModeChip(
+                        selected = entryMode == NeedEntryMode.Manual,
+                        text = "Ne is inventoriaus",
+                        onClick = { entryMode = NeedEntryMode.Manual }
+                    )
+                }
+            }
+            HorizontalDivider()
+            when (entryMode) {
+                NeedEntryMode.Inventory -> {
+                    EventListSection(
+                        title = "Prideti is inventoriaus",
+                        subtitle = "Greitas pasirinkimas, kai daiktas jau yra sandelyje."
+                    ) {
+                        OutlinedButton(
+                            onClick = onOpenInventoryPicker,
+                            enabled = !isWorking,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Prideti is inventoriaus")
+                        }
+                    }
+                }
 
-            if (planItems.isEmpty()) {
-                EmptyStateText("Dar nieko nepasirinkote. Pridekite daiktu is inventoriaus arba sukurkite nauja pirkiniu sarasa.")
-            } else {
-                EventListSection(
-                    title = "Poreikiu sarasas",
-                    subtitle = "${planItems.size} eil. / ${planItems.sumOf { it.plannedQuantity }} vnt."
-                ) {
-                    planItems
-                        .sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
-                        .groupBy { it.bucketName ?: "Be paskirties" }
-                        .forEach { (bucketName, bucketItems) ->
-                            EventListGroupHeader(bucketName, bucketItems.size)
-                            bucketItems.forEach { item ->
-                                EventInventoryListRow(item = item)
+                NeedEntryMode.Manual -> {
+                    EventListSection(
+                        title = "Poreikis ne is inventoriaus",
+                        subtitle = "Naujas daiktas arba paslauga, kurios dar nera sandelyje."
+                    ) {
+                        OutlinedTextField(
+                            value = name,
+                            onValueChange = { name = it },
+                            label = { Text("Pavadinimas") },
+                            placeholder = { Text("Pvz. duju balionas, tentas, virve") },
+                            modifier = Modifier.fillMaxWidth(),
+                            singleLine = true,
+                            colors = eventFormFieldColors()
+                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            OutlinedTextField(
+                                value = quantity,
+                                onValueChange = { quantity = it.filter(Char::isDigit) },
+                                label = { Text("Kiekis") },
+                                modifier = Modifier.weight(1f),
+                                singleLine = true,
+                                colors = eventFormFieldColors()
+                            )
+                            DropdownField(
+                                label = "Paskirtis",
+                                value = buckets.firstOrNull { it.id == selectedBucketId }?.name ?: "Pasirinkti",
+                                options = buckets.map { it.id to it.name },
+                                onSelect = { selectedBucketId = it },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        OutlinedTextField(
+                            value = notes,
+                            onValueChange = { notes = it },
+                            label = { Text("Pastabos neprivaloma") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = eventFormFieldColors()
+                        )
+                        if (manualNeeds.isNotEmpty()) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    "Paruosta prideti (${manualNeeds.size})",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                                manualNeeds.forEachIndexed { index, need ->
+                                    ManualNeedDraftRow(
+                                        need = need,
+                                        bucketName = buckets.firstOrNull { it.id == need.bucketId }?.name,
+                                        onRemove = {
+                                            manualNeeds = manualNeeds.filterIndexed { itemIndex, _ -> itemIndex != index }
+                                        }
+                                    )
+                                }
                             }
                         }
+                        OutlinedButton(
+                            onClick = { addCurrentManualNeed() },
+                            enabled = !isWorking && canAddManualNeed,
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Itraukti i sarasa")
+                        }
+                        Button(
+                            onClick = {
+                                val needsToCreate = if (manualNeeds.isEmpty() && canAddManualNeed) {
+                                    listOf(currentNeed)
+                                } else {
+                                    manualNeeds
+                                }
+                                onCreateManualNeeds(needsToCreate)
+                                manualNeeds = emptyList()
+                                clearManualForm()
+                            },
+                            enabled = !isWorking && (manualNeeds.isNotEmpty() || canAddManualNeed),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(18.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Prideti poreiki")
+                        }
+                    }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun ManualNeedDraftRow(
+    need: ManualEventNeedInput,
+    bucketName: String?,
+    onRemove: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(need.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(
+                listOfNotNull("${need.quantity} vnt.", bucketName).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            if (need.notes.isNotBlank()) {
+                Text(
+                    need.notes,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        IconButton(onClick = onRemove) {
+            Icon(Icons.Default.Delete, contentDescription = "Pašalinti")
         }
     }
 }
@@ -229,13 +356,11 @@ private fun BulkInventoryItemRow(
 fun InventoryPickerSheet(
     items: List<ItemDto>,
     buckets: List<EventInventoryBucketDto>,
-    members: List<MemberDto>,
     isWorking: Boolean,
     onCreateNeedsBulk: (Map<String, Int>, String?, String?, String) -> Unit
 ) {
     var search by remember { mutableStateOf("") }
     var selectedBucketId by remember { mutableStateOf<String?>(null) }
-    var responsibleUserId by remember { mutableStateOf<String?>(null) }
     var notes by remember { mutableStateOf("") }
     var selectedQuantities by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
     var collapsedCategories by remember { mutableStateOf(setOf<String>()) }
@@ -259,38 +384,30 @@ fun InventoryPickerSheet(
             .padding(horizontal = 20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Pasirinkti is inventoriaus", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text("Pasirinkti iš inventoriaus", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
         OutlinedTextField(
             value = search,
             onValueChange = { search = it },
-            label = { Text("Paieska inventoriuje") },
+            label = { Text("Paieška inventori?je") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true
+            singleLine = true,
+            colors = eventFormFieldColors()
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            DropdownField(
-                label = "Paskirtis",
-                value = buckets.firstOrNull { it.id == selectedBucketId }?.name ?: "Pasirinkti",
-                options = buckets.map { it.id to it.name },
-                onSelect = { selectedBucketId = it },
-                modifier = Modifier.weight(1f)
-            )
-            DropdownField(
-                label = "Atsakingas",
-                value = members.firstOrNull { it.userId == responsibleUserId }?.fullName() ?: "Nepasirinkta",
-                options = members.map { it.userId to it.fullName() },
-                onSelect = { responsibleUserId = it },
-                modifier = Modifier.weight(1f)
-            )
-        }
+        DropdownField(
+            label = "Paskirtis",
+            value = buckets.firstOrNull { it.id == selectedBucketId }?.name ?: "Pasirinkti",
+            options = buckets.map { it.id to it.name },
+            onSelect = { selectedBucketId = it }
+        )
         OutlinedTextField(
             value = notes,
             onValueChange = { notes = it },
-            label = { Text("Pastabos visiems pazymetiems") },
-            modifier = Modifier.fillMaxWidth()
+            label = { Text("Pastabos visiems pažymėtiems") },
+            modifier = Modifier.fillMaxWidth(),
+            colors = eventFormFieldColors()
         )
-        Card(modifier = Modifier.fillMaxWidth()) {
+        SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(
                 contentPadding = PaddingValues(8.dp),
                 modifier = Modifier.heightIn(max = 420.dp)
@@ -339,14 +456,14 @@ fun InventoryPickerSheet(
         }
         Button(
             onClick = {
-                onCreateNeedsBulk(selectedQuantities, selectedBucketId, responsibleUserId, notes)
+                onCreateNeedsBulk(selectedQuantities, selectedBucketId, null, notes)
                 selectedQuantities = emptyMap()
                 notes = ""
             },
             enabled = !isWorking && selectedQuantities.isNotEmpty(),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Prideti pasirinktus (${selectedQuantities.size})")
+            Text("Pridėti pasirinktus (${selectedQuantities.size})")
         }
     }
 }
@@ -413,7 +530,7 @@ fun UkvedysCard(
         AlertDialog(
             onDismissRequest = { pendingBucketDeletion = null },
             title = { Text("Trinti bucket?") },
-            text = { Text("Bucket ${bucket.name} bus istrintas.") },
+            text = { Text("Bucket ${bucket.name} bus ištrintas.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -425,7 +542,7 @@ fun UkvedysCard(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingBucketDeletion = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingBucketDeletion = null }) { Text("Atšaukti") }
             }
         )
     }
@@ -434,7 +551,7 @@ fun UkvedysCard(
         AlertDialog(
             onDismissRequest = { pendingAllocationDeletion = null },
             title = { Text("Trinti paskirstyma?") },
-            text = { Text("Paskirstymas ${allocation.bucketName} bus istrintas.") },
+            text = { Text("Paskirstymas ${allocation.bucketName} bus ištrintas.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -446,22 +563,22 @@ fun UkvedysCard(
                 }
             },
             dismissButton = {
-                TextButton(onClick = { pendingAllocationDeletion = null }) { Text("Atsaukti") }
+                TextButton(onClick = { pendingAllocationDeletion = null }) { Text("Atšaukti") }
             }
         )
     }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
-                if (returnMode) "Grazinimas" else "Ukvedzio suvestine",
+                if (returnMode) "Grąžinimas" else "Ūkvedžio suvestinė",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
             HorizontalDivider()
             when {
                 returnMode && planItems.isEmpty() -> {
-                    EmptyStateText("Nera ka grazinti. Poreikiu planas tuscias.")
+                    EmptyStateText("Nėra ką grąžinti. Poreikių planas tuščias.")
                 }
 
                 returnMode -> {
@@ -473,7 +590,7 @@ fun UkvedysCard(
                 }
 
                 shortageItems.isEmpty() -> {
-                    EmptyStateText("Trukstamu daiktu nera. Kai poreikiuose atsiras trukumu, cia juos pazymesi pirkimui.")
+                    EmptyStateText("Trūkstamų daiktų nėra. Kai poreikiuose atsiras trūkumų, čia juos pažymėsi pirkimui.")
                 }
 
                 else -> {
@@ -488,7 +605,7 @@ fun UkvedysCard(
                 HorizontalDivider()
                 Text("Buckets", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Atskirk inventoriu pagal paskirti ar pastovykles.",
+                    "Atskirk inventorių pagal paskirtį ar pastovykles.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -496,8 +613,9 @@ fun UkvedysCard(
                     OutlinedTextField(
                         value = bucketName,
                         onValueChange = { bucketName = it },
-                        label = { Text("Naujas bucket") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Nauja paskirtis") },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = eventFormFieldColors()
                     )
                     DropdownField(
                         label = "Tipas",
@@ -520,16 +638,14 @@ fun UkvedysCard(
                             onSelect = { bucketPastovykleId = it }
                         )
                     }
-                    Button(
+                    EventPrimaryButton(
+                        text = "Prideti paskirti",
                         onClick = {
                             onCreateBucket(bucketName, bucketType, bucketPastovykleId, "")
                             bucketName = ""
                         },
-                        enabled = !isWorking,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Prideti bucket")
-                    }
+                        enabled = !isWorking
+                    )
                 }
                 buckets.forEach { bucket ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -546,7 +662,7 @@ fun UkvedysCard(
                 HorizontalDivider()
                 Text("Paskirstymai", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Priskirk inventoriaus kieki bucketams ir stebek kam jis atitenka.",
+                    "Priskirk inventoriaus kiekį bucketams ir stebėk, kam jis atitenka.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -567,19 +683,18 @@ fun UkvedysCard(
                         value = allocationQuantity,
                         onValueChange = { allocationQuantity = it.filter(Char::isDigit) },
                         label = { Text("Kiekis") },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = eventFormFieldColors()
                     )
-                    Button(
+                    EventPrimaryButton(
+                        text = "Prideti paskirstyma",
                         onClick = {
                             if (allocationItemId != null && allocationBucketId != null) {
                                 onCreateAllocation(allocationItemId!!, allocationBucketId!!, allocationQuantity, "")
                             }
                         },
-                        enabled = !isWorking,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Prideti paskirstyma")
-                    }
+                        enabled = !isWorking
+                    )
                 }
                 allocations.forEach { allocation ->
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -594,9 +709,9 @@ fun UkvedysCard(
                 }
 
                 HorizontalDivider()
-                Text("Pastovykliu prasymai", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Pastovyklių prašymai", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Matosi kas prase, kiek prase ir kokia prasymo busena.",
+                    "Matosi, kas prašė, kiek prašė ir kokia prašymo būsena.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -623,10 +738,571 @@ fun UkvedysCard(
                 enabled = !returnMode && canManage && !isWorking && selected.isNotEmpty(),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("Sukurti pirkima is pazymetu (${selected.size})")
+                Text("Sukurti pirkimą iš pažymėtų (${selected.size})")
             }
         }
     }
+}
+
+private enum class UkvedysOverviewTab(val title: String) {
+    Purchase("Pirkimai"),
+    Buckets("Paskirtys"),
+    Requests("Pastovyklių prašymai")
+}
+
+@Composable
+private fun UkvedysOverviewTabs(
+    selectedTab: UkvedysOverviewTab,
+    onTabSelected: (UkvedysOverviewTab) -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(22.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            UkvedysOverviewTab.entries.forEach { tab ->
+                val selected = tab == selectedTab
+                Surface(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { onTabSelected(tab) },
+                    shape = RoundedCornerShape(18.dp),
+                    color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
+                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                ) {
+                    Text(
+                        text = tab.title,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 12.dp),
+                        textAlign = TextAlign.Center,
+                        style = if (selected) MaterialTheme.typography.titleSmall else MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UkvedysTabsCard(
+    eventStatus: String,
+    inventoryPlan: EventInventoryPlanDto?,
+    pastovykles: List<PastovykleDto>,
+    pastovykleRequestsById: Map<String, List<EventInventoryRequestDto>>,
+    activePurchaseItemIds: Set<String> = emptySet(),
+    canManage: Boolean,
+    isWorking: Boolean,
+    onCreatePurchase: (Set<String>) -> Unit,
+    onCreateBucket: (String, String, String?, String) -> Unit,
+    onDeleteBucket: (String) -> Unit,
+    onCreateAllocation: (String, String, String, String) -> Unit,
+    onDeleteAllocation: (String) -> Unit,
+    onApproveRequest: (String, String) -> Unit,
+    onRejectRequest: (String, String) -> Unit,
+    onFulfillRequest: (String, String) -> Unit
+) {
+    var selected by remember { mutableStateOf(setOf<String>()) }
+    var returnStates by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    var bucketName by remember { mutableStateOf("") }
+    var bucketType by remember { mutableStateOf("OTHER") }
+    var bucketPastovykleId by remember { mutableStateOf<String?>(null) }
+    var allocationItemId by remember { mutableStateOf<String?>(null) }
+    var allocationBucketId by remember { mutableStateOf<String?>(null) }
+    var allocationQuantity by remember { mutableStateOf("") }
+    var pendingBucketDeletion by remember { mutableStateOf<EventInventoryBucketDto?>(null) }
+    var pendingAllocationDeletion by remember { mutableStateOf<EventInventoryAllocationDto?>(null) }
+    var selectedTab by remember { mutableStateOf(UkvedysOverviewTab.Purchase) }
+    var purchaseSearch by remember { mutableStateOf("") }
+    var bucketSearch by remember { mutableStateOf("") }
+    var allocationSearch by remember { mutableStateOf("") }
+    var requestSearch by remember { mutableStateOf("") }
+    val shortageItems = inventoryPlan?.items.orEmpty().filter { it.shortageQuantity > 0 }
+    val planItems = inventoryPlan?.items.orEmpty()
+    val buckets = inventoryPlan?.buckets.orEmpty()
+    val allocations = inventoryPlan?.allocations.orEmpty()
+    val allRequests = pastovykleRequestsById.values.flatten().sortedByDescending { it.createdAt }
+    val returnMode = eventStatus == "COMPLETED"
+    val filteredShortageItems = remember(shortageItems, purchaseSearch) {
+        shortageItems.filterPlanItems(purchaseSearch)
+    }
+    val filteredBuckets = remember(buckets, bucketSearch) {
+        val query = bucketSearch.trim()
+        buckets
+            .sortedWith(compareBy<EventInventoryBucketDto>({ it.type }, { it.name.lowercase() }))
+            .filter {
+                query.isBlank() ||
+                    it.name.contains(query, ignoreCase = true) ||
+                    it.type.contains(query, ignoreCase = true) ||
+                    it.pastovykleName.orEmpty().contains(query, ignoreCase = true)
+            }
+    }
+    val filteredAllocations = remember(allocations, allocationSearch) {
+        val query = allocationSearch.trim()
+        allocations
+            .sortedWith(compareBy<EventInventoryAllocationDto>({ it.bucketName.lowercase() }, { it.quantity }))
+            .filter {
+                query.isBlank() ||
+                    it.bucketName.contains(query, ignoreCase = true) ||
+                    it.notes.orEmpty().contains(query, ignoreCase = true)
+            }
+    }
+    val filteredRequests = remember(allRequests, requestSearch) {
+        val query = requestSearch.trim()
+        allRequests.filter {
+            query.isBlank() ||
+                it.itemName.contains(query, ignoreCase = true) ||
+                it.pastovykleName.contains(query, ignoreCase = true) ||
+                it.requestedByName.orEmpty().contains(query, ignoreCase = true) ||
+                requestStatusLabel(it.status).contains(query, ignoreCase = true)
+        }
+    }
+
+    pendingBucketDeletion?.let { bucket ->
+        AlertDialog(
+            onDismissRequest = { pendingBucketDeletion = null },
+            title = { Text("Trinti paskirtį?") },
+            text = { Text("Paskirtis „${bucket.name}“ bus ištrinta.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingBucketDeletion = null
+                        onDeleteBucket(bucket.id)
+                    }
+                ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingBucketDeletion = null }) { Text("Atšaukti") }
+            }
+        )
+    }
+
+    pendingAllocationDeletion?.let { allocation ->
+        AlertDialog(
+            onDismissRequest = { pendingAllocationDeletion = null },
+            title = { Text("Trinti paskirstymą?") },
+            text = { Text("Paskirstymas „${allocation.bucketName}“ bus ištrintas.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pendingAllocationDeletion = null
+                        onDeleteAllocation(allocation.id)
+                    }
+                ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingAllocationDeletion = null }) { Text("Atšaukti") }
+            }
+        )
+    }
+
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SkautaiSectionHeader(
+                title = if (returnMode) "Grąžinimas" else "Ūkvedžio darbas",
+                subtitle = "${planItems.size} plano eil. · ${shortageItems.size} trūksta · ${allRequests.size} praš."
+            )
+            EventDetailMetricRow(
+                metrics = listOf(
+                    "Plano eil." to planItems.size.toString(),
+                    "Trūksta" to shortageItems.sumOf { it.shortageQuantity }.toString(),
+                    "Paskirstyta" to allocations.sumOf { it.quantity }.toString()
+                )
+            )
+
+            if (returnMode) {
+                if (planItems.isEmpty()) {
+                    EmptyStateText("Nėra ką grąžinti. Poreikių planas tuščias.")
+                } else {
+                    ReturnInventoryList(
+                        items = planItems,
+                        returnStates = returnStates,
+                        onReturnStatesChange = { returnStates = it }
+                    )
+                }
+            } else {
+                UkvedysOverviewTabs(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it }
+                )
+
+                when (selectedTab) {
+                    UkvedysOverviewTab.Purchase -> {
+                        EventDetailSection(
+                            title = "Ką reikia nupirkti",
+                            subtitle = "${filteredShortageItems.size} iš ${shortageItems.size} trūkumo eilučių"
+                        ) {
+                            EventDetailSearchBar(
+                                value = purchaseSearch,
+                                onValueChange = { purchaseSearch = it },
+                                placeholder = "Ieškoti pagal daiktą, paskirtį ar atsakingą"
+                            )
+                            if (shortageItems.isEmpty()) {
+                                EmptyStateText("Trūkstamų daiktų nėra. Kai plane atsiras trūkumų, čia juos pažymėsi pirkimui.")
+                            } else if (filteredShortageItems.isEmpty()) {
+                                EmptyStateText("Pagal šią paiešką trūkumų n?rasta.")
+                            } else {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedButton(
+                                        onClick = { selected = selected + filteredShortageItems.filter { it.id !in activePurchaseItemIds }.map { it.id } },
+                                        enabled = canManage && !isWorking
+                                    ) {
+                                        Text("Pažymėti matomus")
+                                    }
+                                    TextButton(
+                                        onClick = { selected = selected - filteredShortageItems.map { it.id }.toSet() },
+                                        enabled = selected.isNotEmpty()
+                                    ) {
+                                        Text("Nuimti")
+                                    }
+                                }
+                                ShortageInventoryList(
+                                    items = filteredShortageItems,
+                                    selected = selected,
+                                    disabledItemIds = activePurchaseItemIds,
+                                    onSelectedChange = { selected = it }
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = { onCreatePurchase(selected) },
+                            enabled = canManage && !isWorking && selected.any { it !in activePurchaseItemIds },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("Sukurti pirkimą iš pažymėtų (${selected.size})")
+                        }
+                    }
+
+                    UkvedysOverviewTab.Buckets -> {
+                        EventDetailSection(
+                            title = "Paskirtys",
+                            subtitle = "Paskirtys leidžia inventorių atskirti pagal programą, virtuvę ar pastovyklę."
+                        ) {
+                            if (canManage) {
+                                OutlinedTextField(
+                                    value = bucketName,
+                                    onValueChange = { bucketName = it },
+                                    label = { Text("Nauja paskirtis") },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = eventFormFieldColors()
+                                )
+                                DropdownField(
+                                    label = "Tipas",
+                                    value = bucketTypeLabel(bucketType),
+                                    options = listOf(
+                                        "PROGRAM" to "Programa",
+                                        "KITCHEN" to "Virtuvė",
+                                        "ADMIN" to "Administracija",
+                                        "MEDICAL" to "Medicina",
+                                        "PASTOVYKLE" to "Pastovyklė",
+                                        "OTHER" to "Kita"
+                                    ),
+                                    onSelect = { bucketType = it }
+                                )
+                                if (bucketType == "PASTOVYKLE") {
+                                    DropdownField(
+                                        label = "Pastovyklė",
+                                        value = pastovykles.firstOrNull { it.id == bucketPastovykleId }?.name ?: "Pasirinkti",
+                                        options = pastovykles.map { it.id to it.name },
+                                        onSelect = { bucketPastovykleId = it }
+                                    )
+                                }
+                                EventPrimaryButton(
+                                    text = "Prideti paskirti",
+                                    onClick = {
+                                        onCreateBucket(bucketName, bucketType, bucketPastovykleId, "")
+                                        bucketName = ""
+                                        bucketPastovykleId = null
+                                    },
+                                    enabled = !isWorking
+                                )
+                            }
+
+                            EventDetailSearchBar(
+                                value = bucketSearch,
+                                onValueChange = { bucketSearch = it },
+                                placeholder = "Ieškoti paskirtyse"
+                            )
+                            if (buckets.isEmpty()) {
+                                EmptyStateText("Paskirčių dar nėra.")
+                            } else if (filteredBuckets.isEmpty()) {
+                                EmptyStateText("Pagal šią paiešką paskirčių n?rasta.")
+                            } else {
+                                BucketLazyList(
+                                    buckets = filteredBuckets,
+                                    canManage = canManage,
+                                    onDeleteBucket = { pendingBucketDeletion = it }
+                                )
+                            }
+                        }
+
+                        EventDetailSection(
+                            title = "Paskirstymai",
+                            subtitle = "${filteredAllocations.size} iš ${allocations.size} paskirstymų"
+                        ) {
+                            if (canManage) {
+                                DropdownField(
+                                    label = "Daiktas",
+                                    value = planItems.firstOrNull { it.id == allocationItemId }?.name ?: "Pasirinkti",
+                                    options = planItems.map { it.id to it.name },
+                                    onSelect = { allocationItemId = it }
+                                )
+                                DropdownField(
+                                    label = "Bucket",
+                                    value = buckets.firstOrNull { it.id == allocationBucketId }?.name ?: "Pasirinkti",
+                                    options = buckets.map { it.id to it.name },
+                                    onSelect = { allocationBucketId = it }
+                                )
+                                OutlinedTextField(
+                                    value = allocationQuantity,
+                                    onValueChange = { allocationQuantity = it.filter(Char::isDigit) },
+                                    label = { Text("Kiekis") },
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                EventPrimaryButton(
+                                    text = "Prideti paskirstyma",
+                                    onClick = {
+                                        if (allocationItemId != null && allocationBucketId != null) {
+                                            onCreateAllocation(allocationItemId!!, allocationBucketId!!, allocationQuantity, "")
+                                        }
+                                    },
+                                    enabled = !isWorking
+                                )
+                            }
+
+                            EventDetailSearchBar(
+                                value = allocationSearch,
+                                onValueChange = { allocationSearch = it },
+                                placeholder = "Ieškoti paskirstymuose"
+                            )
+                            if (allocations.isEmpty()) {
+                                EmptyStateText("Paskirstymų dar nėra.")
+                            } else if (filteredAllocations.isEmpty()) {
+                                EmptyStateText("Pagal šią paiešką paskirstymų n?rasta.")
+                            } else {
+                                AllocationLazyList(
+                                    allocations = filteredAllocations,
+                                    canManage = canManage,
+                                    onDeleteAllocation = { pendingAllocationDeletion = it }
+                                )
+                            }
+                        }
+                    }
+
+                    UkvedysOverviewTab.Requests -> {
+                        EventDetailSection(
+                            title = "Pastovyklių prašymai",
+                            subtitle = "${filteredRequests.size} iš ${allRequests.size} prašymų"
+                        ) {
+                            EventDetailSearchBar(
+                                value = requestSearch,
+                                onValueChange = { requestSearch = it },
+                                placeholder = "Ieškoti pagal pastovyklę, daiktą ar statusą"
+                            )
+                            if (allRequests.isEmpty()) {
+                                EmptyStateText("Prašymų iš pastovyklių dar nėra.")
+                            } else if (filteredRequests.isEmpty()) {
+                                EmptyStateText("Pagal šią paiešką prašymų n?rasta.")
+                            } else {
+                                RequestsLazyList(
+                                    requests = filteredRequests,
+                                    canManage = canManage,
+                                    onApproveRequest = onApproveRequest,
+                                    onRejectRequest = onRejectRequest,
+                                    onFulfillRequest = onFulfillRequest
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun List<EventInventoryItemDto>.filterPlanItems(query: String): List<EventInventoryItemDto> {
+    val normalized = query.trim()
+    return sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
+        .filter {
+            normalized.isBlank() ||
+                it.name.contains(normalized, ignoreCase = true) ||
+                it.bucketName.orEmpty().contains(normalized, ignoreCase = true) ||
+                it.responsibleUserName.orEmpty().contains(normalized, ignoreCase = true) ||
+                it.notes.orEmpty().contains(normalized, ignoreCase = true)
+        }
+}
+
+@Composable
+private fun BucketLazyList(
+    buckets: List<EventInventoryBucketDto>,
+    canManage: Boolean,
+    onDeleteBucket: (EventInventoryBucketDto) -> Unit
+) {
+    LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+        items(buckets, key = { it.id }) { bucket ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(bucket.name, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        listOfNotNull(bucketTypeLabel(bucket.type), bucket.pastovykleName).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (canManage) {
+                    TextButton(onClick = { onDeleteBucket(bucket) }) { Text("Trinti") }
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun AllocationLazyList(
+    allocations: List<EventInventoryAllocationDto>,
+    canManage: Boolean,
+    onDeleteAllocation: (EventInventoryAllocationDto) -> Unit
+) {
+    LazyColumn(modifier = Modifier.heightIn(max = 420.dp)) {
+        items(allocations, key = { it.id }) { allocation ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(allocation.bucketName, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        allocation.notes ?: "Pastabų nėra",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                EventMetricPill("${allocation.quantity} vnt.", EventMetricTone.Neutral)
+                if (canManage) {
+                    TextButton(onClick = { onDeleteAllocation(allocation) }) { Text("Trinti") }
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun RequestsLazyList(
+    requests: List<EventInventoryRequestDto>,
+    canManage: Boolean,
+    onApproveRequest: (String, String) -> Unit,
+    onRejectRequest: (String, String) -> Unit,
+    onFulfillRequest: (String, String) -> Unit
+) {
+    LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
+        items(requests, key = { it.id }) { request ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(
+                            "${request.itemName} × ${request.quantity}",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            listOfNotNull(request.pastovykleName, request.requestedByName).joinToString(" · "),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    RequestStatusPill(status = request.status)
+                }
+                if (!request.notes.isNullOrBlank()) {
+                    Text(
+                        request.notes,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                if (canManage && request.status in listOf("PENDING", "APPROVED")) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        if (request.status == "PENDING") {
+                            TextButton(onClick = { onApproveRequest(request.pastovykleId, request.id) }) { Text("Patvirtinti") }
+                        }
+                        TextButton(onClick = { onFulfillRequest(request.pastovykleId, request.id) }) { Text("Įvykdyti") }
+                        TextButton(onClick = { onRejectRequest(request.pastovykleId, request.id) }) { Text("Atmesti") }
+                    }
+                }
+            }
+            HorizontalDivider()
+        }
+    }
+}
+
+@Composable
+private fun RequestStatusPill(status: String) {
+    val tone = when (status) {
+        "PENDING" -> SkautaiStatusTone.Warning
+        "APPROVED" -> SkautaiStatusTone.Info
+        "FULFILLED" -> SkautaiStatusTone.Success
+        "REJECTED" -> SkautaiStatusTone.Danger
+        else -> SkautaiStatusTone.Neutral
+    }
+    SkautaiStatusPill(label = requestStatusLabel(status), tone = tone)
+}
+
+private fun requestStatusLabel(status: String): String = when (status) {
+    "PENDING" -> "Laukia"
+    "APPROVED" -> "Patvirtinta"
+    "FULFILLED" -> "Įvykdyta"
+    "REJECTED" -> "Atmesta"
+    "SELF_PROVIDED" -> "Savo jėgomis"
+    else -> status
+}
+
+private fun bucketTypeLabel(type: String): String = when (type) {
+    "PROGRAM" -> "Programa"
+    "KITCHEN" -> "Virtuvė"
+    "ADMIN" -> "Administracija"
+    "MEDICAL" -> "Medicina"
+    "PASTOVYKLE" -> "Pastovyklė"
+    "OTHER" -> "Kita"
+    else -> type
 }
 
 @Composable
@@ -636,15 +1312,24 @@ private fun ReturnInventoryList(
     onReturnStatesChange: (Map<String, String>) -> Unit
 ) {
     EventListSection(
-        title = "Grazinimo sarasas",
+        title = "Grąžinimo sąrašas",
         subtitle = "${items.size} eil. / ${items.sumOf { it.plannedQuantity }} vnt."
     ) {
-        items
-            .sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
-            .groupBy { it.bucketName ?: "Be paskirties" }
-            .forEach { (bucketName, bucketItems) ->
-                EventListGroupHeader(bucketName, bucketItems.size)
-                bucketItems.forEach { item ->
+        val sortedItems = remember(items) {
+            items.sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
+        }
+        LazyColumn(modifier = Modifier.heightIn(max = 560.dp)) {
+            var lastBucket: String? = null
+            sortedItems.forEach { item ->
+                val bucketName = item.bucketName ?: "Be paskirties"
+                if (bucketName != lastBucket) {
+                    val count = sortedItems.count { (it.bucketName ?: "Be paskirties") == bucketName }
+                    item(key = "return_bucket_$bucketName") {
+                        EventListGroupHeader(bucketName, count)
+                    }
+                    lastBucket = bucketName
+                }
+                item(key = item.id) {
                     val state = returnStates[item.id]
                     EventInventoryListRow(
                         item = item,
@@ -664,6 +1349,7 @@ private fun ReturnInventoryList(
                     )
                 }
             }
+        }
     }
 }
 
@@ -671,148 +1357,80 @@ private fun ReturnInventoryList(
 private fun ShortageInventoryList(
     items: List<EventInventoryItemDto>,
     selected: Set<String>,
+    disabledItemIds: Set<String> = emptySet(),
     onSelectedChange: (Set<String>) -> Unit
 ) {
-    EventListSection(
-        title = "Trukumu sarasas",
-        subtitle = "${items.size} eil. / ${items.sumOf { it.shortageQuantity }} vnt. pirkti"
-    ) {
-        items
-            .sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
-            .groupBy { it.bucketName ?: "Be paskirties" }
-            .forEach { (bucketName, bucketItems) ->
-                EventListGroupHeader(bucketName, bucketItems.size)
-                bucketItems.forEach { item ->
-                    EventInventoryListRow(
-                        item = item,
-                        leading = {
-                            Checkbox(
-                                checked = item.id in selected,
-                                onCheckedChange = { checked ->
-                                    onSelectedChange(if (checked) selected + item.id else selected - item.id)
-                                }
-                            )
-                        },
-                        trailing = {
-                            Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                EventMetricPill("${item.availableQuantity}/${item.plannedQuantity}", EventMetricTone.Neutral)
+    val sortedItems = remember(items) {
+        items.sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
+    }
+    LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
+        var lastBucket: String? = null
+        sortedItems.forEach { item ->
+            val bucketName = item.bucketName ?: "Be paskirties"
+            if (bucketName != lastBucket) {
+                val count = sortedItems.count { (it.bucketName ?: "Be paskirties") == bucketName }
+                item(key = "shortage_bucket_$bucketName") {
+                    EventListGroupHeader(bucketName, count)
+                }
+                lastBucket = bucketName
+            }
+            item(key = item.id) {
+                val disabled = item.id in disabledItemIds
+                EventInventoryListRow(
+                    item = item,
+                    leading = {
+                        Checkbox(
+                            checked = item.id in selected,
+                            enabled = !disabled,
+                            onCheckedChange = { checked ->
+                                onSelectedChange(if (checked) selected + item.id else selected - item.id)
+                            }
+                        )
+                    },
+                    trailing = {
+                        Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            EventMetricPill("${item.availableQuantity}/${item.plannedQuantity}", EventMetricTone.Neutral)
+                            if (disabled) {
+                                EventMetricPill("Jau pirkime", EventMetricTone.Good)
+                            } else {
                                 EventMetricPill("Pirkti ${item.shortageQuantity}", EventMetricTone.Warning)
                             }
                         }
-                    )
-                }
-            }
-    }
-}
-
-@Composable
-fun PlanCard(
-    event: EventDto,
-    inventoryPlan: EventInventoryPlanDto?,
-    members: List<MemberDto>,
-    canEdit: Boolean,
-    isWorking: Boolean,
-    onUpdateNeed: (EventInventoryItemDto, String, String, String?, String?, String) -> Unit,
-    onDeleteNeed: (String) -> Unit
-) {
-    var editing by remember { mutableStateOf<EventInventoryItemDto?>(null) }
-    var pendingNeedDeletion by remember { mutableStateOf<EventInventoryItemDto?>(null) }
-    val buckets = inventoryPlan?.buckets.orEmpty()
-
-    editing?.let { item ->
-        EditNeedDialog(
-            item = item,
-            buckets = buckets,
-            members = members,
-            isWorking = isWorking,
-            onDismiss = { editing = null },
-            onSave = { name, quantity, bucketId, responsibleUserId, notes ->
-                onUpdateNeed(item, name, quantity, bucketId, responsibleUserId, notes)
-                editing = null
-            }
-        )
-    }
-
-    pendingNeedDeletion?.let { item ->
-        AlertDialog(
-            onDismissRequest = { pendingNeedDeletion = null },
-            title = { Text("Trinti poreiki?") },
-            text = { Text("Poreikis ${item.name} bus istrintas is plano.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingNeedDeletion = null
-                        onDeleteNeed(item.id)
-                    },
-                    enabled = !isWorking
-                ) {
-                    Text("Trinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingNeedDeletion = null }) { Text("Atsaukti") }
-            }
-        )
-    }
-
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Inventoriaus planas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            HorizontalDivider()
-            event.inventorySummary?.let { summary ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                EventMetricPill("Planuota ${summary.totalPlannedQuantity}", EventMetricTone.Neutral)
-                    EventMetricPill("Turima ${summary.totalAvailableQuantity}", EventMetricTone.Neutral)
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    EventMetricPill("Truksta ${summary.totalShortageQuantity}", EventMetricTone.Warning)
-                EventMetricPill("Paskirstyta ${summary.totalAllocatedQuantity}", EventMetricTone.Good)
-                }
-            }
-            if (inventoryPlan == null || inventoryPlan.items.isEmpty()) {
-                Text("Planas dar tuscias", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                EventListSection(
-                    title = "Plano eilutes",
-                    subtitle = "${inventoryPlan.items.size} eil. / ${inventoryPlan.items.sumOf { it.plannedQuantity }} vnt."
-                ) {
-                    inventoryPlan.items
-                        .sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
-                        .groupBy { it.bucketName ?: "Be paskirties" }
-                        .forEach { (bucketName, bucketItems) ->
-                            EventListGroupHeader(bucketName, bucketItems.size)
-                            bucketItems.forEach { item ->
-                                EventInventoryListRow(
-                                    item = item,
-                                    bottom = {
-                                        if (canEdit) {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                TextButton(
-                                                    onClick = { editing = item },
-                                                    contentPadding = PaddingValues(0.dp)
-                                                ) {
-                                                    Text("Redaguoti")
-                                                }
-                                                TextButton(
-                                                    onClick = { pendingNeedDeletion = item },
-                                                    contentPadding = PaddingValues(0.dp)
-                                                ) {
-                                                    Text("Trinti")
-                                                }
-                                            }
-                                        }
-                                    }
-                                )
-                            }
-                        }
-                }
+                    }
+                )
             }
         }
     }
 }
 
 @Composable
-private fun EditNeedDialog(
+fun PlanCard(
+    event: EventDto,
+    inventoryPlan: EventInventoryPlanDto?
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Inventoriaus planas", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            HorizontalDivider()
+            event.inventorySummary?.let { summary ->
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EventMetricPill("Planuota ${summary.totalPlannedQuantity}", EventMetricTone.Neutral)
+                    EventMetricPill("Turima ${summary.totalAvailableQuantity}", EventMetricTone.Neutral)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    EventMetricPill("Truksta ${summary.totalShortageQuantity}", EventMetricTone.Warning)
+                    EventMetricPill("Paskirstyta ${summary.totalAllocatedQuantity}", EventMetricTone.Good)
+                }
+            }
+            if (inventoryPlan == null || inventoryPlan.items.isEmpty()) {
+                Text("Planas dar tuščias", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@Composable
+fun EditNeedDialog(
     item: EventInventoryItemDto,
     buckets: List<EventInventoryBucketDto>,
     members: List<MemberDto>,
@@ -831,11 +1449,19 @@ private fun EditNeedDialog(
         title = { Text("Redaguoti plano eilute") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Daiktas") })
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text("Daiktas") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = eventFormFieldColors()
+                )
                 OutlinedTextField(
                     value = quantity,
                     onValueChange = { quantity = it.filter(Char::isDigit) },
-                    label = { Text("Kiekis") }
+                    label = { Text("Kiekis") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = eventFormFieldColors()
                 )
                 DropdownField(
                     label = "Paskirtis",
@@ -849,17 +1475,23 @@ private fun EditNeedDialog(
                     options = members.map { it.userId to it.fullName() },
                     onSelect = { responsibleUserId = it }
                 )
-                OutlinedTextField(value = notes, onValueChange = { notes = it }, label = { Text("Pastabos") })
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Pastabos") },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = eventFormFieldColors()
+                )
             }
         },
         confirmButton = {
             TextButton(enabled = !isWorking, onClick = { onSave(name, quantity, bucketId, responsibleUserId, notes) }) {
-                Text("Issaugoti")
+                Text("Išsaugoti")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Atsaukti")
+                Text("Atšaukti")
             }
         }
     )

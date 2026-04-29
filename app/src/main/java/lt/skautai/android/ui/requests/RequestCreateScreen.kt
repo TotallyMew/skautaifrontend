@@ -53,7 +53,7 @@ fun RequestCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas paemimo prasymas") },
+                title = { Text("Naujas pa?mimo pra?ymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -87,14 +87,14 @@ fun RequestCreateScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Paemimo is tunto prasymas",
+                            text = "Pa?mimo is tunto pra?ymas",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Naudojama tada, kai daiktas jau yra bendrame tunto inventoriuje ir ji reikia perduoti vienetui.",
+                            text = "Naudojama tada, kai daiktas jau yra bendrame tunto inventori?je ir ji reikia perduoti vienetui.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -186,7 +186,7 @@ private fun RequestOrgUnitDropdown(
             value = selectedUnit?.name ?: selectedOrgUnitName ?: "Tuntui",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Kam teikiamas prasymas") },
+            label = { Text("Kam teikiamas pra?ymas") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()

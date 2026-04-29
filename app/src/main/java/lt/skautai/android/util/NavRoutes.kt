@@ -122,11 +122,17 @@ sealed class NavRoutes(val route: String) {
     object EventPurchases : NavRoutes("event_purchases/{eventId}") {
         fun createRoute(eventId: String) = "event_purchases/$eventId"
     }
+    object EventReconciliation : NavRoutes("event_reconciliation/{eventId}") {
+        fun createRoute(eventId: String) = "event_reconciliation/$eventId"
+    }
     object EventPlan : NavRoutes("event_plan/{eventId}") {
         fun createRoute(eventId: String) = "event_plan/$eventId"
     }
     object EventStaff : NavRoutes("event_staff/{eventId}") {
         fun createRoute(eventId: String) = "event_staff/$eventId"
+    }
+    object EventPastovyklės : NavRoutes("event_pastovykles/{eventId}") {
+        fun createRoute(eventId: String) = "event_pastovykles/$eventId"
     }
     object EventMovement : NavRoutes("event_movement/{eventId}") {
         fun createRoute(eventId: String) = "event_movement/$eventId"

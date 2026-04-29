@@ -130,7 +130,7 @@ fun RegisterInviteScreen(
             OutlinedTextField(
                 value = uiState.phone,
                 onValueChange = viewModel::onPhoneChange,
-                label = { Text("Telefono numeris (neprivaloma)") },
+                label = { Text("Telefono numeris") },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
