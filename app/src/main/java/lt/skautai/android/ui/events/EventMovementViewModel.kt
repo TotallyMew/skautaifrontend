@@ -20,7 +20,6 @@ import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.repository.EventRepository
-import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.util.TokenManager
 import java.util.UUID
 
@@ -42,7 +41,6 @@ sealed interface EventMovementUiState {
 @HiltViewModel
 class EventMovementViewModel @Inject constructor(
     private val eventRepository: EventRepository,
-    private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -87,7 +85,7 @@ class EventMovementViewModel @Inject constructor(
                 }
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
-            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
             val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody.orEmpty()
             val movements = eventRepository.getInventoryMovements(eventId).getOrNull()?.movements.orEmpty()
             val current = _uiState.value as? EventMovementUiState.Success ?: return@launch

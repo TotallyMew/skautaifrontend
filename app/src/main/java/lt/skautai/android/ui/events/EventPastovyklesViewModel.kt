@@ -20,7 +20,6 @@ import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.UpdatePastovykleRequestDto
 import lt.skautai.android.data.repository.EventRepository
-import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.util.TokenManager
 
 sealed interface EventPastovyklėsUiState {
@@ -39,7 +38,6 @@ sealed interface EventPastovyklėsUiState {
 @HiltViewModel
 class EventPastovyklėsViewModel @Inject constructor(
     private val eventRepository: EventRepository,
-    private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -80,7 +78,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 return@launch
             }
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
-            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
             _uiState.value = EventPastovyklėsUiState.Success(
                 event = event,
                 pastovykles = pastovykles.sortedBy { it.name.lowercase() },

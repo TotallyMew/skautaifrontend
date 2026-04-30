@@ -39,6 +39,7 @@ data class CreateEventRequestDto(
     @SerializedName("type") val type: String,
     @SerializedName("startDate") val startDate: String,
     @SerializedName("endDate") val endDate: String,
+    @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null,
     @SerializedName("notes") val notes: String? = null
 )
 

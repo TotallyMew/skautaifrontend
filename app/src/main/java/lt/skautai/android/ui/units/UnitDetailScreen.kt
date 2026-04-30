@@ -59,7 +59,7 @@ fun UnitDetailScreen(
         AlertDialog(
             onDismissRequest = viewModel::hideDeleteDialog,
             title = { Text("Trinti vienetą?") },
-            text = { Text("Šis veiksm?s negrįžtamas. Vienetas bus ištrintas.") },
+            text = { Text("Šis veiksmas negrįžtamas. Vienetas bus ištrintas.") },
             confirmButton = {
                 TextButton(
                     onClick = { viewModel.deleteUnit(unitId) },

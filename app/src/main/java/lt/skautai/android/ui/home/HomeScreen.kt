@@ -131,7 +131,7 @@ fun HomeScreen(
             item {
                 SkautaiSectionHeader(
                     title = "Reikalauja demesio",
-                    subtitle = "Svarbiausi veiksm?i, kuriuos verta atlikti pirmiausia."
+                    subtitle = "Svarbiausi veiksmai, kuriuos verta atlikti pirmiausia."
                 )
             }
             item {
@@ -254,7 +254,7 @@ fun HomeScreen(
         item {
             SkautaiSectionHeader(
                 title = "Prašymai",
-                subtitle = "Pirkimo, papildymo ir pa?mimo u?klausos vienoje vietoje."
+                subtitle = "Pirkimo, papildymo ir paėmimo užklausos vienoje vietoje."
             )
         }
 

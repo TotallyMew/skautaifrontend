@@ -99,7 +99,7 @@ fun LoginScreen(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            text = "Skautų inventori?s",
+                            text = "Skautų inventorius",
                             style = MaterialTheme.typography.labelLarge,
                             color = ScoutGradients.HeroTextMuted
                         )
@@ -183,7 +183,7 @@ fun LoginScreen(
                             .fillMaxWidth()
                             .height(52.dp)
                     ) {
-                        Text("Turi pakvietimą? Susikūrk paskyrą!")
+                        Text("Turi pakvietimą? Susikurk paskyrą!")
                     }
 
                     TextButton(

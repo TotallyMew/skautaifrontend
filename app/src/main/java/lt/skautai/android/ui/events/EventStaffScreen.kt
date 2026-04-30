@@ -37,6 +37,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -90,15 +91,18 @@ fun EventStaffScreen(
 
     val state = uiState
     val readOnly = (state as? EventStaffUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val canManage = !readOnly && (
-        "events.manage" in permissions ||
-            (state as? EventStaffUiState.Success)?.event?.eventRoles
-                ?.filter { it.userId == state.currentUserId }
-                ?.any { it.role == "VIRSININKAS" } == true
+        (state as? EventStaffUiState.Success)?.event?.eventRoles
+            ?.filter { it.userId == state.currentUserId }
+            ?.any { it.role == "VIRSININKAS" } == true
         )
 
     if (canManage && state is EventStaffUiState.Success && panelMode == StaffPanelMode.Slot && activeSlot != null) {
-        ModalBottomSheet(onDismissRequest = { activeSlot = null }) {
+        ModalBottomSheet(
+            onDismissRequest = { activeSlot = null },
+            sheetState = sheetState
+        ) {
             SlotAssignmentPanel(
                 title = activeSlot!!.title,
                 subtitle = activeSlot!!.subtitle,
@@ -113,7 +117,10 @@ fun EventStaffScreen(
     }
 
     if (canManage && state is EventStaffUiState.Success && panelMode == StaffPanelMode.Extra) {
-        ModalBottomSheet(onDismissRequest = { panelMode = StaffPanelMode.Slot }) {
+        ModalBottomSheet(
+            onDismissRequest = { panelMode = StaffPanelMode.Slot },
+            sheetState = sheetState
+        ) {
             ExtraRoleAssignmentPanel(
                 members = eligibleAdditionalRoleMembers(state),
                 isWorking = state.isWorking,
@@ -534,7 +541,7 @@ private fun SlotAssignmentPanel(
         )
         SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(
-                modifier = Modifier.heightIn(max = 280.dp),
+                modifier = Modifier.heightIn(min = 220.dp, max = 420.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(10.dp)
             ) {
@@ -604,7 +611,7 @@ private fun ExtraRoleAssignmentPanel(
         )
         SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(
-                modifier = Modifier.heightIn(max = 240.dp),
+                modifier = Modifier.heightIn(min = 220.dp, max = 420.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(10.dp)
             ) {

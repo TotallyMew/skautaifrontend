@@ -21,7 +21,6 @@ import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.ItemRepository
-import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.util.TokenManager
 
 sealed interface EventNeedsUiState {
@@ -48,7 +47,6 @@ data class ManualEventNeedInput(
 class EventNeedsViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val itemRepository: ItemRepository,
-    private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -99,7 +97,7 @@ class EventNeedsViewModel @Inject constructor(
         val current = _uiState.value as? EventNeedsUiState.Success ?: return
         if (current.members.isNotEmpty()) return
         viewModelScope.launch {
-            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            val members = eventRepository.getCandidateMembers(current.event.id).getOrNull()?.members.orEmpty()
             (_uiState.value as? EventNeedsUiState.Success)?.let {
                 _uiState.value = it.copy(members = members)
             }

@@ -16,7 +16,6 @@ import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
 import lt.skautai.android.data.repository.EventRepository
-import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.util.TokenManager
 
 sealed interface EventPlanUiState {
@@ -34,7 +33,6 @@ sealed interface EventPlanUiState {
 @HiltViewModel
 class EventPlanViewModel @Inject constructor(
     private val eventRepository: EventRepository,
-    private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -84,7 +82,7 @@ class EventPlanViewModel @Inject constructor(
         val current = _uiState.value as? EventPlanUiState.Success ?: return
         if (current.members.isNotEmpty()) return
         viewModelScope.launch {
-            val members = memberRepository.getMembers().getOrNull()?.members.orEmpty()
+            val members = eventRepository.getCandidateMembers(current.event.id).getOrNull()?.members.orEmpty()
             (_uiState.value as? EventPlanUiState.Success)?.let {
                 _uiState.value = it.copy(members = members)
             }

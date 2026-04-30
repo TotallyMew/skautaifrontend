@@ -58,6 +58,7 @@ import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.EventInventoryRequestListDto
 import lt.skautai.android.data.remote.EventListDto
+import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.EventPurchaseItemDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.EventPurchaseListDto
@@ -208,6 +209,19 @@ class EventRepository @Inject constructor(
         }
     }
 
+    suspend fun getCandidateMembers(eventId: String): Result<MemberListDto> {
+        return try {
+            val response = eventApiService.getCandidateMembers("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: MemberListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant renginio kandidatus")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun createEvent(request: CreateEventRequestDto): Result<EventDto> {
         return try {
             val response = eventApiService.createEvent("Bearer ${token()}", tuntasId(), request)
@@ -229,7 +243,7 @@ class EventRepository @Inject constructor(
                 startDate = request.startDate,
                 endDate = request.endDate,
                 locationId = null,
-                organizationalUnitId = null,
+                organizationalUnitId = request.organizationalUnitId,
                 createdByUserId = null,
                 status = "ACTIVE",
                 notes = request.notes,
@@ -1505,6 +1519,7 @@ class EventRepository @Inject constructor(
         type = type,
         startDate = startDate,
         endDate = endDate,
+        organizationalUnitId = organizationalUnitId,
         notes = notes
     )
 

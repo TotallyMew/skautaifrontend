@@ -20,6 +20,13 @@ interface EventApiService {
         @Path("id") id: String
     ): Response<EventDto>
 
+    @GET("api/events/{id}/candidate-members")
+    suspend fun getCandidateMembers(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<MemberListDto>
+
     @POST("api/events")
     suspend fun createEvent(
         @Header("Authorization") token: String,

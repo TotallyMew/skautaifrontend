@@ -149,6 +149,21 @@ fun EventCreateScreen(
                         modifier = Modifier.weight(1f)
                     )
                 }
+
+                EventAudienceDropdown(
+                    selectedAudienceId = uiState.selectedAudienceId,
+                    selectedAudienceLabel = uiState.selectedAudienceLabel,
+                    audienceOptions = uiState.audienceOptions,
+                    enabled = !uiState.isEditMode && !uiState.isAudienceLoading,
+                    onAudienceSelected = viewModel::onAudienceChange
+                )
+
+                if (!uiState.isEditMode && !uiState.isAudienceLoading && uiState.audienceOptions.isEmpty()) {
+                    Text(
+                        text = "Pagal dabartini ranga ir vienetus siuo metu negalite kurti renginiu.",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
             EventFormSection(
@@ -242,6 +257,54 @@ private fun EventTypeDropdown(
                     text = { Text(label) },
                     onClick = {
                         onTypeSelected(value)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EventAudienceDropdown(
+    selectedAudienceId: String?,
+    selectedAudienceLabel: String,
+    audienceOptions: List<EventAudienceOption>,
+    enabled: Boolean,
+    onAudienceSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = audienceOptions
+        .firstOrNull { it.organizationalUnitId == selectedAudienceId }
+        ?.label
+        ?: selectedAudienceLabel
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (enabled) expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            enabled = enabled,
+            label = { Text("Kam skirtas renginys *") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            colors = eventFormFieldColors()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            audienceOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.label) },
+                    onClick = {
+                        onAudienceSelected(option.organizationalUnitId)
                         expanded = false
                     }
                 )

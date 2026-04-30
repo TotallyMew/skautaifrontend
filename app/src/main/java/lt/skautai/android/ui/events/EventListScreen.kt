@@ -106,8 +106,6 @@ fun EventListScreen(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(16.dp),
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
                     elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
                 ) {
                     Icon(Icons.Default.Add, contentDescription = "Naujas renginys")
@@ -294,13 +292,15 @@ fun EventStatusChip(status: String) {
     val tone = when (status) {
         "PLANNING" -> SkautaiStatusTone.Warning
         "ACTIVE" -> SkautaiStatusTone.Success
+        "WRAP_UP" -> SkautaiStatusTone.Warning
         "COMPLETED" -> SkautaiStatusTone.Neutral
         "CANCELLED" -> SkautaiStatusTone.Danger
         else -> SkautaiStatusTone.Neutral
     }
     val label = when (status) {
         "PLANNING" -> "Planuojamas"
-        "ACTIVE" -> "Aktyvus"
+        "ACTIVE" -> "Vyksta"
+        "WRAP_UP" -> "Suvedimas"
         "COMPLETED" -> "Įvykdytas"
         "CANCELLED" -> "Atšauktas"
         else -> status
