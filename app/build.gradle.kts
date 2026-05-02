@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -6,6 +8,38 @@ plugins {
     alias(libs.plugins.ksp)
 
 }
+
+fun String.asBuildConfigString(): String = "\"${replace("\\", "\\\\").replace("\"", "\\\"")}\""
+
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) {
+        file.inputStream().use { load(it) }
+    }
+}
+
+fun configValue(name: String, localPropertyName: String, defaultValue: String): String {
+    return providers.gradleProperty(name).orNull
+        ?: System.getenv(name)
+        ?: localProperties.getProperty(localPropertyName)
+        ?: defaultValue
+}
+
+val apiBaseUrl = configValue(
+    name = "API_BASE_URL",
+    localPropertyName = "api.baseUrl",
+    defaultValue = "http://10.0.2.2:8080/"
+)
+val apiHost = configValue(
+    name = "API_HOST",
+    localPropertyName = "api.host",
+    defaultValue = ""
+)
+val apiCertPin = configValue(
+    name = "API_CERT_PIN",
+    localPropertyName = "api.certPin",
+    defaultValue = ""
+)
 
 android {
     namespace = "lt.skautai.android"
@@ -18,9 +52,9 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"http://localhost:8080/\"")
-        buildConfigField("String", "API_HOST", "\"\"")
-        buildConfigField("String", "API_CERT_PIN", "\"\"")
+        buildConfigField("String", "API_BASE_URL", apiBaseUrl.asBuildConfigString())
+        buildConfigField("String", "API_HOST", apiHost.asBuildConfigString())
+        buildConfigField("String", "API_CERT_PIN", apiCertPin.asBuildConfigString())
     }
 
     buildTypes {
@@ -95,6 +129,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofit.gson)
     implementation(libs.okhttp.logging)
+    implementation(libs.zxing.embedded)
 
     // Testing
     testImplementation(libs.junit)

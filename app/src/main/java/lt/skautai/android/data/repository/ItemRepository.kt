@@ -154,6 +154,27 @@ class ItemRepository @Inject constructor(
         }
     }
 
+    suspend fun resolveQrToken(qrToken: String): Result<String> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = itemApiService.resolveQrToken(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                tokenValue = qrToken
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!.itemId)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko atpazinti QR kodo")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun deleteItem(itemId: String): Result<Unit> {
         return try {
             val token = tokenManager.token.first()
@@ -231,6 +252,7 @@ class ItemRepository @Inject constructor(
             val currentUserName = tokenManager.userName.first()
             val localItem = ItemDto(
                 id = "local-${UUID.randomUUID()}",
+                qrToken = UUID.randomUUID().toString(),
                 tuntasId = tuntasId,
                 custodianId = request.custodianId,
                 custodianName = null,
@@ -269,6 +291,24 @@ class ItemRepository @Inject constructor(
             Result.success(localItem)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+
+    suspend fun findDuplicateCandidate(
+        name: String,
+        type: String,
+        category: String,
+        custodianId: String?
+    ): Result<ItemDto?> {
+        return getItems(
+            custodianId = custodianId,
+            type = type,
+            category = category,
+            status = "ACTIVE"
+        ).map { items ->
+            items
+                .filter { it.name.trim().equals(name.trim(), ignoreCase = true) }
+                .maxByOrNull { it.updatedAt }
         }
     }
 

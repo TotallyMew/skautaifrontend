@@ -11,13 +11,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.AssignmentReturn
-import androidx.compose.material.icons.automirrored.filled.Assignment
 import androidx.compose.material.icons.filled.Forest
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
-import androidx.compose.material.icons.filled.PersonAddAlt1
 import androidx.compose.material.icons.filled.PersonOutline
+import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,15 +38,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventInventoryCustodyDto
-import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
-
-private enum class MovementDialogMode { Checkout, Assign, Request }
 
 @Composable
 fun EventMovementCard(
@@ -58,10 +54,11 @@ fun EventMovementCard(
     movements: List<EventInventoryMovementDto>,
     canManage: Boolean,
     isWorking: Boolean,
+    onOpenItemQr: () -> Unit,
+    onOpenCustodyQr: () -> Unit,
     onCreatePastovykle: (String, String?, String) -> Unit,
     onCreateMovement: (String, String, String, String?, String?, String?, String) -> Unit
 ) {
-    var dialogMode by remember { mutableStateOf<MovementDialogMode?>(null) }
     var showPastovykleDialog by remember { mutableStateOf(false) }
 
     val plannedItems = inventoryPlan?.items.orEmpty()
@@ -69,27 +66,6 @@ fun EventMovementCard(
     val activeMovements = custody.count { it.status == "OPEN" }
     val peopleCustody = custody.filter { it.status == "OPEN" && it.holderUserId != null }
     val campCustody = custody.filter { it.status == "OPEN" && it.holderUserId == null && it.pastovykleId != null }
-
-    dialogMode?.let { mode ->
-        MovementDialog(
-            mode = mode,
-            items = plannedItems,
-            pastovykles = pastovykles,
-            members = members,
-            canManage = canManage,
-            isWorking = isWorking,
-            onDismiss = { dialogMode = null },
-            onSubmit = { itemId, quantity, pastovykleId, toUserId, notes ->
-                val movementType = when (mode) {
-                    MovementDialogMode.Assign -> "ASSIGN_TO_PASTOVYKLE"
-                    MovementDialogMode.Request -> "PASTOVYKLE_REQUEST"
-                    MovementDialogMode.Checkout -> "CHECKOUT_TO_PERSON"
-                }
-                onCreateMovement(movementType, itemId, quantity, pastovykleId, toUserId, null, notes)
-                dialogMode = null
-            }
-        )
-    }
 
     if (showPastovykleDialog) {
         PastovykleDialog(
@@ -115,7 +91,7 @@ fun EventMovementCard(
                     fontWeight = FontWeight.SemiBold
                 )
                 Text(
-                    text = "Greiti veiksmai stovyklos inventoriaus judėjimui.",
+                    text = "QR srautai gyvam renginio inventoriaus judėjimui.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -141,15 +117,14 @@ fun EventMovementCard(
                 canManage = canManage,
                 isWorking = isWorking,
                 hasAvailableInventory = hasAvailableInventory,
-                onCheckout = { dialogMode = MovementDialogMode.Checkout },
-                onRequest = { dialogMode = MovementDialogMode.Request },
-                onAssign = { dialogMode = MovementDialogMode.Assign },
+                onOpenItemQr = onOpenItemQr,
+                onOpenCustodyQr = onOpenCustodyQr,
                 onCreatePastovykle = { showPastovykleDialog = true }
             )
 
             if (!hasAvailableInventory) {
                 Text(
-                    text = "„Pasiimti“ taps aktyvus, kai bent vienas suplanuotas daiktas turės laisvą kiekį.",
+                    text = "Daikto skenavimas aktyviai veiks, kai renginyje bus bent vienas prieinamas inventoriaus įrašas.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -207,9 +182,8 @@ private fun ActionGrid(
     canManage: Boolean,
     isWorking: Boolean,
     hasAvailableInventory: Boolean,
-    onCheckout: () -> Unit,
-    onRequest: () -> Unit,
-    onAssign: () -> Unit,
+    onOpenItemQr: () -> Unit,
+    onOpenCustodyQr: () -> Unit,
     onCreatePastovykle: () -> Unit
 ) {
     Row(
@@ -217,41 +191,29 @@ private fun ActionGrid(
         horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         ActionGridButton(
-            title = "Pasiimti",
-            icon = Icons.AutoMirrored.Filled.AssignmentReturn,
-            onClick = onCheckout,
+            title = "Pasiimti / Išduoti",
+            icon = Icons.Default.QrCodeScanner,
+            onClick = onOpenItemQr,
             enabled = !isWorking && hasAvailableInventory,
             modifier = Modifier.weight(1f)
         )
         ActionGridButton(
-            title = "Prašyti",
-            icon = Icons.AutoMirrored.Filled.Assignment,
-            onClick = onRequest,
+            title = "Perduoti / Grąžinti",
+            icon = Icons.Default.SwapHoriz,
+            onClick = onOpenCustodyQr,
             enabled = !isWorking,
             modifier = Modifier.weight(1f)
         )
     }
 
     if (canManage) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
-        ) {
-            ActionGridButton(
-                title = "Priskirti",
-                icon = Icons.Default.PersonAddAlt1,
-                onClick = onAssign,
-                enabled = !isWorking,
-                modifier = Modifier.weight(1f)
-            )
-            ActionGridButton(
-                title = "Pastovykla",
-                icon = Icons.Default.Forest,
-                onClick = onCreatePastovykle,
-                enabled = !isWorking,
-                modifier = Modifier.weight(1f)
-            )
-        }
+        ActionGridButton(
+            title = "Nauja pastovykla",
+            icon = Icons.Default.Forest,
+            onClick = onCreatePastovykle,
+            enabled = !isWorking,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
@@ -392,9 +354,10 @@ private fun HistorySection(movements: List<EventInventoryMovementDto>) {
                 icon = Icons.Default.History
             )
         } else {
-            movements.take(12).forEachIndexed { index, movement ->
+            val recent = movements.take(12)
+            recent.forEachIndexed { index, movement ->
                 MovementHistoryRow(movement)
-                if (index != movements.take(12).lastIndex) {
+                if (index != recent.lastIndex) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
@@ -423,7 +386,7 @@ private fun MovementHistoryRow(movement: EventInventoryMovementDto) {
     val route = listOfNotNull(
         movement.fromPastovykleName ?: movement.fromUserName,
         movement.toPastovykleName ?: movement.toUserName
-    ).joinToString(" → ")
+    ).joinToString(" -> ")
 
     Column(
         modifier = Modifier
@@ -466,90 +429,6 @@ private fun MovementHistoryRow(movement: EventInventoryMovementDto) {
             }
         }
     }
-}
-
-@Composable
-private fun MovementDialog(
-    mode: MovementDialogMode,
-    items: List<EventInventoryItemDto>,
-    pastovykles: List<PastovykleDto>,
-    members: List<MemberDto>,
-    canManage: Boolean,
-    isWorking: Boolean,
-    onDismiss: () -> Unit,
-    onSubmit: (String, String, String?, String?, String) -> Unit
-) {
-    var itemId by remember { mutableStateOf(items.firstOrNull()?.id.orEmpty()) }
-    var quantity by remember { mutableStateOf("1") }
-    var pastovykleId by remember { mutableStateOf<String?>(pastovykles.firstOrNull()?.id) }
-    var toUserId by remember { mutableStateOf<String?>(null) }
-    var notes by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
-            Text(
-                when (mode) {
-                    MovementDialogMode.Assign -> "Priskirti pastovyklei"
-                    MovementDialogMode.Request -> "Prašyti daiktų"
-                    MovementDialogMode.Checkout -> "Pasiimti daiktą"
-                }
-            )
-        },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                DropdownField(
-                    label = "Daiktas",
-                    value = items.firstOrNull { it.id == itemId }?.name ?: "Pasirinkti",
-                    options = items.map { it.id to it.name },
-                    onSelect = { itemId = it }
-                )
-                OutlinedTextField(
-                    value = quantity,
-                    onValueChange = { quantity = it.filter(Char::isDigit) },
-                    label = { Text("Kiekis") },
-                    singleLine = true,
-                    colors = eventFormFieldColors()
-                )
-                if (mode != MovementDialogMode.Checkout || pastovykles.isNotEmpty()) {
-                    DropdownField(
-                        label = "Pastovykla",
-                        value = pastovykles.firstOrNull { it.id == pastovykleId }?.name ?: "Renginio sandėlis",
-                        options = listOf("" to "Renginio sandėlis") + pastovykles.map { it.id to it.name },
-                        onSelect = { pastovykleId = it.ifBlank { null } }
-                    )
-                }
-                if (mode == MovementDialogMode.Checkout && canManage) {
-                    DropdownField(
-                        label = "Kam",
-                        value = members.firstOrNull { it.userId == toUserId }?.fullName() ?: "Sau",
-                        options = listOf("" to "Sau") + members.map { it.userId to it.fullName() },
-                        onSelect = { toUserId = it.ifBlank { null } }
-                    )
-                }
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Pastabos") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = eventFormFieldColors()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(
-                enabled = !isWorking && itemId.isNotBlank(),
-                onClick = { onSubmit(itemId, quantity, pastovykleId, toUserId, notes) }
-            ) {
-                Text("Išsaugoti")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Atšaukti")
-            }
-        }
-    )
 }
 
 @Composable
@@ -605,7 +484,7 @@ private fun PastovykleDialog(
 
 private fun movementLabel(type: String): String = when (type) {
     "PASTOVYKLE_REQUEST" -> "Prašymas"
-    "ASSIGN_TO_PASTOVYKLE" -> "Priskirta"
+    "ASSIGN_TO_PASTOVYKLE" -> "Išduota pastovyklei"
     "CHECKOUT_TO_PERSON" -> "Pasiimta"
     "RETURN_TO_PASTOVYKLE" -> "Grąžinta pastovyklei"
     "RETURN_TO_EVENT_STORAGE" -> "Grąžinta į sandėlį"

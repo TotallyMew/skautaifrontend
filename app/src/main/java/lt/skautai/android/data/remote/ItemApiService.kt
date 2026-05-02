@@ -30,6 +30,13 @@ interface ItemApiService {
         @Path("itemId") itemId: String
     ): Response<ItemDto>
 
+    @GET("api/items/resolve-qr/{tokenValue}")
+    suspend fun resolveQrToken(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("tokenValue") tokenValue: String
+    ): Response<ItemQrResolveResponseDto>
+
     @DELETE("api/items/{itemId}")
     suspend fun deleteItem(
         @Header("Authorization") token: String,

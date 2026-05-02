@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateItemRequestDto
+import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
@@ -19,6 +20,7 @@ import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.hasPermissionAll
 
 data class InventoryAddEditUiState(
     val isLoading: Boolean = false,
@@ -52,7 +54,9 @@ data class InventoryAddEditUiState(
     val selectedLocationId: String = "",
     val tuntasId: String = "",
     val mode: String = "SHARED",
-    val canManageLocations: Boolean = true
+    val canManageLocations: Boolean = true,
+    val canCreateSharedDirectly: Boolean = false,
+    val duplicateCandidate: ItemDto? = null
 )
 
 @HiltViewModel
@@ -66,6 +70,7 @@ class InventoryAddEditViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(InventoryAddEditUiState())
     val uiState: StateFlow<InventoryAddEditUiState> = _uiState.asStateFlow()
+    private var pendingCreateRequest: CreateItemRequestDto? = null
 
     fun init(itemId: String?, mode: String?) {
         viewModelScope.launch {
@@ -76,6 +81,7 @@ class InventoryAddEditViewModel @Inject constructor(
             val canManageLocations = permissions.contains("locations.manage") ||
                 permissions.contains("locations.manage:ALL") ||
                 permissions.contains("locations.manage:OWN_UNIT")
+            val canCreateSharedDirectly = permissions.hasPermissionAll("items.create")
             _uiState.value = _uiState.value.copy(
                 tuntasId = tuntasId,
                 isLoading = itemId != null,
@@ -84,7 +90,8 @@ class InventoryAddEditViewModel @Inject constructor(
                 origin = defaultOriginForMode(resolvedMode),
                 selectedOrgUnitId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId else "",
                 custodianId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId.ifBlank { null } else null,
-                canManageLocations = canManageLocations
+                canManageLocations = canManageLocations,
+                canCreateSharedDirectly = canCreateSharedDirectly
             )
 
             orgUnitRepository.getUnits()
@@ -310,6 +317,35 @@ class InventoryAddEditViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(isSuccess = false)
     }
 
+    fun dismissDuplicateDialog() {
+        pendingCreateRequest = null
+        _uiState.value = _uiState.value.copy(
+            isSaving = false,
+            duplicateCandidate = null
+        )
+    }
+
+    fun createNewDuplicateRecord() {
+        val request = pendingCreateRequest ?: return
+        submitCreateRequest(
+            request.copy(
+                duplicateHandling = "CREATE_NEW",
+                duplicateTargetItemId = null
+            )
+        )
+    }
+
+    fun addToExistingDuplicate() {
+        val request = pendingCreateRequest ?: return
+        val duplicateItemId = _uiState.value.duplicateCandidate?.id ?: return
+        submitCreateRequest(
+            request.copy(
+                duplicateHandling = "ADD_TO_EXISTING",
+                duplicateTargetItemId = duplicateItemId
+            )
+        )
+    }
+
     fun prepareNextItem() {
         _uiState.value = _uiState.value.copy(
             isSuccess = false,
@@ -328,7 +364,8 @@ class InventoryAddEditViewModel @Inject constructor(
             purchaseDate = "",
             purchasePrice = "",
             photoUrl = "",
-            selectedPhotoUri = ""
+            selectedPhotoUri = "",
+            duplicateCandidate = null
         )
     }
 
@@ -393,20 +430,27 @@ class InventoryAddEditViewModel @Inject constructor(
                     purchaseDate = state.purchaseDate.ifBlank { null },
                     purchasePrice = price
                 )
-                itemRepository.createItem(request)
-                    .onSuccess {
+                itemRepository.findDuplicateCandidate(
+                    name = request.name,
+                    type = request.type,
+                    category = request.category,
+                    custodianId = request.custodianId
+                ).onSuccess { duplicate ->
+                    if (duplicate != null) {
+                        pendingCreateRequest = request
                         _uiState.value = _uiState.value.copy(
                             isSaving = false,
-                            isSuccess = true,
-                            snackbarMessage = "Išsaugota. Galite pridėti kitą daiktą."
+                            duplicateCandidate = duplicate
                         )
+                    } else {
+                        submitCreateRequest(request)
                     }
-                    .onFailure { error ->
-                        _uiState.value = _uiState.value.copy(
-                            isSaving = false,
-                            formError = error.message ?: "Nepavyko issaugoti daikto."
-                        )
-                    }
+                }.onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        formError = error.message ?: "Nepavyko patikrinti dubliuojamų daiktų."
+                    )
+                }
             } else {
                 val request = UpdateItemRequestDto(
                     name = state.name.trim(),
@@ -449,5 +493,31 @@ class InventoryAddEditViewModel @Inject constructor(
         "UNIT_OWN" -> "UNIT_ACQUIRED"
         "PERSONAL" -> "UNIT_ACQUIRED"
         else -> "UNIT_ACQUIRED"
+    }
+
+    private fun submitCreateRequest(request: CreateItemRequestDto) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSaving = true,
+                formError = null,
+                duplicateCandidate = null
+            )
+            itemRepository.createItem(request)
+                .onSuccess {
+                    pendingCreateRequest = null
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        isSuccess = true,
+                        snackbarMessage = "Išsaugota. Galite pridėti kitą daiktą."
+                    )
+                }
+                .onFailure { error ->
+                    pendingCreateRequest = null
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        formError = error.message ?: "Nepavyko issaugoti daikto."
+                    )
+                }
+        }
     }
 }

@@ -31,6 +31,7 @@ import lt.skautai.android.ui.events.EventCreateScreen
 import lt.skautai.android.ui.events.EventDetailScreen
 import lt.skautai.android.ui.events.EventListScreen
 import lt.skautai.android.ui.events.EventMovementScreen
+import lt.skautai.android.ui.events.EventMovementQrScreen
 import lt.skautai.android.ui.events.EventNeedsScreen
 import lt.skautai.android.ui.events.EventPastovyklėsScreen
 import lt.skautai.android.ui.events.EventPlanScreen
@@ -43,6 +44,7 @@ import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
+import lt.skautai.android.ui.inventory.InventoryQrScannerScreen
 import lt.skautai.android.ui.locations.LocationAddEditScreen
 import lt.skautai.android.ui.locations.LocationDetailScreen
 import lt.skautai.android.ui.locations.LocationListScreen
@@ -430,6 +432,25 @@ fun AppNavGraph(
             InventoryDetailScreen(itemId = itemId, navController = navController)
         }
 
+        composable(NavRoutes.InventoryQrScanner.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                InventoryQrScannerScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenItem = { scannedItemId ->
+                        navController.navigate(NavRoutes.InventoryDetail.createRoute(scannedItemId)) {
+                            popUpTo(NavRoutes.InventoryQrScanner.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
+        }
+
         composable(
             route = NavRoutes.InventoryAddEdit.route,
             arguments = listOf(
@@ -671,6 +692,24 @@ fun AppNavGraph(
             val eventId = it.arguments?.getString("eventId")!!
             EventMovementScreen(
                 eventId = eventId,
+                onBack = { navController.popBackStack() },
+                onOpenItemQr = { id -> navController.navigate(NavRoutes.EventMovementQr.createRoute(id, "item")) },
+                onOpenCustodyQr = { id -> navController.navigate(NavRoutes.EventMovementQr.createRoute(id, "custody")) }
+            )
+        }
+
+        composable(
+            route = NavRoutes.EventMovementQr.route,
+            arguments = listOf(
+                navArgument("eventId") { type = NavType.StringType },
+                navArgument("mode") { type = NavType.StringType }
+            )
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            val mode = it.arguments?.getString("mode")!!
+            EventMovementQrScreen(
+                eventId = eventId,
+                mode = mode,
                 onBack = { navController.popBackStack() }
             )
         }

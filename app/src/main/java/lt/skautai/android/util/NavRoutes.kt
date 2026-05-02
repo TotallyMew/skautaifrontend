@@ -34,6 +34,7 @@ sealed class NavRoutes(val route: String) {
     object InventoryDetail : NavRoutes("inventory_detail/{itemId}") {
         fun createRoute(itemId: String) = "inventory_detail/$itemId"
     }
+    object InventoryQrScanner : NavRoutes("inventory_qr_scanner")
     object InventoryAddEdit : NavRoutes("inventory_add_edit?itemId={itemId}&mode={mode}") {
         fun createRoute(itemId: String? = null, mode: String? = null): String {
             val params = buildList {
@@ -136,6 +137,9 @@ sealed class NavRoutes(val route: String) {
     }
     object EventMovement : NavRoutes("event_movement/{eventId}") {
         fun createRoute(eventId: String) = "event_movement/$eventId"
+    }
+    object EventMovementQr : NavRoutes("event_movement_qr/{eventId}/{mode}") {
+        fun createRoute(eventId: String, mode: String) = "event_movement_qr/$eventId/$mode"
     }
     object PastovykleLeader : NavRoutes("event_pastovykle/{eventId}") {
         fun createRoute(eventId: String) = "event_pastovykle/$eventId"

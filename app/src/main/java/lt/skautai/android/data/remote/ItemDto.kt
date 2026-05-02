@@ -2,6 +2,7 @@ package lt.skautai.android.data.remote
 
 data class ItemDto(
     val id: String,
+    val qrToken: String,
     val tuntasId: String,
     val custodianId: String?,
     val custodianName: String?,
@@ -41,6 +42,10 @@ data class ItemListResponseDto(
     val total: Int
 )
 
+data class ItemQrResolveResponseDto(
+    val itemId: String
+)
+
 data class CreateItemRequestDto(
     val name: String,
     val description: String? = null,
@@ -57,7 +62,9 @@ data class CreateItemRequestDto(
     val photoUrl: String? = null,
     val purchaseDate: String? = null,
     val purchasePrice: Double? = null,
-    val notes: String? = null
+    val notes: String? = null,
+    val duplicateHandling: String = "ASK",
+    val duplicateTargetItemId: String? = null
 )
 
 data class UpdateItemRequestDto(

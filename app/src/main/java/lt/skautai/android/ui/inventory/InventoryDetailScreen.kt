@@ -1,5 +1,6 @@
-package lt.skautai.android.ui.inventory
+﻿package lt.skautai.android.ui.inventory
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,11 +15,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -26,6 +31,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -35,7 +41,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -54,9 +62,13 @@ import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.itemStatusLabel
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.QrCodeBitmap
+import lt.skautai.android.util.QrPdfShareLauncher
+import lt.skautai.android.util.QrPayload
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
 import lt.skautai.android.util.hasPermissionOwnUnit
+import lt.skautai.android.util.toPrintableQrItemOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,15 +77,19 @@ fun InventoryDetailScreen(
     navController: NavController,
     viewModel: InventoryDetailViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
     val sharedRequestCreated by viewModel.sharedRequestCreated.collectAsStateWithLifecycle()
+    val shareMessage by viewModel.shareMessage.collectAsStateWithLifecycle()
     val isCreatingSharedRequest by viewModel.isCreatingSharedRequest.collectAsStateWithLifecycle()
     val isUpdatingStatus by viewModel.isUpdatingStatus.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var showQrDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -94,14 +110,22 @@ fun InventoryDetailScreen(
 
     LaunchedEffect(sharedRequestCreated) {
         if (sharedRequestCreated) {
-            snackbarHostState.showSnackbar("Paėmimo prašymas sukurtas.")
+            snackbarHostState.showSnackbar("PaÄ—mimo praÅ¡ymas sukurtas.")
             viewModel.onSharedRequestMessageShown()
+        }
+    }
+
+    LaunchedEffect(shareMessage) {
+        shareMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.onShareMessageShown()
         }
     }
 
     val currentItem = (uiState as? InventoryDetailUiState.Success)?.item
     val canManageShared = permissions.canManageSharedInventory()
     val isTransferredFromTuntas = currentItem?.origin == "TRANSFERRED_FROM_TUNTAS"
+    val canShowQr = currentItem?.let { !it.id.startsWith("local-") && it.qrToken.isNotBlank() } ?: false
     val canEdit = currentItem?.let { item ->
         when {
             isTransferredFromTuntas -> canManageShared
@@ -111,6 +135,7 @@ fun InventoryDetailScreen(
         }
     } ?: false
     val canChangeStatus = canEdit
+    val canDelete = canEdit && currentItem?.status != "INACTIVE"
 
     Scaffold(
         topBar = {
@@ -127,6 +152,11 @@ fun InventoryDetailScreen(
                             onClick = { navController.navigate(NavRoutes.InventoryAddEdit.createRoute(itemId)) }
                         ) {
                             Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
+                        }
+                    }
+                    if (canDelete) {
+                        IconButton(onClick = { showDeleteDialog = true }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Istrinti")
                         }
                     }
                 }
@@ -157,14 +187,61 @@ fun InventoryDetailScreen(
                         item = state.item,
                         reservations = state.reservations,
                         canChangeStatus = canChangeStatus,
+                        canDelete = canDelete,
                         isCreatingSharedRequest = isCreatingSharedRequest,
                         isUpdatingStatus = isUpdatingStatus,
+                        canShowQr = canShowQr,
                         onRequestSharedItem = { viewModel.requestSharedItemForActiveUnit(itemId) },
-                        onStatusChange = { status -> viewModel.updateStatus(itemId, status) }
+                        onStatusChange = { status -> viewModel.updateStatus(itemId, status) },
+                        onDelete = { showDeleteDialog = true },
+                        onShowQr = { showQrDialog = true }
                     )
                 }
             }
         }
+    }
+
+    if (showQrDialog && currentItem != null) {
+        ItemQrDialog(
+            item = currentItem,
+            onDismiss = { showQrDialog = false },
+            onSharePdf = {
+                runCatching {
+                    val printableItem = currentItem.toPrintableQrItemOrNull()
+                        ?: error("Sio daikto QR PDF sugeneruoti negalima.")
+                    QrPdfShareLauncher.share(context, listOf(printableItem))
+                }.onSuccess {
+                    viewModel.onQrPdfShared()
+                }.onFailure {
+                    viewModel.onQrPdfShareFailed(
+                        it.message ?: "Nepavyko sugeneruoti QR PDF"
+                    )
+                }
+            }
+        )
+    }
+
+    if (showDeleteDialog && currentItem != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Istrinti inventoriu?") },
+            text = { Text("Daiktas bus pazymetas kaip neaktyvus ir liks matomas neaktyviu inventoriaus filtre.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteDialog = false
+                        viewModel.deleteItem(itemId)
+                    }
+                ) {
+                    Text("Istrinti")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Atsaukti")
+                }
+            }
+        )
     }
 }
 
@@ -173,10 +250,14 @@ private fun ItemDetailContent(
     item: ItemDto,
     reservations: List<ReservationDto>,
     canChangeStatus: Boolean,
+    canDelete: Boolean,
     isCreatingSharedRequest: Boolean,
     isUpdatingStatus: Boolean,
+    canShowQr: Boolean,
     onRequestSharedItem: () -> Unit,
-    onStatusChange: (String) -> Unit
+    onStatusChange: (String) -> Unit,
+    onDelete: () -> Unit,
+    onShowQr: () -> Unit
 ) {
     val isSharedTransfer = item.origin == "TRANSFERRED_FROM_TUNTAS"
     val canRequestForUnit = item.custodianId == null && item.status == "ACTIVE" && item.quantity > 0
@@ -212,7 +293,7 @@ private fun ItemDetailContent(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = listOfNotNull(item.locationPath ?: item.locationName, item.custodianName).joinToString(" · ").ifBlank {
+                            text = listOfNotNull(item.locationPath ?: item.locationName, item.custodianName).joinToString(" Â· ").ifBlank {
                                 "Vieta dar nenurodyta"
                             },
                             style = MaterialTheme.typography.bodyMedium,
@@ -317,6 +398,20 @@ private fun ItemDetailContent(
             }
         }
 
+        if (canShowQr) {
+            FilledTonalButton(
+                onClick = onShowQr,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.QrCode2,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Rodyti daikto QR koda")
+            }
+        }
+
         item.description?.takeIf { it.isNotBlank() }?.let {
             SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -326,7 +421,7 @@ private fun ItemDetailContent(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(text = "Aprašymas", style = MaterialTheme.typography.titleMedium)
+                    Text(text = "ApraÅ¡ymas", style = MaterialTheme.typography.titleMedium)
                     Text(text = it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -369,13 +464,13 @@ private fun ItemDetailContent(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Gauti į vienetą",
+                        text = "Gauti Ä¯ vienetÄ…",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Jei daiktas jau yra bendrame tunto inventori?je, kurk paėmimo prašymą, o ne pirkimo prašymą.",
+                        text = "Jei daiktas jau yra bendrame tunto inventori?je, kurk paÄ—mimo praÅ¡ymÄ…, o ne pirkimo praÅ¡ymÄ….",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
                     )
@@ -390,7 +485,7 @@ private fun ItemDetailContent(
                                 modifier = Modifier.size(18.dp)
                             )
                         } else {
-                            Text("Prašyti paėmimo į aktyvų vienetą")
+                            Text("PraÅ¡yti paÄ—mimo Ä¯ aktyvÅ³ vienetÄ…")
                         }
                     }
                 }
@@ -419,8 +514,22 @@ private fun ItemDetailContent(
             }
         }
 
+        if (canDelete) {
+            OutlinedButton(
+                onClick = onDelete,
+                enabled = !isUpdatingStatus && !isCreatingSharedRequest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Istrinti inventoriu")
+            }
+        }
         Text(
-            text = "Sukurta ${item.createdAt.take(10)} · Atnaujinta ${item.updatedAt.take(10)}",
+            text = "Sukurta ${item.createdAt.take(10)} Â· Atnaujinta ${item.updatedAt.take(10)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -493,6 +602,7 @@ private fun ItemReservationsCard(reservations: List<ReservationDto>) {
                 }
             }
         }
+
     }
 }
 
@@ -502,5 +612,57 @@ private fun StatusPill(label: String) {
         label = label,
         containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+    )
+}
+
+@Composable
+private fun ItemQrDialog(
+    item: ItemDto,
+    onDismiss: () -> Unit,
+    onSharePdf: () -> Unit
+) {
+    val qrBitmap = remember(item.id) {
+        QrCodeBitmap.create(QrPayload.forScanToken(item.qrToken))
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Uzdaryti")
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onSharePdf) {
+                Text("Dalintis PDF")
+            }
+        },
+        title = {
+            Text("Inventoriaus QR kodas")
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Image(
+                    bitmap = qrBitmap.asImageBitmap(),
+                    contentDescription = "QR kodas daiktui ${item.name}",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                )
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = QrPayload.forScanToken(item.qrToken),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
     )
 }

@@ -11,6 +11,7 @@ private val quantityBreakdownType = object : TypeToken<List<ItemDistributionDto>
 
 fun ItemDto.toEntity(): ItemEntity = ItemEntity(
     id = id,
+    qrToken = qrToken,
     tuntasId = tuntasId,
     custodianId = custodianId,
     custodianName = custodianName,
@@ -42,6 +43,7 @@ fun ItemDto.toEntity(): ItemEntity = ItemEntity(
 
 fun ItemEntity.toDto(): ItemDto = ItemDto(
     id = id,
+    qrToken = qrToken,
     tuntasId = tuntasId,
     custodianId = custodianId,
     custodianName = custodianName,

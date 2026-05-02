@@ -18,13 +18,14 @@ import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
 import javax.inject.Inject
 
 sealed interface InventoryListUiState {
     object Loading : InventoryListUiState
     data class Success(
-        val activeItems: List<ItemDto>,
+        val items: List<ItemDto>,
         val pendingItems: List<ItemDto> = emptyList()
     ) : InventoryListUiState
     data class Error(val message: String) : InventoryListUiState
@@ -48,6 +49,15 @@ class InventoryListViewModel @Inject constructor(
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    private val _selectionMode = MutableStateFlow(false)
+    val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
+
+    private val _selectedItemIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedItemIds: StateFlow<Set<String>> = _selectedItemIds.asStateFlow()
+
+    private val _actionMessage = MutableStateFlow<String?>(null)
+    val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
+
     private val _selectedType = MutableStateFlow(savedStateHandle.get<String?>("type"))
     val selectedType: StateFlow<String?> = _selectedType.asStateFlow()
 
@@ -56,6 +66,9 @@ class InventoryListViewModel @Inject constructor(
 
     private val _selectedLocationId = MutableStateFlow<String?>(null)
     val selectedLocationId: StateFlow<String?> = _selectedLocationId.asStateFlow()
+
+    private val _selectedStatus = MutableStateFlow("ACTIVE")
+    val selectedStatus: StateFlow<String> = _selectedStatus.asStateFlow()
 
     private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
     private val initialType = savedStateHandle.get<String?>("type")
@@ -84,14 +97,28 @@ class InventoryListViewModel @Inject constructor(
                     sharedOnly = initialSharedOnly,
                     createdByUserId = personalOwnerId
                 ),
+                itemRepository.observeItems(
+                    custodianId = initialCustodianId,
+                    status = "INACTIVE",
+                    type = initialType,
+                    sharedOnly = initialSharedOnly,
+                    createdByUserId = personalOwnerId
+                ),
                 itemRepository.observeItems(status = "PENDING_APPROVAL"),
+                selectedStatus,
                 permissions
-            ) { activeItems, pendingItems, permissions ->
+            ) { activeItems, inactiveItems, pendingItems, selectedStatus, permissions ->
+                val visibleInactiveItems = if (permissions.canManageAllItems()) inactiveItems else emptyList()
                 val visiblePendingItems = if (permissions.canManageSharedInventory()) pendingItems else emptyList()
-                if (activeItems.isEmpty() && visiblePendingItems.isEmpty()) {
+                val visibleItems = when (selectedStatus) {
+                    "INACTIVE" -> visibleInactiveItems
+                    "PENDING_APPROVAL" -> visiblePendingItems
+                    else -> activeItems
+                }
+                if (visibleItems.isEmpty() && visiblePendingItems.isEmpty()) {
                     InventoryListUiState.Empty
                 } else {
-                    InventoryListUiState.Success(activeItems, visiblePendingItems)
+                    InventoryListUiState.Success(visibleItems, visiblePendingItems)
                 }
             }.collect { state ->
                 if (!_isRefreshing.value ||
@@ -119,13 +146,26 @@ class InventoryListViewModel @Inject constructor(
                     sharedOnly = initialSharedOnly,
                     createdByUserId = personalOwnerId
                 )
-                val canApprovePending = permissions.value.canManageSharedInventory()
+                val currentPermissions = permissions.value
+                val canApprovePending = currentPermissions.canManageSharedInventory()
 
                 val pendingItemsResult = if (canApprovePending) {
                     itemRepository.refreshItems(status = "PENDING_APPROVAL")
                 } else Result.success(Unit)
 
-                val error = itemsResult.exceptionOrNull() ?: pendingItemsResult.exceptionOrNull()
+                val inactiveItemsResult = if (currentPermissions.canManageAllItems()) {
+                    itemRepository.refreshItems(
+                        custodianId = initialCustodianId,
+                        status = "INACTIVE",
+                        type = initialType,
+                        sharedOnly = initialSharedOnly,
+                        createdByUserId = personalOwnerId
+                    )
+                } else Result.success(Unit)
+
+                val error = itemsResult.exceptionOrNull()
+                    ?: pendingItemsResult.exceptionOrNull()
+                    ?: inactiveItemsResult.exceptionOrNull()
                 if (error != null && _uiState.value !is InventoryListUiState.Success) {
                     val currentState = _uiState.value
                     if (currentState !is InventoryListUiState.Empty) {
@@ -146,10 +186,15 @@ class InventoryListViewModel @Inject constructor(
                 .onSuccess { updatedItem ->
                     val current = _uiState.value
                     if (current is InventoryListUiState.Success) {
-                        _uiState.value = current.copy(
-                            activeItems = (current.activeItems + updatedItem)
+                        val nextItems = if (_selectedStatus.value == "ACTIVE") {
+                            (current.items + updatedItem)
                                 .distinctBy { it.id }
-                                .sortedBy { it.name.lowercase() },
+                                .sortedBy { it.name.lowercase() }
+                        } else {
+                            current.items.filterNot { it.id == itemId }
+                        }
+                        _uiState.value = current.copy(
+                            items = nextItems,
                             pendingItems = current.pendingItems.filterNot { it.id == itemId }
                         )
                     } else {
@@ -166,10 +211,11 @@ class InventoryListViewModel @Inject constructor(
                     val current = _uiState.value
                     if (current is InventoryListUiState.Success) {
                         val remainingPending = current.pendingItems.filterNot { it.id == itemId }
-                        _uiState.value = if (current.activeItems.isEmpty() && remainingPending.isEmpty()) {
+                        val nextItems = current.items.filterNot { it.id == itemId }
+                        _uiState.value = if (nextItems.isEmpty() && remainingPending.isEmpty()) {
                             InventoryListUiState.Empty
                         } else {
-                            current.copy(pendingItems = remainingPending)
+                            current.copy(items = nextItems, pendingItems = remainingPending)
                         }
                     } else {
                         loadItems()
@@ -188,10 +234,15 @@ class InventoryListViewModel @Inject constructor(
                 itemRepository.updateItem(itemId, UpdateItemRequestDto(status = "ACTIVE")).getOrNull()
             }
 
-            _uiState.value = current.copy(
-                activeItems = (current.activeItems + approvedItems)
+            val nextItems = if (_selectedStatus.value == "ACTIVE") {
+                (current.items + approvedItems)
                     .distinctBy { it.id }
-                    .sortedBy { it.name.lowercase() },
+                    .sortedBy { it.name.lowercase() }
+            } else {
+                current.items.filterNot { it.id in pendingIds }
+            }
+            _uiState.value = current.copy(
+                items = nextItems,
                 pendingItems = current.pendingItems.filterNot { it.id in pendingIds }
             )
         }
@@ -199,18 +250,28 @@ class InventoryListViewModel @Inject constructor(
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+        clearSelection()
     }
 
     fun onTypeSelected(type: String?) {
         _selectedType.value = type
+        clearSelection()
     }
 
     fun onCategorySelected(category: String?) {
         _selectedCategory.value = category
+        clearSelection()
     }
 
     fun onLocationSelected(locationId: String?) {
         _selectedLocationId.value = locationId
+        clearSelection()
+        loadItems()
+    }
+
+    fun onStatusSelected(status: String) {
+        _selectedStatus.value = status
+        clearSelection()
         loadItems()
     }
 
@@ -218,6 +279,39 @@ class InventoryListViewModel @Inject constructor(
         _selectedType.value = null
         _selectedCategory.value = null
         _selectedLocationId.value = null
+        clearSelection()
+    }
+
+    fun enterSelectionMode() {
+        _selectionMode.value = true
+        _selectedItemIds.value = emptySet()
+    }
+
+    fun exitSelectionMode() {
+        clearSelection()
+    }
+
+    fun toggleSelectedItem(itemId: String, isEligible: Boolean) {
+        if (!_selectionMode.value) return
+        if (!isEligible) {
+            _actionMessage.value = "Sio daikto QR PDF sugeneruoti negalima."
+            return
+        }
+        _selectedItemIds.value = _selectedItemIds.value.toMutableSet().apply {
+            if (!add(itemId)) remove(itemId)
+        }
+    }
+
+    fun onPdfShared() {
+        clearSelection()
+    }
+
+    fun onPdfShareFailed(message: String) {
+        _actionMessage.value = message
+    }
+
+    fun onActionMessageShown() {
+        _actionMessage.value = null
     }
 
     fun filteredItems(items: List<ItemDto>): List<ItemDto> {
@@ -239,6 +333,11 @@ class InventoryListViewModel @Inject constructor(
                 it.notes?.contains(query, ignoreCase = true) == true ||
                 it.custodianName?.contains(query, ignoreCase = true) == true
         }
+    }
+
+    private fun clearSelection() {
+        _selectionMode.value = false
+        _selectedItemIds.value = emptySet()
     }
 
     fun selectedLocationTreeIds(locationId: String): Set<String> {

@@ -6,6 +6,7 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "items")
 data class ItemEntity(
     @PrimaryKey val id: String,
+    val qrToken: String,
     val tuntasId: String,
     val custodianId: String?,
     val custodianName: String?,

@@ -26,6 +26,8 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 fun EventMovementScreen(
     eventId: String,
     onBack: () -> Unit,
+    onOpenItemQr: (String) -> Unit,
+    onOpenCustodyQr: (String) -> Unit,
     viewModel: EventMovementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -88,6 +90,8 @@ fun EventMovementScreen(
                                 movements = state.movements,
                                 canManage = canInventory,
                                 isWorking = state.isWorking,
+                                onOpenItemQr = { onOpenItemQr(eventId) },
+                                onOpenCustodyQr = { onOpenCustodyQr(eventId) },
                                 onCreatePastovykle = { name, responsibleUserId, notes ->
                                     viewModel.createPastovykle(eventId, name, responsibleUserId, notes)
                                 },

@@ -57,6 +57,9 @@ class InventoryDetailViewModel @Inject constructor(
     private val _sharedRequestCreated = MutableStateFlow(false)
     val sharedRequestCreated: StateFlow<Boolean> = _sharedRequestCreated.asStateFlow()
 
+    private val _shareMessage = MutableStateFlow<String?>(null)
+    val shareMessage: StateFlow<String?> = _shareMessage.asStateFlow()
+
     private val _isCreatingSharedRequest = MutableStateFlow(false)
     val isCreatingSharedRequest: StateFlow<Boolean> = _isCreatingSharedRequest.asStateFlow()
 
@@ -175,5 +178,17 @@ class InventoryDetailViewModel @Inject constructor(
 
     fun onSharedRequestMessageShown() {
         _sharedRequestCreated.value = false
+    }
+
+    fun onQrPdfShared() {
+        _shareMessage.value = "QR PDF paruostas bendrinimui."
+    }
+
+    fun onQrPdfShareFailed(message: String) {
+        _shareMessage.value = message
+    }
+
+    fun onShareMessageShown() {
+        _shareMessage.value = null
     }
 }

@@ -479,6 +479,7 @@ private fun currentRouteTitle(currentRoute: String?): String = when (currentRout
     NavRoutes.Home.route -> "Pradžia"
     NavRoutes.InventoryList.route -> "Inventorius"
     NavRoutes.InventoryDetail.route -> "Daikto informacija"
+    NavRoutes.InventoryQrScanner.route -> "QR skenavimas"
     NavRoutes.InventoryAddEdit.route -> "Inventoriaus forma"
     NavRoutes.ReservationList.route -> "Rezervacijos"
     NavRoutes.ReservationCreate.route -> "Nauja rezervacija"
