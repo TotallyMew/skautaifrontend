@@ -428,7 +428,7 @@ private fun InventoryScopeColumn(
         }
         add(
             ScopeTile(
-                title = "Tunto bendras inventori?s",
+                title = "Tunto bendras inventorius",
                 count = sharedInventoryCount,
                 icon = Icons.Default.Flag,
                 tone = MaterialTheme.colorScheme.secondaryContainer,
@@ -519,7 +519,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = tile.count?.let { "$it irasu" } ?: "Perziureti visa kataloga",
+                    text = tile.count?.let { "$it irasu" } ?: "Peržiūrėti visą katalogą",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

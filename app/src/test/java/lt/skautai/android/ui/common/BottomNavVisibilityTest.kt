@@ -6,21 +6,21 @@ import org.junit.Test
 
 class BottomNavVisibilityTest {
     @Test
-    fun `units tab is hidden with only members view`() {
+    fun `members tab is hidden without members view`() {
         assertFalse(
             shouldShowBottomNavItem(
-                BottomNavItem.Units,
-                setOf("members.view")
+                BottomNavItem.Members,
+                setOf("items.view")
             )
         )
     }
 
     @Test
-    fun `units tab is visible with unit permissions`() {
+    fun `members tab is visible with members view`() {
         assertTrue(
             shouldShowBottomNavItem(
-                BottomNavItem.Units,
-                setOf("unit.members.manage:OWN_UNIT")
+                BottomNavItem.Members,
+                setOf("members.view:OWN_UNIT")
             )
         )
     }

@@ -130,7 +130,7 @@ fun UnitListScreen(
                     if (filteredUnits.isEmpty()) {
                         item {
                             SkautaiEmptyState(
-                                title = "Nieko n?rasta",
+                                title = "Nieko nerasta",
                                 subtitle = "Pabandyk ieškoti pagal pavadinimą, tipą ar priimamą laipsnį.",
                                 icon = Icons.Default.AccountTree
                             )

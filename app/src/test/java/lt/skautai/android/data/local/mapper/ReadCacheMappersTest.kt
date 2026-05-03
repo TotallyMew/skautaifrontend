@@ -12,6 +12,7 @@ import lt.skautai.android.data.local.entity.RequisitionEntity
 import lt.skautai.android.data.remote.BendrasRequestDto
 import lt.skautai.android.data.remote.BendrasRequestItemDto
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventInventorySummaryDto
 import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberLeadershipRoleDto
@@ -21,7 +22,6 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.remote.RequisitionItemDto
-import lt.skautai.android.data.remote.StovyklaDetailsDto
 
 class ReadCacheMappersTest {
     private val gson = Gson()
@@ -137,6 +137,7 @@ class ReadCacheMappersTest {
             id = "request-1",
             tuntasId = "tuntas-1",
             requestedByUserId = "user-1",
+            requestedByUserName = null,
             itemId = null,
             itemName = "Virve",
             itemDescription = null,
@@ -247,13 +248,19 @@ class ReadCacheMappersTest {
             status = "ACTIVE",
             notes = null,
             createdAt = "2026-01-01T00:00:00Z",
-            eventRoles = listOf(EventRoleDto("role-1", "user-1", "LEADER", null, null, "2026-01-01")),
-            stovyklaDetails = StovyklaDetailsDto("details-1", "2026-02-01", 20, null)
+            eventRoles = listOf(EventRoleDto("role-1", "user-1", "Jonas", "LEADER", null, null, "2026-01-01")),
+            inventorySummary = EventInventorySummaryDto(
+                totalPlannedQuantity = 10,
+                totalAvailableQuantity = 8,
+                totalShortageQuantity = 2,
+                totalAllocatedQuantity = 6,
+                itemsNeedingPurchase = 1
+            )
         )
 
         val roundTrip = dto.toEntity().toDto()
 
-        assertEquals(dto, roundTrip)
-        assertNull(EventEntity("event-2", "tuntas-1", "Test", "HIKE", "2026-01-01", "2026-01-02", null, null, null, "ACTIVE", null, "2026-01-01", "[]", "null").toDto().stovyklaDetails)
+        assertEquals(dto.copy(inventorySummary = null), roundTrip)
+        assertNull(EventEntity("event-2", "tuntas-1", "Test", "HIKE", "2026-01-01", "2026-01-02", null, null, null, "ACTIVE", null, "2026-01-01", "[]", "null").toDto().inventorySummary)
     }
 }
