@@ -105,7 +105,7 @@ class InviteCreateViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isLoadingRoles = false,
-                    error = error.message ?: "Klaida gaunant roles"
+                    error = error.message ?: "Klaida gaunant pareigas ir laipsnius"
                 )
             }
         }
@@ -145,7 +145,7 @@ class InviteCreateViewModel @Inject constructor(
         val selectedRole = state.roles.find { it.id == state.selectedRoleId }
 
         if (state.selectedRoleId.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite rolę")
+            _uiState.value = state.copy(error = "Pasirinkite pareigas arba laipsnį")
             return
         }
 

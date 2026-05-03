@@ -146,7 +146,7 @@ fun ReservationCreateScreen(
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else {
-                                Text(if (datesSelected) "Sukurti rezervacija" else "Pasirinkite datas")
+                                Text(if (datesSelected) "Sukurti rezervaciją" else "Pasirinkite datas")
                             }
                         }
                     }
@@ -188,7 +188,7 @@ fun ReservationCreateScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                             Text(
-                                text = "Pasirink datas ir daiktųs, kuriuos nori uzsakyti tam laikotarpiui.",
+                                text = "Pasirink datas ir daiktus, kuriuos nori užsakyti tam laikotarpiui.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -216,7 +216,7 @@ fun ReservationCreateScreen(
 
                 item {
                     DatePickerField(
-                        label = "Pradzios data",
+                        label = "Pradžios data",
                         value = uiState.startDate,
                         onDateSelected = viewModel::onStartDateChange,
                         errorText = uiState.startDateError
@@ -268,7 +268,7 @@ fun ReservationCreateScreen(
 
                 stickyHeader {
                     ReservationSectionHeader(
-                        title = "Tunto inventori?s",
+                        title = "Tunto inventorius",
                         subtitle = "Tvirtina inventorininkas arba tuntininkas"
                     )
                 }
@@ -277,9 +277,9 @@ fun ReservationCreateScreen(
                     item {
                         EmptyInventorySection(
                             message = if (uiState.searchQuery.isBlank()) {
-                                "Tunto inventori?s tuščias"
+                                "Tunto inventorius tuščias"
                             } else {
-                                "Tunto inventori?je nieko n?rasta pagal paiešką"
+                                "Tunto inventoriuje nieko nerasta pagal paiešką"
                             }
                         )
                     }
@@ -298,7 +298,7 @@ fun ReservationCreateScreen(
 
                 stickyHeader {
                     ReservationSectionHeader(
-                        title = "Tavo vieneto inventori?s",
+                        title = "Tavo vieneto inventorius",
                         subtitle = "Tvirtina vieneto vadovas"
                     )
                 }
@@ -307,9 +307,9 @@ fun ReservationCreateScreen(
                     item {
                         EmptyInventorySection(
                             message = if (uiState.searchQuery.isBlank()) {
-                                "Vieneto inventori?s tuščias"
+                                "Vieneto inventorius tuščias"
                             } else {
-                                "Vieneto inventori?je nieko n?rasta pagal paiešką"
+                                "Vieneto inventoriuje nieko nerasta pagal paiešką"
                             }
                         )
                     }
@@ -361,12 +361,12 @@ private fun SelectedItemsSummary(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = "Rezervacijos krepselis",
+                text = "Rezervacijos krepšelis",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold
             )
-            BasketGroup(title = "Tunto inventori?s", items = sharedItems)
-            BasketGroup(title = "Tavo vieneto inventori?s", items = unitItems)
+            BasketGroup(title = "Tunto inventorius", items = sharedItems)
+            BasketGroup(title = "Tavo vieneto inventorius", items = unitItems)
         }
     }
 }
@@ -443,7 +443,7 @@ private fun DatePickerField(
         onValueChange = {},
         readOnly = true,
         label = { Text(label) },
-        placeholder = { Text("Pasirinkite data") },
+        placeholder = { Text("Pasirinkite datą") },
         isError = errorText != null,
         supportingText = errorText?.let { message -> { Text(message) } },
         modifier = Modifier.fillMaxWidth(),
@@ -559,7 +559,7 @@ private fun ReservationItemCard(
                 enabled = selectedQuantity > 0,
                 modifier = Modifier.size(40.dp)
             ) {
-                Icon(Icons.Default.Remove, contentDescription = "Mazinti")
+                Icon(Icons.Default.Remove, contentDescription = "Mažinti")
             }
             Text(
                 text = "$selectedQuantity",

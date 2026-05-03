@@ -62,7 +62,7 @@ fun EventUkvedysScreen(
             ?.any { it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true)
 
     EventScreenScaffold(
-        title = "Ukvedzio suvestine",
+        title = "Ūkvedžio suvestinė",
         onBack = onBack,
         snackbarHostState = snackbarHostState
     ) { padding ->
@@ -110,7 +110,7 @@ fun EventUkvedysScreen(
                         item {
                             EventDetailHero(
                                 event = state.event,
-                                subtitle = "Ukvedzio suvestine / ${state.inventoryPlan?.items?.size ?: 0} plano eil."
+                                subtitle = "Ūkvedžio suvestinė / ${state.inventoryPlan?.items?.size ?: 0} plano eil."
                             )
                         }
                         item {
@@ -121,7 +121,7 @@ fun EventUkvedysScreen(
                                 ) {
                                     item {
                                         SkautaiChip(
-                                            label = "Visos pastovykles",
+                                            label = "Visos pastovyklės",
                                             selected = selectedId == null,
                                             onClick = { viewModel.selectAllPastovyklės(eventId) }
                                         )
@@ -195,11 +195,11 @@ private fun CreatedPurchaseDialog(
         title = { Text("Pirkimas sukurtas") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Gali i? karto ?ra?yti sum? ir prisegti s?skaita arba u?pildyti v?liau.")
+                Text("Gali iš karto įrašyti sumą ir prisegti sąskaitą arba užpildyti vėliau.")
                 OutlinedTextField(
                     value = totalAmount,
                     onValueChange = { value -> totalAmount = value.filter { it.isDigit() || it == '.' || it == ',' } },
-                    label = { Text("Bendra sum? (EUR)") },
+                    label = { Text("Bendra suma (EUR)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                     colors = eventFormFieldColors()
@@ -209,7 +209,7 @@ private fun CreatedPurchaseDialog(
                     enabled = !isWorking,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(if (invoiceUri == null) "Prisegti s?skaita/fakt?r?" else "Pakeisti pasirinkt? fail?")
+                    Text(if (invoiceUri == null) "Prisegti sąskaitą faktūrą" else "Pakeisti pasirinktą failą")
                 }
                 invoiceUri?.let {
                     Text("Failas pasirinktas", modifier = Modifier.fillMaxWidth())
@@ -221,12 +221,12 @@ private fun CreatedPurchaseDialog(
                 enabled = !isWorking,
                 onClick = { onSave(totalAmount, invoiceUri) }
             ) {
-                Text("Issaugoti")
+                Text("Išsaugoti")
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss, enabled = !isWorking) {
-                Text("U?pildysiu v?liau")
+                Text("Užpildysiu vėliau")
             }
         }
     )

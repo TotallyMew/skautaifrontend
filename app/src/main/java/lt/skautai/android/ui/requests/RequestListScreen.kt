@@ -66,8 +66,8 @@ fun RequestListScreen(
             is RequestListUiState.Success -> {
                 if (state.requests.isEmpty()) {
                     SkautaiEmptyState(
-                        title = "Pa?mimo pra?ym? n?ra",
-                        subtitle = "?ia matysi savo, savo vieneto arba viso tunto pa?mimo pra?ym?s pagal turimas teises.",
+                        title = "Paėmimo prašymų nėra",
+                        subtitle = "Čia matysi savo, savo vieneto arba viso tunto paėmimo prašymus pagal turimas teises.",
                         icon = Icons.Default.Inbox,
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -81,8 +81,8 @@ fun RequestListScreen(
                     ) {
                         item {
                             SkautaiSummaryCard(
-                                title = "Reikia paimti turima daikta is tunto?",
-                                subtitle = "?ia vienetas praso gauti jau esama bendro tunto inventoriaus daikta, o ne pirkti nauja.",
+                                title = "Reikia paimti turimą daiktą iš tunto?",
+                                subtitle = "Čia vienetas prašo gauti jau esamą bendro tunto inventoriaus daiktą, o ne pirkti naujų.",
                                 metrics = listOf(
                                     "Prašymai" to state.requests.size.toString(),
                                     "Laukia" to state.requests.count { it.topLevelStatus == "PENDING" }.toString(),
@@ -107,7 +107,7 @@ fun RequestListScreen(
                         .align(Alignment.BottomEnd)
                         .padding(16.dp)
                 ) {
-                    Icon(Icons.Default.PlaylistAdd, contentDescription = "Paimti is tunto")
+                    Icon(Icons.Default.PlaylistAdd, contentDescription = "Paimti iš tunto")
                 }
             }
         }
@@ -143,7 +143,7 @@ private fun SharedTransferRequestCard(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Prasoma is bendro inventoriaus: ${request.quantity} vnt.",
+                        text = "Prašoma iš bendro inventoriaus: ${request.quantity} vnt.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -159,7 +159,7 @@ private fun SharedTransferRequestCard(
             }
             request.requestedByUserName?.takeIf { it.isNotBlank() }?.let {
                 Text(
-                    text = "Kas praso: $it",
+                    text = "Kas prašo: $it",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

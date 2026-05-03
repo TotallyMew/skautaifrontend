@@ -17,7 +17,9 @@ class NetworkErrorInterceptor @Inject constructor() : Interceptor {
         } catch (e: UnknownHostException) {
             throw IOException("Nepavyko prisijungti. Patikrinkite interneto ryšį.")
         } catch (e: SocketTimeoutException) {
-            throw IOException("Nepavyko prisijungti. Skrytis baigėsi.")
+            throw IOException("Nepavyko prisijungti. Užklausa užtruko per ilgai.")
+        } catch (e: IOException) {
+            throw IOException("Nepavyko prisijungti. Patikrinkite interneto ryšį.")
         }
     }
 }

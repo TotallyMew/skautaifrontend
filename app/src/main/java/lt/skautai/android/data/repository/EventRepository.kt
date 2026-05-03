@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -156,7 +158,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti renginių.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -172,7 +174,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti renginio.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -196,7 +198,7 @@ class EventRepository @Inject constructor(
             return if (cachedEvent != null) {
                 Result.success(cachedEvent)
             } else {
-                Result.failure(Exception("Renginys n?rastas"))
+                Result.failure(Exception("Renginys nerastas"))
             }
         }
         val refreshResult = refreshEvent(id)
@@ -218,7 +220,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant renginio kandidatus")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -261,7 +263,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(event)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -278,7 +280,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = eventDao.getEvent(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 status = request.status ?: cached.status,
@@ -306,7 +308,7 @@ class EventRepository @Inject constructor(
             }
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -342,7 +344,7 @@ class EventRepository @Inject constructor(
                 return Result.success(Unit)
             }
             val cached = eventDao.getEvent(id, currentTuntasId)
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas"))
             eventDao.upsert(cached.copy(status = "CANCELLED"))
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
@@ -353,7 +355,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -365,7 +367,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = eventDao.getEvent(eventId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas"))
             val optimisticRole = EventRoleDto(
                 id = "local-${UUID.randomUUID()}",
                 userId = request.userId,
@@ -385,7 +387,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -397,7 +399,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = eventDao.getEvent(eventId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas"))
             eventDao.upsert(cached.copy(eventRoles = cached.eventRoles.filterNot { it.id == roleId }).toEntity())
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
@@ -408,7 +410,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -423,9 +425,9 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida")))
             }
         } catch (e: IOException) {
-            cachedInventoryPlan(eventId)?.let { Result.success(it) } ?: Result.failure(e)
+            cachedInventoryPlan(eventId)?.let { Result.success(it) } ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -457,7 +459,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, bucket.id, PendingOperationType.EVENT_CREATE_BUCKET, EventBucketCreatePayload(eventId, request))
             Result.success(bucket)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -476,7 +478,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedInventoryPlan(eventId)?.buckets?.firstOrNull { it.id == bucketId }
-                ?: return Result.failure(Exception("Bucket n?rastas offline cache"))
+                ?: return Result.failure(Exception("Bucket nerastas"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 type = request.type ?: cached.type,
@@ -490,7 +492,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, bucketId, PendingOperationType.EVENT_UPDATE_BUCKET, EventBucketUpdatePayload(eventId, bucketId, request))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -507,7 +509,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, bucketId, PendingOperationType.EVENT_DELETE_BUCKET, EventBucketDeletePayload(eventId, bucketId))
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -549,7 +551,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, item.id, PendingOperationType.EVENT_CREATE_ITEM, EventItemCreatePayload(eventId, request))
             Result.success(item)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -593,7 +595,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, "bulk-${UUID.randomUUID()}", PendingOperationType.EVENT_CREATE_ITEMS_BULK, EventItemsBulkCreatePayload(eventId, request))
             Result.success(EventInventoryItemListDto(items, items.size))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -612,7 +614,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedInventoryPlan(eventId)?.items?.firstOrNull { it.id == inventoryItemId }
-                ?: return Result.failure(Exception("Plano eilute n?rasta offline cache"))
+                ?: return Result.failure(Exception("Plano eilute nerasta offline cache"))
             val planned = request.plannedQuantity ?: cached.plannedQuantity
             val updated = cached.copy(
                 name = request.name ?: cached.name,
@@ -628,7 +630,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, inventoryItemId, PendingOperationType.EVENT_UPDATE_ITEM, EventItemUpdatePayload(eventId, inventoryItemId, request))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -645,7 +647,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, inventoryItemId, PendingOperationType.EVENT_DELETE_ITEM, EventItemDeletePayload(eventId, inventoryItemId))
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -674,7 +676,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, allocation.id, PendingOperationType.EVENT_CREATE_ALLOCATION, EventAllocationCreatePayload(eventId, request))
             Result.success(allocation)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -693,7 +695,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedInventoryPlan(eventId)?.allocations?.firstOrNull { it.id == allocationId }
-                ?: return Result.failure(Exception("Paskirstymas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Paskirstymas nerastas offline cache"))
             val updated = cached.copy(
                 quantity = request.quantity ?: cached.quantity,
                 notes = request.notes ?: cached.notes
@@ -702,7 +704,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, allocationId, PendingOperationType.EVENT_UPDATE_ALLOCATION, EventAllocationUpdatePayload(eventId, allocationId, request))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -719,7 +721,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, allocationId, PendingOperationType.EVENT_DELETE_ALLOCATION, EventAllocationDeletePayload(eventId, allocationId))
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -735,9 +737,9 @@ class EventRepository @Inject constructor(
             }
         } catch (e: IOException) {
             cachedPurchases(eventId)?.let { Result.success(EventPurchaseListDto(it, it.size)) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -754,7 +756,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             ensureEventExists(eventId, currentTuntasId)
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas offline cache"))
             val now = Instant.now().toString()
             val purchaseId = "local-${UUID.randomUUID()}"
             val offlineItems = mutableListOf<EventPurchaseItemDto>()
@@ -796,7 +798,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(purchase)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -821,7 +823,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida atnaujinant pirkima")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -829,7 +831,7 @@ class EventRepository @Inject constructor(
         if (UploadRepository.isStagedDocumentUrl(invoiceFileUrl)) {
             val currentTuntasId = tuntasId()
             val cached = cachedPurchases(eventId)?.firstOrNull { it.id == purchaseId }
-                ?: return Result.failure(Exception("Pirkimas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Pirkimas nerastas offline cache"))
             val updated = cached.copy(invoiceFileUrl = invoiceFileUrl, updatedAt = Instant.now().toString())
             upsertCachedPurchase(eventId, updated)
             pendingOperationRepository.enqueue(
@@ -857,7 +859,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedPurchases(eventId)?.firstOrNull { it.id == purchaseId }
-                ?: return Result.failure(Exception("Pirkimas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Pirkimas nerastas offline cache"))
             val updated = cached.copy(invoiceFileUrl = invoiceFileUrl, updatedAt = Instant.now().toString())
             upsertCachedPurchase(eventId, updated)
             pendingOperationRepository.enqueue(
@@ -869,7 +871,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -886,7 +888,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedPurchases(eventId)?.firstOrNull { it.id == purchaseId }
-                ?: return Result.failure(Exception("Pirkimas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Pirkimas nerastas offline cache"))
             val updated = cached.copy(
                 status = "PURCHASED",
                 purchaseDate = cached.purchaseDate ?: Instant.now().toString().take(10),
@@ -902,7 +904,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -915,7 +917,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti inventoriaus suvedimo.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -928,7 +930,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko suvesti grąžinimų.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -941,7 +943,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko suvesti pirkimų.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -956,7 +958,7 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko užbaigti renginio.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -972,9 +974,9 @@ class EventRepository @Inject constructor(
             }
         } catch (e: IOException) {
             cachedPastovyklės(eventId)?.let { Result.success(PastovykleListDto(it, it.size)) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -991,7 +993,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             ensureEventExists(eventId, currentTuntasId)
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas offline cache"))
             val pastovykle = PastovykleDto(
                 id = "local-${UUID.randomUUID()}",
                 eventId = eventId,
@@ -1010,14 +1012,14 @@ class EventRepository @Inject constructor(
             )
             Result.success(pastovykle)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
     suspend fun getPastovykle(eventId: String, pastovykleId: String): Result<PastovykleDto> {
         if (pastovykleId.startsWith("local-")) {
             val cached = cachedPastovyklės(eventId)?.firstOrNull { it.id == pastovykleId }
-            return if (cached != null) Result.success(cached) else Result.failure(Exception("Pastovykle n?rasta"))
+            return if (cached != null) Result.success(cached) else Result.failure(Exception("Pastovykle nerasta"))
         }
         return try {
             val response = eventApiService.getPastovykle("Bearer ${token()}", tuntasId(), eventId, pastovykleId)
@@ -1032,9 +1034,9 @@ class EventRepository @Inject constructor(
             cachedPastovyklės(eventId)
                 ?.firstOrNull { it.id == pastovykleId }
                 ?.let { Result.success(it) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1051,7 +1053,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedPastovyklės(eventId)?.firstOrNull { it.id == pastovykleId }
-                ?: return Result.failure(Exception("Pastovykle n?rasta offline cache"))
+                ?: return Result.failure(Exception("Pastovykle nerasta offline cache"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 responsibleUserId = request.responsibleUserId ?: cached.responsibleUserId,
@@ -1080,7 +1082,7 @@ class EventRepository @Inject constructor(
             }
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1101,7 +1103,7 @@ class EventRepository @Inject constructor(
                     createOperationType = PendingOperationType.EVENT_CREATE_PASTOVYKLE
                 )
             ) {
-                return Result.failure(Exception("Pastovykle dabar sinchronizuojama. Pabandykite dar kart? v?liau."))
+                return Result.failure(Exception("Pastovykle dabar sinchronizuojama. Pabandykite dar karta veliau."))
             }
             if (pastovykleId.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.EVENT,
@@ -1113,7 +1115,7 @@ class EventRepository @Inject constructor(
                 return Result.success(Unit)
             }
             val cached = cachedPastovyklės(eventId)?.firstOrNull { it.id == pastovykleId }
-                ?: return Result.failure(Exception("Pastovykle n?rasta offline cache"))
+                ?: return Result.failure(Exception("Pastovykle nerasta offline cache"))
             deleteCachedPastovykle(eventId, cached.id)
             pendingOperationRepository.enqueue(
                 tuntasId = currentTuntasId,
@@ -1124,7 +1126,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1135,12 +1137,12 @@ class EventRepository @Inject constructor(
                 val inventory = response.body()?.inventory.orEmpty()
                 cachePastovykleInventory(eventId, pastovykleId, inventory)
                 Result.success(PastovykleInventoryListDto(inventory, inventory.size))
-            } else Result.failure(Exception(response.errorMessage("Klaida gaunant pastovykles inventori?")))
+            } else Result.failure(Exception(response.errorMessage("Klaida gaunant pastovykles inventoriu")))
         } catch (e: IOException) {
             cachedPastovykleInventory(eventId, pastovykleId)?.let { Result.success(PastovykleInventoryListDto(it, it.size)) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1155,7 +1157,7 @@ class EventRepository @Inject constructor(
                 val inventory = response.body()!!
                 upsertCachedPastovykleInventory(eventId, pastovykleId, inventory)
                 Result.success(inventory)
-            } else Result.failure(Exception(response.errorMessage("Klaida priskiriant pastovykles inventori?")))
+            } else Result.failure(Exception(response.errorMessage("Klaida priskiriant pastovykles inventoriu")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val row = PastovykleInventoryDto(
@@ -1176,7 +1178,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, row.id, PendingOperationType.EVENT_ASSIGN_PASTOVYKLE_INVENTORY, EventPastovykleInventoryAssignPayload(eventId, pastovykleId, request))
             Result.success(row)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1192,11 +1194,11 @@ class EventRepository @Inject constructor(
                 val updated = response.body()!!
                 upsertCachedPastovykleInventory(eventId, pastovykleId, updated)
                 Result.success(updated)
-            } else Result.failure(Exception(response.errorMessage("Klaida atnaujinant pastovykles inventori?")))
+            } else Result.failure(Exception(response.errorMessage("Klaida atnaujinant pastovykles inventoriu")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = cachedPastovykleInventory(eventId, pastovykleId)?.firstOrNull { it.id == inventoryId }
-                ?: return Result.failure(Exception("Pastovyklės inventori?s n?rastas offline cache"))
+                ?: return Result.failure(Exception("Pastovyklės inventorius nerastas offline cache"))
             val updated = cached.copy(
                 quantityReturned = request.quantityReturned ?: cached.quantityReturned,
                 returnedAt = request.returnedAt ?: cached.returnedAt,
@@ -1206,7 +1208,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, inventoryId, PendingOperationType.EVENT_UPDATE_PASTOVYKLE_INVENTORY, EventPastovykleInventoryUpdatePayload(eventId, pastovykleId, inventoryId, request))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1216,14 +1218,14 @@ class EventRepository @Inject constructor(
             if (response.isSuccessful) {
                 deleteCachedPastovykleInventory(eventId, pastovykleId, inventoryId)
                 Result.success(Unit)
-            } else Result.failure(Exception(response.errorMessage("Klaida trinant pastovykles inventori?")))
+            } else Result.failure(Exception(response.errorMessage("Klaida trinant pastovykles inventoriu")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             deleteCachedPastovykleInventory(eventId, pastovykleId, inventoryId)
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, inventoryId, PendingOperationType.EVENT_DELETE_PASTOVYKLE_INVENTORY, EventPastovykleInventoryDeletePayload(eventId, pastovykleId, inventoryId))
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1237,9 +1239,9 @@ class EventRepository @Inject constructor(
             } else Result.failure(Exception(response.errorMessage("Klaida gaunant pastovykles poreikius")))
         } catch (e: IOException) {
             cachedPastovykleRequests(eventId, pastovykleId)?.let { Result.success(EventInventoryRequestListDto(it, it.size)) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1282,7 +1284,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, row.id, PendingOperationType.EVENT_CREATE_PASTOVYKLE_REQUEST, EventPastovykleRequestCreatePayload(eventId, pastovykleId, request))
             Result.success(row)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1300,7 +1302,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, requestId, PendingOperationType.EVENT_APPROVE_PASTOVYKLE_REQUEST, EventPastovykleRequestActionPayload(eventId, pastovykleId, requestId))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1318,7 +1320,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, requestId, PendingOperationType.EVENT_REJECT_PASTOVYKLE_REQUEST, EventPastovykleRequestActionPayload(eventId, pastovykleId, requestId))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1348,7 +1350,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, requestId, PendingOperationType.EVENT_SELF_PROVIDE_PASTOVYKLE_REQUEST, EventPastovykleRequestActionPayload(eventId, pastovykleId, requestId, notes = notes))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1379,7 +1381,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, requestId, PendingOperationType.EVENT_FULFILL_PASTOVYKLE_REQUEST, EventPastovykleRequestActionPayload(eventId, pastovykleId, requestId, quantity, notes))
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1402,7 +1404,7 @@ class EventRepository @Inject constructor(
                 val inventory = response.body()!!
                 upsertCachedPastovykleInventory(eventId, pastovykleId, inventory)
                 Result.success(inventory)
-            } else Result.failure(Exception(response.errorMessage("Klaida priskiriant inventori? i? vieneto")))
+            } else Result.failure(Exception(response.errorMessage("Klaida priskiriant inventoriu iš vieneto")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val row = PastovykleInventoryDto(
@@ -1423,7 +1425,7 @@ class EventRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, row.id, PendingOperationType.EVENT_ASSIGN_FROM_UNIT_INVENTORY, EventAssignFromUnitInventoryPayload(eventId, pastovykleId, itemId, quantity, notes))
             Result.success(row)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1439,9 +1441,9 @@ class EventRepository @Inject constructor(
             }
         } catch (e: IOException) {
             cachedInventoryCustody(eventId)?.let { Result.success(EventInventoryCustodyListDto(it, it.size)) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1457,9 +1459,9 @@ class EventRepository @Inject constructor(
             }
         } catch (e: IOException) {
             cachedInventoryMovements(eventId)?.let { Result.success(EventInventoryMovementListDto(it, it.size)) }
-                ?: Result.failure(e)
+                ?: Result.failure(e.userFacingException())
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1476,7 +1478,7 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             ensureEventExists(eventId, currentTuntasId)
-                ?: return Result.failure(Exception("Renginys n?rastas offline cache"))
+                ?: return Result.failure(Exception("Renginys nerastas offline cache"))
             val now = Instant.now().toString()
             val movement = EventInventoryMovementDto(
                 id = "local-${UUID.randomUUID()}",
@@ -1510,7 +1512,7 @@ class EventRepository @Inject constructor(
             )
             Result.success(movement)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -1698,7 +1700,7 @@ class EventRepository @Inject constructor(
     ): EventInventoryRequestDto {
         val current = cachedPastovykleRequests(eventId, pastovykleId).orEmpty()
         val cached = current.firstOrNull { it.id == requestId }
-            ?: throw Exception("Pastovyklės poreikis n?rastas offline cache")
+            ?: throw Exception("Pastovyklės poreikis nerastas offline cache")
         val now = Instant.now().toString()
         val updated = cached.copy(
             status = status,

@@ -79,7 +79,7 @@ private fun EventPrimaryStatusAction(
     when {
         event.status == "PLANNING" && canStart -> {
             EventPrimaryButton(
-                text = "Pradeti rengini",
+                text = "Pradėti renginį",
                 onClick = onActivate,
                 enabled = true,
                 modifier = modifier
@@ -88,7 +88,7 @@ private fun EventPrimaryStatusAction(
 
         event.status == "ACTIVE" && canManage -> {
             EventPrimaryButton(
-                text = "Pereiti i suvedima",
+                text = "Pereiti į suvedimą",
                 onClick = onComplete,
                 enabled = true,
                 modifier = modifier
@@ -139,7 +139,7 @@ private fun HeaderActions(
                 } else {
                     Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                 }
-                Text("Atsaukti")
+                Text("Atšaukti")
             }
         }
     }

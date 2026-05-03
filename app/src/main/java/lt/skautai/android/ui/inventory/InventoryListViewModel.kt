@@ -58,14 +58,14 @@ class InventoryListViewModel @Inject constructor(
     private val _actionMessage = MutableStateFlow<String?>(null)
     val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
 
-    private val _selectedType = MutableStateFlow(savedStateHandle.get<String?>("type"))
-    val selectedType: StateFlow<String?> = _selectedType.asStateFlow()
+    private val _selectedTypes = MutableStateFlow(savedStateHandle.get<String?>("type")?.let { setOf(it) } ?: emptySet())
+    val selectedTypes: StateFlow<Set<String>> = _selectedTypes.asStateFlow()
 
-    private val _selectedCategory = MutableStateFlow(savedStateHandle.get<String?>("category"))
-    val selectedCategory: StateFlow<String?> = _selectedCategory.asStateFlow()
+    private val _selectedCategories = MutableStateFlow(savedStateHandle.get<String?>("category")?.let { setOf(it) } ?: emptySet())
+    val selectedCategories: StateFlow<Set<String>> = _selectedCategories.asStateFlow()
 
-    private val _selectedLocationId = MutableStateFlow<String?>(null)
-    val selectedLocationId: StateFlow<String?> = _selectedLocationId.asStateFlow()
+    private val _selectedLocationIds = MutableStateFlow<Set<String>>(emptySet())
+    val selectedLocationIds: StateFlow<Set<String>> = _selectedLocationIds.asStateFlow()
 
     private val _selectedStatus = MutableStateFlow("ACTIVE")
     val selectedStatus: StateFlow<String> = _selectedStatus.asStateFlow()
@@ -253,18 +253,18 @@ class InventoryListViewModel @Inject constructor(
         clearSelection()
     }
 
-    fun onTypeSelected(type: String?) {
-        _selectedType.value = type
+    fun onTypeSelected(type: String) {
+        _selectedTypes.value = _selectedTypes.value.toggle(type)
         clearSelection()
     }
 
-    fun onCategorySelected(category: String?) {
-        _selectedCategory.value = category
+    fun onCategorySelected(category: String) {
+        _selectedCategories.value = _selectedCategories.value.toggle(category)
         clearSelection()
     }
 
-    fun onLocationSelected(locationId: String?) {
-        _selectedLocationId.value = locationId
+    fun onLocationSelected(locationId: String) {
+        _selectedLocationIds.value = _selectedLocationIds.value.toggle(locationId)
         clearSelection()
         loadItems()
     }
@@ -276,9 +276,9 @@ class InventoryListViewModel @Inject constructor(
     }
 
     fun clearFilters() {
-        _selectedType.value = null
-        _selectedCategory.value = null
-        _selectedLocationId.value = null
+        _selectedTypes.value = emptySet()
+        _selectedCategories.value = emptySet()
+        _selectedLocationIds.value = emptySet()
         clearSelection()
     }
 
@@ -294,7 +294,7 @@ class InventoryListViewModel @Inject constructor(
     fun toggleSelectedItem(itemId: String, isEligible: Boolean) {
         if (!_selectionMode.value) return
         if (!isEligible) {
-            _actionMessage.value = "Sio daikto QR PDF sugeneruoti negalima."
+            _actionMessage.value = "Šio daikto QR PDF sugeneruoti negalima."
             return
         }
         _selectedItemIds.value = _selectedItemIds.value.toMutableSet().apply {
@@ -316,16 +316,25 @@ class InventoryListViewModel @Inject constructor(
 
     fun filteredItems(items: List<ItemDto>): List<ItemDto> {
         val query = _searchQuery.value.trim()
-        val byType = _selectedType.value?.let { selected ->
-            items.filter { it.type == selected }
-        } ?: items
-        val byCategory = _selectedCategory.value?.let { selected ->
-            byType.filter { it.category == selected }
-        } ?: byType
-        val byLocation = _selectedLocationId.value?.let { selected ->
-            val selectedAndChildren = selectedLocationTreeIds(selected)
+        val selectedTypes = _selectedTypes.value
+        val selectedCategories = _selectedCategories.value
+        val selectedLocationIds = _selectedLocationIds.value
+        val byType = if (selectedTypes.isEmpty()) {
+            items
+        } else {
+            items.filter { it.type in selectedTypes }
+        }
+        val byCategory = if (selectedCategories.isEmpty()) {
+            byType
+        } else {
+            byType.filter { it.category in selectedCategories }
+        }
+        val byLocation = if (selectedLocationIds.isEmpty()) {
+            byCategory
+        } else {
+            val selectedAndChildren = selectedLocationIds.flatMap { selectedLocationTreeIds(it) }.toSet()
             byCategory.filter { item -> item.locationId?.let { it in selectedAndChildren } == true }
-        } ?: byCategory
+        }
 
         if (query.isBlank()) return byLocation
         return byLocation.filter {
@@ -354,4 +363,7 @@ class InventoryListViewModel @Inject constructor(
         } while (added)
         return result
     }
+
+    private fun Set<String>.toggle(value: String): Set<String> =
+        if (value in this) this - value else this + value
 }

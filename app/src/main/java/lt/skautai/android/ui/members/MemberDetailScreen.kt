@@ -132,12 +132,12 @@ fun MemberDetailScreen(
     pendingStepDownRole?.let { role ->
         AlertDialog(
             onDismissRequest = { pendingStepDownRole = null },
-            title = { Text("Atsistatydinti is pareigu?") },
+            title = { Text("Atsistatydinti iš pareigų?") },
             text = {
                 Text(
                     buildString {
-                        append("Bus uzdarytos pareigos ")
-                        append(role.roleName)
+                        append("Bus uždarytos pareigos ")
+                        append(displayRoleName(role.roleName))
                         role.organizationalUnitName?.let {
                             append(" vienete ")
                             append(it)
@@ -178,12 +178,12 @@ fun MemberDetailScreen(
                 Text(
                     buildString {
                         append("Pareigos ")
-                        append(role.roleName)
+                        append(displayRoleName(role.roleName))
                         role.organizationalUnitName?.let {
                             append(" vienete ")
                             append(it)
                         }
-                        append(" bus pasalintos.")
+                        append(" bus pašalintos.")
                     }
                 )
             },
@@ -208,7 +208,7 @@ fun MemberDetailScreen(
         AlertDialog(
             onDismissRequest = { pendingRankRemoval = null },
             title = { Text("Šalinti laipsnį?") },
-            text = { Text("Laipsnis ${rank.roleName} bus pašalintas iš šio nario.") },
+            text = { Text("Laipsnis ${displayRoleName(rank.roleName)} bus pašalintas iš šio nario.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -368,7 +368,7 @@ private fun MemberUnitsSection(assignments: List<MemberUnitAssignmentDto>) {
                         Text(
                             text = when (assignment.assignmentType) {
                                 "MEMBER" -> "Narys"
-                                "VADOVO_PADEJEJAS" -> "Vadovo padejejas"
+                                "VADOVO_PADEJEJAS" -> "Vadovo padėjėjas"
                                 else -> assignment.assignmentType
                             },
                             style = MaterialTheme.typography.bodySmall,
@@ -439,7 +439,7 @@ private fun MemberRolesSection(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
-                                text = if (role.termStatus == "ACTIVE") "Aktyvus" else role.termStatus,
+                                text = termStatusLabel(role.termStatus),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = if (role.termStatus == "ACTIVE") MaterialTheme.colorScheme.primary
                                         else MaterialTheme.colorScheme.onSurfaceVariant
@@ -473,7 +473,7 @@ private fun MemberRolesSection(
 private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto>) {
     Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Pareigu istorija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Pareigų istorija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             HorizontalDivider()
             if (history.isEmpty()) {
                 Text(
@@ -484,7 +484,7 @@ private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto
             } else {
                 history.forEach { role ->
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                        Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                         role.organizationalUnitName?.let {
                             Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
@@ -533,7 +533,7 @@ private fun MemberRanksSection(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(rank.roleName, style = MaterialTheme.typography.bodyMedium)
+                        Text(displayRoleName(rank.roleName), style = MaterialTheme.typography.bodyMedium)
                         if (canManageRoles) {
                             IconButton(onClick = { onRemoveRank(rank) }, enabled = !isSaving) {
                                 Icon(Icons.Default.Delete, contentDescription = "Šalinti laipsnį",
@@ -573,7 +573,7 @@ private fun AssignRoleDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ExposedDropdownMenuBox(expanded = roleExpanded, onExpandedChange = { roleExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedRole?.name ?: "Pasirinkite pareigas",
+                        value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite pareigas",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Pareigos") },
@@ -583,7 +583,7 @@ private fun AssignRoleDialog(
                     ExposedDropdownMenu(expanded = roleExpanded, onDismissRequest = { roleExpanded = false }) {
                         roles.forEach { role ->
                             DropdownMenuItem(
-                                text = { Text(role.name) },
+                                text = { Text(displayRoleName(role.name)) },
                                 onClick = { onRoleSelected(role.id); roleExpanded = false }
                             )
                         }
@@ -644,7 +644,7 @@ private fun AssignRankDialog(
         text = {
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                 OutlinedTextField(
-                    value = selectedRole?.name ?: "Pasirinkite laipsnį",
+                    value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite laipsnį",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Laipsnis") },
@@ -654,7 +654,7 @@ private fun AssignRankDialog(
                 ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
                     roles.forEach { role ->
                         DropdownMenuItem(
-                            text = { Text(role.name) },
+                            text = { Text(displayRoleName(role.name)) },
                             onClick = { onRoleSelected(role.id); expanded = false }
                         )
                     }
@@ -685,7 +685,7 @@ private fun MoveMemberDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Perkelti nari") },
+        title = { Text("Perkelti narį") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
@@ -753,7 +753,7 @@ private fun EditRoleDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ExposedDropdownMenuBox(expanded = statusExpanded, onExpandedChange = { statusExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedTermStatus,
+                        value = termStatusLabel(selectedTermStatus),
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Statusas") },
@@ -763,7 +763,7 @@ private fun EditRoleDialog(
                     ExposedDropdownMenu(expanded = statusExpanded, onDismissRequest = { statusExpanded = false }) {
                         statuses.forEach { status ->
                             DropdownMenuItem(
-                                text = { Text(status) },
+                                text = { Text(termStatusLabel(status)) },
                                 onClick = {
                                     onTermStatusSelected(status)
                                     statusExpanded = false
@@ -807,7 +807,7 @@ private fun EditRoleDialog(
                 OutlinedTextField(
                     value = startsAt,
                     onValueChange = onStartsAtChanged,
-                    label = { Text("Prad?ia (YYYY-MM-DD)") },
+                    label = { Text("Pradžia (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -862,7 +862,7 @@ private fun TransferTuntininkasDialog(
                 )
                 ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                     OutlinedTextField(
-                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite nari",
+                        value = selectedMember?.let { "${it.name} ${it.surname}" } ?: "Pasirinkite narį",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Naujas tuntininkas") },
@@ -896,3 +896,10 @@ private fun TransferTuntininkasDialog(
 }
 
 private fun isTuntininkasRoleName(roleName: String): Boolean = roleName == "Tuntininkas"
+
+private fun termStatusLabel(status: String): String = when (status) {
+    "ACTIVE" -> "Aktyvus"
+    "COMPLETED" -> "Baigtas"
+    "RESIGNED" -> "Atsistatydinta"
+    else -> status
+}

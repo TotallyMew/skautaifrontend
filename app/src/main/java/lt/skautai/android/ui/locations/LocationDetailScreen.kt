@@ -99,9 +99,9 @@ fun LocationDetailScreen(
     if (showDeleteDialog && uiState.location != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Trinti lokacija?") },
+            title = { Text("Trinti lokaciją?") },
             text = {
-                Text("Lokacija \"${uiState.location!!.name}\" bus istrinta. Veiksmo atsaukti nepavyks.")
+                Text("Lokacija \"${uiState.location!!.name}\" bus ištrinta. Veiksmo atšaukti nepavyks.")
             },
             confirmButton = {
                 TextButton(
@@ -187,8 +187,8 @@ fun LocationDetailScreen(
                                 MetadataRow("Tipas", visibilityLabel(location.visibility))
                                 MetadataRow("Kelias", location.fullPath)
                                 MetadataRow("Vienetas", location.ownerUnitName ?: "Netaikoma")
-                                MetadataRow("Redagavimas", if (location.isEditable) "Leidziamas" else "Tik perziura")
-                                MetadataRow("Sublokacijos", if (location.hasChildren) "Yra" else "Nera")
+                                MetadataRow("Redagavimas", if (location.isEditable) "Leidžiamas" else "Tik peržiūra")
+                                MetadataRow("Sublokacijos", if (location.hasChildren) "Yra" else "Nėra")
                             }
                         }
                     }
@@ -227,7 +227,7 @@ fun LocationDetailScreen(
                                     ) {
                                         Icon(Icons.Default.Place, contentDescription = null)
                                         Spacer(modifier = Modifier.size(8.dp))
-                                        Text("Atidaryti zemelapyje")
+                                        Text("Atidaryti žemėlapyje")
                                     }
                                 }
                             }
@@ -282,7 +282,7 @@ fun LocationDetailScreen(
                                 ) {
                                     Icon(Icons.Default.Add, contentDescription = null)
                                     Spacer(modifier = Modifier.size(8.dp))
-                                    Text("Pridėti sublokacija")
+                                    Text("Pridėti sublokaciją")
                                 }
                             }
                         }
@@ -302,7 +302,7 @@ fun LocationDetailScreen(
                                     Icon(Icons.Default.Delete, contentDescription = null)
                                 }
                                 Spacer(modifier = Modifier.size(8.dp))
-                                Text("Trinti lokacija")
+                                Text("Trinti lokaciją")
                             }
                         }
                     }
@@ -362,7 +362,7 @@ private fun LocationHeaderCard(location: LocationDto) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 HeaderPill(visibilityLabel(location.visibility))
                 location.ownerUnitName?.let { HeaderPill(it) }
-                HeaderPill(if (location.hasChildren) "Turi sublokaciju" else "Be sublokaciju")
+                HeaderPill(if (location.hasChildren) "Turi sublokacijų" else "Be sublokacijų")
             }
         }
     }
@@ -392,9 +392,9 @@ private fun locationParentTrail(fullPath: String, currentName: String): String? 
 }
 
 private fun visibilityLabel(value: String): String = when (value) {
-    "PRIVATE" -> "Asmenine"
+    "PRIVATE" -> "Asmeninė"
     "UNIT" -> "Vieneto"
-    else -> "Viesa"
+    else -> "Vieša"
 }
 
 data class LocationDetailUiState(
@@ -441,7 +441,7 @@ class LocationDetailViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isDeleting = false,
-                        actionError = error.message ?: "Nepavyko istrinti lokacijos"
+                        actionError = error.message ?: "Nepavyko ištrinti lokacijos"
                     )
                 }
         }

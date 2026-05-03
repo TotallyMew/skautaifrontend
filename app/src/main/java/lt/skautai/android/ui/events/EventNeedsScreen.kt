@@ -103,17 +103,17 @@ fun EventNeedsScreen(
                     ) {
                         EventDetailHero(
                             event = state.event,
-                            subtitle = "Poreikiu kurimas · ${state.inventoryPlan?.items?.size ?: 0} plano eil."
+                            subtitle = "Poreikių kūrimas · ${state.inventoryPlan?.items?.size ?: 0} plano eil."
                         )
                         EventDetailSection(
                             title = "Kurti poreikius",
-                            subtitle = "Pasirink kurti poreikius is inventoriaus arba ranka.",
-                            actionLabel = if (showHelp) "Maziau" else "Kaip veikia",
+                            subtitle = "Pasirink kurti poreikius iš inventoriaus arba ranka.",
+                            actionLabel = if (showHelp) "Mažiau" else "Kaip veikia",
                             onAction = { showHelp = !showHelp }
                         ) {
                             if (showHelp) {
                                 Text(
-                                    "Sandelio pasirinkimas tinka jau turimiems daiktams. Rankinis ivedimas skirtas naujam pirkiniui, paslaugai arba daiktui, kurio kataloge dar nera.",
+                                    "Sandėlio pasirinkimas tinka jau turimiems daiktams. Rankinis įvedimas skirtas naujam pirkiniui, paslaugai arba daiktui, kurio kataloge dar nėra.",
                                     color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant,
                                     style = androidx.compose.material3.MaterialTheme.typography.bodySmall
                                 )

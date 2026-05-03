@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -79,7 +81,7 @@ class MemberRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant nariųs")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -94,7 +96,7 @@ class MemberRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant nari")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -163,7 +165,7 @@ class MemberRepository @Inject constructor(
             )
             Result.success(role)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -190,7 +192,7 @@ class MemberRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -215,7 +217,7 @@ class MemberRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida atnaujinant pareigas")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -227,7 +229,7 @@ class MemberRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val userId = findMemberByLeadershipAssignment(currentTuntasId, assignmentId)
-                ?: return Result.failure(Exception("Nario pareigos n?rastos offline cache"))
+                ?: return Result.failure(Exception("Nario pareigos nerastos offline cache"))
             updateCachedMember(currentTuntasId, userId) { member ->
                 member.copy(leadershipRoles = member.leadershipRoles.filterNot { it.id == assignmentId })
             }
@@ -240,7 +242,7 @@ class MemberRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -259,7 +261,7 @@ class MemberRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida perleidziant tuntininko pareigas")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -294,7 +296,7 @@ class MemberRepository @Inject constructor(
             )
             Result.success(rank)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -321,7 +323,7 @@ class MemberRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -347,7 +349,7 @@ class MemberRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 

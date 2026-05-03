@@ -97,7 +97,7 @@ fun ReservationListScreen(
                         icon = Icons.Default.EventAvailable,
                         actionLabel = when {
                             isAssignedMode || isTrackedMode -> "Rodyti mano rezervacijas"
-                            else -> "Kurti rezervacija"
+                            else -> "Kurti rezervaciją"
                         },
                         onAction = {
                             if (isAssignedMode || isTrackedMode) {
@@ -280,7 +280,7 @@ fun ReservationCard(
             }
             ReservationPhysicalStatusPill(status = reservation.items.physicalStatus())
             Text(
-                text = "${reservation.totalItems} daiktų rusys / ${reservation.totalQuantity} vnt.",
+                text = "${reservation.totalItems} daiktų rūšys / ${reservation.totalQuantity} vnt.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -299,12 +299,12 @@ fun ReservationCard(
 fun ReservationPhysicalStatusPill(status: ReservationPhysicalStatus) {
     val (label, container, content) = when (status) {
         ReservationPhysicalStatus.NOT_ISSUED -> Triple(
-            "Neisduota",
+            "Neišduota",
             ScoutStatusColors.NeutralContainer,
             ScoutStatusColors.OnNeutralContainer
         )
         ReservationPhysicalStatus.PARTIALLY_ISSUED -> Triple(
-            "Dalinai isduota",
+            "Dalinai išduota",
             ScoutStatusColors.PendingContainer,
             ScoutStatusColors.OnPendingContainer
         )

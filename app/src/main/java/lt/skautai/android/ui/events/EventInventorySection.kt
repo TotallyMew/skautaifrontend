@@ -104,38 +104,38 @@ fun NeedsCard(
     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             EventFormEyebrow("Greitas veiksmas")
-            Text("Prideti poreiki", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text("Pridėti poreikį", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                EventFormSupportText("Pasirink, ar poreikis bus is sandelio, ar rankinis.")
+                EventFormSupportText("Pasirink, ar poreikis bus iš sandėlio, ar rankinis.")
                 IconButton(onClick = { showHelp = !showHelp }) {
                     Icon(
                         imageVector = Icons.Default.Info,
-                        contentDescription = if (showHelp) "Paslepti pagalba" else "Rodyti pagalba"
+                        contentDescription = if (showHelp) "Paslėpti pagalbą" else "Rodyti pagalbą"
                     )
                 }
             }
             if (showHelp) {
                 EventContextBanner(
-                    title = "Kaip kurti poreiki",
-                    subtitle = "Is inventoriaus rinkis jau sandelyje esantiems daiktams. Rankinis ivedimas tinka naujam pirkiniui, paslaugai arba daiktui, kurio kataloge dar nera."
+                    title = "Kaip kurti poreikį",
+                    subtitle = "Iš inventoriaus rinkis jau sandėlyje esantiems daiktams. Rankinis įvedimas tinka naujam pirkiniui, paslaugai arba daiktui, kurio kataloge dar nėra."
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(modifier = Modifier.weight(1f)) {
                     EventModeChip(
                         selected = entryMode == NeedEntryMode.Inventory,
-                        text = "Is inventoriaus",
+                        text = "Iš inventoriaus",
                         onClick = { entryMode = NeedEntryMode.Inventory }
                     )
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     EventModeChip(
                         selected = entryMode == NeedEntryMode.Manual,
-                        text = "Ne is inventoriaus",
+                        text = "Ne iš inventoriaus",
                         onClick = { entryMode = NeedEntryMode.Manual }
                     )
                 }
@@ -144,7 +144,7 @@ fun NeedsCard(
             when (entryMode) {
                 NeedEntryMode.Inventory -> {
                     EventListSection(
-                        title = "Prideti is inventoriaus",
+                        title = "Pridėti iš inventoriaus",
                         subtitle = "Greitas pasirinkimas, kai daiktas jau yra sandelyje."
                     ) {
                         OutlinedButton(
@@ -155,21 +155,21 @@ fun NeedsCard(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Prideti is inventoriaus")
+                            Text("Pridėti iš inventoriaus")
                         }
                     }
                 }
 
                 NeedEntryMode.Manual -> {
                     EventListSection(
-                        title = "Poreikis ne is inventoriaus",
-                        subtitle = "Naujas daiktas arba paslauga, kurios dar nera sandelyje."
+                        title = "Poreikis ne iš inventoriaus",
+                        subtitle = "Naujas daiktas arba paslauga, kurios dar nėra sandėlyje."
                     ) {
                         OutlinedTextField(
                             value = name,
                             onValueChange = { name = it },
                             label = { Text("Pavadinimas") },
-                            placeholder = { Text("Pvz. duju balionas, tentas, virve") },
+                            placeholder = { Text("Pvz. dujų balionas, tentas, virvė") },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
                             colors = eventFormFieldColors()
@@ -204,7 +204,7 @@ fun NeedsCard(
                         if (manualNeeds.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
-                                    "Paruosta prideti (${manualNeeds.size})",
+                                    "Paruošta pridėti (${manualNeeds.size})",
                                     style = MaterialTheme.typography.labelLarge,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -227,7 +227,7 @@ fun NeedsCard(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Itraukti i sarasa")
+                            Text("Įtraukti į sąrašą")
                         }
                         Button(
                             onClick = {
@@ -246,7 +246,7 @@ fun NeedsCard(
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(8.dp))
-                            Text("Prideti poreiki")
+                            Text("Pridėti poreikį")
                         }
                     }
                 }
@@ -388,7 +388,7 @@ fun InventoryPickerSheet(
         OutlinedTextField(
             value = search,
             onValueChange = { search = it },
-            label = { Text("Paieška inventori?je") },
+            label = { Text("Paieška inventoriuje") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -529,8 +529,8 @@ fun UkvedysCard(
     pendingBucketDeletion?.let { bucket ->
         AlertDialog(
             onDismissRequest = { pendingBucketDeletion = null },
-            title = { Text("Trinti bucket?") },
-            text = { Text("Bucket ${bucket.name} bus ištrintas.") },
+            title = { Text("Trinti paskirtį?") },
+            text = { Text("Paskirtis ${bucket.name} bus ištrinta.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -550,7 +550,7 @@ fun UkvedysCard(
     pendingAllocationDeletion?.let { allocation ->
         AlertDialog(
             onDismissRequest = { pendingAllocationDeletion = null },
-            title = { Text("Trinti paskirstyma?") },
+            title = { Text("Trinti paskirstymą?") },
             text = { Text("Paskirstymas ${allocation.bucketName} bus ištrintas.") },
             confirmButton = {
                 TextButton(
@@ -603,7 +603,7 @@ fun UkvedysCard(
             }
             if (!returnMode) {
                 HorizontalDivider()
-                Text("Buckets", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text("Paskirtys", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
                     "Atskirk inventorių pagal paskirtį ar pastovykles.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -621,25 +621,25 @@ fun UkvedysCard(
                         label = "Tipas",
                         value = bucketType,
                         options = listOf(
-                            "PROGRAM" to "PROGRAM",
-                            "KITCHEN" to "KITCHEN",
-                            "ADMIN" to "ADMIN",
-                            "MEDICAL" to "MEDICAL",
-                            "PASTOVYKLE" to "PASTOVYKLE",
-                            "OTHER" to "OTHER"
+                            "PROGRAM" to "Programa",
+                            "KITCHEN" to "Virtuvė",
+                            "ADMIN" to "Administracija",
+                            "MEDICAL" to "Medicina",
+                            "PASTOVYKLE" to "Pastovyklė",
+                            "OTHER" to "Kita"
                         ),
                         onSelect = { bucketType = it ?: "OTHER" }
                     )
                     if (bucketType == "PASTOVYKLE") {
                         DropdownField(
-                            label = "Pastovykle",
+                            label = "Pastovyklė",
                             value = pastovykles.firstOrNull { it.id == bucketPastovykleId }?.name ?: "Pasirinkti",
                             options = pastovykles.map { it.id to it.name },
                             onSelect = { bucketPastovykleId = it }
                         )
                     }
                     EventPrimaryButton(
-                        text = "Prideti paskirti",
+                        text = "Pridėti paskirtį",
                         onClick = {
                             onCreateBucket(bucketName, bucketType, bucketPastovykleId, "")
                             bucketName = ""
@@ -662,7 +662,7 @@ fun UkvedysCard(
                 HorizontalDivider()
                 Text("Paskirstymai", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "Priskirk inventoriaus kiekį bucketams ir stebėk, kam jis atitenka.",
+                    "Priskirk inventoriaus kiekį paskirtims ir stebėk, kam jis atitenka.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -674,7 +674,7 @@ fun UkvedysCard(
                         onSelect = { allocationItemId = it }
                     )
                     DropdownField(
-                        label = "Bucket",
+                        label = "Paskirtis",
                         value = buckets.firstOrNull { it.id == allocationBucketId }?.name ?: "Pasirinkti",
                         options = buckets.map { it.id to it.name },
                         onSelect = { allocationBucketId = it }
@@ -687,7 +687,7 @@ fun UkvedysCard(
                         colors = eventFormFieldColors()
                     )
                     EventPrimaryButton(
-                        text = "Prideti paskirstyma",
+                        text = "Pridėti paskirstymą",
                         onClick = {
                             if (allocationItemId != null && allocationBucketId != null) {
                                 onCreateAllocation(allocationItemId!!, allocationBucketId!!, allocationQuantity, "")
@@ -724,9 +724,9 @@ fun UkvedysCard(
                             Text(request.status, color = MaterialTheme.colorScheme.primary)
                             if (canManage && request.status in listOf("PENDING", "APPROVED")) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    TextButton(onClick = { onApproveRequest(request.pastovykleId, request.id) }) { Text("Approve") }
-                                    TextButton(onClick = { onFulfillRequest(request.pastovykleId, request.id) }) { Text("Fulfill") }
-                                    TextButton(onClick = { onRejectRequest(request.pastovykleId, request.id) }) { Text("Reject") }
+                                    TextButton(onClick = { onApproveRequest(request.pastovykleId, request.id) }) { Text("Patvirtinti") }
+                                    TextButton(onClick = { onFulfillRequest(request.pastovykleId, request.id) }) { Text("Įvykdyti") }
+                                    TextButton(onClick = { onRejectRequest(request.pastovykleId, request.id) }) { Text("Atmesti") }
                                 }
                             }
                         }
@@ -950,7 +950,7 @@ fun UkvedysTabsCard(
                             if (shortageItems.isEmpty()) {
                                 EmptyStateText("Trūkstamų daiktų nėra. Kai plane atsiras trūkumų, čia juos pažymėsi pirkimui.")
                             } else if (filteredShortageItems.isEmpty()) {
-                                EmptyStateText("Pagal šią paiešką trūkumų n?rasta.")
+                                EmptyStateText("Pagal šią paiešką trūkumų nerasta.")
                             } else {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedButton(
@@ -1018,7 +1018,7 @@ fun UkvedysTabsCard(
                                     )
                                 }
                                 EventPrimaryButton(
-                                    text = "Prideti paskirti",
+                                    text = "Pridėti paskirtį",
                                     onClick = {
                                         onCreateBucket(bucketName, bucketType, bucketPastovykleId, "")
                                         bucketName = ""
@@ -1036,7 +1036,7 @@ fun UkvedysTabsCard(
                             if (buckets.isEmpty()) {
                                 EmptyStateText("Paskirčių dar nėra.")
                             } else if (filteredBuckets.isEmpty()) {
-                                EmptyStateText("Pagal šią paiešką paskirčių n?rasta.")
+                                EmptyStateText("Pagal šią paiešką paskirčių nerasta.")
                             } else {
                                 BucketLazyList(
                                     buckets = filteredBuckets,
@@ -1058,7 +1058,7 @@ fun UkvedysTabsCard(
                                     onSelect = { allocationItemId = it }
                                 )
                                 DropdownField(
-                                    label = "Bucket",
+                                    label = "Paskirtis",
                                     value = buckets.firstOrNull { it.id == allocationBucketId }?.name ?: "Pasirinkti",
                                     options = buckets.map { it.id to it.name },
                                     onSelect = { allocationBucketId = it }
@@ -1070,7 +1070,7 @@ fun UkvedysTabsCard(
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 EventPrimaryButton(
-                                    text = "Prideti paskirstyma",
+                                    text = "Pridėti paskirstymą",
                                     onClick = {
                                         if (allocationItemId != null && allocationBucketId != null) {
                                             onCreateAllocation(allocationItemId!!, allocationBucketId!!, allocationQuantity, "")
@@ -1088,7 +1088,7 @@ fun UkvedysTabsCard(
                             if (allocations.isEmpty()) {
                                 EmptyStateText("Paskirstymų dar nėra.")
                             } else if (filteredAllocations.isEmpty()) {
-                                EmptyStateText("Pagal šią paiešką paskirstymų n?rasta.")
+                                EmptyStateText("Pagal šią paiešką paskirstymų nerasta.")
                             } else {
                                 AllocationLazyList(
                                     allocations = filteredAllocations,
@@ -1112,7 +1112,7 @@ fun UkvedysTabsCard(
                             if (allRequests.isEmpty()) {
                                 EmptyStateText("Prašymų iš pastovyklių dar nėra.")
                             } else if (filteredRequests.isEmpty()) {
-                                EmptyStateText("Pagal šią paiešką prašymų n?rasta.")
+                                EmptyStateText("Pagal šią paiešką prašymų nerasta.")
                             } else {
                                 RequestsLazyList(
                                     requests = filteredRequests,
@@ -1418,7 +1418,7 @@ fun PlanCard(
                     EventMetricPill("Turima ${summary.totalAvailableQuantity}", EventMetricTone.Neutral)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    EventMetricPill("Truksta ${summary.totalShortageQuantity}", EventMetricTone.Warning)
+                    EventMetricPill("Trūksta ${summary.totalShortageQuantity}", EventMetricTone.Warning)
                     EventMetricPill("Paskirstyta ${summary.totalAllocatedQuantity}", EventMetricTone.Good)
                 }
             }

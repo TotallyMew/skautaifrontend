@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -76,7 +78,7 @@ class RequisitionRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -91,7 +93,7 @@ class RequisitionRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -123,7 +125,7 @@ class RequisitionRepository @Inject constructor(
                 requisitionDao.upsert(created.toEntity())
                 Result.success(created)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida kuriant prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant prašymą")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -164,7 +166,7 @@ class RequisitionRepository @Inject constructor(
             requisitionDao.upsert(local.toEntity())
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.REQUISITION, local.id, PendingOperationType.REQUISITION_CREATE, request)
             Result.success(local)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun unitReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> =
@@ -172,6 +174,52 @@ class RequisitionRepository @Inject constructor(
 
     suspend fun topLevelReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> =
         reviewOnlineOnly(id, action, rejectionReason, topLevel = true)
+
+    suspend fun cancelRequest(id: String): Result<Unit> {
+        return try {
+            val currentTuntasId = tuntasId()
+            val response = requisitionApiService.cancelRequest("Bearer ${token()}", currentTuntasId, id)
+            if (response.isSuccessful) {
+                requisitionDao.getRequest(id, currentTuntasId)?.toDto()?.let {
+                    requisitionDao.upsert(it.cancelledCopy().toEntity())
+                }
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida atsaukiant prasyma")))
+            }
+        } catch (e: IOException) {
+            val currentTuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            if (id.startsWith("local-") && pendingOperationRepository.hasCreateOperationInFlight(
+                    entityType = PendingEntityType.REQUISITION,
+                    entityId = id,
+                    createOperationType = PendingOperationType.REQUISITION_CREATE
+                )
+            ) {
+                return Result.failure(Exception("Prasymas dabar sinchronizuojamas. Pabandykite dar karta veliau."))
+            }
+            if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
+                    entityType = PendingEntityType.REQUISITION,
+                    entityId = id,
+                    createOperationType = PendingOperationType.REQUISITION_CREATE
+                )
+            ) {
+                requisitionDao.deleteRequest(id, currentTuntasId)
+                return Result.success(Unit)
+            }
+            requisitionDao.getRequest(id, currentTuntasId)?.toDto()?.let {
+                requisitionDao.upsert(it.cancelledCopy().toEntity())
+            }
+            pendingOperationRepository.enqueue(
+                currentTuntasId,
+                PendingEntityType.REQUISITION,
+                id,
+                PendingOperationType.REQUISITION_CANCEL,
+                mapOf("id" to id)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
+    }
 
     private suspend fun reviewOnlineOnly(
         id: String,
@@ -197,7 +245,7 @@ class RequisitionRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = requisitionDao.getRequest(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Prašymas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Prašymas nerastas offline cache"))
             val updated = if (topLevel) {
                 cached.copy(topLevelReviewStatus = action, lastAction = action, updatedAt = Instant.now().toString())
             } else {
@@ -212,6 +260,17 @@ class RequisitionRepository @Inject constructor(
                 ReviewPayload(id, action, rejectionReason)
             )
             Result.success(updated)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
+    }
+
+    private fun RequisitionDto.cancelledCopy(): RequisitionDto {
+        val now = Instant.now().toString()
+        return copy(
+            status = "CANCELLED",
+            unitReviewStatus = if (unitReviewStatus == "PENDING") "CANCELLED" else unitReviewStatus,
+            topLevelReviewStatus = if (topLevelReviewStatus == "PENDING") "CANCELLED" else topLevelReviewStatus,
+            lastAction = "CANCELLED",
+            updatedAt = now
+        )
     }
 }

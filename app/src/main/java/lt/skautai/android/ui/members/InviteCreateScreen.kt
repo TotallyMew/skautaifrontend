@@ -183,10 +183,10 @@ private fun RoleDropdown(
         onExpandedChange = { expanded = it }
     ) {
         OutlinedTextField(
-            value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite rolę",
+            value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite pareigas arba laipsnį",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Rolė") },
+            label = { Text("Pareigos arba laipsnis") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()
@@ -349,7 +349,7 @@ private fun InviteSuccessContent(
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )
                 Text(
-                    text = "Rolė: ${displayRoleName(roleName)}",
+                    text = "Pareigos / laipsnis: ${displayRoleName(roleName)}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onPrimaryContainer
                 )

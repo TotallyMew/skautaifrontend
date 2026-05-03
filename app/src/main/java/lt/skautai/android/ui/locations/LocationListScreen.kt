@@ -143,7 +143,7 @@ fun LocationListScreen(
             SkautaiSearchBar(
                 value = uiState.searchQuery,
                 onValueChange = viewModel::onSearchChange,
-                placeholder = "Ieskoti pagal pavadinima, adresa ar tevine vieta",
+                placeholder = "Ieškoti pagal pavadinimą, adresą ar tėvinę vietą",
                 leadingIcon = Icons.Default.Search,
                 trailingIcon = if (uiState.hasActiveSearchOrFilter) Icons.Default.Tune else null,
                 onTrailingIconClick = if (uiState.hasActiveSearchOrFilter) viewModel::clearFilters else null
@@ -163,7 +163,7 @@ fun LocationListScreen(
                     onClick = { viewModel.onFilterChange(LocationFilter.All) }
                 )
                 SkautaiChip(
-                    label = "Viesos $publicRootCount",
+                    label = "Viešos $publicRootCount",
                     selected = uiState.filter == LocationFilter.Public,
                     onClick = { viewModel.onFilterChange(LocationFilter.Public) }
                 )
@@ -192,10 +192,10 @@ fun LocationListScreen(
         if (uiState.isEmpty) {
             item {
                 SkautaiEmptyState(
-                    title = "Lokaciju dar nera",
-                    subtitle = "Sukurk pirma viesa, vieneto arba asmenine vieta ir pradek formuoti aiskesni saugojimo zemelapi.",
+                    title = "Lokacijų dar nėra",
+                    subtitle = "Sukurk pirmą viešą, vieneto arba asmeninę vietą ir pradėk formuoti aiškesnį saugojimo žemėlapį.",
                     icon = Icons.Default.Place,
-                    actionLabel = "Prideti lokacija",
+                    actionLabel = "Pridėti lokaciją",
                     onAction = onCreateClick
                 )
             }
@@ -205,10 +205,10 @@ fun LocationListScreen(
         if (displayed.isEmpty()) {
             item {
                 SkautaiEmptyState(
-                    title = "Lokaciju nerasta",
-                    subtitle = "Pabandyk kita paieska arba nuimk aktyvu filtra, kad vel matytum visa medi.",
+                    title = "Lokacijų nerasta",
+                    subtitle = "Pabandyk kitą paiešką arba nuimk aktyvų filtrą, kad vėl matytum visą medį.",
                     icon = Icons.Default.Search,
-                    actionLabel = if (uiState.hasActiveSearchOrFilter) "Isvalyti filtrus" else null,
+                    actionLabel = if (uiState.hasActiveSearchOrFilter) "Išvalyti filtrus" else null,
                     onAction = if (uiState.hasActiveSearchOrFilter) viewModel::clearFilters else null
                 )
             }
@@ -216,7 +216,7 @@ fun LocationListScreen(
         }
 
         locationSection(
-            title = "Viesos lokacijos",
+            title = "Viešos lokacijos",
             subtitle = "Bendros vietos, kurias gali matyti visi nariai.",
             icon = Icons.Default.Public,
             rootCandidates = publicLocations,
@@ -227,7 +227,7 @@ fun LocationListScreen(
         )
         locationSection(
             title = "Mano vieneto lokacijos",
-            subtitle = "Aktyviam vienetui priskirtos vietos ir ju sakos.",
+            subtitle = "Aktyviam vienetui priskirtos vietos ir jų šakos.",
             icon = Icons.Default.GroupWork,
             rootCandidates = unitLocations,
             expandedIds = uiState.expandedIds,
@@ -236,8 +236,8 @@ fun LocationListScreen(
             accentColor = unitAccent
         )
         locationSection(
-            title = "Asmenines lokacijos",
-            subtitle = "Privacios vietos tavo asmeniniam naudojimui.",
+            title = "Asmeninės lokacijos",
+            subtitle = "Privačios vietos tavo asmeniniam naudojimui.",
             icon = Icons.Default.Person,
             rootCandidates = privateLocations,
             expandedIds = uiState.expandedIds,
@@ -273,13 +273,13 @@ private fun LocationHeroCard(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Lokaciju katalogas",
+                        text = "Lokacijų katalogas",
                         style = MaterialTheme.typography.headlineSmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Perzvelk visa medzi, filtruok pagal matomuma ir greiciau surask konkrecia saka.",
+                        text = "Peržvelk visą medį, filtruok pagal matomumą ir greičiau surask konkrečią šaką.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
                     )
@@ -294,7 +294,7 @@ private fun LocationHeroCard(
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SkautaiStatusPill(
-                    label = "$totalCount is viso",
+                    label = "$totalCount iš viso",
                     containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
                     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
@@ -385,7 +385,7 @@ private fun LazyListScope.locationSection(
     if (rootCandidates.isEmpty()) {
         item(key = "empty_$title") {
             Text(
-                text = "Siame skyriuje lokaciju dar nera.",
+                text = "Šiame skyriuje lokacijų dar nėra.",
                 modifier = Modifier.padding(start = 4.dp, top = 2.dp, bottom = 8.dp),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -441,7 +441,7 @@ private fun LocationRow(
                     IconButton(onClick = { onToggle(location.id) }, modifier = Modifier.size(34.dp)) {
                         Icon(
                             imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                            contentDescription = if (expanded) "Sutraukti" else "Isskleisti"
+                            contentDescription = if (expanded) "Sutraukti" else "Išskleisti"
                         )
                     }
                 } else {
@@ -482,7 +482,7 @@ private fun LocationRow(
                         )
                         if (location.hasChildren) {
                             SkautaiStatusPill(
-                                label = "Saka",
+                                label = "Šaka",
                                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                             )
@@ -615,22 +615,22 @@ private fun locationIconContent(depth: Int, hasChildren: Boolean): Color = when 
 }
 
 private fun visibilityLabel(value: String): String = when (value) {
-    "PRIVATE" -> "Asmenine"
+    "PRIVATE" -> "Asmeninė"
     "UNIT" -> "Vieneto"
-    else -> "Viesa"
+    else -> "Vieša"
 }
 
 private fun activeScopeLabel(filter: LocationFilter, searchQuery: String): String = when {
-    searchQuery.isNotBlank() && filter != LocationFilter.All -> "Paieska + ${filter.label}"
-    searchQuery.isNotBlank() -> "Paieska aktyvi"
+    searchQuery.isNotBlank() && filter != LocationFilter.All -> "Paieška + ${filter.label}"
+    searchQuery.isNotBlank() -> "Paieška aktyvi"
     else -> filter.label
 }
 
 enum class LocationFilter(val label: String) {
     All("Visos"),
-    Public("Viesos"),
+    Public("Viešos"),
     Unit("Vieneto"),
-    Private("Asmenines")
+    Private("Asmeninės")
 }
 
 data class LocationListUiState(
@@ -707,7 +707,7 @@ class LocationListViewModel @Inject constructor(
                     if (_uiState.value.locations.isEmpty()) {
                         _uiState.value = _uiState.value.copy(
                             isLoading = false,
-                            error = error.message ?: "Nepavyko gauti lokaciju",
+                            error = error.message ?: "Nepavyko gauti lokacijų",
                             isEmpty = true
                         )
                     }

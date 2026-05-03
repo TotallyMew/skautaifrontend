@@ -90,7 +90,7 @@ fun ReservationDetailScreen(
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atšaukti rezervacija") },
+            title = { Text("Atšaukti rezervaciją") },
             text = { Text("Ar tikrai norite atšaukti šią rezervaciją?") },
             confirmButton = {
                 TextButton(onClick = {
@@ -102,7 +102,7 @@ fun ReservationDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uzdaryti")
+                    Text("Uždaryti")
                 }
             }
         )
@@ -199,12 +199,15 @@ private fun ReservationDto.canManageMovements(
     activeOrgUnitId: String?
 ): Boolean =
     items.any { item ->
-        when {
-            item.custodianId == null -> permissions.canApproveTopLevelReservations()
-            permissions.canApproveTopLevelReservations() -> true
-            else -> permissions.canApproveUnitReservations() && item.custodianId == activeOrgUnitId
+        if (item.custodianId == null) {
+            permissions.canApproveTopLevelReservations()
+        } else {
+            permissions.canApproveOwnUnitReservations() && item.custodianId == activeOrgUnitId
         }
     }
+
+private fun Set<String>.canApproveOwnUnitReservations(): Boolean =
+    "reservations.approve:OWN_UNIT" in this
 
 private fun ReservationDto.canBeCancelledBy(userId: String?): Boolean =
     userId != null &&
@@ -380,23 +383,23 @@ private fun ReservationDetailContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Text(
-                        text = "Rezervacijos veiksm?i",
+                        text = "Rezervacijos veiksmai",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     HorizontalDivider()
                     if (canReviewUnit) {
                         ReviewActionRow(
-                            approveText = "Patvirtinti vieneto dali",
-                            rejectText = "Atmesti vieneto dali",
+                            approveText = "Patvirtinti vieneto dalį",
+                            rejectText = "Atmesti vieneto dalį",
                             onApprove = onApproveUnit,
                             onReject = onRejectUnit
                         )
                     }
                     if (canReviewTopLevel) {
                         ReviewActionRow(
-                            approveText = "Patvirtinti tunto dali",
-                            rejectText = "Atmesti tunto dali",
+                            approveText = "Patvirtinti tunto dalį",
+                            rejectText = "Atmesti tunto dalį",
                             onApprove = onApproveTopLevel,
                             onReject = onRejectTopLevel
                         )
@@ -416,7 +419,7 @@ private fun ReservationDetailContent(
                                     modifier = Modifier.size(20.dp)
                                 )
                             } else {
-                                Text("Atšaukti rezervacija")
+                                Text("Atšaukti rezervaciją")
                             }
                         }
                     }
@@ -460,7 +463,7 @@ private fun ReservationTimingCard(reservation: ReservationDto) {
             reservation.requestingUnitName?.takeIf { it.isNotBlank() }?.let {
                 ReservationInfoRow("Vienetas", it)
             }
-            ReservationInfoRow("Daiktu rusys", reservation.totalItems.toString())
+            ReservationInfoRow("Daiktų rūšys", reservation.totalItems.toString())
             ReservationInfoRow("Bendras kiekis", reservation.totalQuantity.toString())
             reservation.notes?.takeIf { it.isNotBlank() }?.let {
                 ReservationInfoRow("Pastabos", it)
@@ -511,15 +514,15 @@ private fun TimeProposalCard(
             )
             HorizontalDivider()
             ReservationInfoRow(
-                "Busena",
+                "Būsena",
                 when (proposalStatus) {
                     "PENDING" -> "Laukia atsakymo"
                     "ACCEPTED" -> "Suderinta"
-                    else -> "Dar nepasiulyta"
+                    else -> "Dar nepasiūlyta"
                 }
             )
             currentTime?.let {
-                ReservationInfoRow("Siulomas laikas", it.take(16).replace("T", " "))
+                ReservationInfoRow("Siūlomas laikas", it.take(16).replace("T", " "))
             }
             currentLocationPath?.takeIf { it.isNotBlank() }?.let {
                 ReservationInfoRow("Lokacija", it)
@@ -528,7 +531,7 @@ private fun TimeProposalCard(
                 onClick = { showDatePicker = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(selectedDate?.toString() ?: "Pasirinkti data")
+                Text(selectedDate?.toString() ?: "Pasirinkti datą")
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),

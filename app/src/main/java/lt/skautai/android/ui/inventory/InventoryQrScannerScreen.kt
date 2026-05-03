@@ -50,9 +50,9 @@ fun InventoryQrScannerScreen(
             is QrDestination.ScanToken -> viewModel.resolveToken(parsed.token, onOpenItem)
             QrDestination.Unknown -> {
                 viewModel.showMessage(if (result.contents.isNullOrBlank()) {
-                    "Skenavimas nutrauktas. Gali bandyti dar karta."
+                    "Skenavimas nutrauktas. Gali bandyti dar kartą."
                 } else {
-                    "Sis QR kodas neatpazintas. Tikimasi formato ${QrPayload.forScanToken("token")}."
+                    "Šis QR kodas neatpažintas. Tikimasi formato ${QrPayload.forScanToken("token")}."
                 })
             }
         }
@@ -73,7 +73,7 @@ fun InventoryQrScannerScreen(
         launchScan = false
         val options = ScanOptions().apply {
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setPrompt("Nukreipk kamera i inventoriaus QR koda")
+            setPrompt("Nukreipk kamerą į inventoriaus QR kodą")
             setBeepEnabled(false)
             setOrientationLocked(true)
         }
@@ -105,11 +105,11 @@ fun InventoryQrScannerScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(
-                        text = "Paruosiame skeneri",
+                        text = "Paruošiame skenerį",
                         style = MaterialTheme.typography.titleLarge
                     )
                     Text(
-                        text = "Atidarysime kameros langa ir ieskosime formato ${QrPayload.forScanToken("token")}.",
+                        text = "Atidarysime kameros langą ir ieškosime formato ${QrPayload.forScanToken("token")}.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -156,13 +156,13 @@ fun InventoryQrScannerScreen(
                     },
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Bandyti skenuoti dar karta")
+                    Text("Bandyti skenuoti dar kartą")
                 }
                 OutlinedButton(
                     onClick = onBack,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Grizti i inventoriu")
+                    Text("Grįžti į inventorių")
                 }
             }
         }

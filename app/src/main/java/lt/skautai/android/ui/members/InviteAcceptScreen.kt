@@ -105,7 +105,7 @@ fun InviteAcceptScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Text("Role: ${invitation.roleName}")
+                        Text("Pareigos / laipsnis: ${displayRoleName(invitation.roleName)}")
                         invitation.organizationalUnitName?.let { Text("Vienetas: $it") }
                         Text("Tuntas: ${invitation.tuntasName}")
                     }

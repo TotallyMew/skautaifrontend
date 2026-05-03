@@ -53,7 +53,7 @@ fun RequestCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas pa?mimo pra?ymas") },
+                title = { Text("Naujas paėmimo prašymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -87,14 +87,14 @@ fun RequestCreateScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Pa?mimo is tunto pra?ymas",
+                            text = "Paėmimo iš tunto prašymas",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Naudojama tada, kai daiktas jau yra bendrame tunto inventori?je ir ji reikia perduoti vienetui.",
+                            text = "Naudojama tada, kai daiktas jau yra bendrame tunto inventoriuje ir jį reikia perduoti vienetui.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -105,7 +105,7 @@ fun RequestCreateScreen(
                     value = uiState.itemDescription,
                     onValueChange = viewModel::onItemDescriptionChange,
                     label = { Text("Bendro inventoriaus daiktas *") },
-                    placeholder = { Text("pvz. Palapine 4 asmenims, Kompasas...") },
+                    placeholder = { Text("pvz. Palapinė 4 asmenims, Kompasas...") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4
@@ -159,7 +159,7 @@ fun RequestCreateScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     } else {
-                        Text("Pateikti prasyma")
+                        Text("Pateikti prašymą")
                     }
                 }
             }
@@ -186,7 +186,7 @@ private fun RequestOrgUnitDropdown(
             value = selectedUnit?.name ?: selectedOrgUnitName ?: "Tuntui",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Kam teikiamas pra?ymas") },
+            label = { Text("Kam teikiamas prašymas") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()

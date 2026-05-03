@@ -110,7 +110,7 @@ fun InventoryDetailScreen(
 
     LaunchedEffect(sharedRequestCreated) {
         if (sharedRequestCreated) {
-            snackbarHostState.showSnackbar("PaÄ—mimo praÅ¡ymas sukurtas.")
+            snackbarHostState.showSnackbar("Paėmimo prašymas sukurtas.")
             viewModel.onSharedRequestMessageShown()
         }
     }
@@ -156,7 +156,7 @@ fun InventoryDetailScreen(
                     }
                     if (canDelete) {
                         IconButton(onClick = { showDeleteDialog = true }) {
-                            Icon(Icons.Default.Delete, contentDescription = "Istrinti")
+                            Icon(Icons.Default.Delete, contentDescription = "Ištrinti")
                         }
                     }
                 }
@@ -208,7 +208,7 @@ fun InventoryDetailScreen(
             onSharePdf = {
                 runCatching {
                     val printableItem = currentItem.toPrintableQrItemOrNull()
-                        ?: error("Sio daikto QR PDF sugeneruoti negalima.")
+                        ?: error("Šio daikto QR PDF sugeneruoti negalima.")
                     QrPdfShareLauncher.share(context, listOf(printableItem))
                 }.onSuccess {
                     viewModel.onQrPdfShared()
@@ -224,8 +224,8 @@ fun InventoryDetailScreen(
     if (showDeleteDialog && currentItem != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Istrinti inventoriu?") },
-            text = { Text("Daiktas bus pazymetas kaip neaktyvus ir liks matomas neaktyviu inventoriaus filtre.") },
+            title = { Text("Ištrinti inventorių?") },
+            text = { Text("Daiktas bus pažymėtas kaip neaktyvus ir liks matomas neaktyvaus inventoriaus filtre.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -233,12 +233,12 @@ fun InventoryDetailScreen(
                         viewModel.deleteItem(itemId)
                     }
                 ) {
-                    Text("Istrinti")
+                    Text("Ištrinti")
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         )
@@ -293,7 +293,7 @@ private fun ItemDetailContent(
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Text(
-                            text = listOfNotNull(item.locationPath ?: item.locationName, item.custodianName).joinToString(" Â· ").ifBlank {
+                            text = listOfNotNull(item.locationPath ?: item.locationName, item.custodianName).joinToString(" · ").ifBlank {
                                 "Vieta dar nenurodyta"
                             },
                             style = MaterialTheme.typography.bodyMedium,
@@ -317,9 +317,9 @@ private fun ItemDetailContent(
 
                 Text(
                     text = if (isSharedTransfer) {
-                        "Sis daiktas atkeliaves is bendro inventoriaus, todel jo valdymas ribojamas pagal role."
+                        "Šis daiktas atkeliavęs iš bendro inventoriaus, todėl jo valdymas ribojamas pagal rolę."
                     } else {
-                        "Savo vieneto daiktas gali b?ti pilnai tvarkomas, jei naudotojas turi tam reikiamas teises."
+                        "Savo vieneto daiktas gali būti pilnai tvarkomas, jei naudotojas turi tam reikiamas teises."
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
@@ -367,7 +367,7 @@ private fun ItemDetailContent(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        text = "Kilme",
+                        text = "Kilmė",
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
                     )
@@ -388,10 +388,10 @@ private fun ItemDetailContent(
                 Text(text = "Metaduomenys", style = MaterialTheme.typography.titleLarge)
                 MetadataRow("Tipas", inventoryTypeLabel(item.type))
                 MetadataRow("Kategorija", inventoryCategoryLabel(item.category))
-                MetadataRow("Busena", itemStatusLabel(item.status))
-                MetadataRow("Bukle", itemConditionLabel(item.condition))
-                MetadataRow("Kilme", originDisplay)
-                MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandelis")
+                MetadataRow("Būsena", itemStatusLabel(item.status))
+                MetadataRow("Būklė", itemConditionLabel(item.condition))
+                MetadataRow("Kilmė", originDisplay)
+                MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandėlis")
                 MetadataRow("Vieta", item.locationPath ?: item.locationName ?: "Nenurodyta")
                 item.purchaseDate?.let { MetadataRow("Pirkta", it.take(10)) }
                 item.purchasePrice?.let { MetadataRow("Kaina", String.format("%.2f EUR", it)) }
@@ -408,7 +408,7 @@ private fun ItemDetailContent(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("Rodyti daikto QR koda")
+                Text("Rodyti daikto QR kodą")
             }
         }
 
@@ -421,7 +421,7 @@ private fun ItemDetailContent(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(text = "ApraÅ¡ymas", style = MaterialTheme.typography.titleMedium)
+                    Text(text = "Aprašymas", style = MaterialTheme.typography.titleMedium)
                     Text(text = it, style = MaterialTheme.typography.bodyMedium)
                 }
             }
@@ -464,13 +464,13 @@ private fun ItemDetailContent(
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Text(
-                        text = "Gauti Ä¯ vienetÄ…",
+                        text = "Gauti į vienetą",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSecondaryContainer
                     )
                     Text(
-                        text = "Jei daiktas jau yra bendrame tunto inventori?je, kurk paÄ—mimo praÅ¡ymÄ…, o ne pirkimo praÅ¡ymÄ….",
+                        text = "Jei daiktas jau yra bendrame tunto inventoriuje, kurk paėmimo prašymą, o ne pirkimo prašymą.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
                     )
@@ -485,7 +485,7 @@ private fun ItemDetailContent(
                                 modifier = Modifier.size(18.dp)
                             )
                         } else {
-                            Text("PraÅ¡yti paÄ—mimo Ä¯ aktyvÅ³ vienetÄ…")
+                            Text("Prašyti paėmimo į aktyvų vienetą")
                         }
                     }
                 }
@@ -502,14 +502,14 @@ private fun ItemDetailContent(
                     enabled = item.status != "ACTIVE" && !isUpdatingStatus && !isCreatingSharedRequest,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (isUpdatingStatus && item.status != "ACTIVE") "Keiciama..." else "Aktyvus")
+                    Text(if (isUpdatingStatus && item.status != "ACTIVE") "Keičiama..." else "Aktyvus")
                 }
                 OutlinedButton(
                     onClick = { onStatusChange("INACTIVE") },
                     enabled = item.status != "INACTIVE" && !isUpdatingStatus && !isCreatingSharedRequest,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text(if (isUpdatingStatus && item.status != "INACTIVE") "Keiciama..." else "Neaktyvus")
+                    Text(if (isUpdatingStatus && item.status != "INACTIVE") "Keičiama..." else "Neaktyvus")
                 }
             }
         }
@@ -525,11 +525,11 @@ private fun ItemDetailContent(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("Istrinti inventoriu")
+                Text("Ištrinti inventorių")
             }
         }
         Text(
-            text = "Sukurta ${item.createdAt.take(10)} Â· Atnaujinta ${item.updatedAt.take(10)}",
+            text = "Sukurta ${item.createdAt.take(10)} · Atnaujinta ${item.updatedAt.take(10)}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -539,8 +539,8 @@ private fun ItemDetailContent(
 private fun itemOriginDisplay(item: ItemDto): String = when {
     item.type == "INDIVIDUAL" -> item.createdByUserName?.takeIf { it.isNotBlank() } ?: "Asmeninis daiktas"
     item.custodianName?.isNotBlank() == true -> item.custodianName!!
-    item.custodianId == null -> "Tunto inventori?s"
-    item.origin == "TRANSFERRED_FROM_TUNTAS" -> "Tunto inventori?s"
+    item.custodianId == null -> "Tunto inventorius"
+    item.origin == "TRANSFERRED_FROM_TUNTAS" -> "Tunto inventorius"
     else -> "Nenurodyta"
 }
 

@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import lt.skautai.android.data.remote.AuthApiService
 import lt.skautai.android.data.remote.LoginRequestDto
 import lt.skautai.android.data.remote.RefreshTokenRequestDto
@@ -50,10 +52,10 @@ class AuthRepository @Inject constructor(
                 Result.success(body)
 
             } else {
-                Result.failure(Exception(response.errorMessage("Login failed")))
+                Result.failure(Exception(response.errorMessage("Prisijungimas nepavyko")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -83,10 +85,10 @@ class AuthRepository @Inject constructor(
                 persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorMessage("Registration failed")))
+                Result.failure(Exception(response.errorMessage("Registracija nepavyko")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -114,10 +116,10 @@ class AuthRepository @Inject constructor(
                 persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorMessage("Registration failed")))
+                Result.failure(Exception(response.errorMessage("Registracija nepavyko")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -133,10 +135,10 @@ class AuthRepository @Inject constructor(
                 persistSession(body)
                 Result.success(body)
             } else {
-                Result.failure(Exception(response.errorMessage("Refresh failed")))
+                Result.failure(Exception(response.errorMessage("Perkrovimas nepavyko")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 

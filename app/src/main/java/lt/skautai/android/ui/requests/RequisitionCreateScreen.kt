@@ -78,7 +78,7 @@ fun RequisitionCreateScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Naujas pra?ymas") },
+                title = { Text("Naujas prašymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -112,14 +112,14 @@ fun RequisitionCreateScreen(
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
-                            text = "Pirkimo arba papildymo pra?ymas",
+                            text = "Pirkimo arba papildymo prašymas",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            text = "Apra?yk tr?kstam? inventori?. Vieneto vadovas gales pats patvirtinti arba perduoti inventorininkui.",
+                            text = "Aprašyk trūkstamą inventorių. Vieneto vadovas galės pats patvirtinti arba perduoti inventorininkui.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSecondaryContainer
                         )
@@ -130,7 +130,7 @@ fun RequisitionCreateScreen(
                     value = uiState.itemName,
                     onValueChange = viewModel::onItemNameChange,
                     label = { Text("Norimas daiktas *") },
-                    placeholder = { Text("pvz. Palapine 4 asmenims") },
+                    placeholder = { Text("pvz. Palapinė 4 asmenims") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
@@ -138,8 +138,8 @@ fun RequisitionCreateScreen(
                 OutlinedTextField(
                     value = uiState.itemDescription,
                     onValueChange = viewModel::onItemDescriptionChange,
-                    label = { Text("Paaiskinimas") },
-                    placeholder = { Text("Kuo tiksliau apra?yk, ko reikia") },
+                    label = { Text("Paaiškinimas") },
+                    placeholder = { Text("Kuo tiksliau aprašyk, ko reikia") },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4
@@ -190,7 +190,7 @@ fun RequisitionCreateScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     } else {
-                        Text("Pateikti prasyma")
+                        Text("Pateikti prašymą")
                     }
                 }
             }
@@ -211,7 +211,7 @@ private fun RequisitionDatePickerField(
         onValueChange = {},
         readOnly = true,
         label = { Text("Reikalinga iki") },
-        placeholder = { Text("Pasirinkite data") },
+        placeholder = { Text("Pasirinkite datą") },
         modifier = Modifier.fillMaxWidth(),
         trailingIcon = {
             TextButton(onClick = { showPicker = true }) {
@@ -272,7 +272,7 @@ private fun RequisitionOrgUnitDropdown(
             value = selectedUnit?.name ?: selectedOrgUnitName ?: "Tuntui",
             onValueChange = {},
             readOnly = true,
-            label = { Text("Kam teikiamas pra?ymas") },
+            label = { Text("Kam teikiamas prašymas") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .fillMaxWidth()

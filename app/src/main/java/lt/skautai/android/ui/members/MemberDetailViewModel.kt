@@ -73,7 +73,7 @@ class MemberDetailViewModel @Inject constructor(
             if (currentUser != null && isScoutReadOnlyMember(currentUser) && currentUser.userId != userId) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
-                    error = "Nario detale prieinama tik vadovams."
+                    error = "Nario detalė prieinama tik vadovams."
                 )
                 return@launch
             }
@@ -150,7 +150,7 @@ class MemberDetailViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        actionError = e.message ?: "Klaida perkeliant nari"
+                        actionError = e.message ?: "Klaida perkeliant narį"
                     )
                 }
         }
@@ -310,7 +310,7 @@ class MemberDetailViewModel @Inject constructor(
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
-                        actionError = e.message ?: "Klaida gaunant nariųs"
+                        actionError = e.message ?: "Klaida gaunant narius"
                     )
                 }
         }
@@ -344,7 +344,7 @@ class MemberDetailViewModel @Inject constructor(
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        actionError = e.message ?: "Klaida perleidziant tuntininko pareigas"
+                        actionError = e.message ?: "Klaida perleidžiant tuntininko pareigas"
                     )
                 }
         }

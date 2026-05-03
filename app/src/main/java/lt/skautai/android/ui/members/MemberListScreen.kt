@@ -98,7 +98,7 @@ fun MemberListScreen(
                             "Čia matysi savo vieneto arba tunto narius pagal turimas teises."
                         },
                         icon = Icons.Default.Groups,
-                        actionLabel = if (canInvite) "Pakviesti nar?" else "Gr??ti ? prad?i?",
+                        actionLabel = if (canInvite) "Pakviesti narį?" else "Grįžti į pradžią",
                         onAction = if (canInvite) onInviteClick else onEmptyActionClick,
                         modifier = Modifier.align(Alignment.Center)
                     )
@@ -150,7 +150,7 @@ fun MemberListScreen(
                             if (filteredMembers.isEmpty()) {
                                 item {
                                     SkautaiEmptyState(
-                                        title = "Nieko n?rasta",
+                                        title = "Nieko nerasta",
                                         subtitle = "Pabandyk ieškoti pagal vardą, el. paštą, telefoną, pareigas ar vienetą.",
                                         icon = Icons.Default.Person
                                     )
@@ -180,7 +180,7 @@ fun MemberListScreen(
                             .align(Alignment.BottomEnd)
                             .padding(16.dp)
                     ) {
-                        Icon(Icons.Default.Add, contentDescription = "Pakviesti nar?")
+                        Icon(Icons.Default.Add, contentDescription = "Pakviesti narį?")
                     }
                 }
             }
@@ -229,7 +229,7 @@ private fun MemberToolbar(
             SkautaiSearchBar(
                 value = query,
                 onValueChange = onQueryChange,
-                placeholder = "Ieskoti nario",
+                placeholder = "Ieškoti nario",
                 leadingIcon = Icons.Default.Search
             )
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

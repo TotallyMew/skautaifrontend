@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import com.google.gson.Gson
 import java.io.IOException
 import java.time.Instant
@@ -92,7 +94,7 @@ class ReservationRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijų.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -111,7 +113,7 @@ class ReservationRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijos.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -194,7 +196,7 @@ class ReservationRepository @Inject constructor(
                 request
             )
             Result.success(reservation)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun getAvailability(startDate: String, endDate: String): Result<ReservationAvailabilityDto> {
@@ -202,7 +204,7 @@ class ReservationRepository @Inject constructor(
             val response = reservationApiService.getAvailability("Bearer ${token()}", tuntasId(), startDate, endDate)
             if (response.isSuccessful) Result.success(response.body()!!)
             else Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervavimo likučių.")))
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun updateReservationStatus(id: String, request: UpdateReservationStatusRequestDto): Result<ReservationDto> =
@@ -261,7 +263,7 @@ class ReservationRepository @Inject constructor(
                 mapOf("id" to id)
             )
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun reviewUnitReservation(id: String, request: ReviewReservationRequestDto): Result<ReservationDto> =
@@ -279,7 +281,7 @@ class ReservationRepository @Inject constructor(
             val response = reservationApiService.getReservationMovements("Bearer ${token()}", tuntasId(), id)
             if (response.isSuccessful) Result.success(response.body()!!)
             else Result.failure(Exception(response.errorMessage("Klaida gaunant judejimus")))
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun issueReservationItems(id: String, request: ReservationMovementRequestDto): Result<ReservationDto> =
@@ -328,7 +330,7 @@ class ReservationRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = reservationDao.getReservation(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Rezervacija n?rasta offline cache"))
+                ?: return Result.failure(Exception("Rezervacija nerasta offline cache"))
             val updated = when (payload) {
                 is ReviewReservationRequestDto -> cached.copy(
                     unitReviewStatus = if (operationType == PendingOperationType.RESERVATION_REVIEW_UNIT) payload.status else cached.unitReviewStatus,
@@ -355,7 +357,7 @@ class ReservationRepository @Inject constructor(
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.RESERVATION, id, operationType, payload)
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 }

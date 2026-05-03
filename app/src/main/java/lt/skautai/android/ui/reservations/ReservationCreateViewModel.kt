@@ -74,7 +74,7 @@ class ReservationCreateViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoadingItems = false,
-                        formError = error.message ?: "Nepavyko gauti inventoriaus saraso."
+                        formError = error.message ?: "Nepavyko gauti inventoriaus sąrašo."
                     )
                 }
         }
@@ -115,7 +115,7 @@ class ReservationCreateViewModel @Inject constructor(
 
         val item = state.items.find { it.id == itemId }
             ?: run {
-                _uiState.value = state.copy(formError = "Daiktas n?rastas.")
+                _uiState.value = state.copy(formError = "Daiktas nerastas.")
                 return
             }
 
@@ -159,10 +159,10 @@ class ReservationCreateViewModel @Inject constructor(
     fun createReservation() {
         val state = _uiState.value
         val titleError = if (state.title.isBlank()) "Įveskite rezervacijos pavadinimą." else null
-        val startDateError = if (state.startDate.isBlank()) "Pasirinkite pradzios data." else null
-        val endDateError = if (state.endDate.isBlank()) "Pasirinkite pabaigos data." else null
+        val startDateError = if (state.startDate.isBlank()) "Pasirinkite pradžios datą." else null
+        val endDateError = if (state.endDate.isBlank()) "Pasirinkite pabaigos datą." else null
         val formError = when {
-            state.selectedItems.isEmpty() -> "Pridekite bent viena daikta."
+            state.selectedItems.isEmpty() -> "Pridėkite bent vieną daiktą."
             titleError != null || startDateError != null || endDateError != null ->
                 "Patikslinkite pažymėtus laukus."
             else -> null
@@ -262,7 +262,7 @@ class ReservationCreateViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isLoadingAvailability = false,
-                    snackbarMessage = error.message ?: "Klaida gaunant prieinama kieki."
+                    snackbarMessage = error.message ?: "Klaida gaunant prieinamą kiekį."
                 )
             }
         }

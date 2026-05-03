@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -64,7 +66,7 @@ class LocationRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti lokacijų.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -97,7 +99,7 @@ class LocationRepository @Inject constructor(
         } catch (e: Exception) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
             val cached = currentTuntasId?.let { locationDao.getLocation(locationId, it)?.toDto() }
-            cached?.let { Result.success(it) } ?: Result.failure(e)
+            cached?.let { Result.success(it) } ?: Result.failure(e.userFacingException())
         }
     }
 
@@ -142,7 +144,7 @@ class LocationRepository @Inject constructor(
             )
             Result.success(location)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -160,7 +162,7 @@ class LocationRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = locationDao.getLocation(locationId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Lokacija n?rasta"))
+                ?: return Result.failure(Exception("Lokacija nerasta"))
             val merged = cached.copy(
                 name = request.name ?: cached.name,
                 visibility = request.visibility ?: cached.visibility,
@@ -187,7 +189,7 @@ class LocationRepository @Inject constructor(
             }
             Result.success(merged)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -220,7 +222,7 @@ class LocationRepository @Inject constructor(
             }
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 }

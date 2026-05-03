@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -69,7 +71,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant vienetus")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -99,7 +101,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 if (cachedUnit != null) {
                     Result.success(cachedUnit)
                 } else {
-                    Result.failure(Exception(response.errorMessage("Vienetas n?rastas")))
+                    Result.failure(Exception(response.errorMessage("Vienetas nerastas")))
                 }
             }
         } catch (e: Exception) {
@@ -107,7 +109,7 @@ class OrganizationalUnitRepository @Inject constructor(
             val cachedUnit = currentTuntasId?.let {
                 organizationalUnitDao.getUnit(unitId, it)?.toDto()
             }
-            if (cachedUnit != null) Result.success(cachedUnit) else Result.failure(e)
+            if (cachedUnit != null) Result.success(cachedUnit) else Result.failure(e.userFacingException())
         }
     }
 
@@ -145,7 +147,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -162,7 +164,7 @@ class OrganizationalUnitRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = organizationalUnitDao.getUnit(unitId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Vienetas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Vienetas nerastas offline cache"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 acceptedRankId = request.acceptedRankId ?: cached.acceptedRankId
@@ -177,7 +179,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -203,7 +205,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -217,7 +219,7 @@ class OrganizationalUnitRepository @Inject constructor(
             val cachedMembers = currentTuntasId
                 ?.let { cachedUnitMembers(it, unitId) }
                 .orEmpty()
-            if (cachedMembers.isNotEmpty()) Result.success(cachedMembers) else Result.failure(e)
+            if (cachedMembers.isNotEmpty()) Result.success(cachedMembers) else Result.failure(e.userFacingException())
         }
     }
 
@@ -238,7 +240,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(localMembership(unitId, request.userId, request.assignmentType, currentTuntasId))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -259,7 +261,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -281,7 +283,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -302,7 +304,7 @@ class OrganizationalUnitRepository @Inject constructor(
             )
             Result.success(localMembership(unitId, userId, "PRIMARY", currentTuntasId))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 

@@ -10,11 +10,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.data.remote.ReservationMovementItemRequestDto
 import lt.skautai.android.data.remote.ReservationMovementRequestDto
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.ReservationRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 
 data class ReservationMovementUiState(
     val isLoading: Boolean = true,
@@ -25,13 +28,16 @@ data class ReservationMovementUiState(
     val selectedQuantities: Map<String, Int> = emptyMap(),
     val notes: String = "",
     val locations: List<LocationDto> = emptyList(),
-    val selectedLocationId: String? = null
+    val selectedLocationId: String? = null,
+    val permissions: Set<String> = emptySet(),
+    val activeUnitId: String? = null
 )
 
 @HiltViewModel
 class ReservationMovementViewModel @Inject constructor(
     private val reservationRepository: ReservationRepository,
     private val locationRepository: LocationRepository,
+    private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     val reservationId: String = savedStateHandle["reservationId"] ?: ""
@@ -50,9 +56,11 @@ class ReservationMovementViewModel @Inject constructor(
             reservationRepository.getReservation(reservationId)
                 .onSuccess { reservation ->
                     val locations = locationRepository.getLocations().getOrDefault(emptyList())
+                    val permissions = tokenManager.permissions.first()
+                    val activeUnitId = tokenManager.activeOrgUnitId.first()
                     val defaultQuantities = reservation.items
                         .mapNotNull { item ->
-                            val max = maxQuantity(item)
+                            val max = maxQuantity(item, permissions, activeUnitId)
                             if (max > 0) item.itemId to max else null
                         }
                         .toMap()
@@ -61,6 +69,8 @@ class ReservationMovementViewModel @Inject constructor(
                         reservation = reservation,
                         selectedQuantities = defaultQuantities,
                         locations = locations,
+                        permissions = permissions,
+                        activeUnitId = activeUnitId,
                         selectedLocationId = when (mode) {
                             "return" -> reservation.returnLocationId
                             else -> reservation.pickupLocationId
@@ -70,7 +80,7 @@ class ReservationMovementViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Klaida gaunant rezervacija"
+                        error = error.message ?: "Klaida gaunant rezervaciją"
                     )
                 }
         }
@@ -111,7 +121,7 @@ class ReservationMovementViewModel @Inject constructor(
             .filterValues { it > 0 }
             .map { (itemId, quantity) -> ReservationMovementItemRequestDto(itemId, quantity) }
         if (items.isEmpty()) {
-            _uiState.value = state.copy(error = "Pasirinkite bent viena kieki")
+            _uiState.value = state.copy(error = "Pasirinkite bent vieną kiekį")
             return
         }
 
@@ -132,7 +142,7 @@ class ReservationMovementViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Klaida registruojant veiksm?"
+                        error = error.message ?: "Klaida registruojant veiksmą"
                     )
                 }
         }
@@ -142,9 +152,30 @@ class ReservationMovementViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(error = null)
     }
 
-    fun maxQuantity(item: lt.skautai.android.data.remote.ReservationItemDto): Int = when (mode) {
-        "return" -> item.remainingToReceive
-        "mark_returned" -> item.remainingToMarkReturned
-        else -> item.remainingToIssue
+    fun maxQuantity(item: ReservationItemDto): Int {
+        val state = _uiState.value
+        return maxQuantity(item, state.permissions, state.activeUnitId)
+    }
+
+    private fun maxQuantity(
+        item: ReservationItemDto,
+        permissions: Set<String>,
+        activeUnitId: String?
+    ): Int {
+        if (mode != "mark_returned" && !item.canBeMovementManagedBy(permissions, activeUnitId)) {
+            return 0
+        }
+        return when (mode) {
+            "return" -> item.remainingToReceive
+            "mark_returned" -> item.remainingToMarkReturned
+            else -> item.remainingToIssue
+        }
     }
 }
+
+private fun ReservationItemDto.canBeMovementManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
+    if (custodianId == null) {
+        "reservations.approve:ALL" in permissions
+    } else {
+        ("reservations.approve:OWN_UNIT" in permissions) && custodianId == activeUnitId
+    }

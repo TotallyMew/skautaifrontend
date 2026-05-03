@@ -101,7 +101,18 @@ private val KnownInventoryCategories = listOf(
 )
 
 private fun addSharedActionLabel(canCreateSharedDirectly: Boolean): String =
-    if (canCreateSharedDirectly) "Prideti daikta" else "Pateikti patvirtinimui"
+    if (canCreateSharedDirectly) "Pridėti daiktą" else "Pateikti patvirtinimui"
+
+private fun Int.inventoryApprovalNoun(): String {
+    val lastTwo = this % 100
+    val last = this % 10
+    return when {
+        lastTwo in 11..19 -> "patvirtinimų"
+        last == 1 -> "patvirtinimas"
+        last in 2..9 -> "patvirtinimai"
+        else -> "patvirtinimų"
+    }
+}
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -117,9 +128,9 @@ fun InventoryListScreen(
     val selectionMode by viewModel.selectionMode.collectAsStateWithLifecycle()
     val selectedItemIds by viewModel.selectedItemIds.collectAsStateWithLifecycle()
     val actionMessage by viewModel.actionMessage.collectAsStateWithLifecycle()
-    val selectedType by viewModel.selectedType.collectAsStateWithLifecycle()
-    val selectedCategory by viewModel.selectedCategory.collectAsStateWithLifecycle()
-    val selectedLocationId by viewModel.selectedLocationId.collectAsStateWithLifecycle()
+    val selectedTypes by viewModel.selectedTypes.collectAsStateWithLifecycle()
+    val selectedCategories by viewModel.selectedCategories.collectAsStateWithLifecycle()
+    val selectedLocationIds by viewModel.selectedLocationIds.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
     val locations by viewModel.locations.collectAsStateWithLifecycle()
     val canApprove = permissions.canManageSharedInventory()
@@ -132,9 +143,9 @@ fun InventoryListScreen(
     val filteredVisibleItems = remember(
         uiState,
         searchQuery,
-        selectedType,
-        selectedCategory,
-        selectedLocationId,
+        selectedTypes,
+        selectedCategories,
+        selectedLocationIds,
         locations
     ) {
         val successState = uiState as? InventoryListUiState.Success ?: return@remember emptyList()
@@ -167,7 +178,7 @@ fun InventoryListScreen(
             SkautaiSearchBar(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
-                placeholder = "IeÅ¡koti pagal pavadinimÄ…, vietÄ… ar pastabas",
+                placeholder = "Ieškoti pagal pavadinimą, vietą ar pastabas",
                 leadingIcon = Icons.Default.Search
             )
 
@@ -176,7 +187,7 @@ fun InventoryListScreen(
                     selectedCount = selectedPrintableItems.size,
                     onGeneratePdf = {
                         if (selectedPrintableItems.isEmpty()) {
-                            viewModel.onPdfShareFailed("Pasirink bent viena daikta QR PDF generavimui.")
+                            viewModel.onPdfShareFailed("Pasirink bent vieną daiktą QR PDF generavimui.")
                         } else {
                             runCatching {
                                 QrPdfShareLauncher.share(context, selectedPrintableItems)
@@ -234,9 +245,9 @@ fun InventoryListScreen(
             InventoryBody(
                 state = uiState,
                 searchQuery = searchQuery,
-                selectedType = selectedType,
-                selectedCategory = selectedCategory,
-                selectedLocationId = selectedLocationId,
+                selectedTypes = selectedTypes,
+                selectedCategories = selectedCategories,
+                selectedLocationIds = selectedLocationIds,
                 selectedStatus = selectedStatus,
                 locations = locations,
                 openedCustodianId = openedCustodianId,
@@ -290,13 +301,13 @@ private fun ApprovalBanner(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Laukia ${items.size} patvirtinimai",
+                        text = "Laukia ${items.size} ${items.size.inventoryApprovalNoun()}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Patikrink naujus irasus pries itraukiant i katalogus.",
+                        text = "Patikrink naujus įrašus prieš įtraukiant į katalogus.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -307,7 +318,7 @@ private fun ApprovalBanner(
                 }
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                    contentDescription = if (expanded) "Sutraukti" else "Isskleisti",
+                    contentDescription = if (expanded) "Sutraukti" else "Išskleisti",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -334,9 +345,9 @@ private fun ApprovalBanner(
 private fun InventoryBody(
     state: InventoryListUiState,
     searchQuery: String,
-    selectedType: String?,
-    selectedCategory: String?,
-    selectedLocationId: String?,
+    selectedTypes: Set<String>,
+    selectedCategories: Set<String>,
+    selectedLocationIds: Set<String>,
     selectedStatus: String,
     locations: List<LocationDto>,
     openedCustodianId: String?,
@@ -358,10 +369,10 @@ private fun InventoryBody(
 
         is InventoryListUiState.Empty -> {
             SkautaiEmptyState(
-                title = "Inventorius tuÅ¡Äias",
-                subtitle = inventoryContextEmptySubtitle(openedCustodianId, selectedType, selectedCategory),
+                title = "Inventorius tuščias",
+                subtitle = inventoryContextEmptySubtitle(openedCustodianId, selectedTypes, selectedCategories),
                 icon = Icons.Default.Inventory2,
-                actionLabel = if (canCreate) addSharedActionLabel(canCreateSharedDirectly) else "Grizti i pradzia",
+                    actionLabel = if (canCreate) addSharedActionLabel(canCreateSharedDirectly) else "Grįžti į pradžią",
                 onAction = {
                     if (canCreate) {
                         navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
@@ -387,9 +398,9 @@ private fun InventoryBody(
             val filtered = remember(
                 state.items,
                 searchQuery,
-                selectedType,
-                selectedCategory,
-                selectedLocationId,
+                selectedTypes,
+                selectedCategories,
+                selectedLocationIds,
                 locations
             ) {
                 viewModel.filteredItems(state.items)
@@ -411,9 +422,9 @@ private fun InventoryBody(
             InventoryCatalogContent(
                 allItems = state.items,
                 filteredItems = filtered,
-                selectedType = selectedType,
-                selectedCategory = selectedCategory,
-                selectedLocationId = selectedLocationId,
+                selectedTypes = selectedTypes,
+                selectedCategories = selectedCategories,
+                selectedLocationIds = selectedLocationIds,
                 selectedStatus = selectedStatus,
                 locations = locations,
                 openedCustodianId = openedCustodianId,
@@ -440,9 +451,9 @@ private fun InventoryBody(
 private fun InventoryCatalogContent(
     allItems: List<ItemDto>,
     filteredItems: List<ItemDto>,
-    selectedType: String?,
-    selectedCategory: String?,
-    selectedLocationId: String?,
+    selectedTypes: Set<String>,
+    selectedCategories: Set<String>,
+    selectedLocationIds: Set<String>,
     selectedStatus: String,
     locations: List<LocationDto>,
     openedCustodianId: String?,
@@ -453,14 +464,17 @@ private fun InventoryCatalogContent(
     typeFilters: List<Pair<String, Pair<String, Int>>>,
     categoryFilters: List<Pair<String, Pair<String, Int>>>,
     onClearFilters: () -> Unit,
-    onTypeSelected: (String?) -> Unit,
-    onCategorySelected: (String?) -> Unit,
-    onLocationSelected: (String?) -> Unit,
+    onTypeSelected: (String) -> Unit,
+    onCategorySelected: (String) -> Unit,
+    onLocationSelected: (String) -> Unit,
     onStatusSelected: (String) -> Unit,
     onOpenItem: (String) -> Unit,
     onToggleItemSelection: (String, Boolean) -> Unit
 ) {
     val groups = remember(filteredItems) { filteredItems.toInventoryGroups() }
+    var filtersExpanded by remember { mutableStateOf(false) }
+    val activeFilterCount = selectedTypes.size + selectedCategories.size + selectedLocationIds.size +
+        if (selectedStatus != "ACTIVE") 1 else 0
 
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -476,81 +490,115 @@ private fun InventoryCatalogContent(
                         modifier = Modifier.padding(14.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        SkautaiSectionHeader(
-                            title = "Filtrai",
-                            subtitle = if (selectedType == null && selectedCategory == null) {
-                                "Rodymas pagal visÄ… inventoriÅ³."
-                            } else {
-                                "Aktyvus filtrai padeda greitai susiaurinti sarasa."
-                            }
-                        )
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 2.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { filtersExpanded = !filtersExpanded },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            item {
-                                SkautaiChip(
-                                    label = "Aktyvus",
-                                    selected = selectedStatus == "ACTIVE",
-                                    onClick = { onStatusSelected("ACTIVE") }
+                            Column(modifier = Modifier.weight(1f)) {
+                                SkautaiSectionHeader(
+                                    title = "Filtrai",
+                                    subtitle = if (activeFilterCount == 0) {
+                                        "Rodymas pagal visą inventorių."
+                                    } else {
+                                        "Aktyvu: $activeFilterCount"
+                                    }
                                 )
                             }
-                            if (canViewInactive) {
-                                item {
-                                    SkautaiChip(
-                                        label = "Neaktyvus",
-                                        selected = selectedStatus == "INACTIVE",
-                                        onClick = { onStatusSelected("INACTIVE") }
+                            IconButton(onClick = { filtersExpanded = !filtersExpanded }) {
+                                Icon(
+                                    imageVector = if (filtersExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                    contentDescription = if (filtersExpanded) "Sutraukti filtrus" else "Isskleisti filtrus"
+                                )
+                            }
+                        }
+                        AnimatedVisibility(visible = filtersExpanded) {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(vertical = 2.dp)
+                                ) {
+                                    item {
+                                        SkautaiChip(
+                                            label = "Aktyvus",
+                                            selected = selectedStatus == "ACTIVE",
+                                            onClick = { onStatusSelected("ACTIVE") }
+                                        )
+                                    }
+                                    if (canViewInactive) {
+                                        item {
+                                            SkautaiChip(
+                                                label = "Neaktyvus",
+                                                selected = selectedStatus == "INACTIVE",
+                                                onClick = { onStatusSelected("INACTIVE") }
+                                            )
+                                        }
+                                    }
+                                    if (canApprovePending) {
+                                        item {
+                                            SkautaiChip(
+                                                label = "Laukia",
+                                                selected = selectedStatus == "PENDING_APPROVAL",
+                                                onClick = { onStatusSelected("PENDING_APPROVAL") }
+                                            )
+                                        }
+                                    }
+                                }
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(vertical = 2.dp)
+                                ) {
+                                    item {
+                                        SkautaiChip(
+                                            label = "Visi (${allItems.size})",
+                                            selected = activeFilterCount == 0,
+                                            onClick = onClearFilters
+                                        )
+                                    }
+                                    items(typeFilters, key = { it.first }) { (type, chip) ->
+                                        SkautaiChip(
+                                            label = "${chip.first} (${chip.second})",
+                                            selected = type in selectedTypes,
+                                            onClick = { onTypeSelected(type) }
+                                        )
+                                    }
+                                }
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(bottom = 2.dp)
+                                ) {
+                                    items(categoryFilters, key = { "category_${it.first}" }) { (category, chip) ->
+                                        SkautaiChip(
+                                            label = "${chip.first} (${chip.second})",
+                                            selected = category in selectedCategories,
+                                            onClick = { onCategorySelected(category) }
+                                        )
+                                    }
+                                }
+                                if (locations.isNotEmpty()) {
+                                    LocationFilterRows(
+                                        locations = locations,
+                                        selectedLocationIds = selectedLocationIds,
+                                        onLocationSelected = onLocationSelected
                                     )
                                 }
                             }
-                            if (canApprovePending) {
+                        }
+                        if (!filtersExpanded && activeFilterCount > 0) {
+                            LazyRow(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                contentPadding = PaddingValues(vertical = 2.dp)
+                            ) {
                                 item {
                                     SkautaiChip(
-                                        label = "Laukia",
-                                        selected = selectedStatus == "PENDING_APPROVAL",
-                                        onClick = { onStatusSelected("PENDING_APPROVAL") }
+                                        label = "Valyti filtrus",
+                                        selected = false,
+                                        onClick = onClearFilters
                                     )
                                 }
                             }
-                        }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(vertical = 2.dp)
-                        ) {
-                            item {
-                                SkautaiChip(
-                                    label = "Visi (${allItems.size})",
-                                    selected = selectedType == null && selectedCategory == null,
-                                    onClick = onClearFilters
-                                )
-                            }
-                            items(typeFilters, key = { it.first }) { (type, chip) ->
-                                SkautaiChip(
-                                    label = "${chip.first} (${chip.second})",
-                                    selected = selectedType == type,
-                                    onClick = { onTypeSelected(if (selectedType == type) null else type) }
-                                )
-                            }
-                        }
-                        LazyRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            contentPadding = PaddingValues(bottom = 2.dp)
-                        ) {
-                            items(categoryFilters, key = { "category_${it.first}" }) { (category, chip) ->
-                                SkautaiChip(
-                                    label = "${chip.first} (${chip.second})",
-                                    selected = selectedCategory == category,
-                                    onClick = { onCategorySelected(if (selectedCategory == category) null else category) }
-                                )
-                            }
-                        }
-                        if (locations.isNotEmpty()) {
-                            LocationFilterRows(
-                                locations = locations,
-                                selectedLocationId = selectedLocationId,
-                                onLocationSelected = onLocationSelected
-                            )
                         }
                     }
                 }
@@ -560,8 +608,8 @@ private fun InventoryCatalogContent(
         if (filteredItems.isEmpty()) {
             item {
                 SkautaiEmptyState(
-                    title = "Nieko n?rasta",
-                    subtitle = noResultsSubtitle(openedCustodianId, selectedType, selectedCategory),
+                    title = "Nieko nerasta",
+                    subtitle = noResultsSubtitle(openedCustodianId, selectedTypes, selectedCategories),
                     icon = Icons.Default.Inventory2
                 )
             }
@@ -590,25 +638,31 @@ private fun InventoryCatalogContent(
 @Composable
 private fun LocationFilterRows(
     locations: List<LocationDto>,
-    selectedLocationId: String?,
-    onLocationSelected: (String?) -> Unit
+    selectedLocationIds: Set<String>,
+    onLocationSelected: (String) -> Unit
 ) {
     val nodesByParent = remember(locations) { locations.groupBy { it.parentLocationId } }
     val locationById = remember(locations) { locations.associateBy { it.id } }
-    val selectedPath = remember(selectedLocationId, locations) {
-        buildList {
-            var current = selectedLocationId
-            while (current != null) {
-                add(0, current)
-                current = locationById[current]?.parentLocationId
+    val expandedParentIds = remember(selectedLocationIds, locations) {
+        buildSet {
+            selectedLocationIds.forEach { selectedId ->
+                var current: String? = selectedId
+                while (current != null) {
+                    add(current)
+                    current = locationById[current]?.parentLocationId
+                }
             }
         }
     }
     val levels = buildList {
-        add(nodesByParent[null].orEmpty().sortedBy { it.name.lowercase() })
-        selectedPath.forEach { id ->
-            val children = nodesByParent[id].orEmpty().sortedBy { it.name.lowercase() }
-            if (children.isNotEmpty()) add(children)
+        var currentLevel = nodesByParent[null].orEmpty().sortedBy { it.name.lowercase() }
+        while (currentLevel.isNotEmpty()) {
+            add(currentLevel)
+            val children = currentLevel
+                .filter { it.id in expandedParentIds }
+                .flatMap { nodesByParent[it.id].orEmpty() }
+                .sortedBy { it.name.lowercase() }
+            currentLevel = children
         }
     }.filter { it.isNotEmpty() }
 
@@ -621,10 +675,8 @@ private fun LocationFilterRows(
                 items(levelLocations, key = { it.id }) { location ->
                     SkautaiChip(
                         label = location.name,
-                        selected = selectedLocationId == location.id,
-                        onClick = {
-                            onLocationSelected(if (selectedLocationId == location.id) null else location.id)
-                        }
+                        selected = location.id in selectedLocationIds,
+                        onClick = { onLocationSelected(location.id) }
                     )
                 }
             }
@@ -757,7 +809,7 @@ private fun QrSelectionBar(
                     onClick = onCancel,
                     modifier = Modifier.weight(1f)
                 ) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         }
@@ -775,7 +827,7 @@ private fun SelectionStatePill(
             tone = SkautaiStatusTone.Neutral
         )
         isSelected -> SkautaiStatusPill(
-            label = "Pazymeta",
+            label = "Pažymėta",
             tone = SkautaiStatusTone.Success
         )
         else -> SkautaiStatusPill(
@@ -911,10 +963,10 @@ private fun inventoryContextTitle(
     selectedCategory: String?,
     items: List<ItemDto>
 ): String = when {
-    openedCustodianId != null -> items.firstOrNull()?.custodianName ?: "Vieneto inventori?s"
-    selectedType == "INDIVIDUAL" -> "Mano siulomi skolinti daiktai"
+    openedCustodianId != null -> items.firstOrNull()?.custodianName ?: "Vieneto inventorius"
+    selectedType == "INDIVIDUAL" -> "Mano siūlomi skolinti daiktai"
     selectedCategory != null -> inventoryCategoryLabel(selectedCategory)
-    else -> "Bendras tunto inventori?s"
+    else -> "Bendras tunto inventorius"
 }
 
 private fun inventoryContextSubtitle(
@@ -922,31 +974,31 @@ private fun inventoryContextSubtitle(
     selectedType: String?,
     selectedCategory: String?
 ): String = when {
-    openedCustodianId != null -> "Vieneto daiktai, ju b?kle ir priskyrimas."
+    openedCustodianId != null -> "Vieneto daiktai, jų būklė ir priskyrimas."
     selectedType == "INDIVIDUAL" -> "Asmeniniai daiktai, kuriuos galima skolinti kitiems."
-    selectedCategory != null -> "Filtruotas sarasas pagal pasirinkta kategorija."
-    else -> "Bendro inventoriaus katalogas su b?kle, kilme ir viet?."
+    selectedCategory != null -> "Filtruotas sąrašas pagal pasirinktą kategoriją."
+    else -> "Bendro inventoriaus katalogas su būkle, kilme ir vieta."
 }
 
 private fun inventoryContextEmptySubtitle(
     openedCustodianId: String?,
-    selectedType: String?,
-    selectedCategory: String?
+    selectedTypes: Set<String>,
+    selectedCategories: Set<String>
 ): String = when {
-    openedCustodianId != null -> "Å is vienetas dar neturi jam priskirtÅ³ ar savo sukurtÅ³ inventoriaus Ä¯raÅ¡Å³."
-    selectedType == "INDIVIDUAL" -> "Dar nÄ—ra asmeniniÅ³ daiktÅ³, siÅ«lomÅ³ skolinti."
-    selectedCategory != null -> "Å ioje kategorijoje dar nÄ—ra inventoriaus Ä¯raÅ¡Å³."
-    else -> "Kai atsiras pirmi daiktai, Äia matysi bendro tunto inventoriaus katalogÄ…."
+    openedCustodianId != null -> "Šis vienetas dar neturi jam priskirtų ar savo sukurtų inventoriaus įrašų."
+    "INDIVIDUAL" in selectedTypes -> "Dar nėra asmeninių daiktų, siūlomų skolinti."
+    selectedCategories.isNotEmpty() -> "Pasirinktose kategorijose dar nėra inventoriaus įrašų."
+    else -> "Kai atsiras pirmi daiktai, čia matysi bendro tunto inventoriaus katalogą."
 }
 
 private fun noResultsSubtitle(
     openedCustodianId: String?,
-    selectedType: String?,
-    selectedCategory: String?
+    selectedTypes: Set<String>,
+    selectedCategories: Set<String>
 ): String = when {
-    openedCustodianId != null -> "Pabandyk kita paieskos fraze arba nuimk vieneto filtrus."
-    selectedType != null || selectedCategory != null -> "Pabandyk pakeisti aktyvius filtrus arba paieskos fraze."
-    else -> "Pabandyk kita paieskos fraze arba susiaurink sarasa pagal tipa."
+    openedCustodianId != null -> "Pabandyk kitą paieškos frazę arba nuimk vieneto filtrus."
+    selectedTypes.isNotEmpty() || selectedCategories.isNotEmpty() -> "Pabandyk pakeisti aktyvius filtrus arba paieškos frazę."
+    else -> "Pabandyk kitą paieškos frazę arba susiaurink sąrašą pagal tipą."
 }
 
 private data class InventoryGroup(

@@ -282,7 +282,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Klaida salinant pareigas"
+                        error = error.message ?: "Klaida šalinant pareigas"
                     )
                 }
         }
@@ -356,7 +356,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = error.message ?: "Klaida atliekant veiksm?"
+                    error = error.message ?: "Klaida atliekant veiksmą"
                 )
             }
         }
@@ -375,7 +375,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
             val membersResult = membersDeferred.await()
 
             val roles = rolesResult.getOrElse {
-                _uiState.value = _uiState.value.copy(isLoadingContext = false, error = it.message ?: "Klaida gaunant roles")
+                _uiState.value = _uiState.value.copy(isLoadingContext = false, error = it.message ?: "Klaida gaunant pareigas ir laipsnius")
                 return@launch
             }
             val units = unitsResult.getOrElse {
@@ -383,7 +383,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
                 return@launch
             }
             val members = membersResult.getOrElse {
-                _uiState.value = _uiState.value.copy(isLoadingContext = false, error = it.message ?: "Klaida gaunant nariųs")
+                _uiState.value = _uiState.value.copy(isLoadingContext = false, error = it.message ?: "Klaida gaunant narius")
                 return@launch
             }.members
 

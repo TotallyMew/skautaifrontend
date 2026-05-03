@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import kotlinx.coroutines.flow.first
 import lt.skautai.android.data.remote.AcceptInvitationRequestDto
 import lt.skautai.android.data.remote.CreateInvitationRequestDto
@@ -41,7 +43,7 @@ class InvitationRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida kuriant pakvietimą")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -59,7 +61,7 @@ class InvitationRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida priimant pakvietima")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 }

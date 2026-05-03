@@ -431,7 +431,7 @@ private fun SyncStatusPill(
 ) {
     val (label, icon, containerColor, contentColor) = when {
         status.failedCount > 0 -> Quadruple(
-            "${status.failedCount} sinchronizacijos klaida",
+            "${status.failedCount} ${syncErrorLabel(status.failedCount)}",
             Icons.Default.SwapHoriz,
             MaterialTheme.colorScheme.errorContainer,
             MaterialTheme.colorScheme.onErrorContainer
@@ -473,6 +473,12 @@ private fun SyncStatusPill(
             )
         }
     }
+}
+
+private fun syncErrorLabel(count: Int): String = when {
+    count % 10 == 1 && count % 100 != 11 -> "sinchronizacijos klaida"
+    count % 10 in 2..9 && count % 100 !in 12..19 -> "sinchronizacijos klaidos"
+    else -> "sinchronizacijos klaidų"
 }
 
 private fun currentRouteTitle(currentRoute: String?): String = when (currentRoute) {

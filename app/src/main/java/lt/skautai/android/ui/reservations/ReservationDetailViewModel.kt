@@ -55,7 +55,7 @@ class ReservationDetailViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     _uiState.value = ReservationDetailUiState.Error(
-                        error.message ?: "Klaida gaunant rezervacija"
+                        error.message ?: "Klaida gaunant rezervaciją"
                     )
                 }
         }
@@ -101,7 +101,7 @@ class ReservationDetailViewModel @Inject constructor(
                 loadReservation(id)
             }.onFailure { error ->
                 _uiState.value = current.copy(
-                    error = error.message ?: "Klaida atnaujinant atsiemimo laika"
+                    error = error.message ?: "Klaida atnaujinant atsiėmimo laiką"
                 )
             }
         }
@@ -136,7 +136,7 @@ class ReservationDetailViewModel @Inject constructor(
                 .onSuccess { loadReservation(id) }
                 .onFailure { error ->
                     _uiState.value = current.copy(
-                        error = error.message ?: "Klaida tvirtinant rezervacija"
+                        error = error.message ?: "Klaida tvirtinant rezervaciją"
                     )
                 }
         }

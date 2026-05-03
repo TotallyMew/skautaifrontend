@@ -38,6 +38,7 @@ import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.data.remote.TuntasDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.members.displayRoleName
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -110,12 +111,12 @@ fun SuperAdminDashboardScreen(
                 Text(
                     buildString {
                         append("Pareigos ")
-                        append(role.roleName)
+                        append(displayRoleName(role.roleName))
                         role.organizationalUnitName?.let {
                             append(" vienete ")
                             append(it)
                         }
-                        append(" bus pasalintos.")
+                        append(" bus pašalintos.")
                     }
                 )
             },
@@ -140,7 +141,7 @@ fun SuperAdminDashboardScreen(
         AlertDialog(
             onDismissRequest = { pendingRankRemoval = null },
             title = { Text("Šalinti laipsnį?") },
-            text = { Text("Laipsnis ${rank.roleName} bus pašalintas iš nario.") },
+            text = { Text("Laipsnis ${displayRoleName(rank.roleName)} bus pašalintas iš nario.") },
             confirmButton = {
                 TextButton(
                     onClick = {
@@ -160,7 +161,7 @@ fun SuperAdminDashboardScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Super Admin") })
+            TopAppBar(title = { Text("Superadministratorius") })
         },
         snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
@@ -287,7 +288,7 @@ private fun TuntasSelectorCard(
     SectionCard(title = "Pasirinktas tuntas") {
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
             OutlinedTextField(
-                value = selectedTuntas?.name ?: "Pasirinkite tuntas",
+                value = selectedTuntas?.name ?: "Pasirinkite tuntą",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Tuntas") },
@@ -420,14 +421,14 @@ private fun MemberDetailSection(
     onAssignRank: () -> Unit,
     onRemoveRank: (MemberRankDto) -> Unit
 ) {
-    SectionCard(title = "Nario detales") {
+    SectionCard(title = "Nario detalės") {
         when {
             isLoading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
 
             member == null -> Text(
-                "Pasirinkite nari, kad matytumete daugiau informacijos.",
+                "Pasirinkite narį, kad matytumėte daugiau informacijos.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
@@ -470,7 +471,7 @@ private fun MemberUnitAssignmentsBlock(member: MemberDto) {
         } else {
             member.unitAssignments.forEach { assignment ->
                 Text(
-                    "${assignment.organizationalUnitName} (${assignment.assignmentType})",
+                    "${assignment.organizationalUnitName} (${assignmentTypeLabel(assignment.assignmentType)})",
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -511,13 +512,13 @@ private fun RoleBlock(
                         verticalAlignment = Alignment.Top
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(role.roleName, fontWeight = FontWeight.Medium)
+                            Text(displayRoleName(role.roleName), fontWeight = FontWeight.Medium)
                             role.organizationalUnitName?.let {
                                 Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                             Text(
                                 buildString {
-                                    append("Status: ${role.termStatus}")
+                                    append("Būsena: ${termStatusLabel(role.termStatus)}")
                                     role.startsAt?.let { append(" / nuo ${it.take(10)}") }
                                     role.expiresAt?.let { append(" / iki ${it.take(10)}") }
                                 },
@@ -576,7 +577,7 @@ private fun RankBlock(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text(rank.roleName, fontWeight = FontWeight.Medium)
+                        Text(displayRoleName(rank.roleName), fontWeight = FontWeight.Medium)
                         Text(
                             rank.assignedAt.take(10),
                             style = MaterialTheme.typography.bodySmall,
@@ -692,6 +693,18 @@ private fun statusText(status: String): String = when (status) {
     else -> status
 }
 
+private fun termStatusLabel(status: String): String = when (status) {
+    "ACTIVE" -> "Aktyvus"
+    "COMPLETED" -> "Baigtas"
+    "RESIGNED" -> "Atsistatydinta"
+    else -> status
+}
+
+private fun assignmentTypeLabel(type: String): String = when (type) {
+    "MEMBER" -> "Narys"
+    else -> type
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AssignSuperAdminRoleDialog(
@@ -717,7 +730,7 @@ private fun AssignSuperAdminRoleDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ExposedDropdownMenuBox(expanded = roleExpanded, onExpandedChange = { roleExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedRole?.name ?: "Pasirinkite pareigas",
+                        value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite pareigas",
                         onValueChange = {},
                         readOnly = true,
                         label = { Text("Pareigos") },
@@ -730,7 +743,7 @@ private fun AssignSuperAdminRoleDialog(
                     ) {
                         roles.forEach { role ->
                             DropdownMenuItem(
-                                text = { Text(role.name) },
+                                text = { Text(displayRoleName(role.name)) },
                                 onClick = {
                                     onRoleSelected(role.id)
                                     roleExpanded = false
@@ -805,7 +818,7 @@ private fun AssignSuperAdminRankDialog(
         text = {
             ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
                 OutlinedTextField(
-                    value = selectedRole?.name ?: "Pasirinkite laipsnį",
+                    value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite laipsnį",
                     onValueChange = {},
                     readOnly = true,
                     label = { Text("Laipsnis") },
@@ -818,7 +831,7 @@ private fun AssignSuperAdminRankDialog(
                 ) {
                     roles.forEach { role ->
                         DropdownMenuItem(
-                            text = { Text(role.name) },
+                            text = { Text(displayRoleName(role.name)) },
                             onClick = {
                                 onRoleSelected(role.id)
                                 expanded = false
@@ -869,10 +882,10 @@ private fun EditSuperAdminRoleDialog(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 ExposedDropdownMenuBox(expanded = statusExpanded, onExpandedChange = { statusExpanded = it }) {
                     OutlinedTextField(
-                        value = selectedTermStatus,
+                        value = termStatusLabel(selectedTermStatus),
                         onValueChange = {},
                         readOnly = true,
-                        label = { Text("Status") },
+                        label = { Text("Būsena") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(statusExpanded) },
                         modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
                     )
@@ -882,7 +895,7 @@ private fun EditSuperAdminRoleDialog(
                     ) {
                         statuses.forEach { status ->
                             DropdownMenuItem(
-                                text = { Text(status) },
+                                text = { Text(termStatusLabel(status)) },
                                 onClick = {
                                     onTermStatusSelected(status)
                                     statusExpanded = false
@@ -927,7 +940,7 @@ private fun EditSuperAdminRoleDialog(
                 OutlinedTextField(
                     value = startsAt,
                     onValueChange = onStartsAtChanged,
-                    label = { Text("Prad?ia (YYYY-MM-DD)") },
+                    label = { Text("Pradžia (YYYY-MM-DD)") },
                     modifier = Modifier.fillMaxWidth()
                 )
 

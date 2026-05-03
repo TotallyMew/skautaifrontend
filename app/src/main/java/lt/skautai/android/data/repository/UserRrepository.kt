@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.first
@@ -30,7 +32,7 @@ class UserRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti profilio.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -45,7 +47,7 @@ class UserRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti tuntų sąrašo.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -60,7 +62,7 @@ class UserRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti naudotojo teisių.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -75,7 +77,7 @@ class UserRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko palikti tunto.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -105,7 +107,7 @@ class UserRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko atnaujinti profilio.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -129,7 +131,7 @@ class UserRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko pakeisti slaptažodžio.")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 }

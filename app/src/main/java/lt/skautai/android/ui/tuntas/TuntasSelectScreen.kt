@@ -95,7 +95,7 @@ fun TuntasSelectScreen(
             onDismissRequest = { tuntasToLeave = null },
             title = { Text("Palikti tuntą?") },
             text = {
-                Text("Tuntas nebus istrintas is sistemos. Bus uzdaryta tik tavo prieiga prie sio tunto; vel prisijungti galesi tik gaves pakvietima.")
+                Text("Tuntas nebus ištrintas iš sistemos. Bus uždaryta tik tavo prieiga prie šio tunto; vėl prisijungti galėsi tik gavęs pakvietimą.")
             },
             confirmButton = {
                 TextButton(

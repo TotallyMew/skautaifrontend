@@ -32,7 +32,7 @@ class InventoryQrScannerViewModel @Inject constructor(
                     onResolved(it)
                 }
                 .onFailure {
-                    _message.value = it.message ?: "Nepavyko atpazinti QR kodo"
+                    _message.value = it.message ?: "Nepavyko atpažinti QR kodo"
                 }
             _isResolving.value = false
         }

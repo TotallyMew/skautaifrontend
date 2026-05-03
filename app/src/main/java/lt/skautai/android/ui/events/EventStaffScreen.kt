@@ -1,6 +1,7 @@
 package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,7 +79,10 @@ fun EventStaffScreen(
     var activeSlot by remember { mutableStateOf<EventStaffSlotUiModel?>(null) }
     var pendingRemovalSlot by remember { mutableStateOf<EventStaffSlotUiModel?>(null) }
     var panelMode by remember { mutableStateOf(StaffPanelMode.Slot) }
-    var isCoreSectionExpanded by remember { mutableStateOf(true) }
+    var isCoreSectionExpanded by remember { mutableStateOf(false) }
+    var isProgramSectionExpanded by remember { mutableStateOf(false) }
+    var isPastovykleSectionExpanded by remember { mutableStateOf(false) }
+    var isAdditionalSectionExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(eventId) { viewModel.load(eventId) }
 
@@ -135,12 +139,12 @@ fun EventStaffScreen(
     if (pendingRemovalSlot != null) {
         AlertDialog(
             onDismissRequest = { pendingRemovalSlot = null },
-            title = { Text("Nuimti nuo pareigu?") },
+            title = { Text("Nuimti nuo pareigų?") },
             text = {
                 Text(
                     pendingRemovalSlot?.assignedUserName?.let { assignedUser ->
                         "$assignedUser bus nuimtas nuo \"${pendingRemovalSlot?.title}\"."
-                    } ?: "Sis slotas bus isvalytas."
+                    } ?: "Šis vaidmuo bus išvalytas."
                 )
             },
             confirmButton = {
@@ -155,14 +159,14 @@ fun EventStaffScreen(
             },
             dismissButton = {
                 TextButton(onClick = { pendingRemovalSlot = null }) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         )
     }
 
     EventScreenScaffold(
-        title = "Stabas",
+        title = "Štabas",
         onBack = onBack,
         snackbarHostState = snackbarHostState,
         floatingActionButton = {
@@ -203,22 +207,23 @@ fun EventStaffScreen(
                         item {
                             EventDetailHero(
                                 event = state.event,
-                                subtitle = "Stabas / ${state.event.eventRoles.size} nariai",
+                                subtitle = "Štabas / ${state.event.eventRoles.size} nariai",
                                 metrics = listOf(
-                                    "Pagrindines" to state.coreSlots.count { it.assignedUserName != null }.toString(),
+                                    "Pagrindinės" to state.coreSlots.count { it.assignedUserName != null }.toString(),
                                     "Programa" to state.programSlots.count { it.assignedUserName != null }.toString(),
-                                    "PastovyklEs" to state.pastovykleSlots.count { it.assignedUserName != null }.toString()
+                                    "Pastovyklės" to state.pastovykleSlots.count { it.assignedUserName != null }.toString()
                                 )
                             )
                         }
                         item {
                             EventDetailSection(
-                                title = "Pagrindines pareigos",
-                                subtitle = "Renginio valdymo komanda ir atsakomybes.",
+                                title = "Pagrindinės pareigos",
+                                subtitle = "Renginio valdymo komanda ir atsakomybės.",
                                 actionLabel = if (isCoreSectionExpanded) "Suskleisti" else "Rodyti",
                                 onAction = { isCoreSectionExpanded = !isCoreSectionExpanded }
                             ) {
-                                if (isCoreSectionExpanded) {
+                                AnimatedVisibility(visible = isCoreSectionExpanded) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                     state.coreSlots.forEach { slot ->
                                         StaffSlotCard(
                                             slot = slot,
@@ -233,75 +238,108 @@ fun EventStaffScreen(
                                             onOpenPastovyklEs = { onOpenPastovyklEs(eventId) }
                                         )
                                     }
-                                } else {
-                                    EmptyStateText("Skyrius suskleistas, kad greiciau pasiektum pastovyklas.")
+                                    }
+                                }
+                                if (!isCoreSectionExpanded) {
+                                    EmptyStateText("Skyrius suskleistas, kad greičiau pasiektum pastovykles.")
                                 }
                             }
                         }
                         item {
                             EventDetailSection(
                                 title = "Programa",
-                                subtitle = "Programos atsakingi pagal amziaus grupes."
+                                subtitle = "Programos atsakingi pagal amžiaus grupes.",
+                                actionLabel = if (isProgramSectionExpanded) "Suskleisti" else "Rodyti",
+                                onAction = { isProgramSectionExpanded = !isProgramSectionExpanded }
                             ) {
-                                state.programSlots.forEach { slot ->
-                                    StaffSlotCard(
-                                        slot = slot,
-                                        canManage = canManage,
-                                        isWorking = state.isWorking,
-                                        isSelected = activeSlot?.id == slot.id && panelMode == StaffPanelMode.Slot,
-                                        onSelect = {
-                                            panelMode = StaffPanelMode.Slot
-                                            activeSlot = slot
-                                        },
-                                        onRemove = { pendingRemovalSlot = slot },
-                                        onOpenPastovyklEs = { onOpenPastovyklEs(eventId) }
-                                    )
+                                AnimatedVisibility(visible = isProgramSectionExpanded) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        state.programSlots.forEach { slot ->
+                                            StaffSlotCard(
+                                                slot = slot,
+                                                canManage = canManage,
+                                                isWorking = state.isWorking,
+                                                isSelected = activeSlot?.id == slot.id && panelMode == StaffPanelMode.Slot,
+                                                onSelect = {
+                                                    panelMode = StaffPanelMode.Slot
+                                                    activeSlot = slot
+                                                },
+                                                onRemove = { pendingRemovalSlot = slot },
+                                                onOpenPastovyklEs = { onOpenPastovyklEs(eventId) }
+                                            )
+                                        }
+                                    }
+                                }
+                                if (!isProgramSectionExpanded) {
+                                    EmptyStateText("Skyrius suskleistas.")
                                 }
                             }
                         }
                         item {
                             EventDetailSection(
-                                title = "Pastovykliu vadovai",
-                                subtitle = "Vadovu slotai atsiranda is atskiro pastovyklu puslapio.",
-                                actionLabel = "Tvarkyti",
-                                onAction = { onOpenPastovyklEs(eventId) }
+                                title = "Pastovyklių vadovai",
+                                subtitle = "Vadovų vaidmenys atsiranda iš atskiro pastovyklių puslapio.",
+                                actionLabel = if (isPastovykleSectionExpanded) "Suskleisti" else "Rodyti",
+                                onAction = { isPastovykleSectionExpanded = !isPastovykleSectionExpanded }
                             ) {
-                                if (state.pastovykleSlots.isEmpty()) {
-                                    EmptyStateText("Pastovyklu dar nera. Sukurk jas atskirame puslapyje.")
-                                } else {
-                                    state.pastovykleSlots.forEach { slot ->
-                                        StaffSlotCard(
-                                            slot = slot,
-                                            canManage = canManage,
-                                            isWorking = state.isWorking,
-                                            isSelected = activeSlot?.id == slot.id && panelMode == StaffPanelMode.Slot,
-                                            onSelect = {
-                                                panelMode = StaffPanelMode.Slot
-                                                activeSlot = slot
-                                            },
-                                            onRemove = { pendingRemovalSlot = slot },
-                                            onOpenPastovyklEs = { onOpenPastovyklEs(eventId) }
-                                        )
+                                AnimatedVisibility(visible = isPastovykleSectionExpanded) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        OutlinedButton(
+                                            onClick = { onOpenPastovyklEs(eventId) },
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            Text("Tvarkyti pastovykles")
+                                        }
+                                        if (state.pastovykleSlots.isEmpty()) {
+                                            EmptyStateText("Pastovyklių dar nėra. Sukurk jas atskirame puslapyje.")
+                                        } else {
+                                            state.pastovykleSlots.forEach { slot ->
+                                                StaffSlotCard(
+                                                    slot = slot,
+                                                    canManage = canManage,
+                                                    isWorking = state.isWorking,
+                                                    isSelected = activeSlot?.id == slot.id && panelMode == StaffPanelMode.Slot,
+                                                    onSelect = {
+                                                        panelMode = StaffPanelMode.Slot
+                                                        activeSlot = slot
+                                                    },
+                                                    onRemove = { pendingRemovalSlot = slot },
+                                                    onOpenPastovyklEs = { onOpenPastovyklEs(eventId) }
+                                                )
+                                            }
+                                        }
                                     }
+                                }
+                                if (!isPastovykleSectionExpanded) {
+                                    EmptyStateText("Skyrius suskleistas.")
                                 }
                             }
                         }
                         item {
                             EventDetailSection(
                                 title = "Papildomos pareigos",
-                                subtitle = "Papildomi vadovai ir savanoriai, kurie nepriklauso fiksuotiems slotams."
+                                subtitle = "Papildomi vadovai ir savanoriai, kurie nepriklauso fiksuotiems vaidmenims.",
+                                actionLabel = if (isAdditionalSectionExpanded) "Suskleisti" else "Rodyti",
+                                onAction = { isAdditionalSectionExpanded = !isAdditionalSectionExpanded }
                             ) {
-                                if (state.additionalRoles.isEmpty()) {
-                                    EmptyStateText("Papildomu stabo pareigu dar nera.")
-                                } else {
-                                    state.additionalRoles.forEach { role ->
-                                        AdditionalRoleRow(
-                                            role = role,
-                                            canManage = canManage,
-                                            isWorking = state.isWorking,
-                                            onRemove = { viewModel.removeRole(eventId, role.id) }
-                                        )
+                                AnimatedVisibility(visible = isAdditionalSectionExpanded) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        if (state.additionalRoles.isEmpty()) {
+                                            EmptyStateText("Papildomų štabo pareigų dar nėra.")
+                                        } else {
+                                            state.additionalRoles.forEach { role ->
+                                                AdditionalRoleRow(
+                                                    role = role,
+                                                    canManage = canManage,
+                                                    isWorking = state.isWorking,
+                                                    onRemove = { viewModel.removeRole(eventId, role.id) }
+                                                )
+                                            }
+                                        }
                                     }
+                                }
+                                if (!isAdditionalSectionExpanded) {
+                                    EmptyStateText("Skyrius suskleistas.")
                                 }
                             }
                         }
@@ -471,7 +509,7 @@ private fun StaffSlotCard(
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Pasirink vadova siam slotui.",
+                            text = "Pasirink vadovą šiam vaidmeniui.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -484,7 +522,7 @@ private fun StaffSlotCard(
                     onClick = onOpenPastovyklEs,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text("Tvarkyti pastovykle")
+                    Text("Tvarkyti pastovyklę")
                 }
             }
 
@@ -529,11 +567,11 @@ private fun SlotAssignmentPanel(
         subtitle = subtitle
     ) {
         EventFormEyebrow("Pasirinkimas")
-        EventFormSupportText("Pirma rask tinkama zmogu, tada patvirtink vienu pagrindiniu veiksmu apacioje.")
+        EventFormSupportText("Pirma rask tinkamą žmogų, tada patvirtink vienu pagrindiniu veiksmu apačioje.")
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Ieskoti zmogaus") },
+            placeholder = { Text("Ieškoti žmogaus") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -547,7 +585,7 @@ private fun SlotAssignmentPanel(
             ) {
                 if (filteredMembers.isEmpty()) {
                     item {
-                        EmptyStateText("Pagal sia paieska nariu nerasta.")
+                        EmptyStateText("Pagal šią paiešką narių nerasta.")
                     }
                 } else {
                     items(filteredMembers, key = { it.userId }) { member ->
@@ -589,11 +627,11 @@ private fun ExtraRoleAssignmentPanel(
     }
 
     EventDetailSection(
-        title = "Prideti papildoma pareiga",
-        subtitle = "Naudok tik papildomoms rolems, kurios neturi atskiro sloto."
+        title = "Pridėti papildomą pareigą",
+        subtitle = "Naudok tik papildomoms pareigoms, kurios neturi atskiro vaidmens."
     ) {
-        EventFormEyebrow("Papildoma role")
-        EventFormSupportText("Pirma pasirink pareiga, tada konkretu zmogu. Galutinis veiksmas turi buti tik vienas.")
+        EventFormEyebrow("Papildoma pareiga")
+        EventFormSupportText("Pirma pasirink pareigą, tada konkretų žmogų. Galutinis veiksmas turi būti tik vienas.")
         DropdownField(
             label = "Pareiga",
             value = eventRoleLabel(selectedRole),
@@ -603,7 +641,7 @@ private fun ExtraRoleAssignmentPanel(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Ieskoti zmogaus") },
+            placeholder = { Text("Ieškoti žmogaus") },
             leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -617,7 +655,7 @@ private fun ExtraRoleAssignmentPanel(
             ) {
                 if (filteredMembers.isEmpty()) {
                     item {
-                        EmptyStateText("Pagal sia paieska nariu nerasta.")
+                        EmptyStateText("Pagal šią paiešką narių nerasta.")
                     }
                 } else {
                     items(filteredMembers, key = { it.userId }) { member ->
@@ -632,7 +670,7 @@ private fun ExtraRoleAssignmentPanel(
             }
         }
         EventPrimaryButton(
-            text = "Prideti pareiga",
+            text = "Pridėti pareigą",
             onClick = { selectedUserId?.let { onAssign(it, selectedRole) } },
             enabled = !isWorking && selectedUserId != null
         )
@@ -716,7 +754,7 @@ private fun AdditionalRoleRow(
         }
         if (canManage && role.role != "VIRSININKAS") {
             TextButton(onClick = onRemove, enabled = !isWorking) {
-                Text("Salinti")
+                Text("Šalinti")
             }
         }
     }
@@ -724,13 +762,13 @@ private fun AdditionalRoleRow(
 }
 
 private fun eventRoleLabel(role: String): String = when (role) {
-    "VIRSININKAS" -> "Virsininkas"
+    "VIRSININKAS" -> "Viršininkas"
     "KOMENDANTAS" -> "Komendantas"
-    "UKVEDYS" -> "Ukvedys"
+    "UKVEDYS" -> "Ūkvedys"
     "PROGRAMERIS" -> "Programeris"
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"
     "SAVANORIS" -> "Savanoris"
-    "PASTOVYKLE_LEADER" -> "PastovyklEs vadovas"
+    "PASTOVYKLE_LEADER" -> "Pastovyklės vadovas"
     else -> role
 }

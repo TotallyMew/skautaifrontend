@@ -116,7 +116,7 @@ class EventPastovyklėsViewModel @Inject constructor(
             val currentSlot = EventStaffSlotUiModel(
                 id = pastovykleId ?: "new_pastovykle",
                 title = cleanName,
-                subtitle = "PastovyklÄ—s pagrindinis vadovas",
+                subtitle = "Pastovyklės pagrindinis vadovas",
                 role = "PASTOVYKLE_LEADER",
                 pastovykleId = pastovykleId,
                 pastovykleAgeGroup = ageGroup,
@@ -125,16 +125,16 @@ class EventPastovyklėsViewModel @Inject constructor(
             )
             activeStaffRoleForMember(responsibleUserId, current.event, excludingSlot = currentSlot)?.let { occupiedRole ->
                 _uiState.value = current.copy(
-                    error = "${member.fullName()} jau turi stabo pareiga \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnes pareigos."
+                    error = "${member.fullName()} jau turi štabo pareigą \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
                 )
                 return
             }
             if (!memberEligibleForPastovykleAgeGroup(member, ageGroup)) {
                 _uiState.value = current.copy(
                     error = when (normalizePastovykleAgeGroupCode(ageGroup)) {
-                        "VYR_SKAUTAI" -> "Siai pastovyklei galima priskirti tik vyr. skauta."
-                        "VYR_SKAUTES" -> "Siai pastovyklei galima priskirti tik vyr. skaute."
-                        else -> "Sis narys netinka pasirinktai pastovyklÄ—s amziaus grupei."
+                        "VYR_SKAUTAI" -> "Šiai pastovyklei galima priskirti tik vyr. skautą."
+                        "VYR_SKAUTES" -> "Šiai pastovyklei galima priskirti tik vyr. skautę."
+                        else -> "Šis narys netinka pasirinktai pastovyklės amžiaus grupei."
                     }
                 )
                 return
@@ -178,7 +178,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko issaugoti pastovykles.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išsaugoti pastovyklės.")
                     }
                 }
         }
@@ -195,7 +195,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko istrinti pastovykles.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti pastovyklės.")
                     }
                 }
         }

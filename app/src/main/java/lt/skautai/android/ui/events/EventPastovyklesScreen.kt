@@ -464,7 +464,7 @@ private fun PastovykleEditorScreen(
             item {
                 EventDetailSection(
                     title = "Pagrindinis vadovas",
-                    subtitle = "Priskyrus vadovą, jo renginio rolė bus sinchronizuota automatiškai."
+                    subtitle = "Priskyrus vadovą, jo renginio pareiga bus sinchronizuota automatiškai."
                 ) {
                     val selectedName = members.firstOrNull { it.userId == selectedLeaderId }?.fullName()
                     SkautaiStatusPill(
@@ -529,7 +529,7 @@ private fun eligiblePastovykleLeaderMembers(
     val currentSlot = EventStaffSlotUiModel(
         id = pastovykle?.id ?: "new_pastovykle",
         title = pastovykle?.name.orEmpty(),
-        subtitle = "PastovyklÄ—s pagrindinis vadovas",
+        subtitle = "Pastovyklės pagrindinis vadovas",
         role = "PASTOVYKLE_LEADER",
         pastovykleId = pastovykle?.id,
         pastovykleAgeGroup = ageGroup,

@@ -67,7 +67,7 @@ fun PastovykleLeaderScreen(
     }
 
     EventScreenScaffold(
-        title = "Mano pastovykle",
+        title = "Mano pastovyklė",
         onBack = onBack,
         snackbarHostState = snackbarHostState
     ) { padding ->
@@ -230,7 +230,7 @@ private fun RequestNeedCard(
             colors = eventFormFieldColors()
         )
         EventPrimaryButton(
-            text = "Prasyti is ukvedzio",
+            text = "Prašyti iš ūkvedžio",
             onClick = {
                 selectedItemId?.let { onCreateRequest(it, quantity, notes) }
                 quantity = ""
@@ -277,7 +277,7 @@ private fun BringFromUnitCard(
             colors = eventFormFieldColors()
         )
         EventPrimaryButton(
-            text = "Pazymeti, kad atsivesiu",
+            text = "Pažymėti, kad atsivešiu",
             onClick = {
                 selectedItemId?.let { onAssign(it, quantity, notes) }
                 quantity = ""
@@ -311,7 +311,7 @@ private fun AllocationSummaryCard(allocations: List<EventInventoryAllocationDto>
 @Composable
 private fun PastovykleInventoryCard(inventory: List<PastovykleInventoryDto>) {
     EventDetailSection(
-        title = "Mano pastovyklės inventori?s",
+        title = "Mano pastovyklės inventorius",
         subtitle = "Faktiškai pastovyklei priskirti ir dar negrąžinti daiktai."
     ) {
         if (inventory.isEmpty()) {
@@ -380,7 +380,7 @@ private fun PastovykleRequestsCard(
                         }
                         if (request.status in listOf("PENDING", "APPROVED")) {
                             EventPrimaryButton(
-                                text = "Pasirupinau pats",
+                                text = "Pasirūpinau pats",
                                 onClick = { onSelfProvide(request.id) },
                                 enabled = !isWorking
                             )

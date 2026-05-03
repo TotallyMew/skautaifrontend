@@ -128,7 +128,7 @@ fun EventPlanScreen(
                     if (!readOnly) deletingItem?.let { item ->
                         AlertDialog(
                             onDismissRequest = { deletingItem = null },
-                            title = { Text("Trinti poreiki?") },
+                            title = { Text("Trinti poreikį?") },
                             text = { Text("Poreikis ${item.name} bus ištrintas iš plano.") },
                             confirmButton = {
                                 TextButton(

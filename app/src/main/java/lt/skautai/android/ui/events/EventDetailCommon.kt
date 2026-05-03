@@ -97,7 +97,7 @@ fun EventScreenScaffold(
                 title = {
                     SkautaiTopBarTitle(
                         title = title,
-                        subtitle = "Renginio darbo erdve"
+                        subtitle = "Renginio darbo erdvė"
                     )
                 },
                 navigationIcon = {
@@ -206,7 +206,7 @@ fun EventTonalDateButton(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = value?.takeIf { it.isNotBlank() } ?: "Pasirinkti data",
+                text = value?.takeIf { it.isNotBlank() } ?: "Pasirinkti datą",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onSurface
@@ -711,14 +711,14 @@ fun planItemSubtitle(item: EventInventoryItemDto): String {
     item.bucketName?.takeIf { it.isNotBlank() }?.let { parts += "Paskirtis: " }
     if (item.reservationGroupId != null) parts += "Rezervuota"
     item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { parts += "Atsakingas: " }
-    parts += "Santykis rodo aprupinima, ne sandelio likuti"
+    parts += "Santykis rodo aprūpinimą, ne sandėlio likutį"
     return parts.joinToString(" / ").ifBlank { "Paskirtis neparinkta" }
 }
 
 @Composable
 fun MemberPickerSheet(
     members: List<MemberDto>,
-    title: String = "Pasirinkti nari",
+    title: String = "Pasirinkti narį",
     onSelect: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -736,7 +736,7 @@ fun MemberPickerSheet(
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            label = { Text("Ieskoti") },
+            label = { Text("Ieškoti") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -755,7 +755,7 @@ fun MemberPickerSheet(
                 }
             }
         }
-        TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Atsaukti") }
+        TextButton(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) { Text("Atšaukti") }
     }
 }
 

@@ -60,8 +60,8 @@ fun ReservationMovementScreen(
     }
     val description = when (viewModel.mode) {
         "return" -> "Pasirink, kiek daiktų inventorininkas gavo."
-        "mark_returned" -> "Pasirink, kiek daiktų grazinai."
-        else -> "Pasirink, kiek daiktų isduodama."
+        "mark_returned" -> "Pasirink, kiek daiktų grąžinai."
+        else -> "Pasirink, kiek daiktų išduodama."
     }
     val actionLabel = when (viewModel.mode) {
         "return" -> "Pažymėti gautą"
@@ -213,7 +213,7 @@ private fun MovementItemRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             FilledTonalIconButton(onClick = onDecrease, enabled = selectedQuantity > 0) {
-                Icon(Icons.Default.Remove, contentDescription = "Mazinti")
+                Icon(Icons.Default.Remove, contentDescription = "Mažinti")
             }
             Text(
                 text = selectedQuantity.toString(),

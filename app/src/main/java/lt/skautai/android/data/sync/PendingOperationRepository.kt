@@ -1,5 +1,7 @@
 package lt.skautai.android.data.sync
 
+import lt.skautai.android.util.userFacingException
+
 import android.content.Context
 import android.net.Uri
 import com.google.gson.Gson
@@ -234,7 +236,7 @@ class PendingOperationRepository @Inject constructor(
                 pendingOperationDao.markSynced(operation.id)
             } catch (e: IOException) {
                 pendingOperationDao.markPendingError(operation.id, e.message ?: "Tinklo klaida")
-                return Result.failure(e)
+                return Result.failure(e.userFacingException())
             } catch (e: Exception) {
                 pendingOperationDao.markFailed(operation.id, e.message ?: "Sync klaida")
             }
@@ -307,12 +309,12 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.BENDRAS_REQUEST_CREATE -> {
                 val request = gson.fromJson(operation.payloadJson, CreateBendrasRequestDto::class.java)
-                val created = requireSuccessful(requestApiService.createRequest(auth, operation.tuntasId, request), "Klaida kuriant prasyma")
+                val created = requireSuccessful(requestApiService.createRequest(auth, operation.tuntasId, request), "Klaida kuriant prašymą")
                 bendrasRequestDao.deleteRequest(operation.entityId, operation.tuntasId)
                 bendrasRequestDao.upsert(created.toEntity())
             }
             PendingOperationType.BENDRAS_REQUEST_CANCEL -> {
-                requireSuccessfulUnit(requestApiService.cancelRequest(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant prasyma")
+                requireSuccessfulUnit(requestApiService.cancelRequest(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant prašymą")
                 bendrasRequestDao.deleteRequest(operation.entityId, operation.tuntasId)
             }
             PendingOperationType.BENDRAS_REQUEST_REVIEW_UNIT -> {
@@ -329,9 +331,12 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.REQUISITION_CREATE -> {
                 val request = gson.fromJson(operation.payloadJson, CreateRequisitionDto::class.java)
-                val created = requireSuccessful(requisitionApiService.createRequest(auth, operation.tuntasId, request), "Klaida kuriant prasyma")
+                val created = requireSuccessful(requisitionApiService.createRequest(auth, operation.tuntasId, request), "Klaida kuriant prašymą")
                 requisitionDao.deleteRequest(operation.entityId, operation.tuntasId)
                 requisitionDao.upsert(created.toEntity())
+            }
+            PendingOperationType.REQUISITION_CANCEL -> {
+                requireSuccessfulUnit(requisitionApiService.cancelRequest(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant prasyma")
             }
             PendingOperationType.REQUISITION_REVIEW_UNIT -> {
                 val payload = gson.fromJson(operation.payloadJson, ReviewPayload::class.java)
@@ -523,17 +528,17 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.EVENT_ASSIGN_PASTOVYKLE_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleInventoryAssignPayload::class.java)
-                requireSuccessful(eventApiService.assignPastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.request), "Klaida priskiriant pastovykles inventori?")
+                requireSuccessful(eventApiService.assignPastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.request), "Klaida priskiriant pastovykles inventoriu")
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_UPDATE_PASTOVYKLE_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleInventoryUpdatePayload::class.java)
-                requireSuccessful(eventApiService.updatePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId, payload.request), "Klaida atnaujinant pastovykles inventori?")
+                requireSuccessful(eventApiService.updatePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId, payload.request), "Klaida atnaujinant pastovykles inventoriu")
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_DELETE_PASTOVYKLE_INVENTORY -> {
                 val payload = gson.fromJson(operation.payloadJson, EventPastovykleInventoryDeletePayload::class.java)
-                requireSuccessfulEmpty(eventApiService.deletePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId), "Klaida trinant pastovykles inventori?")
+                requireSuccessfulEmpty(eventApiService.deletePastovykleInventory(auth, operation.tuntasId, payload.eventId, payload.pastovykleId, payload.inventoryId), "Klaida trinant pastovykles inventoriu")
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_CREATE_PASTOVYKLE_REQUEST -> {
@@ -591,7 +596,7 @@ class PendingOperationRepository @Inject constructor(
                         payload.pastovykleId,
                         AssignUnitInventoryToPastovykleRequestDto(payload.itemId, payload.quantity, payload.notes)
                     ),
-                    "Klaida priskiriant inventori? i? vieneto"
+                    "Klaida priskiriant inventoriu iš vieneto"
                 )
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
@@ -614,7 +619,7 @@ class PendingOperationRepository @Inject constructor(
                         payload.purchaseId,
                         lt.skautai.android.data.remote.AttachEventPurchaseInvoiceRequestDto(invoiceUrl)
                     ),
-                    "Klaida prisegant s?skaita"
+                    "Klaida prisegant sąskaitą"
                 )
                 refreshPurchasesAfterSync(auth, operation.tuntasId, payload.eventId)
             }
@@ -706,7 +711,7 @@ class PendingOperationRepository @Inject constructor(
         for (pastovykle in pastovykles) {
             inventoryByPastovykleId[pastovykle.id] = requireSuccessful(
                 eventApiService.getPastovykleInventory(auth, tuntasId, eventId, pastovykle.id),
-                "Klaida atnaujinant pastovykles inventori?"
+                "Klaida atnaujinant pastovykles inventoriu"
             ).inventory
             requestsByPastovykleId[pastovykle.id] = requireSuccessful(
                 eventApiService.getPastovykleRequests(auth, tuntasId, eventId, pastovykle.id),
@@ -756,7 +761,7 @@ class PendingOperationRepository @Inject constructor(
         val displayName = uri.getQueryParameter("name") ?: File(absolutePath).name
         val mimeType = uri.getQueryParameter("mime") ?: "application/pdf"
         val stagedFile = File(absolutePath)
-        if (!stagedFile.exists()) throw Exception("Staged dokumentas n?rastas")
+        if (!stagedFile.exists()) throw Exception("Staged dokumentas nerastas")
         val requestBody = stagedFile.asRequestBody(mimeType.toMediaTypeOrNull())
         val filePart = MultipartBody.Part.createFormData("file", displayName, requestBody)
         val uploaded = requireSuccessful(uploadApiService.uploadDocument(auth, filePart), "Nepavyko ikelti dokumento")

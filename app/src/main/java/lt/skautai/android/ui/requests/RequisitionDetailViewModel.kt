@@ -65,6 +65,21 @@ class RequisitionDetailViewModel @Inject constructor(
 
     fun rejectTopLevel(id: String, reason: String?) = runTopLevelReview(id, "REJECTED", reason)
 
+    fun cancelRequest(id: String) {
+        val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isActioning = true, error = null)
+            repository.cancelRequest(id)
+                .onSuccess { loadRequest(id) }
+                .onFailure {
+                    _uiState.value = current.copy(
+                        isActioning = false,
+                        error = it.message ?: "Klaida atsaukiant prasyma"
+                    )
+                }
+        }
+    }
+
     private fun runUnitReview(id: String, action: String, reason: String?) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
         viewModelScope.launch {
@@ -74,7 +89,7 @@ class RequisitionDetailViewModel @Inject constructor(
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
-                        error = it.message ?: "Klaida atliekant vieneto sprendima"
+                        error = it.message ?: "Klaida atliekant vieneto sprendimą"
                     )
                 }
         }
@@ -89,7 +104,7 @@ class RequisitionDetailViewModel @Inject constructor(
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
-                        error = it.message ?: "Klaida atliekant top-level sprendima"
+                        error = it.message ?: "Klaida atliekant tunto sprendimą"
                     )
                 }
         }

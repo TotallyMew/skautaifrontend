@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
@@ -75,7 +77,7 @@ class RequestRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymus")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -90,7 +92,7 @@ class RequestRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -122,7 +124,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.upsert(created.toEntity())
                 Result.success(created)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida kuriant prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant prašymą")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -155,7 +157,7 @@ class RequestRepository @Inject constructor(
             bendrasRequestDao.upsert(local.toEntity())
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.BENDRAS_REQUEST, local.id, PendingOperationType.BENDRAS_REQUEST_CREATE, request)
             Result.success(local)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun cancelRequest(id: String): Result<Unit> {
@@ -166,7 +168,7 @@ class RequestRepository @Inject constructor(
                 bendrasRequestDao.deleteRequest(id, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida atsaukiant prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida atsaukiant prašymą")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -193,7 +195,7 @@ class RequestRepository @Inject constructor(
             }
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.BENDRAS_REQUEST, id, PendingOperationType.BENDRAS_REQUEST_CANCEL, mapOf("id" to id))
             Result.success(Unit)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
     suspend fun draugininkasReview(id: String, action: String, rejectionReason: String?): Result<BendrasRequestDto> =
@@ -226,7 +228,7 @@ class RequestRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = bendrasRequestDao.getRequest(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Prašymas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Prašymas nerastas offline cache"))
             val updated = if (topLevel) {
                 cached.copy(topLevelStatus = action, topLevelRejectionReason = rejectionReason, updatedAt = Instant.now().toString())
             } else {
@@ -241,6 +243,6 @@ class RequestRepository @Inject constructor(
                 ReviewPayload(id, action, rejectionReason)
             )
             Result.success(updated)
-        } catch (e: Exception) { Result.failure(e) }
+        } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 }

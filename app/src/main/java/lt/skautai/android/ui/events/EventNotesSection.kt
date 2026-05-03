@@ -66,10 +66,10 @@ fun PurchasesCard(
                 completingPurchase = null
                 totalAmountInput = ""
             },
-            title = { Text("Pazymeti nupirkta") },
+            title = { Text("Pažymėti nupirkta") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Jei zinote galutine suma, irasykite ja dabar.")
+                    Text("Jei žinote galutinę sumą, įrašykite ją dabar.")
                     OutlinedTextField(
                         value = totalAmountInput,
                         onValueChange = { value ->
@@ -92,7 +92,7 @@ fun PurchasesCard(
                         totalAmountInput = ""
                     }
                 ) {
-                    Text("Issaugoti")
+                    Text("Išsaugoti")
                 }
             },
             dismissButton = {
@@ -102,7 +102,7 @@ fun PurchasesCard(
                         totalAmountInput = ""
                     }
                 ) {
-                    Text("Atsaukti")
+                    Text("Atšaukti")
                 }
             }
         )
@@ -114,13 +114,13 @@ fun PurchasesCard(
             HorizontalDivider()
             BudgetProgress(spent = spent, budget = budget)
             if (purchases.isEmpty()) {
-                EmptyStateText("Pirkimu dar nera. Pazymek trukstamus daiktus ukvedzio skiltyje ir sukurk pirkima.")
+                EmptyStateText("Pirkimų dar nėra. Pažymėk trūkstamus daiktus ūkvedžio skiltyje ir sukurk pirkimą.")
             }
             purchases.forEach { purchase ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    EventInfoRow("Busena", purchaseStatusLabel(purchase.status))
+                    EventInfoRow("Būsena", purchaseStatusLabel(purchase.status))
                     purchase.totalAmount?.let { EventInfoRow("Suma", String.format("%.2f EUR", it)) }
-                    purchase.invoiceFileUrl?.let { EventInfoRow("Saskaita", invoiceTypeLabel(it)) }
+                    purchase.invoiceFileUrl?.let { EventInfoRow("Sąskaita", invoiceTypeLabel(it)) }
                     purchase.items.forEach { item ->
                         EventInfoRow(item.itemName, "${item.purchasedQuantity} vnt.")
                     }
@@ -152,7 +152,7 @@ fun PurchasesCard(
                             enabled = canManage && !isWorking,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Pazymeti nupirkta")
+                            Text("Pažymėti nupirkta")
                         }
                     }
                     HorizontalDivider()
@@ -166,9 +166,9 @@ fun PurchasesCard(
 private fun BudgetProgress(spent: Double, budget: Double?) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         val title = if (budget != null && budget > 0.0) {
-            "Isleista ${String.format("%.2f", spent)} EUR / Biudzetas ${String.format("%.2f", budget)} EUR"
+            "Išleista ${String.format("%.2f", spent)} EUR / Biudžetas ${String.format("%.2f", budget)} EUR"
         } else {
-            "Isleista ${String.format("%.2f", spent)} EUR"
+            "Išleista ${String.format("%.2f", spent)} EUR"
         }
         Text(title, fontWeight = FontWeight.SemiBold)
         if (budget != null && budget > 0.0) {
@@ -181,16 +181,16 @@ private fun BudgetProgress(spent: Double, budget: Double?) {
 }
 
 fun invoiceTypeLabel(url: String): String = when (url.substringAfterLast('.', "").lowercase()) {
-    "pdf" -> "PDF saskaita"
-    "jpg", "jpeg", "png" -> "Saskaitos nuotrauka"
-    else -> "Saskaitos failas"
+    "pdf" -> "PDF sąskaita"
+    "jpg", "jpeg", "png" -> "Sąskaitos nuotrauka"
+    else -> "Sąskaitos failas"
 }
 
 fun purchaseStatusLabel(status: String): String = when (status) {
-    "DRAFT" -> "Ruosiama"
+    "DRAFT" -> "Ruošiama"
     "PURCHASED" -> "Nupirkta"
-    "ADDED_TO_INVENTORY" -> "Prideta i inventoriu"
-    "CANCELLED" -> "Atsaukta"
+    "ADDED_TO_INVENTORY" -> "Pridėta į inventorių"
+    "CANCELLED" -> "Atšaukta"
     else -> status
 }
 
@@ -225,9 +225,9 @@ fun BudgetSummaryCard(eventNotes: String?, purchases: List<EventPurchaseDto>) {
     SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             val title = if (budget != null && budget > 0.0) {
-                "Isleista ${String.format("%.2f", spent)} EUR / Biudzetas ${String.format("%.2f", budget)} EUR"
+                "Išleista ${String.format("%.2f", spent)} EUR / Biudžetas ${String.format("%.2f", budget)} EUR"
             } else {
-                "Isleista ${String.format("%.2f", spent)} EUR"
+                "Išleista ${String.format("%.2f", spent)} EUR"
             }
             Text(title, fontWeight = FontWeight.SemiBold)
             if (budget != null && budget > 0.0) {
@@ -265,10 +265,10 @@ fun PurchaseRowCard(
                 amountDialogMode = null
                 totalAmountInput = ""
             },
-            title = { Text(if (mode == PurchaseAmountDialogMode.Complete) "Pazymeti nupirkta" else "Redaguoti suma") },
+            title = { Text(if (mode == PurchaseAmountDialogMode.Complete) "Pažymėti nupirkta" else "Redaguoti sumą") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Irasykite bendra saskaitos ar fakturos suma.")
+                    Text("Įrašykite bendrą sąskaitos ar faktūros sumą.")
                     OutlinedTextField(
                         value = totalAmountInput,
                         onValueChange = { totalAmountInput = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
@@ -288,13 +288,13 @@ fun PurchaseRowCard(
                         amountDialogMode = null
                         totalAmountInput = ""
                     }
-                ) { Text("Issaugoti") }
+                ) { Text("Išsaugoti") }
             },
             dismissButton = {
                 TextButton(onClick = {
                     amountDialogMode = null
                     totalAmountInput = ""
-                }) { Text("Atsaukti") }
+                }) { Text("Atšaukti") }
             }
         )
     }
@@ -316,7 +316,7 @@ fun PurchaseRowCard(
                         overflow = TextOverflow.Ellipsis
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        EventMetricPill(purchase.totalAmount?.let { String.format("%.2f EUR", it) } ?: "Suma neivesta")
+                        EventMetricPill(purchase.totalAmount?.let { String.format("%.2f EUR", it) } ?: "Suma neįvesta")
                         EventMetricPill("${purchase.items.size} eil. / ${purchase.items.sumOf { it.purchasedQuantity }} vnt.")
                     }
                 }
@@ -335,15 +335,15 @@ fun PurchaseRowCard(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("Saskaita / faktura", style = MaterialTheme.typography.labelLarge)
+                        Text("Sąskaita / faktūra", style = MaterialTheme.typography.labelLarge)
                         Text(
-                            purchase.invoiceFileUrl?.let { invoiceTypeLabel(it) } ?: "Failas nepridetas",
+                            purchase.invoiceFileUrl?.let { invoiceTypeLabel(it) } ?: "Failas nepridėtas",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                     SkautaiStatusPill(
-                        label = if (purchase.invoiceFileUrl == null) "Truksta" else "Prisegta",
+                        label = if (purchase.invoiceFileUrl == null) "Trūksta" else "Prisegta",
                         tone = if (purchase.invoiceFileUrl == null) SkautaiStatusTone.Warning else SkautaiStatusTone.Success
                     )
                 }
@@ -352,7 +352,7 @@ fun PurchaseRowCard(
                 }
                 if (purchase.status == "PURCHASED" && purchase.items.any { !it.addedToInventory }) {
                     Text(
-                        "Ne visi nupirkti daiktai dar perkelti i bendra inventoriu.",
+                        "Ne visi nupirkti daiktai dar perkelti į bendrą inventorių.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -363,14 +363,14 @@ fun PurchaseRowCard(
                         enabled = canManage && !isWorking,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text(if (purchase.invoiceFileUrl == null) "Prisegti saskaita" else "Pakeisti saskaita")
+                        Text(if (purchase.invoiceFileUrl == null) "Prisegti sąskaitą" else "Pakeisti sąskaitą")
                     }
                     OutlinedButton(
                         onClick = onDownloadInvoice,
                         enabled = purchase.invoiceFileUrl != null && !isWorking,
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("Atsisiusti")
+                        Text("Atsisiųsti")
                     }
                 }
                 OutlinedButton(
@@ -380,7 +380,7 @@ fun PurchaseRowCard(
                     },
                     enabled = canManage && !isWorking && purchase.status in listOf("DRAFT", "PURCHASED"),
                     modifier = Modifier.fillMaxWidth()
-                ) { Text("Redaguoti suma") }
+                ) { Text("Redaguoti sumą") }
                 if (purchase.status == "DRAFT") {
                     OutlinedButton(
                         onClick = {
@@ -389,14 +389,14 @@ fun PurchaseRowCard(
                         },
                         enabled = canManage && !isWorking,
                         modifier = Modifier.fillMaxWidth()
-                    ) { Text("Pazymeti nupirkta") }
+                    ) { Text("Pažymėti nupirkta") }
                 }
                 if (purchase.status == "PURCHASED" && purchase.items.any { !it.addedToInventory }) {
                     Button(
                         onClick = onAddToInventory,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Atidaryti inventoriaus suvedima")
+                        Text("Atidaryti inventoriaus suvedimą")
                     }
                 }
             }
@@ -408,7 +408,7 @@ private enum class PurchaseAmountDialogMode { Complete, Update }
 
 private fun parseBudget(notes: String?): Double? {
     val text = notes ?: return null
-    val regex = Regex("(biudzetas|budget)\\s*[:=]?\\s*(\\d+(?:[.,]\\d+)?)", RegexOption.IGNORE_CASE)
+    val regex = Regex("(biudžetas|biudzetas|budget)\\s*[:=]?\\s*(\\d+(?:[.,]\\d+)?)", RegexOption.IGNORE_CASE)
     return regex.find(text)
         ?.groupValues
         ?.getOrNull(2)

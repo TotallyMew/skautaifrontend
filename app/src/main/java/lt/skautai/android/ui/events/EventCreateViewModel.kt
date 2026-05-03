@@ -119,19 +119,19 @@ class EventCreateViewModel @Inject constructor(
         val state = _uiState.value
 
         if (state.name.isBlank()) {
-            _uiState.value = state.copy(error = "Iveskite renginio pavadinima.")
+            _uiState.value = state.copy(error = "Įveskite renginio pavadinimą.")
             return
         }
         if (state.startDate.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite pradzios data.")
+            _uiState.value = state.copy(error = "Pasirinkite pradžios datą.")
             return
         }
         if (state.endDate.isBlank()) {
-            _uiState.value = state.copy(error = "Pasirinkite pabaigos data.")
+            _uiState.value = state.copy(error = "Pasirinkite pabaigos datą.")
             return
         }
         if (!state.isEditMode && state.audienceOptions.isEmpty()) {
-            _uiState.value = state.copy(error = "Jums siuo metu neleidziama kurti renginiu.")
+            _uiState.value = state.copy(error = "Jums šiuo metu neleidžiama kurti renginių.")
             return
         }
 

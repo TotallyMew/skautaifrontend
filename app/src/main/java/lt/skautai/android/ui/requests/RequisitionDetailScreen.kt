@@ -60,6 +60,7 @@ fun RequisitionDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var rejectReason by remember { mutableStateOf("") }
     var rejectTarget by remember { mutableStateOf("") }
+    var showCancelDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(requestId) { viewModel.loadRequest(requestId) }
 
@@ -76,14 +77,14 @@ fun RequisitionDetailScreen(
                 rejectTarget = ""
                 rejectReason = ""
             },
-            title = { Text("Atmesti prasyma") },
+            title = { Text("Atmesti prašymą") },
             text = {
                 OutlinedTextField(
                     value = rejectReason,
                     onValueChange = { rejectReason = it },
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
-                    label = { Text("Priezastis") }
+                    label = { Text("Priežastis") }
                 )
             },
             confirmButton = {
@@ -100,7 +101,28 @@ fun RequisitionDetailScreen(
                 TextButton(onClick = {
                     rejectTarget = ""
                     rejectReason = ""
-                }) { Text("Uzdaryti") }
+                }) { Text("Uždaryti") }
+            }
+        )
+    }
+
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Atšaukti prašymą") },
+            text = { Text("Ar tikrai nori atšaukti šį pirkimo arba papildymo prašymą?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancelDialog = false
+                    viewModel.cancelRequest(requestId)
+                }) {
+                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("Uždaryti")
+                }
             }
         )
     }
@@ -142,13 +164,17 @@ fun RequisitionDetailScreen(
                     val canTopLevelReview = "requisitions.approve" in permissions &&
                         request.topLevelReviewStatus == "PENDING"
                     val isOwnRequest = request.createdByUserId == currentUserId
+                    val canCancel = isOwnRequest &&
+                        request.status !in listOf("APPROVED", "REJECTED", "CANCELLED")
 
                     RequisitionDetailContent(
                         request = request,
                         isActioning = state.isActioning,
                         isOwnRequest = isOwnRequest,
+                        canCancel = canCancel,
                         canUnitReview = canUnitReview,
                         canTopLevelReview = canTopLevelReview,
+                        onCancel = { showCancelDialog = true },
                         onApproveInUnit = { viewModel.approveInUnit(requestId) },
                         onForwardToTop = { viewModel.forwardToTop(requestId) },
                         onRejectInUnit = { rejectTarget = "UNIT" },
@@ -166,8 +192,10 @@ private fun RequisitionDetailContent(
     request: RequisitionDto,
     isActioning: Boolean,
     isOwnRequest: Boolean,
+    canCancel: Boolean,
     canUnitReview: Boolean,
     canTopLevelReview: Boolean,
+    onCancel: () -> Unit,
     onApproveInUnit: () -> Unit,
     onForwardToTop: () -> Unit,
     onRejectInUnit: () -> Unit,
@@ -188,7 +216,7 @@ private fun RequisitionDetailContent(
             fontWeight = FontWeight.Bold
         )
         Text(
-            text = "Pirkimo arba papildymo pra?ymas naujam / tr?kstam?m inventori?i",
+            text = "Pirkimo arba papildymo prašymas naujam / trūkstamam inventoriui",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -207,7 +235,7 @@ private fun RequisitionDetailContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Detales", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Detalės", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 HorizontalDivider()
                 item?.itemDescription?.let { RequisitionInfoRow("Aprašymas", it) }
                 item?.let { RequisitionInfoRow("Kiekis", "${it.quantityRequested}") }
@@ -216,7 +244,7 @@ private fun RequisitionDetailContent(
                 request.notes?.let { RequisitionInfoRow("Pagrindimas", it) }
                 RequisitionInfoRow("Sukurta", request.createdAt.take(10))
                 if (isOwnRequest) {
-                    RequisitionInfoRow("Kontekstas", "Tai tavo sukurtas pra?ymas")
+                    RequisitionInfoRow("Kontekstas", "Tai tavo sukurtas prašymas")
                 }
             }
         }
@@ -252,6 +280,16 @@ private fun RequisitionDetailContent(
                         Text("Atmesti")
                     }
                 }
+            }
+        }
+
+        if (canCancel) {
+            OutlinedButton(
+                onClick = onCancel,
+                enabled = !isActioning,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Atšaukti prašymą", color = MaterialTheme.colorScheme.error)
             }
         }
 

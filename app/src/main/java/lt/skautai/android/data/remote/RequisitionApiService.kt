@@ -2,6 +2,7 @@ package lt.skautai.android.data.remote
 
 import retrofit2.Response
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
@@ -28,6 +29,13 @@ interface RequisitionApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Body request: CreateRequisitionDto
     ): Response<RequisitionDto>
+
+    @DELETE("api/requisitions/{id}")
+    suspend fun cancelRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<Unit>
 
     @POST("api/requisitions/{id}/unit-review")
     suspend fun unitReview(

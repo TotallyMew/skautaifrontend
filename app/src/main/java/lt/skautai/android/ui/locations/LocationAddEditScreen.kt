@@ -101,7 +101,7 @@ fun LocationAddEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isCreateMode) "Nauja lokacija" else "Redaguoti lokacija") },
+                title = { Text(if (isCreateMode) "Nauja lokacija" else "Redaguoti lokaciją") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -139,7 +139,7 @@ fun LocationAddEditScreen(
                             verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
                             Text(
-                                text = if (isCreateMode) "Sukurkite nauja lokacija" else "Atnaujinkite lokacijos informacija",
+                                text = if (isCreateMode) "Sukurkite naują lokaciją" else "Atnaujinkite lokacijos informaciją",
                                 style = MaterialTheme.typography.titleLarge,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer,
                                 fontWeight = FontWeight.SemiBold
@@ -147,7 +147,7 @@ fun LocationAddEditScreen(
                             Text(
                                 text = uiState.parentPath?.let {
                                     "Lokacija bus kuriama po: $it"
-                                } ?: "Uzpildykite pagrindinius duomenis, kad vieta butu lengvai randama kataloge.",
+                                } ?: "Užpildykite pagrindinius duomenis, kad vieta būtų lengvai randama kataloge.",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
                             )
@@ -163,8 +163,8 @@ fun LocationAddEditScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         SkautaiSectionHeader(
-                            title = "Pagrindine informacija",
-                            subtitle = "Pavadinimas, matomumas ir priklausomybe vienetui."
+                            title = "Pagrindinė informacija",
+                            subtitle = "Pavadinimas, matomumas ir priklausomybė vienetui."
                         )
 
                         OutlinedTextField(
@@ -194,7 +194,7 @@ fun LocationAddEditScreen(
 
                         if (!uiState.parentPath.isNullOrBlank()) {
                             Text(
-                                text = "Tevine lokacija: ${uiState.parentPath}",
+                                text = "Tėvinė lokacija: ${uiState.parentPath}",
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -213,8 +213,8 @@ fun LocationAddEditScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         SkautaiSectionHeader(
-                            title = "Kontaktine vieta",
-                            subtitle = "Adresas ir trumpas apra?ymas, kurie padeda rasti viet?."
+                            title = "Kontaktinė vieta",
+                            subtitle = "Adresas ir trumpas aprašymas, kurie padeda rasti vietą."
                         )
 
                         OutlinedTextField(
@@ -245,8 +245,8 @@ fun LocationAddEditScreen(
                         verticalArrangement = Arrangement.spacedBy(14.dp)
                     ) {
                         SkautaiSectionHeader(
-                            title = "Koordinates",
-                            subtitle = "Neprivaloma, bet naudinga atidarymui zemelapyje."
+                            title = "Koordinatės",
+                            subtitle = "Neprivaloma, bet naudinga atidarymui žemėlapyje."
                         )
 
                         Row(
@@ -289,7 +289,7 @@ fun LocationAddEditScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     } else {
-                        Text(if (isCreateMode) "Sukurti lokacija" else "Išsaugoti pakeitimus")
+                        Text(if (isCreateMode) "Sukurti lokaciją" else "Išsaugoti pakeitimus")
                     }
                 }
             }
@@ -523,12 +523,12 @@ class LocationAddEditViewModel @Inject constructor(
     fun save(locationId: String?) {
         val state = _uiState.value
         val trimmedName = state.name.trim()
-        val nameError = if (trimmedName.isBlank()) "Iveskite pavadinima." else null
+        val nameError = if (trimmedName.isBlank()) "Įveskite pavadinimą." else null
         val ownerUnitError = when {
             state.visibility != "UNIT" -> null
             state.ownerUnitId == null -> "Pasirinkite vienetą."
             !state.canManageAllUnits && state.ownerUnitId !in state.allowedUnitIds ->
-                "Galite pasirinkti tik savo vieneta."
+                "Galite pasirinkti tik savo vienetą."
             else -> null
         }
         if (nameError != null || ownerUnitError != null) {
@@ -579,7 +579,7 @@ class LocationAddEditViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Nepavyko issaugoti lokacijos."
+                        error = error.message ?: "Nepavyko išsaugoti lokacijos."
                     )
                 }
         }

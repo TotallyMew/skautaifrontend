@@ -41,7 +41,7 @@ fun StabasCard(
             onDismissRequest = { pendingRoleRemoval = null },
             title = { Text("Šalinti iš štabo?") },
             text = {
-                Text("${role.userName ?: role.userId} bus pašalintas is renginio štabo pareigų: ${eventRoleLabel(role.role)}.")
+                Text("${role.userName ?: role.userId} bus pašalintas iš renginio štabo pareigų: ${eventRoleLabel(role.role)}.")
             },
             confirmButton = {
                 TextButton(
@@ -170,7 +170,7 @@ fun StaffPickerSheet(
             onSelect = { selectedRole = it }
         )
         EventPrimaryButton(
-            text = "Prideti",
+            text = "Pridėti",
             onClick = { selectedUserId?.let { onAssignRole(it, selectedRole) } },
             enabled = !isWorking && selectedUserId != null
         )

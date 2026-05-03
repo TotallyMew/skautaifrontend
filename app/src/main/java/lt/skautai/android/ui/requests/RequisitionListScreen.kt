@@ -162,7 +162,7 @@ private fun RequisitionCard(
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "${request.items.sumOf { it.quantityRequested }} vnt. prasoma papildyti",
+                        text = "${request.items.sumOf { it.quantityRequested }} vnt. prašoma papildyti",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -192,6 +192,8 @@ private fun RequisitionCard(
 @Composable
 private fun RequisitionStatusPill(request: RequisitionDto) {
     val (label, container, content) = when {
+        request.status == "CANCELLED" ->
+            Triple("Atšaukta", MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
         request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" ->
             Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
         request.status == "APPROVED" ->
@@ -211,6 +213,7 @@ private fun RequisitionStatusPill(request: RequisitionDto) {
 }
 
 internal fun requisitionStatusLabel(request: RequisitionDto): String = when {
+    request.status == "CANCELLED" -> "Atšaukta"
     request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" -> "Patvirtinta inventorininko / tuntininko"
     request.status == "APPROVED" -> "Patvirtinta vienete"
     request.unitReviewStatus == "FORWARDED" -> "Perduota inventorininkui"

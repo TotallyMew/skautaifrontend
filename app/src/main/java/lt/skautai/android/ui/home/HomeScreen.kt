@@ -130,7 +130,7 @@ fun HomeScreen(
         if (hasAnyAction) {
             item {
                 SkautaiSectionHeader(
-                    title = "Reikalauja demesio",
+                    title = "Reikalauja dėmesio",
                     subtitle = "Svarbiausi veiksmai, kuriuos verta atlikti pirmiausia."
                 )
             }
@@ -140,7 +140,7 @@ fun HomeScreen(
                         ActionTile(
                             title = "Laukia tavo patvirtinimo",
                             count = uiState.sharedPendingApprovalCount,
-                            subtitle = "Inventoriaus irasu patvirtinimas",
+                            subtitle = "Inventoriaus įrašų patvirtinimas",
                             icon = Icons.Default.PendingActions,
                             tone = MaterialTheme.colorScheme.surfaceBright,
                             badgeTone = SkautaiStatusTone.Warning,
@@ -149,9 +149,9 @@ fun HomeScreen(
                     }
                     if (hasAssignedReservations) {
                         ActionTile(
-                            title = "Rezervacijos, laukiancios sprendimo",
+                            title = "Rezervacijos, laukiančios sprendimo",
                             count = uiState.assignedReservationCount,
-                            subtitle = "Patvirtink arba atmest",
+                            subtitle = "Patvirtink arba atmesk",
                             icon = Icons.Default.EventAvailable,
                             tone = MaterialTheme.colorScheme.surfaceBright,
                             badgeTone = SkautaiStatusTone.Warning,
@@ -233,7 +233,7 @@ fun HomeScreen(
         item {
             SkautaiSectionHeader(
                 title = "Rezervacijos",
-                subtitle = "Sek savo aktyvias rezervacijas ir greitai pereik prie sarasu.",
+                subtitle = "Sek savo aktyvias rezervacijas ir greitai pereik prie sąrašų.",
                 actionLabel = "Visos",
                 onAction = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
             )
@@ -272,7 +272,7 @@ fun HomeScreen(
                 ActionTile(
                     title = "Paėmimo prašymai",
                     count = null,
-                    subtitle = "Paimti esamus daiktųs is bendro tunto inventoriaus",
+                    subtitle = "Paimti esamus daiktus iš bendro tunto inventoriaus",
                     icon = Icons.Default.Inbox,
                     tone = MaterialTheme.colorScheme.surfaceBright,
                     badgeTone = SkautaiStatusTone.Info,
@@ -317,7 +317,7 @@ private fun OverviewCard(
                 modifier = Modifier.padding(end = 8.dp)
             )
             Text(
-                text = "Keisti tunta",
+                text = "Keisti tuntą",
                 fontWeight = FontWeight.SemiBold
             )
         }
@@ -519,7 +519,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = tile.count?.let { "$it irasu" } ?: "Peržiūrėti visą katalogą",
+                    text = tile.count?.let { "$it įrašų" } ?: "Peržiūrėti visą katalogą",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

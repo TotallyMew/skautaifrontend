@@ -122,7 +122,7 @@ class EventStaffViewModel @Inject constructor(
     fun assignToSlot(eventId: String, slot: EventStaffSlotUiModel, userId: String) {
         val current = _uiState.value as? EventStaffUiState.Success ?: return
         if (userId.isBlank()) {
-            _uiState.value = current.copy(error = "Pasirinkite zmogu.")
+            _uiState.value = current.copy(error = "Pasirinkite žmogų.")
             return
         }
         val member = current.members.firstOrNull { it.userId == userId }
@@ -132,16 +132,16 @@ class EventStaffViewModel @Inject constructor(
         }
         activeStaffRoleForMember(userId, current.event, excludingSlot = slot)?.let { occupiedRole ->
             _uiState.value = current.copy(
-                error = "${member.fullName()} jau turi stabo pareiga \"${staffRoleLabel(occupiedRole.role)}\". Pirmiausia nuimkite nuo ankstesnes pareigos."
+                error = "${member.fullName()} jau turi štabo pareigą \"${staffRoleLabel(occupiedRole.role)}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
             )
             return
         }
         if (!memberEligibleForPastovykleAgeGroup(member, slot.pastovykleAgeGroup)) {
             _uiState.value = current.copy(
                 error = when (normalizePastovykleAgeGroupCode(slot.pastovykleAgeGroup)) {
-                    "VYR_SKAUTAI" -> "Siai pastovyklei galima priskirti tik vyr. skauta."
-                    "VYR_SKAUTES" -> "Siai pastovyklei galima priskirti tik vyr. skaute."
-                    else -> "Sis narys netinka pasirinktai pastovyklės amziaus grupei."
+                    "VYR_SKAUTAI" -> "Šiai pastovyklei galima priskirti tik vyr. skautą."
+                    "VYR_SKAUTES" -> "Šiai pastovyklei galima priskirti tik vyr. skautę."
+                    else -> "Šis narys netinka pasirinktai pastovyklės amžiaus grupei."
                 }
             )
             return
@@ -165,7 +165,7 @@ class EventStaffViewModel @Inject constructor(
     fun assignAdditionalRole(eventId: String, userId: String, role: String) {
         val current = _uiState.value as? EventStaffUiState.Success ?: return
         if (userId.isBlank()) {
-            _uiState.value = current.copy(error = "Pasirinkite zmogu.")
+            _uiState.value = current.copy(error = "Pasirinkite žmogų.")
             return
         }
         val member = current.members.firstOrNull { it.userId == userId }
@@ -175,7 +175,7 @@ class EventStaffViewModel @Inject constructor(
         }
         activeStaffRoleForMember(userId, current.event)?.let { occupiedRole ->
             _uiState.value = current.copy(
-                error = "${member.fullName()} jau turi stabo pareiga \"${staffRoleLabel(occupiedRole.role)}\". Pirmiausia nuimkite nuo ankstesnes pareigos."
+                error = "${member.fullName()} jau turi štabo pareigą \"${staffRoleLabel(occupiedRole.role)}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
             )
             return
         }
@@ -199,7 +199,7 @@ class EventStaffViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventStaffUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pasalinti stabo nario.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti štabo nario.")
                     }
                 }
         }
@@ -218,7 +218,7 @@ class EventStaffViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventStaffUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pasalinti pareigos.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti pareigos.")
                     }
                 }
         }
@@ -239,7 +239,7 @@ class EventStaffViewModel @Inject constructor(
     }
 
     private suspend fun assignPastovykleLeader(eventId: String, slot: EventStaffSlotUiModel, userId: String): Result<Unit> {
-        val pastovykleId = slot.pastovykleId ?: return Result.failure(Exception("Pastovykle n?rasta."))
+        val pastovykleId = slot.pastovykleId ?: return Result.failure(Exception("Pastovyklė nerasta."))
         slot.linkedRoleId?.let { existingRoleId ->
             eventRepository.removeEventRole(eventId, existingRoleId).getOrElse { return Result.failure(it) }
         }
@@ -255,7 +255,7 @@ class EventStaffViewModel @Inject constructor(
     }
 
     private suspend fun removePastovykleLeader(eventId: String, slot: EventStaffSlotUiModel): Result<Unit> {
-        val pastovykleId = slot.pastovykleId ?: return Result.failure(Exception("Pastovykle n?rasta."))
+        val pastovykleId = slot.pastovykleId ?: return Result.failure(Exception("Pastovyklė nerasta."))
         eventRepository.updatePastovykle(
             eventId,
             pastovykleId,
@@ -297,7 +297,7 @@ class EventStaffViewModel @Inject constructor(
 
         slots += createRoleSlot(
             id = "chief",
-            title = "Virsininkas",
+            title = "Viršininkas",
             subtitle = "Pagrindinis renginio vadovas",
             role = "VIRSININKAS",
             event = event,
@@ -307,8 +307,8 @@ class EventStaffViewModel @Inject constructor(
         )
         slots += createRoleSlot(
             id = "quartermaster",
-            title = "Ukvedys",
-            subtitle = "Atsako uz inventoriaus suvestine",
+            title = "Ūkvedys",
+            subtitle = "Atsako už inventoriaus suvestinę",
             role = "UKVEDYS",
             event = event,
             members = members,
@@ -326,7 +326,7 @@ class EventStaffViewModel @Inject constructor(
         slots += createRoleSlot(
             id = "food",
             title = "Maistininkas",
-            subtitle = "Maitinimo atsakomybe",
+            subtitle = "Maitinimo atsakomybė",
             role = "MAISTININKAS",
             event = event,
             members = members,
@@ -335,7 +335,7 @@ class EventStaffViewModel @Inject constructor(
         slots += createRoleSlot(
             id = "program-vilkai-skautai",
             title = "Programeris",
-            subtitle = "Vilku / skautu grupei",
+            subtitle = "Vilkų / skautų grupei",
             role = "PROGRAMERIS",
             targetGroup = "SKAUTAI_VILKAI",
             event = event,
@@ -345,7 +345,7 @@ class EventStaffViewModel @Inject constructor(
         slots += createRoleSlot(
             id = "program-patyre",
             title = "Programeris",
-            subtitle = "Patyrusiu skautu grupei",
+            subtitle = "Patyrusių skautų grupei",
             role = "PROGRAMERIS",
             targetGroup = "PATYRE_SKAUTAI",
             event = event,
@@ -455,13 +455,13 @@ private fun String.normalizeRoleName(): String = Normalizer.normalize(this, Norm
     .trim()
 
 private fun staffRoleLabel(role: String): String = when (role) {
-    "VIRSININKAS" -> "Virsininkas"
+    "VIRSININKAS" -> "Viršininkas"
     "KOMENDANTAS" -> "Komendantas"
-    "UKVEDYS" -> "Ukvedys"
+    "UKVEDYS" -> "Ūkvedys"
     "PROGRAMERIS" -> "Programeris"
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"
     "SAVANORIS" -> "Savanoris"
-    "PASTOVYKLE_LEADER" -> "Pastovykles vadovas"
+    "PASTOVYKLE_LEADER" -> "Pastovyklės vadovas"
     else -> role
 }

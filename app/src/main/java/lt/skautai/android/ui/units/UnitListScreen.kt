@@ -106,7 +106,7 @@ fun UnitListScreen(
                                     Icon(Icons.Default.AccountTree, contentDescription = null)
                                     Column {
                                         Text(
-                                            text = "${uiState.units.size} vienetai",
+                                            text = "${uiState.units.size} ${uiState.units.size.nounForm("vienetas", "vienetai", "vienetų")}",
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold
                                         )

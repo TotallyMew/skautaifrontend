@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import kotlinx.coroutines.flow.first
 import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.RoleDto
@@ -30,7 +32,7 @@ class RoleRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant roles")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 }

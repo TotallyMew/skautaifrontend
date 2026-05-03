@@ -84,7 +84,7 @@ fun SyncStatusScreen(
                                 syncStatus.failedCount > 0 ->
                                     "Dalies pakeitimų nepavyko išsaugoti. Patikrinkite interneto ryšį ir bandykite dar kartą."
                                 syncStatus.pendingCount > 0 ->
-                                    "Laukia, kol bus nusiųsti ${syncStatus.pendingCount} pakeitimas(-ai) į serverį."
+                                    "Laukia, kol ${pendingChangeLabel(syncStatus.pendingCount)} bus nusiųsti į serverį."
                                 else ->
                                     "Visi vietiniai pakeitimai jau sinchronizuoti su serveriu."
                             },
@@ -118,7 +118,7 @@ fun SyncStatusScreen(
                         subtitle = if (syncStatus.isOffline) {
                             "Kai vėl bus interneto ryšys, nauji pakeitimai čia atsiras automatiškai."
                         } else {
-                            "Visi vietiniai pakeitimai jau išsiųsti į serveri."
+                            "Visi vietiniai pakeitimai jau išsiųsti į serverį."
                         },
                         icon = if (syncStatus.isOffline) Icons.Default.CloudOff else Icons.Default.CloudDone,
                         modifier = Modifier.fillMaxWidth()
@@ -174,3 +174,8 @@ fun SyncStatusScreen(
     }
 }
 
+private fun pendingChangeLabel(count: Int): String = when {
+    count % 10 == 1 && count % 100 != 11 -> "$count pakeitimas"
+    count % 10 in 2..9 && count % 100 !in 12..19 -> "$count pakeitimai"
+    else -> "$count pakeitimų"
+}

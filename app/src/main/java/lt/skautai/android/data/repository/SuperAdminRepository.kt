@@ -79,7 +79,7 @@ class SuperAdminRepository @Inject constructor(
         if (!response.isSuccessful) {
             throw Exception(response.errorMessage("Klaida gaunant nario informaciją"))
         }
-        response.body() ?: throw Exception("Narys n?rastas")
+        response.body() ?: throw Exception("Narys nerastas")
     }
 
     suspend fun assignLeadershipRole(

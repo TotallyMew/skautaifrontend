@@ -231,7 +231,7 @@ class InventoryAddEditViewModel @Inject constructor(
 
     fun showContextValidationErrors() {
         val state = _uiState.value
-        val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategorija." else null
+        val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategoriją." else null
         val orgUnitError = if (state.mode == "UNIT_OWN" && state.selectedOrgUnitId.isBlank()) {
             "Pasirinkite aktyvų vienetą."
         } else null
@@ -250,7 +250,7 @@ class InventoryAddEditViewModel @Inject constructor(
         val state = _uiState.value
         val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
         val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
-            "Kiekis turi b?ti teigiamas skai?ius."
+            "Kiekis turi būti teigiamas skaičius."
         } else null
         _uiState.value = state.copy(
             nameError = nameError,
@@ -307,7 +307,7 @@ class InventoryAddEditViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isUploadingPhoto = false,
-                        formError = error.message ?: "Nepavyko ikelti nuotraukos."
+                        formError = error.message ?: "Nepavyko įkelti nuotraukos."
                     )
                 }
         }
@@ -374,9 +374,9 @@ class InventoryAddEditViewModel @Inject constructor(
 
         val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
         val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
-            "Kiekis turi b?ti teigiamas skai?ius."
+            "Kiekis turi būti teigiamas skaičius."
         } else null
-        val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategorija." else null
+        val categoryError = if (state.category.isBlank()) "Pasirinkite inventoriaus kategoriją." else null
         val orgUnitError = if (state.mode == "UNIT_OWN" && state.selectedOrgUnitId.isBlank()) {
             "Pasirinkite aktyvų vienetą."
         } else {
@@ -515,7 +515,7 @@ class InventoryAddEditViewModel @Inject constructor(
                     pendingCreateRequest = null
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        formError = error.message ?: "Nepavyko issaugoti daikto."
+                        formError = error.message ?: "Nepavyko išsaugoti daikto."
                     )
                 }
         }

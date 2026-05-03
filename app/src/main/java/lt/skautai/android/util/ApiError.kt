@@ -31,18 +31,18 @@ private val translations = mapOf(
     "Missing tuntas ID" to "Nenurodytas tuntas.",
     "User ID required" to "Nenurodytas vartotojas.",
     "Invalid user ID" to "Neteisingas vartotojo ID.",
-    "User not found" to "Vartotojas n?rastas.",
+    "User not found" to "Vartotojas nerastas.",
     "Too many failed login attempts. Please try again later." to "Per daug nesėkmingų bandymų prisijungti. Pabandykite vėliau.",
-    "Member not found" to "Narys n?rastas.",
-    "Reservation not found" to "Rezervacija n?rasta.",
+    "Member not found" to "Narys nerastas.",
+    "Reservation not found" to "Rezervacija nerasta.",
     "Reservation is not accessible" to "Rezervacija nepasiekiama.",
-    "Item not found" to "Inventoriaus objektas n?rastas.",
-    "Item not found or not active" to "Inventoriaus objektas n?rastas arba neaktyvus.",
-    "Event not found" to "Renginys n?rastas.",
-    "Location not found" to "Lokacija n?rasta.",
-    "Location not found or not active" to "Lokacija n?rasta.",
-    "Organizational unit not found" to "Vienetas n?rastas.",
-    "Request not found" to "Prašymas n?rastas.",
+    "Item not found" to "Inventoriaus objektas nerastas.",
+    "Item not found or not active" to "Inventoriaus objektas nerastas arba neaktyvus.",
+    "Event not found" to "Renginys nerastas.",
+    "Location not found" to "Lokacija nerasta.",
+    "Location not found or not active" to "Lokacija nerasta.",
+    "Organizational unit not found" to "Vienetas nerastas.",
+    "Request not found" to "Prašymas nerastas.",
     "Not found" to "Nerasta.",
     "Not a member of this tuntas" to "Nesate šio tunto narys.",
     "You are not an active member of this tuntas" to "Nesate aktyvus šio tunto narys.",
@@ -64,8 +64,8 @@ private val translations = mapOf(
     "Invite code already used" to "Pakvietimo kodas jau panaudotas.",
     "Invite code expired" to "Pakvietimo kodas nebegalioja.",
     "Invalid invite code" to "Neteisingas pakvietimo kodas.",
-    "Tuntininkas role cannot be invited" to "Tuntininko rolė negali būti kviečiama. Pareigos turi būti perleidžiamos.",
-    "Tuntininkas role can only be transferred" to "Tuntininko rolė negali būti tiesiog priskirta. Pareigos turi būti perleidžiamos.",
+    "Tuntininkas role cannot be invited" to "Tuntininko pareigos negali būti kviečiamos. Jos turi būti perleidžiamos.",
+    "Tuntininkas role can only be transferred" to "Tuntininko pareigos negali būti tiesiog priskirtos. Jos turi būti perleidžiamos.",
     "Only active tuntininkas can transfer this role" to "Perleisti tuntininko pareigas gali tik aktyvus tuntininkas.",
     "Choose a different member to become tuntininkas" to "Pasirinkite kitą narį kaip naują tuntininką.",
     "Successor must be an active member of this tuntas" to "Naujas tuntininkas turi būti aktyvus šio tunto narys.",
@@ -77,9 +77,39 @@ private val translations = mapOf(
 private fun httpFallback(code: Int, fallback: String): String = when (code) {
     401 -> SESSION_EXPIRED_MESSAGE
     403 -> "Neturite teisių atlikti šį veiksmą."
-    404 -> "Nurodytas objektas n?rastas."
+    404 -> "Nurodytas objektas nerastas."
     in 500..599 -> "Serverio klaida. Bandykite vėliau."
     else -> fallback
+}
+
+private val technicalErrorMarkers = listOf(
+    "org.jetbrains.exposed",
+    "org.postgresql",
+    "postgresql",
+    "psqlexception",
+    "sqlexception",
+    "sqlstate",
+    "jdbc:",
+    "select ",
+    "insert ",
+    "update ",
+    "delete ",
+    " from ",
+    " where ",
+    "constraint",
+    "duplicate key",
+    "foreign key",
+    "stacktrace",
+    "exception:",
+    "java.net.",
+    "failed to connect to",
+    "localhost",
+    "10.0.2.2"
+)
+
+private fun isTechnicalMessage(message: String): Boolean {
+    val normalized = message.lowercase()
+    return technicalErrorMarkers.any { it in normalized }
 }
 
 private fun JsonElement.stringOrNull(): String? =
@@ -111,6 +141,7 @@ fun tuntasSelectionRequiredException(): Exception = Exception(TUNTAS_SELECTION_R
 fun parseApiError(body: String?, code: Int, fallback: String): String {
     val raw = parseRawMessage(body)?.trim('"')?.takeIf { it.isNotBlank() }
     return when {
+        raw != null && isTechnicalMessage(raw) -> httpFallback(code, fallback)
         raw != null -> translations[raw] ?: httpFallback(code, raw)
         else -> httpFallback(code, fallback)
     }
@@ -118,3 +149,13 @@ fun parseApiError(body: String?, code: Int, fallback: String): String {
 
 fun <T> Response<T>.errorMessage(fallback: String): String =
     parseApiError(errorBody()?.string(), code(), fallback)
+
+fun Throwable.userFacingException(fallback: String = "Veiksmas nepavyko. Bandykite vėliau."): Exception {
+    val raw = message?.trim().orEmpty()
+    val safeMessage = when {
+        raw.isBlank() -> fallback
+        isTechnicalMessage(raw) -> fallback
+        else -> raw
+    }
+    return Exception(safeMessage, this)
+}

@@ -80,8 +80,8 @@ fun RequestDetailScreen(
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atšaukti pa?mimo prasyma") },
-            text = { Text("Ar tikrai nori atsaukti si prasyma paimti daikta is bendro inventoriaus?") },
+            title = { Text("Atšaukti paėmimo prašymą") },
+            text = { Text("Ar tikrai nori atšaukti šį prašymą paimti daiktą iš bendro inventoriaus?") },
             confirmButton = {
                 TextButton(onClick = {
                     showCancelDialog = false
@@ -92,7 +92,7 @@ fun RequestDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uzdaryti")
+                    Text("Uždaryti")
                 }
             }
         )
@@ -101,10 +101,10 @@ fun RequestDetailScreen(
     if (showRejectDialog) {
         AlertDialog(
             onDismissRequest = { showRejectDialog = false },
-            title = { Text("Atmesti pa?mimo prasyma") },
+            title = { Text("Atmesti paėmimo prašymą") },
             text = {
                 Column {
-                    Text("Atmetimo priezastis (neprivaloma):")
+                    Text("Atmetimo priežastis (neprivaloma):")
                     Spacer(modifier = Modifier.height(8.dp))
                     OutlinedTextField(
                         value = rejectReason,
@@ -133,7 +133,7 @@ fun RequestDetailScreen(
                     rejectReason = ""
                     rejectTarget = ""
                 }) {
-                    Text("Uzdaryti")
+                    Text("Uždaryti")
                 }
             }
         )
@@ -142,7 +142,7 @@ fun RequestDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Pa?mimo pra?ymas") },
+                title = { Text("Paėmimo prašymas") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atgal")
@@ -252,31 +252,31 @@ private fun RequestDetailContent(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text("Pa?mimo informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                Text("Paėmimo informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 HorizontalDivider()
                 request.itemDescription?.let { RequestInfoRow("Aprašymas", it) }
                 RequestInfoRow("Kiekis", request.quantity.toString())
                 request.neededByDate?.let { RequestInfoRow("Reikalinga iki", it.take(10)) }
                 request.requestingUnitName?.let { RequestInfoRow("Vienetas", it) }
-                request.requestedByUserName?.takeIf { it.isNotBlank() }?.let { RequestInfoRow("Kas praso", it) }
+                request.requestedByUserName?.takeIf { it.isNotBlank() }?.let { RequestInfoRow("Kas prašo", it) }
                 request.notes?.let { RequestInfoRow("Pastabos", it) }
                 RequestInfoRow("Sukurta", request.createdAt.take(10))
             }
         }
 
         if (request.needsDraugininkasApproval) {
-            ReviewCard(title = "Vieneto perziura") {
+            ReviewCard(title = "Vieneto peržiūra") {
                 RequestInfoRow(
-                    "Busena",
+                    "Būsena",
                     when (request.draugininkasStatus) {
                         "PENDING" -> "Laukia vieneto sprendimo"
                         "FORWARDED" -> "Perduota inventorininkui"
                         "REJECTED" -> "Atmesta vienete"
-                        else -> request.draugininkasStatus ?: "Nera"
+                        else -> request.draugininkasStatus ?: "Nėra"
                     }
                 )
                 request.draugininkasRejectionReason?.let {
-                    RequestInfoRow("Atmetimo priezastis", it)
+                    RequestInfoRow("Atmetimo priežastis", it)
                 }
 
                 if (request.draugininkasStatus == "PENDING" && canForwardReview) {
@@ -342,7 +342,7 @@ private fun RequestDetailContent(
                 if (isActioning) {
                     CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
                 } else {
-                    Text("Atšaukti pa?mimo prasyma")
+                    Text("Atšaukti paėmimo prašymą")
                 }
             }
         }

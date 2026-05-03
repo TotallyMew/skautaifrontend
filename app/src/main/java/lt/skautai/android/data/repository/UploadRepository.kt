@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import android.content.Context
 import android.app.DownloadManager
 import android.net.Uri
@@ -54,7 +56,7 @@ class UploadRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko ikelti nuotraukos")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -84,7 +86,7 @@ class UploadRepository @Inject constructor(
         } catch (e: IOException) {
             stageDocument(uri)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -99,17 +101,17 @@ class UploadRepository @Inject constructor(
             val request = DownloadManager.Request(Uri.parse(url))
                 .addRequestHeader("Authorization", "Bearer $token")
                 .addRequestHeader("X-Tuntas-Id", tuntasId)
-                .setTitle("S?skaita fakt?r?")
-                .setDescription("Renginio pirkimo s?skaita")
+                .setTitle("Sąskaita faktūra")
+                .setDescription("Renginio pirkimo sąskaita")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalPublicDir(
                     Environment.DIRECTORY_DOWNLOADS,
-                    "s?skaita-$purchaseId.${invoiceExtension(invoiceFileUrl)}"
+                    "saskaita-$purchaseId.${invoiceExtension(invoiceFileUrl)}"
                 )
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             Result.success(manager.enqueue(request))
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -150,7 +152,7 @@ class UploadRepository @Inject constructor(
                 "$STAGED_DOCUMENT_PREFIX${Uri.encode(stagedFile.absolutePath)}?name=${Uri.encode(safeName)}&mime=${Uri.encode(mimeType)}"
             )
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 }

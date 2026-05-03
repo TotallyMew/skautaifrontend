@@ -1,5 +1,7 @@
 package lt.skautai.android.data.repository
 
+import lt.skautai.android.util.userFacingException
+
 import javax.inject.Inject
 import javax.inject.Singleton
 import java.io.IOException
@@ -91,10 +93,10 @@ class ItemRepository @Inject constructor(
                 itemDao.upsertAll(items.toItemEntities())
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant inventori?")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant inventoriu")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -119,7 +121,7 @@ class ItemRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Klaida gaunant daikta")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -139,7 +141,7 @@ class ItemRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedItems.isNotEmpty()) {
             Result.success(cachedItems)
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant inventori?"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant inventoriu"))
         }
     }
 
@@ -171,7 +173,7 @@ class ItemRepository @Inject constructor(
                 Result.failure(Exception(response.errorMessage("Nepavyko atpazinti QR kodo")))
             }
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -222,7 +224,7 @@ class ItemRepository @Inject constructor(
             )
             Result.success(Unit)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -290,7 +292,7 @@ class ItemRepository @Inject constructor(
             )
             Result.success(localItem)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 
@@ -335,7 +337,7 @@ class ItemRepository @Inject constructor(
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = itemDao.getItem(itemId, tuntasId)?.toDto()
-                ?: return Result.failure(Exception("Daiktas n?rastas offline cache"))
+                ?: return Result.failure(Exception("Daiktas nerastas offline cache"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 description = request.description ?: cached.description,
@@ -377,7 +379,7 @@ class ItemRepository @Inject constructor(
             }
             Result.success(updated)
         } catch (e: Exception) {
-            Result.failure(e)
+            Result.failure(e.userFacingException())
         }
     }
 

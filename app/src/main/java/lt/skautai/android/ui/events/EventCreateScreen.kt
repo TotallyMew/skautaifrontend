@@ -83,7 +83,7 @@ fun EventCreateScreen(
                 ) { Text("Pasirinkti") }
             },
             dismissButton = {
-                TextButton(onClick = { selectingDate = null }) { Text("Uzdaryti") }
+                TextButton(onClick = { selectingDate = null }) { Text("Uždaryti") }
             }
         ) {
             DatePicker(state = pickerState)
@@ -91,7 +91,7 @@ fun EventCreateScreen(
     }
 
     EventScreenScaffold(
-        title = if (uiState.isEditMode) "Redaguoti rengini" else "Naujas renginys",
+        title = if (uiState.isEditMode) "Redaguoti renginį" else "Naujas renginys",
         onBack = onBack,
         snackbarHostState = snackbarHostState
     ) { padding ->
@@ -106,8 +106,8 @@ fun EventCreateScreen(
             EventCreateHero(uiState = uiState)
 
             EventFormSection(
-                title = "Pagrindine informacija",
-                subtitle = "Aiskus pavadinimas, tipas ir datos padeda komandai greitai suprasti renginio remus."
+                title = "Pagrindinė informacija",
+                subtitle = "Aiškus pavadinimas, tipas ir datos padeda komandai greitai suprasti renginio rėmus."
             ) {
                 if (uiState.isLoading) {
                     Box(modifier = Modifier.fillMaxWidth()) {
@@ -135,7 +135,7 @@ fun EventCreateScreen(
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     EventTonalDateButton(
-                        label = "Prad?ia",
+                        label = "Pradžia",
                         value = uiState.startDate.takeIf { it.isNotBlank() },
                         onClick = { selectingDate = "start" },
                         enabled = !uiState.isEditMode,
@@ -160,7 +160,7 @@ fun EventCreateScreen(
 
                 if (!uiState.isEditMode && !uiState.isAudienceLoading && uiState.audienceOptions.isEmpty()) {
                     Text(
-                        text = "Pagal dabartini ranga ir vienetus siuo metu negalite kurti renginiu.",
+                        text = "Pagal dabartinį rangą ir vienetus šiuo metu negalite kurti renginių.",
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -168,7 +168,7 @@ fun EventCreateScreen(
 
             EventFormSection(
                 title = "Pastabos",
-                subtitle = "Trumpai apra?yk tik tai, kas svarbu vadovams, ?kved?iui ar stabui."
+                subtitle = "Trumpai aprašyk tik tai, kas svarbu vadovams, ūkvedžiui ar štabui."
             ) {
                 OutlinedTextField(
                     value = uiState.notes,
@@ -182,7 +182,7 @@ fun EventCreateScreen(
             }
 
             EventPrimaryButton(
-                text = if (uiState.isSaving) "Saugoma..." else if (uiState.isEditMode) "Issaugoti pakeitimus" else "Sukurti rengini",
+                text = if (uiState.isSaving) "Saugoma..." else if (uiState.isEditMode) "Išsaugoti pakeitimus" else "Sukurti renginį",
                 onClick = viewModel::saveEvent,
                 enabled = !uiState.isSaving && !uiState.isLoading
             )
@@ -199,9 +199,9 @@ fun EventCreateScreen(
 @Composable
 private fun EventCreateHero(uiState: EventCreateUiState) {
     val subtitle = if (uiState.isEditMode) {
-        "Atnaujink svarbiausius duomenis, kad tolesni planavimo ekranai liktu aiskus visam stabui."
+        "Atnaujink svarbiausius duomenis, kad tolesni planavimo ekranai liktų aiškūs visam štabui."
     } else {
-        "Susikurk renginio pagrinda, nuo kurio prasides planas, poreikiai, stabas ir inventoriaus eiga."
+        "Susikurk renginio pagrindą, nuo kurio prasidės planas, poreikiai, štabas ir inventoriaus eiga."
     }
 
     SkautaiSummaryCard(
@@ -211,7 +211,7 @@ private fun EventCreateHero(uiState: EventCreateUiState) {
         foresty = true,
         metrics = listOf(
             "Tipas" to eventTypeLabel(uiState.type),
-            "Prad?ia" to uiState.startDate.ifBlank { "--" },
+            "Pradžia" to uiState.startDate.ifBlank { "--" },
             "Pabaiga" to uiState.endDate.ifBlank { "--" }
         )
     )

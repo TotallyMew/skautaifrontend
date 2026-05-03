@@ -109,7 +109,7 @@ class InventoryDetailViewModel @Inject constructor(
                     _deleted.value = true
                 }
                 .onFailure { error ->
-                    _actionError.value = error.message ?: "Nepavyko istrinti daikto"
+            _actionError.value = error.message ?: "Nepavyko ištrinti daikto"
                 }
         }
     }
@@ -126,7 +126,7 @@ class InventoryDetailViewModel @Inject constructor(
                     loadItemReservations(itemId)
                 }
                 .onFailure { error ->
-                    _actionError.value = error.message ?: "Nepavyko pakeisti busenos"
+                    _actionError.value = error.message ?: "Nepavyko pakeisti būsenos"
                 }
             _isUpdatingStatus.value = false
         }

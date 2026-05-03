@@ -107,12 +107,12 @@ class RequisitionCreateViewModel @Inject constructor(
     fun createRequest() {
         val state = _uiState.value
         if (state.itemName.isBlank()) {
-            _uiState.value = state.copy(error = "Iveskite norimo daikto pavadinima")
+            _uiState.value = state.copy(error = "Įveskite norimo daikto pavadinimą")
             return
         }
         val quantity = state.quantity.toIntOrNull()
         if (quantity == null || quantity < 1) {
-            _uiState.value = state.copy(error = "Kiekis turi b?ti teigiamas skai?ius")
+            _uiState.value = state.copy(error = "Kiekis turi būti teigiamas skaičius")
             return
         }
 
@@ -136,7 +136,7 @@ class RequisitionCreateViewModel @Inject constructor(
             }.onFailure {
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
-                    error = it.message ?: "Klaida kuriant prasyma"
+                    error = it.message ?: "Klaida kuriant prašymą"
                 )
             }
         }

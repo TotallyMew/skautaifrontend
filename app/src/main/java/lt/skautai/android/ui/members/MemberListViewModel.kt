@@ -73,7 +73,7 @@ class MemberListViewModel @Inject constructor(
                 .onFailure { error ->
                     if (_uiState.value is MemberListUiState.Loading) {
                         _uiState.value = MemberListUiState.Error(
-                            error.message ?: "Klaida gaunant nariųs"
+                            error.message ?: "Klaida gaunant narius"
                         )
                     }
                 }

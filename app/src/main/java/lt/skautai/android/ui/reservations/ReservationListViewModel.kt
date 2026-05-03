@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
 
@@ -115,12 +116,11 @@ private fun List<ReservationDto>.filterForMode(
                     )
         }
         "tracked" -> filter {
-            it.status in listOf("APPROVED", "ACTIVE") &&
-                it.canBeManagedBy(permissions, activeUnitId) &&
+            it.isTrackableBy(permissions, activeUnitId) &&
                 (
-                    it.items.any { item -> item.remainingToIssue > 0 } ||
-                        it.items.any { item -> item.remainingToReceive > 0 } ||
-                        it.items.any { item -> item.remainingToReturn > 0 }
+                    it.items.any { item -> item.canBeMovementManagedBy(permissions, activeUnitId) && item.remainingToIssue > 0 } ||
+                        it.items.any { item -> item.canBeMovementManagedBy(permissions, activeUnitId) && item.remainingToReceive > 0 } ||
+                        it.items.any { item -> item.canBeMovementManagedBy(permissions, activeUnitId) && item.remainingToReturn > 0 }
                     )
         }
         else -> filter { it.canBeViewedBy(userId, permissions, activeUnitId) }
@@ -141,13 +141,26 @@ private fun ReservationDto.canBeViewedBy(
                     )
             )
 
+private fun ReservationDto.isTrackableBy(permissions: Set<String>, activeUnitId: String?): Boolean =
+    status in listOf("APPROVED", "ACTIVE") ||
+        (
+            status == "PENDING" &&
+                (
+                    (unitReviewStatus == "APPROVED" && items.any { it.custodianId != null && it.custodianId == activeUnitId }) ||
+                        (topLevelReviewStatus == "APPROVED" && items.any { it.custodianId == null } && permissions.canApproveTopLevelReservations())
+                    )
+            )
+
 private fun ReservationDto.canBeManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
     items.any { item ->
-        when {
-            item.custodianId == null -> permissions.canApproveTopLevelReservations()
-            permissions.canApproveTopLevelReservations() -> true
-            else -> permissions.canApproveUnitReservations() && item.custodianId == activeUnitId
-        }
+        item.canBeMovementManagedBy(permissions, activeUnitId)
+    }
+
+private fun ReservationItemDto.canBeMovementManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
+    if (custodianId == null) {
+        permissions.canApproveTopLevelReservations()
+    } else {
+        permissions.canApproveOwnUnitReservations() && custodianId == activeUnitId
     }
 
 private fun ReservationDto.isUnitReviewPending(): Boolean =
@@ -163,6 +176,9 @@ private fun Set<String>.canApproveTopLevelReservations(): Boolean =
 
 private fun Set<String>.canApproveUnitReservations(): Boolean =
     "reservations.approve:OWN_UNIT" in this || canApproveTopLevelReservations()
+
+private fun Set<String>.canApproveOwnUnitReservations(): Boolean =
+    "reservations.approve:OWN_UNIT" in this
 
 private fun Set<String>.canUseReviewModes(): Boolean =
     canApproveUnitReservations() || canApproveTopLevelReservations()

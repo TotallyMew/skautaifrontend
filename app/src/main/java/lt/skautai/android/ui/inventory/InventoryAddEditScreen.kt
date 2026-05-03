@@ -100,7 +100,7 @@ fun InventoryAddEditScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             if (saveAndAddAnother && isCreateFlow) {
-                snackbarHostState.showSnackbar("IÅ¡saugota. Galite pridÄ—ti kitÄ… daiktÄ….")
+                snackbarHostState.showSnackbar("Išsaugota. Galite pridėti kitą daiktą.")
                 viewModel.prepareNextItem()
                 currentStep = STEP_INFO
             } else {
@@ -129,7 +129,7 @@ fun InventoryAddEditScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(if (isCreateFlow) createTitle(uiState.mode) else "Redaguoti inventoriÅ³") },
+                title = { Text(if (isCreateFlow) createTitle(uiState.mode) else "Redaguoti inventorių") },
                 navigationIcon = {
                     androidx.compose.material3.IconButton(
                         onClick = {
@@ -209,7 +209,7 @@ fun InventoryAddEditScreen(
                                     Text(
                                         when (currentStep) {
                                             STEP_CONTEXT -> "Toliau"
-                                            STEP_INFO -> if (saveImmediately) submitLabel(uiState) else "Perziureti"
+                                            STEP_INFO -> if (saveImmediately) submitLabel(uiState) else "Peržiūrėti"
                                             else -> submitLabel(uiState)
                                         }
                                     )
@@ -233,7 +233,7 @@ fun InventoryAddEditScreen(
                                 enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (uiState.mode == "SHARED" && !uiState.canCreateSharedDirectly) "Pateikti ir prideti kita" else "Issaugoti ir prideti kita")
+                                Text(if (uiState.mode == "SHARED" && !uiState.canCreateSharedDirectly) "Pateikti ir pridėti kitą" else "Išsaugoti ir pridėti kitą")
                             }
                         }
                     } else {
@@ -242,7 +242,7 @@ fun InventoryAddEditScreen(
                             enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            if (uiState.isSaving) CircularProgressIndicator() else Text("IÅ¡saugoti pakeitimus")
+                            if (uiState.isSaving) CircularProgressIndicator() else Text("Išsaugoti pakeitimus")
                         }
                     }
                 }
@@ -263,15 +263,15 @@ private fun DuplicateItemDialog(
         title = { Text("Rastas toks pats daiktas") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Jau yra Ä¯raÅ¡as su tokiu paÄiu pavadinimu. KÄ… norite daryti?")
+                Text("Jau yra įrašas su tokiu pačiu pavadinimu. Ką norite daryti?")
                 Text(
                     text = buildString {
                         append(item.name)
-                        append(" â€¢ ")
+                        append(" • ")
                         append(item.quantity)
                         append(" vnt.")
                         item.locationName?.takeIf { it.isNotBlank() }?.let {
-                            append(" â€¢ ")
+                            append(" • ")
                             append(it)
                         }
                     },
@@ -282,16 +282,16 @@ private fun DuplicateItemDialog(
         },
         confirmButton = {
             TextButton(onClick = onAddToExisting) {
-                Text("PridÄ—ti prie esamo")
+                Text("Pridėti prie esamo")
             }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TextButton(onClick = onDismiss) {
-                    Text("AtÅ¡aukti")
+                    Text("Atšaukti")
                 }
                 TextButton(onClick = onCreateNew) {
-                    Text("Sukurti naujÄ…")
+                    Text("Sukurti naują")
                 }
             }
         }
@@ -303,7 +303,7 @@ private fun StepHeader(currentStep: Int) {
     val labels = listOf(
         "1. Kontekstas ir laikymas",
         "2. Daikto informacija",
-        "3. Perziura"
+        "3. Peržiūra"
     )
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Naujo inventoriaus vedlys", style = MaterialTheme.typography.headlineSmall)
@@ -359,7 +359,7 @@ private fun ContextStep(
                 tonal = MaterialTheme.colorScheme.secondaryContainer
             ) {
                 Text(
-                    text = "Kuriamas naujas vieneto daiktas; paÄ—mimui iÅ¡ tunto naudok praÅ¡ymÄ….",
+                    text = "Kuriamas naujas vieneto daiktas; paėmimui iš tunto naudok prašymą.",
                     modifier = Modifier.padding(16.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
@@ -369,7 +369,7 @@ private fun ContextStep(
 
         if (uiState.canManageLocations) {
             LocationPickerField(
-                label = "Permanent lokacija",
+                label = "Nuolatinė lokacija",
                 locations = uiState.locations,
                 selectedId = uiState.selectedLocationId,
                 onSelected = { viewModel.onLocationChange(it?.id) },
@@ -389,7 +389,7 @@ private fun ContextStep(
             )
         } else {
             Text(
-                text = "Lokacija siame sraute parenkama vadovo.",
+                text = "Lokacija šiame sraute parenkama vadovo.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -398,7 +398,7 @@ private fun ContextStep(
         OutlinedTextField(
             value = uiState.temporaryStorageLabel,
             onValueChange = viewModel::onTemporaryStorageLabelChange,
-            label = { Text("Vienkartine laikymo vieta") },
+            label = { Text("Vienkartinė laikymo vieta") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2
         )
@@ -445,7 +445,7 @@ private fun ItemInfoStep(
         OutlinedTextField(
             value = uiState.description,
             onValueChange = viewModel::onDescriptionChange,
-            label = { Text("ApraÅ¡ymas") },
+            label = { Text("Aprašymas") },
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             maxLines = 4
@@ -493,7 +493,7 @@ private fun ReviewStep(uiState: InventoryAddEditUiState) {
     val selectedUnit = uiState.orgUnits.firstOrNull { it.id == uiState.selectedOrgUnitId }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        SkautaiSectionHeader(title = "Perziura")
+        SkautaiSectionHeader(title = "Peržiūra")
         SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
             tonal = MaterialTheme.colorScheme.primaryContainer
@@ -507,14 +507,14 @@ private fun ReviewStep(uiState: InventoryAddEditUiState) {
                 ReviewRow("Kategorija", inventoryCategoryLabel(uiState.category))
                 ReviewRow("Lokacija", selectedLocation?.name ?: "Nenurodyta")
                 uiState.temporaryStorageLabel.takeIf { it.isNotBlank() }?.let {
-                    ReviewRow("Vienkartine vieta", it)
+                    ReviewRow("Vienkartinė vieta", it)
                 }
                 ReviewRow("Atsakingas vienetas", selectedUnit?.name ?: "Bendras tunto saugojimas")
-                ReviewRow("Kilme", originLabelForMode(uiState.mode))
+                ReviewRow("Kilmė", originLabelForMode(uiState.mode))
                 ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
-                ReviewRow("Bukle", itemConditionLabel(uiState.condition))
+                ReviewRow("Būklė", itemConditionLabel(uiState.condition))
                 uiState.photoUrl.takeIf { it.isNotBlank() }?.let {
-                    ReviewRow("Nuotrauka", "Prideta")
+                    ReviewRow("Nuotrauka", "Pridėta")
                 }
             }
         }
@@ -555,7 +555,7 @@ private fun PhotoField(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("PridÄ—ti nuotrauka")
+                Text("Pridėti nuotrauką")
             }
             if (uiState.isUploadingPhoto) {
                 Row(
@@ -564,7 +564,7 @@ private fun PhotoField(
                 ) {
                     CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                     Text(
-                        text = "Nuotrauka ikeliama...",
+                        text = "Nuotrauka įkeliama...",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         fontWeight = FontWeight.Medium
@@ -579,7 +579,7 @@ private fun PhotoField(
                         .aspectRatio(1.7f)
                 )
                 Text(
-                    text = "Nuotrauka ikelta",
+                    text = "Nuotrauka įkelta",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
@@ -606,7 +606,7 @@ private fun PurchaseDateField(
             .fillMaxWidth()
             .heightIn(min = 56.dp)
     ) {
-        Text(if (value.isBlank()) "Pasirinkti pirkimo data" else "Pirkimo data: $value")
+        Text(if (value.isBlank()) "Pasirinkti pirkimo datą" else "Pirkimo data: $value")
     }
 
     if (showPicker) {
@@ -624,7 +624,7 @@ private fun PurchaseDateField(
             },
             dismissButton = {
                 TextButton(onClick = { showPicker = false }) {
-                    Text("AtÅ¡aukti")
+                    Text("Atšaukti")
                 }
             }
         ) {
@@ -649,7 +649,7 @@ private fun QuantityStepper(
             onClick = { onQuantityChange((numeric - 1).coerceAtLeast(1).toString()) },
             modifier = Modifier.size(width = 56.dp, height = 56.dp)
         ) {
-            androidx.compose.material3.Icon(Icons.Default.Remove, contentDescription = "Mazinti")
+            androidx.compose.material3.Icon(Icons.Default.Remove, contentDescription = "Mažinti")
         }
         OutlinedTextField(
             value = quantity,
@@ -688,7 +688,7 @@ private fun ConditionSelector(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
-            text = "Bukle",
+            text = "Būklė",
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -733,12 +733,12 @@ private fun SaveFlowOptions(
         CheckboxRow(
             checked = saveImmediately,
             onCheckedChange = onSaveImmediatelyChange,
-            label = "IÅ¡saugoti iskart"
+            label = "Išsaugoti iškart"
         )
         CheckboxRow(
             checked = saveAndAddAnother,
             onCheckedChange = onSaveAndAddAnotherChange,
-            label = "IÅ¡saugoti ir pridÄ—ti kitÄ…"
+            label = "Išsaugoti ir pridėti kitą"
         )
     }
 }
@@ -828,7 +828,7 @@ private fun CustodianUnitDropdown(
     errorText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkti vienetÄ…"
+    val selectedName = units.firstOrNull { it.id == selectedId }?.name ?: "Pasirinkti vienetą"
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { if (enabled) expanded = it }) {
         OutlinedTextField(
             value = selectedName,
@@ -861,25 +861,25 @@ private fun CustodianUnitDropdown(
 }
 
 private fun inventoryCategoryOptions(): List<Pair<String, String>> = listOf(
-    "CAMPING" to "Camping",
-    "TOOLS" to "Tools",
-    "COOKING" to "Cooking",
-    "FIRST_AID" to "First aid",
-    "UNIFORMS" to "Uniforms",
-    "BOOKS" to "Books",
-    "PERSONAL_LOANS" to "Personal loans"
+    "CAMPING" to "Stovyklavimas",
+    "TOOLS" to "Įrankiai",
+    "COOKING" to "Maisto gamyba",
+    "FIRST_AID" to "Pirmoji pagalba",
+    "UNIFORMS" to "Uniformos",
+    "BOOKS" to "Knygos",
+    "PERSONAL_LOANS" to "Asmeninis skolinimas"
 )
 
 private fun conditionOptions(): List<Pair<String, String>> = listOf(
     "GOOD" to "Gera",
-    "DAMAGED" to "Vidutine",
+    "DAMAGED" to "Vidutinė",
     "WRITTEN_OFF" to "Bloga"
 )
 
 private fun createTitle(mode: String): String = when (mode) {
     "UNIT_OWN" -> "Naujas vieneto daiktas"
-    "PERSONAL" -> "Mano siulomas skolinti"
-    else -> "PridÄ—ti Ä¯ tunto inventoriÅ³"
+    "PERSONAL" -> "Mano siūlomas skolinti"
+    else -> "Pridėti į tunto inventorių"
 }
 
 private fun submitLabel(uiState: InventoryAddEditUiState): String =
@@ -890,31 +890,31 @@ private fun submitLabel(uiState: InventoryAddEditUiState): String =
     }
 
 private fun contextTitle(mode: String): String = when (mode) {
-    "UNIT_OWN" -> "Aktyvaus vieneto inventori?s"
-    "PERSONAL" -> "Mano siulomas skolinti"
-    else -> "Bendras tunto inventori?s"
+    "UNIT_OWN" -> "Aktyvaus vieneto inventorius"
+    "PERSONAL" -> "Mano siūlomas skolinti"
+    else -> "Bendras tunto inventorius"
 }
 
 private fun contextDescription(mode: String): String = when (mode) {
-    "UNIT_OWN" -> "Naujas tavo aktyvaus vieneto inventoriaus irasas."
-    "PERSONAL" -> "Asmeninis daiktas, kuri gali skolinti kitiems."
-    else -> "Bendro tunto sandÄ—lio inventoriaus Ä¯raÅ¡as."
+    "UNIT_OWN" -> "Naujas tavo aktyvaus vieneto inventoriaus įrašas."
+    "PERSONAL" -> "Asmeninis daiktas, kurį gali skolinti kitiems."
+    else -> "Bendro tunto sandėlio inventoriaus įrašas."
 }
 
 private fun originLabelForMode(mode: String): String = when (mode) {
-    "SHARED" -> "Bendro tunto inventori?s"
+    "SHARED" -> "Bendro tunto inventorius"
     "PERSONAL" -> "Asmeninis daiktas skolinimui"
     "UNIT_OWN" -> "Naujas vieneto daiktas"
     else -> "Sukurtas naujai"
 }
 
 private fun approvalMessage(uiState: InventoryAddEditUiState): String = when (uiState.mode) {
-    "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventori?s."
-    "PERSONAL" -> "Daiktas bus iÅ¡kart matomas kaip tavo siÅ«lomas skolinti inventori?s."
+    "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventorius."
+    "PERSONAL" -> "Daiktas bus iškart matomas kaip tavo siūlomas skolinti inventorius."
     else -> if (uiState.canCreateSharedDirectly) {
-        "Daiktas bus is karto itrauktas i bendra tunto inventoriu."
+        "Daiktas bus iš karto įtrauktas į bendrą tunto inventorių."
     } else {
-        "Daiktas bus pateiktas patvirtinimui. Iki patvirtinimo jis bus pazymetas kaip laukiantis."
+        "Daiktas bus pateiktas patvirtinimui. Iki patvirtinimo jis bus pažymėtas kaip laukiantis."
     }
 }
 
@@ -923,7 +923,7 @@ private fun validateContextStep(
     viewModel: InventoryAddEditViewModel
 ): Boolean {
     if (uiState.category.isBlank()) {
-        viewModel.showValidationError("Pasirinkite inventoriaus kategorijÄ….")
+        viewModel.showValidationError("Pasirinkite inventoriaus kategoriją.")
         return false
     }
     if (uiState.mode == "UNIT_OWN" && uiState.selectedOrgUnitId.isBlank()) {
@@ -942,7 +942,7 @@ private fun validateInfoStep(
         return false
     }
     if (uiState.quantity.toIntOrNull() == null || uiState.quantity.toInt() < 1) {
-        viewModel.showValidationError("Kiekis turi bÅ«ti teigiamas skaiÄius.")
+        viewModel.showValidationError("Kiekis turi būti teigiamas skaičius.")
         return false
     }
     return true
