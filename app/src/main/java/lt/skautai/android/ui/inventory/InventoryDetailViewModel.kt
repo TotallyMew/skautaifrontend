@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateBendrasRequestDto
 import lt.skautai.android.data.remote.CreateBendrasRequestItemDto
+import lt.skautai.android.data.remote.ItemAssignmentDto
+import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
@@ -26,7 +28,9 @@ sealed interface InventoryDetailUiState {
     object Loading : InventoryDetailUiState
     data class Success(
         val item: ItemDto,
-        val reservations: List<ReservationDto> = emptyList()
+        val reservations: List<ReservationDto> = emptyList(),
+        val assignments: List<ItemAssignmentDto> = emptyList(),
+        val conditionLog: List<ItemConditionLogDto> = emptyList()
     ) : InventoryDetailUiState
     data class Error(val message: String) : InventoryDetailUiState
 }
@@ -73,8 +77,13 @@ class InventoryDetailViewModel @Inject constructor(
         itemObserverJob = viewModelScope.launch {
             itemRepository.observeItem(itemId).collect { item ->
                 if (item != null) {
-                    val reservations = (_uiState.value as? InventoryDetailUiState.Success)?.reservations.orEmpty()
-                    _uiState.value = InventoryDetailUiState.Success(item, reservations)
+                    val current = _uiState.value as? InventoryDetailUiState.Success
+                    _uiState.value = InventoryDetailUiState.Success(
+                        item = item,
+                        reservations = current?.reservations.orEmpty(),
+                        assignments = current?.assignments.orEmpty(),
+                        conditionLog = current?.conditionLog.orEmpty()
+                    )
                 }
             }
         }
@@ -86,6 +95,7 @@ class InventoryDetailViewModel @Inject constructor(
             itemRepository.refreshItem(itemId)
                 .onSuccess {
                     loadItemReservations(itemId)
+                    loadItemHistory(itemId)
                 }
                 .onFailure { error ->
                     if (_uiState.value !is InventoryDetailUiState.Success) {
@@ -122,8 +132,15 @@ class InventoryDetailViewModel @Inject constructor(
             itemRepository.updateItem(itemId, UpdateItemRequestDto(status = status))
                 .onSuccess { item ->
                     val reservations = (_uiState.value as? InventoryDetailUiState.Success)?.reservations.orEmpty()
-                    _uiState.value = InventoryDetailUiState.Success(item, reservations)
+                    val current = _uiState.value as? InventoryDetailUiState.Success
+                    _uiState.value = InventoryDetailUiState.Success(
+                        item = item,
+                        reservations = reservations,
+                        assignments = current?.assignments.orEmpty(),
+                        conditionLog = current?.conditionLog.orEmpty()
+                    )
                     loadItemReservations(itemId)
+                    loadItemHistory(itemId)
                 }
                 .onFailure { error ->
                     _actionError.value = error.message ?: "Nepavyko pakeisti būsenos"
@@ -132,11 +149,16 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
-    fun requestSharedItemForActiveUnit(itemId: String) {
+    fun requestSharedItemForActiveUnit(itemId: String, quantity: Int) {
         viewModelScope.launch {
             val activeUnitId = tokenManager.activeOrgUnitId.first()
             if (activeUnitId.isNullOrBlank()) {
                 _actionError.value = "Pasirink aktyvų vienetą, kuriam nori gauti daiktą"
+                return@launch
+            }
+
+            if (quantity < 1) {
+                _actionError.value = "Kiekis turi būti teigiamas skaičius"
                 return@launch
             }
 
@@ -148,7 +170,7 @@ class InventoryDetailViewModel @Inject constructor(
                     requestingUnitId = activeUnitId,
                     neededByDate = null,
                     notes = "Prašymas paimti daiktą iš bendro tunto inventoriaus",
-                    items = listOf(CreateBendrasRequestItemDto(itemId = itemId, quantity = 1))
+                    items = listOf(CreateBendrasRequestItemDto(itemId = itemId, quantity = quantity))
                 )
             ).onSuccess {
                 _sharedRequestCreated.value = true
@@ -169,6 +191,18 @@ class InventoryDetailViewModel @Inject constructor(
                     val current = _uiState.value as? InventoryDetailUiState.Success ?: return@onSuccess
                     _uiState.value = current.copy(reservations = reservations)
                 }
+        }
+    }
+
+    private fun loadItemHistory(itemId: String) {
+        viewModelScope.launch {
+            val assignments = itemRepository.getItemAssignments(itemId).getOrNull()
+            val conditionLog = itemRepository.getItemConditionLog(itemId).getOrNull()
+            val current = _uiState.value as? InventoryDetailUiState.Success ?: return@launch
+            _uiState.value = current.copy(
+                assignments = assignments ?: current.assignments,
+                conditionLog = conditionLog ?: current.conditionLog
+            )
         }
     }
 

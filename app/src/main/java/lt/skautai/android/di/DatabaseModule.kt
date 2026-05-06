@@ -119,6 +119,16 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `items` ADD COLUMN `qrToken` TEXT NOT NULL DEFAULT ''")
             }
         }
+        val migration9To10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `customFieldsJson` TEXT NOT NULL DEFAULT '[]'")
+            }
+        }
+        val migration10To11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `responsibleUserName` TEXT")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
@@ -133,7 +143,9 @@ object DatabaseModule {
                 migration5To6,
                 migration6To7,
                 migration7To8,
-                migration8To9
+                migration8To9,
+                migration9To10,
+                migration10To11
             )
             // The local Room store is used for offline/cache state. If a device already has
             // a newer dev schema, wiping only on downgrade is safer than crashing on launch.

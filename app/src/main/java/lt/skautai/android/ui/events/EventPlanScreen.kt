@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventInventoryItemDto
+import lt.skautai.android.data.remote.InventoryTemplateDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 
@@ -88,6 +90,7 @@ fun EventPlanScreen(
                     var editingItem by remember { mutableStateOf<EventInventoryItemDto?>(null) }
                     var deletingItem by remember { mutableStateOf<EventInventoryItemDto?>(null) }
                     var showMemberPicker by remember { mutableStateOf(false) }
+                    var showTemplatePicker by remember { mutableStateOf(false) }
 
                     val buckets = state.inventoryPlan?.buckets.orEmpty()
                     val planItems = state.inventoryPlan?.items.orEmpty()
@@ -142,6 +145,18 @@ fun EventPlanScreen(
                         )
                     }
 
+                    if (!readOnly && showTemplatePicker) {
+                        InventoryTemplateDialog(
+                            templates = state.templates,
+                            isWorking = state.isWorking,
+                            onDismiss = { showTemplatePicker = false },
+                            onSelect = { template ->
+                                viewModel.applyTemplate(eventId, template)
+                                showTemplatePicker = false
+                            }
+                        )
+                    }
+
                     Column(modifier = Modifier.fillMaxSize()) {
                         Column(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -151,6 +166,18 @@ fun EventPlanScreen(
                                 event = state.event,
                                 subtitle = "Inventoriaus planas · ${planItems.size} eil."
                             )
+                            if (canInventory && !readOnly) {
+                                Button(
+                                    onClick = {
+                                        viewModel.loadTemplates()
+                                        showTemplatePicker = true
+                                    },
+                                    enabled = !state.isWorking,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Kurti iš šablono")
+                                }
+                            }
                             EventDetailSearchBar(
                                 value = searchQuery,
                                 onValueChange = { searchQuery = it },
@@ -208,4 +235,38 @@ fun EventPlanScreen(
             }
         }
     }
+}
+
+@Composable
+private fun InventoryTemplateDialog(
+    templates: List<InventoryTemplateDto>,
+    isWorking: Boolean,
+    onDismiss: () -> Unit,
+    onSelect: (InventoryTemplateDto) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Kurti iš šablono") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (templates.isEmpty()) {
+                    Text("Šablonų dar nėra.")
+                } else {
+                    templates.forEach { template ->
+                        TextButton(
+                            onClick = { onSelect(template) },
+                            enabled = !isWorking,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text("${template.name} (${template.items.sumOf { it.quantity }} vnt.)")
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Uždaryti") }
+        }
+    )
 }

@@ -23,6 +23,7 @@ import lt.skautai.android.data.remote.UploadApiService
 import lt.skautai.android.data.remote.UserApiService
 import lt.skautai.android.util.Constants
 import lt.skautai.android.util.AuthHeaderInterceptor
+import lt.skautai.android.util.ConnectivityInterceptor
 import lt.skautai.android.util.NetworkErrorInterceptor
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.TokenRefreshAuthenticator
@@ -31,6 +32,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
+import java.util.concurrent.TimeUnit
 import javax.inject.Singleton
 
 @Module
@@ -63,12 +65,18 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(
         loggingInterceptor: HttpLoggingInterceptor,
+        connectivityInterceptor: ConnectivityInterceptor,
         networkErrorInterceptor: NetworkErrorInterceptor,
         authHeaderInterceptor: AuthHeaderInterceptor,
         tokenRefreshAuthenticator: TokenRefreshAuthenticator
     ): OkHttpClient {
         val builder = OkHttpClient.Builder()
             .authenticator(tokenRefreshAuthenticator)
+            .connectTimeout(4, TimeUnit.SECONDS)
+            .readTimeout(8, TimeUnit.SECONDS)
+            .writeTimeout(8, TimeUnit.SECONDS)
+            .callTimeout(10, TimeUnit.SECONDS)
+            .addInterceptor(connectivityInterceptor)
             .addInterceptor(networkErrorInterceptor)
             .addInterceptor(authHeaderInterceptor)
             .addInterceptor(loggingInterceptor)

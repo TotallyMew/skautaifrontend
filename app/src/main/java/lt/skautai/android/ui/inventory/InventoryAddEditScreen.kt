@@ -62,6 +62,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
@@ -462,6 +463,12 @@ private fun ItemInfoStep(
             onSelected = viewModel::onConditionChange
         )
 
+        ResponsibleUserDropdown(
+            members = uiState.members,
+            selectedId = uiState.selectedResponsibleUserId,
+            onSelected = viewModel::onResponsibleUserChange
+        )
+
         OutlinedTextField(
             value = uiState.notes,
             onValueChange = viewModel::onNotesChange,
@@ -484,6 +491,70 @@ private fun ItemInfoStep(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
+
+        CustomFieldsEditor(
+            fields = uiState.customFields,
+            onAdd = viewModel::addCustomField,
+            onRemove = viewModel::removeCustomField,
+            onNameChange = viewModel::onCustomFieldNameChange,
+            onValueChange = viewModel::onCustomFieldValueChange
+        )
+    }
+}
+
+@Composable
+private fun CustomFieldsEditor(
+    fields: List<CustomFieldInput>,
+    onAdd: () -> Unit,
+    onRemove: (Int) -> Unit,
+    onNameChange: (Int, String) -> Unit,
+    onValueChange: (Int, String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Papildomi laukai", style = MaterialTheme.typography.titleMedium)
+            OutlinedButton(onClick = onAdd) {
+                androidx.compose.material3.Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Pridėti")
+            }
+        }
+
+        fields.forEachIndexed { index, field ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = field.fieldName,
+                    onValueChange = { onNameChange(index, it) },
+                    label = { Text("Laukas") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedTextField(
+                    value = field.fieldValue,
+                    onValueChange = { onValueChange(index, it) },
+                    label = { Text("Reikšmė") },
+                    modifier = Modifier.weight(1f),
+                    singleLine = true
+                )
+                OutlinedButton(
+                    onClick = { onRemove(index) },
+                    modifier = Modifier.size(width = 56.dp, height = 56.dp)
+                ) {
+                    androidx.compose.material3.Icon(Icons.Default.Remove, contentDescription = "Pašalinti")
+                }
+            }
+        }
     }
 }
 
@@ -491,6 +562,7 @@ private fun ItemInfoStep(
 private fun ReviewStep(uiState: InventoryAddEditUiState) {
     val selectedLocation = uiState.locations.firstOrNull { it.id == uiState.selectedLocationId }
     val selectedUnit = uiState.orgUnits.firstOrNull { it.id == uiState.selectedOrgUnitId }
+    val selectedResponsibleUser = uiState.members.firstOrNull { it.userId == uiState.selectedResponsibleUserId }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         SkautaiSectionHeader(title = "Peržiūra")
@@ -510,12 +582,18 @@ private fun ReviewStep(uiState: InventoryAddEditUiState) {
                     ReviewRow("Vienkartinė vieta", it)
                 }
                 ReviewRow("Atsakingas vienetas", selectedUnit?.name ?: "Bendras tunto saugojimas")
+                ReviewRow("Atsakingas žmogus", selectedResponsibleUser?.fullName() ?: "Nepriskirtas")
                 ReviewRow("Kilmė", originLabelForMode(uiState.mode))
                 ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
                 ReviewRow("Būklė", itemConditionLabel(uiState.condition))
                 uiState.photoUrl.takeIf { it.isNotBlank() }?.let {
                     ReviewRow("Nuotrauka", "Pridėta")
                 }
+                uiState.customFields
+                    .filter { it.fieldName.isNotBlank() }
+                    .forEach { field ->
+                        ReviewRow(field.fieldName, field.fieldValue.ifBlank { "Nenurodyta" })
+                    }
             }
         }
     }
@@ -583,6 +661,50 @@ private fun PhotoField(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ResponsibleUserDropdown(
+    members: List<MemberDto>,
+    selectedId: String,
+    onSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = members.firstOrNull { it.userId == selectedId }?.fullName() ?: "Nepriskirtas"
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = selectedName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Atsakingas žmogus") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Nepriskirtas") },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                }
+            )
+            members.forEach { member ->
+                DropdownMenuItem(
+                    text = { Text(member.fullName()) },
+                    onClick = {
+                        onSelected(member.userId)
+                        expanded = false
+                    }
                 )
             }
         }
@@ -947,3 +1069,5 @@ private fun validateInfoStep(
     }
     return true
 }
+
+private fun MemberDto.fullName(): String = "$name $surname".trim()

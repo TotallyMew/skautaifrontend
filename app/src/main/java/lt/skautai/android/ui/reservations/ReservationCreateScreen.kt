@@ -62,8 +62,10 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
+import lt.skautai.android.ui.locations.LocationPickerField
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -237,6 +239,18 @@ fun ReservationCreateScreen(
                 }
 
                 item {
+                    ReservationLocationFields(
+                        locations = uiState.locations,
+                        activeOrgUnitId = uiState.activeOrgUnitId,
+                        hasSelectedUnitInventory = uiState.hasSelectedUnitInventory(),
+                        pickupLocationId = uiState.pickupLocationId,
+                        returnLocationId = uiState.returnLocationId,
+                        onPickupLocationChange = viewModel::onPickupLocationChange,
+                        onReturnLocationChange = viewModel::onReturnLocationChange
+                    )
+                }
+
+                item {
                     OutlinedTextField(
                         value = uiState.searchQuery,
                         onValueChange = viewModel::onSearchQueryChange,
@@ -328,6 +342,53 @@ fun ReservationCreateScreen(
             }
         }
     }
+}
+
+@Composable
+private fun ReservationLocationFields(
+    locations: List<LocationDto>,
+    activeOrgUnitId: String?,
+    hasSelectedUnitInventory: Boolean,
+    pickupLocationId: String?,
+    returnLocationId: String?,
+    onPickupLocationChange: (String?) -> Unit,
+    onReturnLocationChange: (String?) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        LocationPickerField(
+            label = "Atsiėmimo vieta",
+            locations = locations,
+            selectedId = pickupLocationId,
+            onSelected = { onPickupLocationChange(it?.id) },
+            filter = { location ->
+                reservationLocationAllowed(location, activeOrgUnitId, hasSelectedUnitInventory)
+            }
+        )
+        LocationPickerField(
+            label = "Grąžinimo vieta",
+            locations = locations,
+            selectedId = returnLocationId,
+            onSelected = { onReturnLocationChange(it?.id) },
+            filter = { location ->
+                reservationLocationAllowed(location, activeOrgUnitId, hasSelectedUnitInventory)
+            }
+        )
+    }
+}
+
+private fun reservationLocationAllowed(
+    location: LocationDto,
+    activeOrgUnitId: String?,
+    hasSelectedUnitInventory: Boolean
+): Boolean = when (location.visibility) {
+    "UNIT" -> hasSelectedUnitInventory && activeOrgUnitId == location.ownerUnitId
+    "PRIVATE" -> false
+    else -> true
+}
+
+private fun ReservationCreateUiState.hasSelectedUnitInventory(): Boolean {
+    val selectedIds = selectedItems.map { it.itemId }.toSet()
+    return items.any { it.id in selectedIds && it.custodianId != null }
 }
 
 @Composable

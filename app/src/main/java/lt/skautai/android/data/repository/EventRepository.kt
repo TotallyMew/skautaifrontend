@@ -45,6 +45,7 @@ import lt.skautai.android.data.remote.AttachEventPurchaseInvoiceRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleRequestDto
 import lt.skautai.android.data.remote.AssignPastovykleInventoryRequestDto
 import lt.skautai.android.data.remote.AssignUnitInventoryToPastovykleRequestDto
+import lt.skautai.android.data.remote.ApplyInventoryTemplateRequestDto
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventRoleDto
@@ -60,6 +61,8 @@ import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.EventInventoryRequestListDto
 import lt.skautai.android.data.remote.EventListDto
+import lt.skautai.android.data.remote.InventoryTemplateDto
+import lt.skautai.android.data.remote.InventoryTemplateListDto
 import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.EventPurchaseItemDto
 import lt.skautai.android.data.remote.EventPurchaseDto
@@ -594,6 +597,42 @@ class EventRepository @Inject constructor(
             mergeCachedInventoryItems(eventId, items)
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, "bulk-${UUID.randomUUID()}", PendingOperationType.EVENT_CREATE_ITEMS_BULK, EventItemsBulkCreatePayload(eventId, request))
             Result.success(EventInventoryItemListDto(items, items.size))
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getInventoryTemplates(eventType: String? = null): Result<InventoryTemplateListDto> {
+        return try {
+            val response = eventApiService.getInventoryTemplates("Bearer ${token()}", tuntasId(), eventType)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: InventoryTemplateListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant šablonus")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun applyInventoryTemplate(
+        eventId: String,
+        template: InventoryTemplateDto
+    ): Result<EventInventoryItemListDto> {
+        return try {
+            val response = eventApiService.applyInventoryTemplate(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                ApplyInventoryTemplateRequestDto(template.id)
+            )
+            if (response.isSuccessful) {
+                val created = response.body()!!
+                mergeCachedInventoryItems(eventId, created.items)
+                Result.success(created)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida pritaikant šabloną")))
+            }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }

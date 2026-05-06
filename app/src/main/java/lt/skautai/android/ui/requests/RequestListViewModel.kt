@@ -48,14 +48,15 @@ class RequestListViewModel @Inject constructor(
             }
             requestRepository.refreshRequests()
                 .onSuccess {
-                    _uiState.value = RequestListUiState.Success(
-                        requestRepository.getRequests().getOrNull()?.requests.orEmpty()
-                    )
+                    val currentRequests = (_uiState.value as? RequestListUiState.Success)?.requests.orEmpty()
+                    _uiState.value = RequestListUiState.Success(currentRequests)
                 }
                 .onFailure { error ->
-                    _uiState.value = RequestListUiState.Error(
-                        error.message ?: "Klaida gaunant prašymus"
-                    )
+                    if (_uiState.value !is RequestListUiState.Success) {
+                        _uiState.value = RequestListUiState.Error(
+                            error.message ?: "Klaida gaunant prašymus"
+                        )
+                    }
                 }
         }
     }

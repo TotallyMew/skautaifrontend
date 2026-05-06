@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
+import lt.skautai.android.data.remote.InventoryTemplateDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
 import lt.skautai.android.data.repository.EventRepository
@@ -23,6 +24,7 @@ sealed interface EventPlanUiState {
     data class Success(
         val event: EventDto,
         val inventoryPlan: EventInventoryPlanDto? = null,
+        val templates: List<InventoryTemplateDto> = emptyList(),
         val members: List<MemberDto> = emptyList(),
         val isWorking: Boolean = false,
         val error: String? = null
@@ -52,6 +54,7 @@ class EventPlanViewModel @Inject constructor(
                     _uiState.value = EventPlanUiState.Success(
                         event = event,
                         inventoryPlan = current?.inventoryPlan,
+                        templates = current?.templates.orEmpty(),
                         members = current?.members.orEmpty(),
                         isWorking = current?.isWorking == true,
                         error = current?.error
@@ -86,6 +89,38 @@ class EventPlanViewModel @Inject constructor(
             (_uiState.value as? EventPlanUiState.Success)?.let {
                 _uiState.value = it.copy(members = members)
             }
+        }
+    }
+
+    fun loadTemplates() {
+        val current = _uiState.value as? EventPlanUiState.Success ?: return
+        if (current.templates.isNotEmpty()) return
+        viewModelScope.launch {
+            eventRepository.getInventoryTemplates(current.event.type)
+                .onSuccess { templates ->
+                    (_uiState.value as? EventPlanUiState.Success)?.let {
+                        _uiState.value = it.copy(templates = templates.templates)
+                    }
+                }
+                .onFailure { error ->
+                    (_uiState.value as? EventPlanUiState.Success)?.let {
+                        _uiState.value = it.copy(error = error.message ?: "Nepavyko gauti šablonų.")
+                    }
+                }
+        }
+    }
+
+    fun applyTemplate(eventId: String, template: InventoryTemplateDto) {
+        val current = _uiState.value as? EventPlanUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.applyInventoryTemplate(eventId, template)
+                .onSuccess { load(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? EventPlanUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pritaikyti šablono.")
+                    }
+                }
         }
     }
 

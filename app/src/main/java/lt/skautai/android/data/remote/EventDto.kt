@@ -139,6 +139,54 @@ data class EventInventoryItemListDto(
     @SerializedName("total") val total: Int
 )
 
+data class InventoryTemplateItemRequestDto(
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("category") val category: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class CreateInventoryTemplateRequestDto(
+    @SerializedName("name") val name: String,
+    @SerializedName("eventType") val eventType: String? = null,
+    @SerializedName("items") val items: List<InventoryTemplateItemRequestDto>
+)
+
+data class UpdateInventoryTemplateRequestDto(
+    @SerializedName("name") val name: String? = null,
+    @SerializedName("eventType") val eventType: String? = null,
+    @SerializedName("items") val items: List<InventoryTemplateItemRequestDto>? = null
+)
+
+data class ApplyInventoryTemplateRequestDto(
+    @SerializedName("templateId") val templateId: String
+)
+
+data class InventoryTemplateItemDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("templateId") val templateId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("category") val category: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class InventoryTemplateDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("tuntasId") val tuntasId: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("eventType") val eventType: String? = null,
+    @SerializedName("createdByUserId") val createdByUserId: String? = null,
+    @SerializedName("createdByUserName") val createdByUserName: String? = null,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("items") val items: List<InventoryTemplateItemDto> = emptyList()
+)
+
+data class InventoryTemplateListDto(
+    @SerializedName("templates") val templates: List<InventoryTemplateDto>,
+    @SerializedName("total") val total: Int
+)
+
 data class UpdateEventInventoryItemRequestDto(
     @SerializedName("name") val name: String? = null,
     @SerializedName("plannedQuantity") val plannedQuantity: Int? = null,

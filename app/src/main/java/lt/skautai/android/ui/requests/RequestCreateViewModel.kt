@@ -3,14 +3,17 @@ package lt.skautai.android.ui.requests
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateBendrasRequestDto
-import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.remote.CreateBendrasRequestItemDto
+import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
+import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
@@ -23,10 +26,10 @@ data class RequestCreateUiState(
     val isSuccess: Boolean = false,
     val error: String? = null,
     val orgUnits: List<OrganizationalUnitDto> = emptyList(),
+    val sharedItems: List<ItemDto> = emptyList(),
+    val selectedItems: Map<String, String> = emptyMap(),
     val selectedOrgUnitId: String? = null,
     val selectedOrgUnitName: String? = null,
-    val itemDescription: String = "",
-    val quantity: String = "1",
     val neededByDate: String = "",
     val notes: String = ""
 )
@@ -34,6 +37,7 @@ data class RequestCreateUiState(
 @HiltViewModel
 class RequestCreateViewModel @Inject constructor(
     private val requestRepository: RequestRepository,
+    private val itemRepository: ItemRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
@@ -45,29 +49,29 @@ class RequestCreateViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             val unitsResult = orgUnitRepository.getUnits()
+            val sharedItemsResult = itemRepository.getItems(sharedOnly = true, status = "ACTIVE")
             val currentUserId = tokenManager.userId.first()
             val currentMemberResult = currentUserId?.let { memberRepository.getMember(it) }
+            val units = unitsResult.getOrDefault(emptyList())
+            val ownUnit = currentUserId?.let { userId ->
+                findOwnUnit(userId, currentMemberResult?.getOrNull(), units)
+            }
 
-            unitsResult
-                .onSuccess { units ->
-                    val ownUnit = currentUserId?.let { userId ->
-                        findOwnUnit(userId, currentMemberResult?.getOrNull(), units)
-                    }
-                    _uiState.value = _uiState.value.copy(
-                        isLoadingItems = false,
-                        orgUnits = ownUnit?.let(::listOf) ?: emptyList(),
-                        selectedOrgUnitId = ownUnit?.id,
-                        selectedOrgUnitName = ownUnit?.name
-                    )
+            _uiState.value = _uiState.value.copy(
+                isLoadingItems = false,
+                orgUnits = ownUnit?.let(::listOf) ?: emptyList(),
+                sharedItems = sharedItemsResult.getOrDefault(emptyList())
+                    .filter { it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 }
+                    .sortedBy { it.name.lowercase() },
+                selectedOrgUnitId = ownUnit?.id,
+                selectedOrgUnitName = ownUnit?.name,
+                error = when {
+                    unitsResult.isFailure -> unitsResult.exceptionOrNull()?.message
+                    sharedItemsResult.isFailure -> sharedItemsResult.exceptionOrNull()?.message
+                    else -> null
                 }
-                .onFailure {
-                    _uiState.value = _uiState.value.copy(isLoadingItems = false)
-                }
+            )
         }
-    }
-
-    fun onItemDescriptionChange(value: String) {
-        _uiState.value = _uiState.value.copy(itemDescription = value)
     }
 
     fun onOrgUnitSelected(orgUnitId: String?) {
@@ -78,8 +82,21 @@ class RequestCreateViewModel @Inject constructor(
         )
     }
 
-    fun onQuantityChange(value: String) {
-        _uiState.value = _uiState.value.copy(quantity = value)
+    fun onItemSelectionChange(itemId: String, selected: Boolean) {
+        val selectedItems = _uiState.value.selectedItems.toMutableMap()
+        if (selected) {
+            selectedItems[itemId] = selectedItems[itemId] ?: "1"
+        } else {
+            selectedItems.remove(itemId)
+        }
+        _uiState.value = _uiState.value.copy(selectedItems = selectedItems)
+    }
+
+    fun onItemQuantityChange(itemId: String, value: String) {
+        if (!_uiState.value.selectedItems.containsKey(itemId)) return
+        _uiState.value = _uiState.value.copy(
+            selectedItems = _uiState.value.selectedItems + (itemId to value.filter(Char::isDigit))
+        )
     }
 
     fun onNeededByDateChange(value: String) {
@@ -97,13 +114,35 @@ class RequestCreateViewModel @Inject constructor(
     fun createRequest() {
         val state = _uiState.value
 
-        if (state.itemDescription.isBlank()) {
-            _uiState.value = state.copy(error = "Įveskite daikto aprašymą")
+        if (state.selectedOrgUnitId.isNullOrBlank()) {
+            _uiState.value = state.copy(error = "Pasirink vienetą, kuriam kuriamas prašymas")
             return
         }
-        val qty = state.quantity.toIntOrNull()
-        if (qty == null || qty < 1) {
-            _uiState.value = state.copy(error = "Kiekis turi būti teigiamas skaičius")
+
+        if (state.selectedItems.isEmpty()) {
+            _uiState.value = state.copy(error = "Pasirink bent vieną daiktą")
+            return
+        }
+
+        val selectedLines = mutableListOf<CreateBendrasRequestItemDto>()
+        state.selectedItems.forEach { (itemId, quantityText) ->
+            val item = state.sharedItems.find { it.id == itemId } ?: return@forEach
+            val quantity = quantityText.toIntOrNull()
+            when {
+                quantity == null || quantity < 1 -> {
+                    _uiState.value = state.copy(error = "Kiekis turi būti teigiamas skaičius")
+                    return
+                }
+                quantity > item.quantity -> {
+                    _uiState.value = state.copy(error = "Kiekis negali viršyti turimo daikto kiekio")
+                    return
+                }
+                else -> selectedLines += CreateBendrasRequestItemDto(itemId = itemId, quantity = quantity)
+            }
+        }
+
+        if (selectedLines.isEmpty()) {
+            _uiState.value = state.copy(error = "Pasirink bent vieną daiktą")
             return
         }
 
@@ -111,11 +150,15 @@ class RequestCreateViewModel @Inject constructor(
             _uiState.value = state.copy(isSaving = true, error = null)
             requestRepository.createRequest(
                 CreateBendrasRequestDto(
-                    itemDescription = state.itemDescription,
-                    quantity = qty,
+                    itemDescription = if (selectedLines.size == 1) {
+                        state.sharedItems.find { it.id == selectedLines.first().itemId }?.name
+                    } else {
+                        "Keli bendro inventoriaus daiktai"
+                    },
                     neededByDate = state.neededByDate.ifBlank { null },
                     requestingUnitId = state.selectedOrgUnitId,
-                    notes = state.notes.ifBlank { null }
+                    notes = state.notes.ifBlank { null },
+                    items = selectedLines
                 )
             ).onSuccess {
                 _uiState.value = _uiState.value.copy(isSaving = false, isSuccess = true)

@@ -11,12 +11,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateItemRequestDto
+import lt.skautai.android.data.remote.ItemCustomFieldDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
+import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
@@ -45,6 +48,7 @@ data class InventoryAddEditUiState(
     val notes: String = "",
     val purchaseDate: String = "",
     val purchasePrice: String = "",
+    val customFields: List<CustomFieldInput> = emptyList(),
     val photoUrl: String = "",
     val selectedPhotoUri: String = "",
     val temporaryStorageLabel: String = "",
@@ -52,6 +56,8 @@ data class InventoryAddEditUiState(
     val selectedOrgUnitId: String = "",
     val locations: List<LocationDto> = emptyList(),
     val selectedLocationId: String = "",
+    val members: List<MemberDto> = emptyList(),
+    val selectedResponsibleUserId: String = "",
     val tuntasId: String = "",
     val mode: String = "SHARED",
     val canManageLocations: Boolean = true,
@@ -59,11 +65,17 @@ data class InventoryAddEditUiState(
     val duplicateCandidate: ItemDto? = null
 )
 
+data class CustomFieldInput(
+    val fieldName: String = "",
+    val fieldValue: String = ""
+)
+
 @HiltViewModel
 class InventoryAddEditViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val locationRepository: LocationRepository,
+    private val memberRepository: MemberRepository,
     private val uploadRepository: UploadRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
@@ -104,6 +116,11 @@ class InventoryAddEditViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(locations = locations)
                 }
 
+            memberRepository.getMembers()
+                .onSuccess { members ->
+                    _uiState.value = _uiState.value.copy(members = members.members)
+                }
+
             if (itemId != null) {
                 itemRepository.getItem(itemId)
                     .onSuccess { item ->
@@ -120,11 +137,18 @@ class InventoryAddEditViewModel @Inject constructor(
                             notes = item.notes ?: "",
                             purchaseDate = item.purchaseDate ?: "",
                             purchasePrice = item.purchasePrice?.toString() ?: "",
+                            customFields = item.customFields.map {
+                                CustomFieldInput(
+                                    fieldName = it.fieldName,
+                                    fieldValue = it.fieldValue.orEmpty()
+                                )
+                            },
                             photoUrl = item.photoUrl ?: "",
                             selectedPhotoUri = "",
                             temporaryStorageLabel = item.temporaryStorageLabel ?: "",
                             selectedOrgUnitId = item.custodianId ?: "",
-                            selectedLocationId = item.locationId ?: ""
+                            selectedLocationId = item.locationId ?: "",
+                            selectedResponsibleUserId = item.responsibleUserId ?: ""
                         )
                     }
                     .onFailure { error ->
@@ -163,6 +187,33 @@ class InventoryAddEditViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(purchasePrice = value)
     }
 
+    fun addCustomField() {
+        val state = _uiState.value
+        _uiState.value = state.copy(customFields = state.customFields + CustomFieldInput())
+    }
+
+    fun removeCustomField(index: Int) {
+        val state = _uiState.value
+        _uiState.value = state.copy(customFields = state.customFields.filterIndexed { i, _ -> i != index })
+    }
+
+    fun onCustomFieldNameChange(index: Int, value: String) {
+        updateCustomField(index) { it.copy(fieldName = value) }
+    }
+
+    fun onCustomFieldValueChange(index: Int, value: String) {
+        updateCustomField(index) { it.copy(fieldValue = value) }
+    }
+
+    private fun updateCustomField(index: Int, transform: (CustomFieldInput) -> CustomFieldInput) {
+        val state = _uiState.value
+        _uiState.value = state.copy(
+            customFields = state.customFields.mapIndexed { i, field ->
+                if (i == index) transform(field) else field
+            }
+        )
+    }
+
     fun onPurchaseDateSelected(value: String?) {
         _uiState.value = _uiState.value.copy(purchaseDate = value.orEmpty())
     }
@@ -198,6 +249,10 @@ class InventoryAddEditViewModel @Inject constructor(
 
     fun onLocationChange(locationId: String?) {
         _uiState.value = _uiState.value.copy(selectedLocationId = locationId ?: "")
+    }
+
+    fun onResponsibleUserChange(userId: String?) {
+        _uiState.value = _uiState.value.copy(selectedResponsibleUserId = userId.orEmpty())
     }
 
     fun createPrivateLocation(name: String) {
@@ -363,6 +418,7 @@ class InventoryAddEditViewModel @Inject constructor(
             notes = "",
             purchaseDate = "",
             purchasePrice = "",
+            customFields = emptyList(),
             photoUrl = "",
             selectedPhotoUri = "",
             duplicateCandidate = null
@@ -406,7 +462,20 @@ class InventoryAddEditViewModel @Inject constructor(
 
             val quantity = state.quantity.toInt()
             val price = state.purchasePrice.toDoubleOrNull()
+            val customFields = state.customFields
+                .mapNotNull { field ->
+                    val name = field.fieldName.trim()
+                    if (name.isBlank()) {
+                        null
+                    } else {
+                        ItemCustomFieldDto(
+                            fieldName = name,
+                            fieldValue = field.fieldValue.trim().ifBlank { null }
+                        )
+                    }
+                }
             val locationId = state.selectedLocationId.ifBlank { null }
+            val responsibleUserId = state.selectedResponsibleUserId.ifBlank { null }
             val custodianId = when (state.mode) {
                 "UNIT_OWN" -> state.selectedOrgUnitId.ifBlank { null }
                 "SHARED" -> null
@@ -425,10 +494,12 @@ class InventoryAddEditViewModel @Inject constructor(
                     condition = state.condition,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
+                    responsibleUserId = responsibleUserId,
                     photoUrl = state.photoUrl.ifBlank { null },
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
-                    purchasePrice = price
+                    purchasePrice = price,
+                    customFields = customFields
                 )
                 itemRepository.findDuplicateCandidate(
                     name = request.name,
@@ -462,12 +533,15 @@ class InventoryAddEditViewModel @Inject constructor(
                     custodianId = custodianId,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
+                    responsibleUserId = responsibleUserId,
                     photoUrl = state.photoUrl.ifBlank { null },
                     notes = state.notes.ifBlank { null },
                     purchaseDate = state.purchaseDate.ifBlank { null },
                     purchasePrice = price,
+                    customFields = customFields,
                     clearCustodianId = custodianId == null,
-                    clearLocationId = locationId == null
+                    clearLocationId = locationId == null,
+                    clearResponsibleUserId = responsibleUserId == null
                 )
                 itemRepository.updateItem(itemId, request)
                     .onSuccess {

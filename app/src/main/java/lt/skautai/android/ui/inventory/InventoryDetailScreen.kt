@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -18,6 +19,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -28,6 +30,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -45,11 +48,14 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.ItemAssignmentDto
+import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.MetadataRow
 import lt.skautai.android.ui.common.RemoteImage
@@ -90,6 +96,9 @@ fun InventoryDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showQrDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showSharedRequestDialog by remember { mutableStateOf(false) }
+    var sharedRequestQuantity by remember { mutableStateOf("1") }
+    var sharedRequestQuantityError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -186,12 +195,18 @@ fun InventoryDetailScreen(
                     ItemDetailContent(
                         item = state.item,
                         reservations = state.reservations,
+                        assignments = state.assignments,
+                        conditionLog = state.conditionLog,
                         canChangeStatus = canChangeStatus,
                         canDelete = canDelete,
                         isCreatingSharedRequest = isCreatingSharedRequest,
                         isUpdatingStatus = isUpdatingStatus,
                         canShowQr = canShowQr,
-                        onRequestSharedItem = { viewModel.requestSharedItemForActiveUnit(itemId) },
+                        onRequestSharedItem = {
+                            sharedRequestQuantity = "1"
+                            sharedRequestQuantityError = null
+                            showSharedRequestDialog = true
+                        },
                         onStatusChange = { status -> viewModel.updateStatus(itemId, status) },
                         onDelete = { showDeleteDialog = true },
                         onShowQr = { showQrDialog = true }
@@ -216,6 +231,66 @@ fun InventoryDetailScreen(
                     viewModel.onQrPdfShareFailed(
                         it.message ?: "Nepavyko sugeneruoti QR PDF"
                     )
+                }
+            }
+        )
+    }
+
+    if (showSharedRequestDialog && currentItem != null) {
+        AlertDialog(
+            onDismissRequest = {
+                if (!isCreatingSharedRequest) showSharedRequestDialog = false
+            },
+            title = { Text("Prašyti paėmimo") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Nurodyk, kiek šio daikto vienetų reikia gauti į aktyvų vienetą.")
+                    OutlinedTextField(
+                        value = sharedRequestQuantity,
+                        onValueChange = { value ->
+                            sharedRequestQuantity = value.filter(Char::isDigit)
+                            sharedRequestQuantityError = null
+                        },
+                        label = { Text("Kiekis") },
+                        singleLine = true,
+                        isError = sharedRequestQuantityError != null,
+                        supportingText = {
+                            sharedRequestQuantityError?.let { Text(it) }
+                                ?: Text("Galimas kiekis: ${currentItem.quantity} vnt.")
+                        },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isCreatingSharedRequest,
+                    onClick = {
+                        val quantity = sharedRequestQuantity.toIntOrNull()
+                        when {
+                            quantity == null || quantity < 1 -> {
+                                sharedRequestQuantityError = "Įveskite teigiamą kiekį"
+                            }
+                            quantity > currentItem.quantity -> {
+                                sharedRequestQuantityError = "Kiekis negali viršyti turimo kiekio"
+                            }
+                            else -> {
+                                showSharedRequestDialog = false
+                                viewModel.requestSharedItemForActiveUnit(currentItem.id, quantity)
+                            }
+                        }
+                    }
+                ) {
+                    Text("Pateikti")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    enabled = !isCreatingSharedRequest,
+                    onClick = { showSharedRequestDialog = false }
+                ) {
+                    Text("Atšaukti")
                 }
             }
         )
@@ -249,6 +324,8 @@ fun InventoryDetailScreen(
 private fun ItemDetailContent(
     item: ItemDto,
     reservations: List<ReservationDto>,
+    assignments: List<ItemAssignmentDto>,
+    conditionLog: List<ItemConditionLogDto>,
     canChangeStatus: Boolean,
     canDelete: Boolean,
     isCreatingSharedRequest: Boolean,
@@ -392,9 +469,24 @@ private fun ItemDetailContent(
                 MetadataRow("Būklė", itemConditionLabel(item.condition))
                 MetadataRow("Kilmė", originDisplay)
                 MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandėlis")
+                MetadataRow("Atsakingas", item.responsibleUserName ?: "Nepriskirtas")
                 MetadataRow("Vieta", item.locationPath ?: item.locationName ?: "Nenurodyta")
                 item.purchaseDate?.let { MetadataRow("Pirkta", it.take(10)) }
                 item.purchasePrice?.let { MetadataRow("Kaina", String.format("%.2f EUR", it)) }
+            }
+        }
+
+        if (item.customFields.isNotEmpty()) {
+            SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(text = "Papildomi laukai", style = MaterialTheme.typography.titleLarge)
+                    item.customFields.forEach { field ->
+                        MetadataRow(field.fieldName, field.fieldValue ?: "Nenurodyta")
+                    }
+                }
             }
         }
 
@@ -452,6 +544,14 @@ private fun ItemDetailContent(
 
         if (reservations.isNotEmpty()) {
             ItemReservationsCard(reservations = reservations)
+        }
+
+        if (assignments.isNotEmpty()) {
+            ItemAssignmentsCard(assignments = assignments)
+        }
+
+        if (conditionLog.isNotEmpty()) {
+            ItemConditionLogCard(entries = conditionLog)
         }
 
         if (canRequestForUnit) {
@@ -603,6 +703,93 @@ private fun ItemReservationsCard(reservations: List<ReservationDto>) {
             }
         }
 
+    }
+}
+
+@Composable
+private fun ItemAssignmentsCard(assignments: List<ItemAssignmentDto>) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Atsakingo žmogaus istorija",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            assignments.forEach { assignment ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = assignment.assignedToUserName ?: assignment.assignedToUserId,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = listOfNotNull(
+                            "Nuo ${assignment.assignedAt.take(10)}",
+                            assignment.unassignedAt?.let { "iki ${it.take(10)}" },
+                            assignment.assignedByUserName?.let { "priskyrė $it" }
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ItemConditionLogCard(entries: List<ItemConditionLogDto>) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Būklės istorija",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            entries.forEach { entry ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = listOfNotNull(
+                            entry.previousCondition?.let { itemConditionLabel(it) },
+                            itemConditionLabel(entry.newCondition)
+                        ).joinToString(" -> "),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = listOfNotNull(
+                            entry.reportedAt.take(10),
+                            entry.reportedByUserName,
+                            entry.notes
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 

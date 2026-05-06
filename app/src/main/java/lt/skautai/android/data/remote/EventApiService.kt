@@ -113,6 +113,43 @@ interface EventApiService {
         @Body request: CreateEventInventoryItemsBulkRequestDto
     ): Response<EventInventoryItemListDto>
 
+    @GET("api/inventory-templates")
+    suspend fun getInventoryTemplates(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("eventType") eventType: String? = null
+    ): Response<InventoryTemplateListDto>
+
+    @POST("api/inventory-templates")
+    suspend fun createInventoryTemplate(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Body request: CreateInventoryTemplateRequestDto
+    ): Response<InventoryTemplateDto>
+
+    @PUT("api/inventory-templates/{templateId}")
+    suspend fun updateInventoryTemplate(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("templateId") templateId: String,
+        @Body request: UpdateInventoryTemplateRequestDto
+    ): Response<InventoryTemplateDto>
+
+    @DELETE("api/inventory-templates/{templateId}")
+    suspend fun deleteInventoryTemplate(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("templateId") templateId: String
+    ): Response<Unit>
+
+    @POST("api/events/{id}/inventory-plan/from-template")
+    suspend fun applyInventoryTemplate(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: ApplyInventoryTemplateRequestDto
+    ): Response<EventInventoryItemListDto>
+
     @PUT("api/events/{id}/inventory-items/{inventoryItemId}")
     suspend fun updateInventoryItem(
         @Header("Authorization") token: String,

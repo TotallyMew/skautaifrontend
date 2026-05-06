@@ -30,6 +30,20 @@ interface ItemApiService {
         @Path("itemId") itemId: String
     ): Response<ItemDto>
 
+    @GET("api/items/{itemId}/assignments")
+    suspend fun getItemAssignments(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String
+    ): Response<ItemAssignmentListResponseDto>
+
+    @GET("api/items/{itemId}/condition-log")
+    suspend fun getItemConditionLog(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String
+    ): Response<ItemConditionLogListResponseDto>
+
     @GET("api/items/resolve-qr/{tokenValue}")
     suspend fun resolveQrToken(
         @Header("Authorization") token: String,

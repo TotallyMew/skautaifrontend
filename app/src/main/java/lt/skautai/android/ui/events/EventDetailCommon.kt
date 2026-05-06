@@ -209,7 +209,10 @@ fun EventTonalDateButton(
                 text = value?.takeIf { it.isNotBlank() } ?: "Pasirinkti datą",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSurface
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                softWrap = false
             )
         }
     }

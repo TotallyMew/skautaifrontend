@@ -21,15 +21,23 @@ data class ItemDto(
     val quantityBreakdown: List<ItemDistributionDto> = emptyList(),
     val totalQuantityAcrossCustodians: Int = quantity,
     val responsibleUserId: String?,
+    val responsibleUserName: String? = null,
     val createdByUserId: String?,
     val createdByUserName: String?,
     val photoUrl: String?,
     val purchaseDate: String?,
     val purchasePrice: Double?,
     val notes: String?,
+    val customFields: List<ItemCustomFieldDto> = emptyList(),
     val status: String,
     val createdAt: String,
     val updatedAt: String
+)
+
+data class ItemCustomFieldDto(
+    val id: String? = null,
+    val fieldName: String,
+    val fieldValue: String? = null
 )
 
 data class ItemDistributionDto(
@@ -44,6 +52,40 @@ data class ItemListResponseDto(
 
 data class ItemQrResolveResponseDto(
     val itemId: String
+)
+
+data class ItemAssignmentDto(
+    val id: String,
+    val itemId: String,
+    val assignedToUserId: String,
+    val assignedToUserName: String? = null,
+    val assignedByUserId: String? = null,
+    val assignedByUserName: String? = null,
+    val assignedAt: String,
+    val unassignedAt: String? = null,
+    val reason: String? = null,
+    val notes: String? = null
+)
+
+data class ItemAssignmentListResponseDto(
+    val assignments: List<ItemAssignmentDto>,
+    val total: Int
+)
+
+data class ItemConditionLogDto(
+    val id: String,
+    val itemId: String,
+    val previousCondition: String? = null,
+    val newCondition: String,
+    val reportedByUserId: String? = null,
+    val reportedByUserName: String? = null,
+    val reportedAt: String,
+    val notes: String? = null
+)
+
+data class ItemConditionLogListResponseDto(
+    val entries: List<ItemConditionLogDto>,
+    val total: Int
 )
 
 data class CreateItemRequestDto(
@@ -63,6 +105,7 @@ data class CreateItemRequestDto(
     val purchaseDate: String? = null,
     val purchasePrice: Double? = null,
     val notes: String? = null,
+    val customFields: List<ItemCustomFieldDto> = emptyList(),
     val duplicateHandling: String = "ASK",
     val duplicateTargetItemId: String? = null
 )
@@ -83,6 +126,7 @@ data class UpdateItemRequestDto(
     val purchaseDate: String? = null,
     val purchasePrice: Double? = null,
     val notes: String? = null,
+    val customFields: List<ItemCustomFieldDto>? = null,
     val status: String? = null,
     val clearCustodianId: Boolean = false,
     val clearLocationId: Boolean = false,

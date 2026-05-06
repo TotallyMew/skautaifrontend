@@ -20,6 +20,8 @@ import lt.skautai.android.data.local.mapper.toItemDtos
 import lt.skautai.android.data.local.mapper.toItemEntities
 import lt.skautai.android.data.remote.CreateItemRequestDto
 import lt.skautai.android.data.remote.ItemApiService
+import lt.skautai.android.data.remote.ItemAssignmentDto
+import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
@@ -177,6 +179,36 @@ class ItemRepository @Inject constructor(
         }
     }
 
+    suspend fun getItemAssignments(itemId: String): Result<List<ItemAssignmentDto>> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getItemAssignments("Bearer $token", tuntasId, itemId)
+        if (response.isSuccessful) {
+            Result.success(response.body()?.assignments.orEmpty())
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant priskyrimo istorija")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun getItemConditionLog(itemId: String): Result<List<ItemConditionLogDto>> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getItemConditionLog("Bearer $token", tuntasId, itemId)
+        if (response.isSuccessful) {
+            Result.success(response.body()?.entries.orEmpty())
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant bukles istorija")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
     suspend fun deleteItem(itemId: String): Result<Unit> {
         return try {
             val token = tokenManager.token.first()
@@ -272,12 +304,14 @@ class ItemRepository @Inject constructor(
                 sourceSharedItemId = request.sourceSharedItemId,
                 totalQuantityAcrossCustodians = request.quantity,
                 responsibleUserId = request.responsibleUserId,
+                responsibleUserName = null,
                 createdByUserId = currentUserId,
                 createdByUserName = currentUserName,
                 photoUrl = request.photoUrl,
                 purchaseDate = request.purchaseDate,
                 purchasePrice = request.purchasePrice,
                 notes = request.notes,
+                customFields = request.customFields,
                 status = "ACTIVE",
                 createdAt = now,
                 updatedAt = now
@@ -354,6 +388,7 @@ class ItemRepository @Inject constructor(
                 purchaseDate = request.purchaseDate ?: cached.purchaseDate,
                 purchasePrice = request.purchasePrice ?: cached.purchasePrice,
                 notes = request.notes ?: cached.notes,
+                customFields = request.customFields ?: cached.customFields,
                 status = request.status ?: cached.status,
                 updatedAt = Instant.now().toString()
             )
@@ -399,6 +434,7 @@ class ItemRepository @Inject constructor(
         photoUrl = photoUrl,
         purchaseDate = purchaseDate,
         purchasePrice = purchasePrice,
-        notes = notes
+        notes = notes,
+        customFields = customFields
     )
 }
