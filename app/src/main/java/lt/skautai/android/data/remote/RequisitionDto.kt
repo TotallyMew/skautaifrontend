@@ -26,6 +26,8 @@ data class RequisitionDto(
     @SerializedName("topLevelReviewStatus") val topLevelReviewStatus: String,
     @SerializedName("topLevelReviewedByUserId") val topLevelReviewedByUserId: String?,
     @SerializedName("topLevelReviewedAt") val topLevelReviewedAt: String?,
+    @SerializedName("purchasedAt") val purchasedAt: String? = null,
+    @SerializedName("addedToInventoryAt") val addedToInventoryAt: String? = null,
     @SerializedName("reviewLevel") val reviewLevel: String,
     @SerializedName("lastAction") val lastAction: String,
     @SerializedName("neededByDate") val neededByDate: String?,
@@ -57,4 +59,25 @@ data class CreateRequisitionDto(
 data class RequisitionReviewDto(
     @SerializedName("action") val action: String,
     @SerializedName("rejectionReason") val rejectionReason: String? = null
+)
+
+data class RequisitionMarkPurchasedDto(
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class AddRequisitionItemToInventoryDto(
+    @SerializedName("requisitionItemId") val requisitionItemId: String,
+    @SerializedName("action") val action: String,
+    @SerializedName("existingItemId") val existingItemId: String? = null,
+    @SerializedName("custodianId") val custodianId: String? = null,
+    @SerializedName("type") val type: String = "COLLECTIVE",
+    @SerializedName("category") val category: String = "TOOLS",
+    @SerializedName("condition") val condition: String = "GOOD",
+    @SerializedName("purchaseDate") val purchaseDate: String? = null,
+    @SerializedName("purchasePrice") val purchasePrice: Double? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class AddRequisitionToInventoryDto(
+    @SerializedName("items") val items: List<AddRequisitionItemToInventoryDto>
 )

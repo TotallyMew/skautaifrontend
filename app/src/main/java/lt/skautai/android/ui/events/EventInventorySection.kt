@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -58,9 +57,11 @@ import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 
 private enum class NeedEntryMode { Inventory, Manual }
@@ -70,7 +71,8 @@ fun NeedsCard(
     inventoryPlan: EventInventoryPlanDto?,
     isWorking: Boolean,
     onOpenInventoryPicker: () -> Unit,
-    onCreateManualNeeds: (List<ManualEventNeedInput>) -> Unit
+    onCreateManualNeeds: (List<ManualEventNeedInput>) -> Unit,
+    onManualValidationError: (String) -> Unit = {}
 ) {
     var entryMode by remember { mutableStateOf(NeedEntryMode.Inventory) }
     var showHelp by remember { mutableStateOf(false) }
@@ -129,14 +131,16 @@ fun NeedsCard(
                     EventModeChip(
                         selected = entryMode == NeedEntryMode.Inventory,
                         text = "Iš inventoriaus",
-                        onClick = { entryMode = NeedEntryMode.Inventory }
+                        onClick = { entryMode = NeedEntryMode.Inventory },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
                 Box(modifier = Modifier.weight(1f)) {
                     EventModeChip(
                         selected = entryMode == NeedEntryMode.Manual,
                         text = "Ne iš inventoriaus",
-                        onClick = { entryMode = NeedEntryMode.Manual }
+                        onClick = { entryMode = NeedEntryMode.Manual },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -165,26 +169,24 @@ fun NeedsCard(
                         title = "Poreikis ne iš inventoriaus",
                         subtitle = "Naujas daiktas arba paslauga, kurios dar nėra sandėlyje."
                     ) {
-                        OutlinedTextField(
+                        SkautaiTextField(
                             value = name,
                             onValueChange = { name = it },
-                            label = { Text("Pavadinimas") },
-                            placeholder = { Text("Pvz. dujų balionas, tentas, virvė") },
+                            label = "Pavadinimas",
+                            placeholder = "Pvz. dujų balionas, tentas, virvė",
                             modifier = Modifier.fillMaxWidth(),
-                            singleLine = true,
-                            colors = eventFormFieldColors()
+                            singleLine = true
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.Top
                         ) {
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = quantity,
                                 onValueChange = { quantity = it.filter(Char::isDigit) },
-                                label = { Text("Kiekis") },
+                                label = "Kiekis",
                                 modifier = Modifier.weight(1f),
-                                singleLine = true,
-                                colors = eventFormFieldColors()
+                                singleLine = true
                             )
                             DropdownField(
                                 label = "Paskirtis",
@@ -194,12 +196,11 @@ fun NeedsCard(
                                 modifier = Modifier.weight(1f)
                             )
                         }
-                        OutlinedTextField(
+                        SkautaiTextField(
                             value = notes,
                             onValueChange = { notes = it },
-                            label = { Text("Pastabos neprivaloma") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = eventFormFieldColors()
+                            label = "Pastabos neprivaloma",
+                            modifier = Modifier.fillMaxWidth()
                         )
                         if (manualNeeds.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -220,8 +221,14 @@ fun NeedsCard(
                             }
                         }
                         OutlinedButton(
-                            onClick = { addCurrentManualNeed() },
-                            enabled = !isWorking && canAddManualNeed,
+                            onClick = {
+                                if (canAddManualNeed) {
+                                    addCurrentManualNeed()
+                                } else {
+                                    onManualValidationError("Įveskite pavadinimą ir teigiamą kiekį.")
+                                }
+                            },
+                            enabled = !isWorking,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(18.dp)
                         ) {
@@ -240,7 +247,7 @@ fun NeedsCard(
                                 manualNeeds = emptyList()
                                 clearManualForm()
                             },
-                            enabled = !isWorking && (manualNeeds.isNotEmpty() || canAddManualNeed),
+                            enabled = !isWorking,
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(18.dp)
                         ) {
@@ -334,7 +341,7 @@ private fun BulkInventoryItemRow(
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 OutlinedButton(
                     onClick = { onQuantityChange(quantity - 1) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(48.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Text("-")
@@ -342,7 +349,7 @@ private fun BulkInventoryItemRow(
                 Text(quantity.toString(), modifier = Modifier.widthIn(min = 24.dp), fontWeight = FontWeight.SemiBold)
                 OutlinedButton(
                     onClick = { onQuantityChange(quantity + 1) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(48.dp),
                     contentPadding = PaddingValues(0.dp)
                 ) {
                     Text("+")
@@ -385,14 +392,13 @@ fun InventoryPickerSheet(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Pasirinkti iš inventoriaus", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
+        SkautaiTextField(
             value = search,
             onValueChange = { search = it },
-            label = { Text("Paieška inventoriuje") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            label = "Paieška inventoriuje",
+            leadingIcon = Icons.Default.Search,
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = eventFormFieldColors()
+            singleLine = true
         )
         DropdownField(
             label = "Paskirtis",
@@ -400,12 +406,11 @@ fun InventoryPickerSheet(
             options = buckets.map { it.id to it.name },
             onSelect = { selectedBucketId = it }
         )
-        OutlinedTextField(
+        SkautaiTextField(
             value = notes,
             onValueChange = { notes = it },
-            label = { Text("Pastabos visiems pažymėtiems") },
-            modifier = Modifier.fillMaxWidth(),
-            colors = eventFormFieldColors()
+            label = "Pastabos visiems pažymėtiems",
+            modifier = Modifier.fillMaxWidth()
         )
         SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(
@@ -519,6 +524,7 @@ fun UkvedysCard(
     var allocationQuantity by remember { mutableStateOf("") }
     var pendingBucketDeletion by remember { mutableStateOf<EventInventoryBucketDto?>(null) }
     var pendingAllocationDeletion by remember { mutableStateOf<EventInventoryAllocationDto?>(null) }
+    var pendingRequestRejection by remember { mutableStateOf<EventInventoryRequestDto?>(null) }
     val shortageItems = inventoryPlan?.items.orEmpty().filter { it.shortageQuantity > 0 }
     val planItems = inventoryPlan?.items.orEmpty()
     val buckets = inventoryPlan?.buckets.orEmpty()
@@ -527,44 +533,47 @@ fun UkvedysCard(
     val returnMode = eventStatus == "COMPLETED"
 
     pendingBucketDeletion?.let { bucket ->
-        AlertDialog(
-            onDismissRequest = { pendingBucketDeletion = null },
-            title = { Text("Trinti paskirtį?") },
-            text = { Text("Paskirtis ${bucket.name} bus ištrinta.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingBucketDeletion = null
-                        onDeleteBucket(bucket.id)
-                    }
-                ) {
-                    Text("Trinti", color = MaterialTheme.colorScheme.error)
-                }
+        SkautaiConfirmDialog(
+            title = "Trinti paskirtį?",
+            message = "Paskirtis ${bucket.name} bus ištrinta.",
+            confirmText = "Trinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingBucketDeletion = null
+                onDeleteBucket(bucket.id)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingBucketDeletion = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingBucketDeletion = null }
         )
     }
 
     pendingAllocationDeletion?.let { allocation ->
-        AlertDialog(
-            onDismissRequest = { pendingAllocationDeletion = null },
-            title = { Text("Trinti paskirstymą?") },
-            text = { Text("Paskirstymas ${allocation.bucketName} bus ištrintas.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingAllocationDeletion = null
-                        onDeleteAllocation(allocation.id)
-                    }
-                ) {
-                    Text("Trinti", color = MaterialTheme.colorScheme.error)
-                }
+        SkautaiConfirmDialog(
+            title = "Trinti paskirstymą?",
+            message = "Paskirstymas ${allocation.bucketName} bus ištrintas.",
+            confirmText = "Trinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingAllocationDeletion = null
+                onDeleteAllocation(allocation.id)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingAllocationDeletion = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingAllocationDeletion = null }
+        )
+    }
+
+    pendingRequestRejection?.let { request ->
+        SkautaiConfirmDialog(
+            title = "Atmesti prašymą?",
+            message = "${request.pastovykleName}: ${request.itemName} x${request.quantity}",
+            confirmText = "Atmesti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingRequestRejection = null
+                onRejectRequest(request.pastovykleId, request.id)
+            },
+            onDismiss = { pendingRequestRejection = null }
         )
     }
 
@@ -610,12 +619,11 @@ fun UkvedysCard(
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (canManage) {
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = bucketName,
                         onValueChange = { bucketName = it },
-                        label = { Text("Nauja paskirtis") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = eventFormFieldColors()
+                        label = "Nauja paskirtis",
+                        modifier = Modifier.fillMaxWidth()
                     )
                     DropdownField(
                         label = "Tipas",
@@ -679,12 +687,11 @@ fun UkvedysCard(
                         options = buckets.map { it.id to it.name },
                         onSelect = { allocationBucketId = it }
                     )
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = allocationQuantity,
                         onValueChange = { allocationQuantity = it.filter(Char::isDigit) },
-                        label = { Text("Kiekis") },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = eventFormFieldColors()
+                        label = "Kiekis",
+                        modifier = Modifier.fillMaxWidth()
                     )
                     EventPrimaryButton(
                         text = "Pridėti paskirstymą",
@@ -726,7 +733,9 @@ fun UkvedysCard(
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     TextButton(onClick = { onApproveRequest(request.pastovykleId, request.id) }) { Text("Patvirtinti") }
                                     TextButton(onClick = { onFulfillRequest(request.pastovykleId, request.id) }) { Text("Įvykdyti") }
-                                    TextButton(onClick = { onRejectRequest(request.pastovykleId, request.id) }) { Text("Atmesti") }
+                                    TextButton(onClick = { pendingRequestRejection = request }) {
+                                        Text("Atmesti", color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                         }
@@ -866,40 +875,32 @@ fun UkvedysTabsCard(
     }
 
     pendingBucketDeletion?.let { bucket ->
-        AlertDialog(
-            onDismissRequest = { pendingBucketDeletion = null },
-            title = { Text("Trinti paskirtį?") },
-            text = { Text("Paskirtis „${bucket.name}“ bus ištrinta.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingBucketDeletion = null
-                        onDeleteBucket(bucket.id)
-                    }
-                ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
+        SkautaiConfirmDialog(
+            title = "Trinti paskirtį?",
+            message = "Paskirtis „${bucket.name}“ bus ištrinta.",
+            confirmText = "Trinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingBucketDeletion = null
+                onDeleteBucket(bucket.id)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingBucketDeletion = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingBucketDeletion = null }
         )
     }
 
     pendingAllocationDeletion?.let { allocation ->
-        AlertDialog(
-            onDismissRequest = { pendingAllocationDeletion = null },
-            title = { Text("Trinti paskirstymą?") },
-            text = { Text("Paskirstymas „${allocation.bucketName}“ bus ištrintas.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingAllocationDeletion = null
-                        onDeleteAllocation(allocation.id)
-                    }
-                ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
+        SkautaiConfirmDialog(
+            title = "Trinti paskirstymą?",
+            message = "Paskirstymas „${allocation.bucketName}“ bus ištrintas.",
+            confirmText = "Trinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingAllocationDeletion = null
+                onDeleteAllocation(allocation.id)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingAllocationDeletion = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingAllocationDeletion = null }
         )
     }
 
@@ -989,12 +990,11 @@ fun UkvedysTabsCard(
                             subtitle = "Paskirtys leidžia inventorių atskirti pagal programą, virtuvę ar pastovyklę."
                         ) {
                             if (canManage) {
-                                OutlinedTextField(
+                                SkautaiTextField(
                                     value = bucketName,
                                     onValueChange = { bucketName = it },
-                                    label = { Text("Nauja paskirtis") },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = eventFormFieldColors()
+                                    label = "Nauja paskirtis",
+                                    modifier = Modifier.fillMaxWidth()
                                 )
                                 DropdownField(
                                     label = "Tipas",
@@ -1063,10 +1063,10 @@ fun UkvedysTabsCard(
                                     options = buckets.map { it.id to it.name },
                                     onSelect = { allocationBucketId = it }
                                 )
-                                OutlinedTextField(
+                                SkautaiTextField(
                                     value = allocationQuantity,
                                     onValueChange = { allocationQuantity = it.filter(Char::isDigit) },
-                                    label = { Text("Kiekis") },
+                                    label = "Kiekis",
                                     modifier = Modifier.fillMaxWidth()
                                 )
                                 EventPrimaryButton(
@@ -1219,6 +1219,23 @@ private fun RequestsLazyList(
     onRejectRequest: (String, String) -> Unit,
     onFulfillRequest: (String, String) -> Unit
 ) {
+    var pendingRequestRejection by remember { mutableStateOf<EventInventoryRequestDto?>(null) }
+
+    pendingRequestRejection?.let { request ->
+        SkautaiConfirmDialog(
+            title = "Atmesti prašymą?",
+            message = "${request.pastovykleName}: ${request.itemName} x${request.quantity}",
+            confirmText = "Atmesti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingRequestRejection = null
+                onRejectRequest(request.pastovykleId, request.id)
+            },
+            onDismiss = { pendingRequestRejection = null }
+        )
+    }
+
     LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
         items(requests, key = { it.id }) { request ->
             Column(
@@ -1265,7 +1282,9 @@ private fun RequestsLazyList(
                             TextButton(onClick = { onApproveRequest(request.pastovykleId, request.id) }) { Text("Patvirtinti") }
                         }
                         TextButton(onClick = { onFulfillRequest(request.pastovykleId, request.id) }) { Text("Įvykdyti") }
-                        TextButton(onClick = { onRejectRequest(request.pastovykleId, request.id) }) { Text("Atmesti") }
+                        TextButton(onClick = { pendingRequestRejection = request }) {
+                            Text("Atmesti", color = MaterialTheme.colorScheme.error)
+                        }
                     }
                 }
             }
@@ -1449,19 +1468,17 @@ fun EditNeedDialog(
         title = { Text("Redaguoti plano eilute") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
+                SkautaiTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Daiktas") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = eventFormFieldColors()
+                    label = "Daiktas",
+                    modifier = Modifier.fillMaxWidth()
                 )
-                OutlinedTextField(
+                SkautaiTextField(
                     value = quantity,
                     onValueChange = { quantity = it.filter(Char::isDigit) },
-                    label = { Text("Kiekis") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = eventFormFieldColors()
+                    label = "Kiekis",
+                    modifier = Modifier.fillMaxWidth()
                 )
                 DropdownField(
                     label = "Paskirtis",
@@ -1475,12 +1492,11 @@ fun EditNeedDialog(
                     options = members.map { it.userId to it.fullName() },
                     onSelect = { responsibleUserId = it }
                 )
-                OutlinedTextField(
+                SkautaiTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Pastabos") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = eventFormFieldColors()
+                    label = "Pastabos",
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         },

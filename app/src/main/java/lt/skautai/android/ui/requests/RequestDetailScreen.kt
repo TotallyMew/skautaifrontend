@@ -46,8 +46,14 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.BendrasRequestDto
+import lt.skautai.android.data.remote.BendrasRequestItemDto
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
+import lt.skautai.android.ui.common.SkautaiDangerButton
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.util.hasPermission
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,23 +84,17 @@ fun RequestDetailScreen(
     }
 
     if (showCancelDialog) {
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atšaukti paėmimo prašymą") },
-            text = { Text("Ar tikrai nori atšaukti šį prašymą paimti daiktą iš bendro inventoriaus?") },
-            confirmButton = {
-                TextButton(onClick = {
+        SkautaiConfirmDialog(
+            title = "Atšaukti paėmimo prašymą",
+            message = "Ar tikrai nori atšaukti šį prašymą paimti daiktą iš bendro inventoriaus?",
+            confirmText = "Atšaukti",
+            dismissText = "Uždaryti",
+            isDanger = true,
+            onConfirm = {
                     showCancelDialog = false
                     viewModel.cancelRequest(requestId)
-                }) {
-                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
-                }
             },
-            dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uždaryti")
-                }
-            }
+            onDismiss = { showCancelDialog = false }
         )
     }
 
@@ -106,9 +106,10 @@ fun RequestDetailScreen(
                 Column {
                     Text("Atmetimo priežastis (neprivaloma):")
                     Spacer(modifier = Modifier.height(8.dp))
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = rejectReason,
                         onValueChange = { rejectReason = it },
+                        label = "Priežastis",
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2
                     )
@@ -175,8 +176,8 @@ fun RequestDetailScreen(
                     val isOwnRequest = request.requestedByUserId == currentUserId
                     val isOwnUnitRequest = request.requestingUnitId != null &&
                         request.requestingUnitId == activeOrgUnitId
-                    val canForwardReview = "items.request.forward.bendras" in permissions && isOwnUnitRequest
-                    val canApproveReview = "items.request.approve.bendras" in permissions
+                    val canForwardReview = permissions.hasPermission("items.request.forward.bendras") && isOwnUnitRequest
+                    val canApproveReview = permissions.hasPermission("items.request.approve.bendras")
                     val canCancel = isOwnRequest
 
                     RequestDetailContent(
@@ -216,6 +217,25 @@ private fun RequestDetailContent(
     onTopLevelApprove: () -> Unit,
     onTopLevelReject: () -> Unit
 ) {
+    val requestItems = request.items.ifEmpty {
+        request.itemId?.let {
+            listOf(
+                BendrasRequestItemDto(
+                    id = request.id,
+                    itemId = it,
+                    itemName = request.itemName,
+                    quantity = request.quantity
+                )
+            )
+        }.orEmpty()
+    }
+    val totalQuantity = requestItems.sumOf { it.quantity }.takeIf { it > 0 } ?: request.quantity
+    val title = when {
+        requestItems.size > 1 -> "Paėmimo prašymas: ${requestItems.size} daiktai"
+        requestItems.size == 1 -> requestItems.first().itemName
+        else -> request.itemName
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -230,7 +250,7 @@ private fun RequestDetailContent(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = request.itemName,
+                    text = title,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
@@ -255,12 +275,30 @@ private fun RequestDetailContent(
                 Text("Paėmimo informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 HorizontalDivider()
                 request.itemDescription?.let { RequestInfoRow("Aprašymas", it) }
-                RequestInfoRow("Kiekis", request.quantity.toString())
+                RequestInfoRow("Bendras kiekis", totalQuantity.toString())
                 request.neededByDate?.let { RequestInfoRow("Reikalinga iki", it.take(10)) }
                 request.requestingUnitName?.let { RequestInfoRow("Vienetas", it) }
                 request.requestedByUserName?.takeIf { it.isNotBlank() }?.let { RequestInfoRow("Kas prašo", it) }
                 request.notes?.let { RequestInfoRow("Pastabos", it) }
                 RequestInfoRow("Sukurta", request.createdAt.take(10))
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Prašomi daiktai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                HorizontalDivider()
+                requestItems.forEachIndexed { index, item ->
+                    if (index > 0) HorizontalDivider()
+                    BendrasRequestItemRow(item)
+                }
             }
         }
 
@@ -284,21 +322,18 @@ private fun RequestDetailContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(
+                        SkautaiPrimaryButton(
+                            text = "Perduoti",
                             onClick = onDraugininkasForward,
                             enabled = !isActioning,
                             modifier = Modifier.weight(1f)
-                        ) {
-                            Text("Perduoti")
-                        }
-                        OutlinedButton(
+                        )
+                        SkautaiDangerButton(
+                            text = "Atmesti",
                             onClick = onDraugininkasReject,
                             enabled = !isActioning,
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                        ) {
-                            Text("Atmesti")
-                        }
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
@@ -313,39 +348,55 @@ private fun RequestDetailContent(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Button(
+                    SkautaiPrimaryButton(
+                        text = "Patvirtinti",
                         onClick = onTopLevelApprove,
                         enabled = !isActioning,
                         modifier = Modifier.weight(1f)
-                    ) {
-                        Text("Patvirtinti")
-                    }
-                    OutlinedButton(
+                    )
+                    SkautaiDangerButton(
+                        text = "Atmesti",
                         onClick = onTopLevelReject,
                         enabled = !isActioning,
-                        modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Text("Atmesti")
-                    }
+                        modifier = Modifier.weight(1f)
+                    )
                 }
             }
         }
 
         if (request.topLevelStatus == "PENDING" && canCancel) {
-            OutlinedButton(
+            SkautaiDangerButton(
+                text = "Atšaukti paėmimo prašymą",
                 onClick = onCancel,
                 enabled = !isActioning,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-            ) {
-                if (isActioning) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-                } else {
-                    Text("Atšaukti paėmimo prašymą")
-                }
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
         }
+    }
+}
+
+@Composable
+private fun BendrasRequestItemRow(item: BendrasRequestItemDto) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = item.itemName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        Text(
+            text = "${item.quantity} vnt.",
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 

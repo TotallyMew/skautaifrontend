@@ -13,13 +13,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -36,6 +33,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.util.NavRoutes
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -92,54 +91,54 @@ fun RegisterInviteScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChange,
-                label = { Text("Vardas *") },
+                label = "Vardas *",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.surname,
                 onValueChange = viewModel::onSurnameChange,
-                label = { Text("Pavardė *") },
+                label = "Pavardė *",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
-                label = { Text("El. paštas *") },
+                label = "El. paštas *",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Slaptažodis *") },
+                label = "Slaptažodis *",
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.phone,
                 onValueChange = viewModel::onPhoneChange,
-                label = { Text("Telefono numeris") },
+                label = "Telefono numeris",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.inviteCode,
                 onValueChange = viewModel::onInviteCodeChange,
-                label = { Text("Pakvietimo kodas *") },
+                label = "Pakvietimo kodas *",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -150,21 +149,12 @@ fun RegisterInviteScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Button(
+            SkautaiPrimaryButton(
+                text = if (uiState.isLoading) "Registruojama..." else "Registruotis",
                 onClick = viewModel::register,
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.height(20.dp)
-                    )
-                } else {
-                    Text("Registruotis")
-                }
-            }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
         }

@@ -9,10 +9,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -29,6 +26,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.util.NavRoutes
 
 @Composable
@@ -74,10 +73,10 @@ fun SuperAdminLoginScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
-                label = { Text("El. paštas") },
+                label = "El. paštas",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -85,10 +84,10 @@ fun SuperAdminLoginScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Slaptažodis") },
+                label = "Slaptažodis",
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
@@ -97,21 +96,12 @@ fun SuperAdminLoginScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Button(
+            SkautaiPrimaryButton(
+                text = if (uiState.isLoading) "Jungiamasi..." else "Prisijungti",
                 onClick = viewModel::login,
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.height(20.dp)
-                    )
-                } else {
-                    Text("Prisijungti")
-                }
-            }
+            )
         }
     }
 }

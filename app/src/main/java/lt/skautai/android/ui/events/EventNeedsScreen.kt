@@ -56,9 +56,9 @@ fun EventNeedsScreen(
     }
 
     val state = uiState
-    val canInventory = "events.inventory.distribute" in permissions ||
+    val canInventory = "events.inventory.distribute:ALL" in permissions ||
         (state as? EventNeedsUiState.Success)?.event?.eventRoles
-            ?.any { it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
+            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
     if (showInventoryPicker && state is EventNeedsUiState.Success && !isEventReadOnlyStatus(state.event.status)) {
         LaunchedEffect(Unit) { viewModel.loadItemCatalog(eventId) }
@@ -130,7 +130,8 @@ fun EventNeedsScreen(
                                 onOpenInventoryPicker = { showInventoryPicker = true },
                                 onCreateManualNeeds = { needs ->
                                     viewModel.createManualNeedsBulk(eventId, needs)
-                                }
+                                },
+                                onManualValidationError = viewModel::showValidationError
                             )
                         }
                     }

@@ -10,12 +10,9 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -28,6 +25,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
 fun InviteAcceptScreen(
@@ -64,29 +63,20 @@ fun InviteAcceptScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.code,
                 onValueChange = viewModel::onCodeChange,
-                label = { Text("Pakvietimo kodas") },
+                label = "Pakvietimo kodas",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            Button(
+            SkautaiPrimaryButton(
+                text = if (uiState.isSaving) "Priimama..." else "Priimti pakvietimą",
                 onClick = viewModel::acceptInvitation,
                 enabled = !uiState.isSaving && uiState.code.isNotBlank(),
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isSaving) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.height(20.dp)
-                    )
-                } else {
-                    Text("Priimti pakvietimą")
-                }
-            }
+            )
 
             uiState.acceptedInvitation?.let { invitation ->
                 Card(

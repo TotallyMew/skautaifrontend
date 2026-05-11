@@ -1,5 +1,9 @@
 ﻿package lt.skautai.android.ui.inventory
 
+import android.net.Uri
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -11,8 +15,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -24,6 +30,8 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.HealthAndSafety
 import androidx.compose.material.icons.filled.Inventory2
@@ -39,15 +47,22 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -70,6 +85,7 @@ import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiChip
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
@@ -84,11 +100,20 @@ import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrPdfShareLauncher
+import lt.skautai.android.util.InventoryCsv
+import lt.skautai.android.util.InventoryImportDraft
+import lt.skautai.android.util.InventoryImportDuplicateMode
+import lt.skautai.android.util.InventoryImportField
+import lt.skautai.android.util.InventoryImportPreview
 import lt.skautai.android.util.canCreateItems
+import lt.skautai.android.util.canExportInventory
+import lt.skautai.android.util.canGenerateInventoryQrPdf
+import lt.skautai.android.util.canImportInventory
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
 import lt.skautai.android.util.hasPermissionAll
 import lt.skautai.android.util.toPrintableQrItemOrNull
+import java.time.LocalDate
 
 private val KnownInventoryCategories = listOf(
     "CAMPING",
@@ -132,12 +157,38 @@ fun InventoryListScreen(
     val selectedCategories by viewModel.selectedCategories.collectAsStateWithLifecycle()
     val selectedLocationIds by viewModel.selectedLocationIds.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
+    val assignedOnly by viewModel.assignedOnly.collectAsStateWithLifecycle()
+    val importDraft by viewModel.importDraft.collectAsStateWithLifecycle()
     val locations by viewModel.locations.collectAsStateWithLifecycle()
     val canApprove = permissions.canManageSharedInventory()
+    val canExportCsv = permissions.canExportInventory()
+    val canImportCsv = permissions.canImportInventory()
+    val canGenerateQrPdf = permissions.canGenerateInventoryQrPdf()
     val canCreateSharedDirectly = permissions.hasPermissionAll("items.create")
     val openedCustodianId = viewModel.openedCustodianId
+    val openedPersonalOwnerOnly = viewModel.openedPersonalOwnerOnly
     val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadItems)
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingExportCsv by remember { mutableStateOf("") }
+    val exportCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri ->
+        if (uri != null) {
+            runCatching { context.writeTextToUri(uri, pendingExportCsv) }
+                .onSuccess { viewModel.onPdfShareFailed("CSV eksportas išsaugotas.") }
+                .onFailure { viewModel.onPdfShareFailed(it.message ?: "Nepavyko išsaugoti CSV failo.") }
+        }
+        pendingExportCsv = ""
+    }
+    val importCsvLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            runCatching { context.readInventoryImportTable(uri) }
+                .onSuccess { (fileName, table) -> viewModel.prepareInventoryImport(fileName, table) }
+                .onFailure { viewModel.onPdfShareFailed(it.message ?: "Nepavyko perskaityti importo failo.") }
+        }
+    }
 
     val pendingItems = (uiState as? InventoryListUiState.Success)?.pendingItems.orEmpty()
     val filteredVisibleItems = remember(
@@ -146,6 +197,7 @@ fun InventoryListScreen(
         selectedTypes,
         selectedCategories,
         selectedLocationIds,
+        assignedOnly,
         locations
     ) {
         val successState = uiState as? InventoryListUiState.Success ?: return@remember emptyList()
@@ -164,6 +216,15 @@ fun InventoryListScreen(
         }
     }
 
+    importDraft?.let { draft ->
+        InventoryImportMappingDialog(
+            draft = draft,
+            previewProvider = viewModel::previewInventoryImport,
+            onImport = viewModel::executeInventoryImport,
+            onDismiss = viewModel::cancelInventoryImport
+        )
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -179,7 +240,9 @@ fun InventoryListScreen(
                 value = searchQuery,
                 onValueChange = viewModel::onSearchQueryChange,
                 placeholder = "Ieškoti pagal pavadinimą, vietą ar pastabas",
-                leadingIcon = Icons.Default.Search
+                leadingIcon = Icons.Default.Search,
+                trailingIcon = Icons.Default.QrCodeScanner,
+                onTrailingIconClick = { navController.navigate(NavRoutes.InventoryQrScanner.route) }
             )
 
             if (selectionMode) {
@@ -202,34 +265,6 @@ fun InventoryListScreen(
                     },
                     onCancel = viewModel::exitSelectionMode
                 )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    FilledTonalButton(
-                        onClick = { navController.navigate(NavRoutes.InventoryQrScanner.route) },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QrCodeScanner,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Text("Skenuoti QR")
-                    }
-                    OutlinedButton(
-                        onClick = viewModel::enterSelectionMode,
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.QrCode2,
-                            contentDescription = null,
-                            modifier = Modifier.padding(end = 8.dp)
-                        )
-                        Text("Spausdinti QR")
-                    }
-                }
             }
 
             if (canApprove && pendingItems.isNotEmpty()) {
@@ -246,17 +281,37 @@ fun InventoryListScreen(
                 state = uiState,
                 searchQuery = searchQuery,
                 selectedTypes = selectedTypes,
-                selectedCategories = selectedCategories,
-                selectedLocationIds = selectedLocationIds,
-                selectedStatus = selectedStatus,
+            selectedCategories = selectedCategories,
+            selectedLocationIds = selectedLocationIds,
+            selectedStatus = selectedStatus,
+            assignedOnly = assignedOnly,
                 locations = locations,
                 openedCustodianId = openedCustodianId,
+                openedPersonalOwnerOnly = openedPersonalOwnerOnly,
                 canCreate = permissions.canCreateItems(),
                 canCreateSharedDirectly = canCreateSharedDirectly,
                 canViewInactive = permissions.canManageAllItems(),
                 canApprovePending = canApprove,
+                canExportCsv = canExportCsv,
+                canImportCsv = canImportCsv,
+                canGenerateQrPdf = canGenerateQrPdf,
                 selectionMode = selectionMode,
                 selectedItemIds = selectedItemIds,
+                onExportCsv = {
+                    pendingExportCsv = viewModel.inventoryExportCsv(filteredVisibleItems)
+                    exportCsvLauncher.launch("inventorius-${LocalDate.now()}.csv")
+                },
+                onImportCsv = {
+                    importCsvLauncher.launch(
+                        arrayOf(
+                            "text/*",
+                            "text/csv",
+                            "application/csv",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                        )
+                    )
+                },
+                onStartQrSelection = viewModel::enterSelectionMode,
                 viewModel = viewModel,
                 navController = navController
             )
@@ -277,6 +332,295 @@ fun InventoryListScreen(
 }
 
 @Composable
+private fun InventoryImportMappingDialog(
+    draft: InventoryImportDraft,
+    previewProvider: (Map<InventoryImportField, Int?>, InventoryImportDuplicateMode) -> InventoryImportPreview?,
+    onImport: (Map<InventoryImportField, Int?>, InventoryImportDuplicateMode) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val savedTemplate = remember(draft.headers) { context.loadInventoryImportMapping(draft.headers) }
+    var mapping by remember(draft) { mutableStateOf(savedTemplate ?: draft.suggestedMapping) }
+    var duplicateMode by remember(draft) { mutableStateOf(InventoryImportDuplicateMode.Merge) }
+    val preview = remember(draft, mapping, duplicateMode) {
+        previewProvider(mapping, duplicateMode)
+    }
+    val requiredMissing = InventoryImportField.entries.any { it.required && mapping[it] == null }
+    val canImport = preview != null && !preview.result.hasFatalErrors && preview.result.rows.isNotEmpty() && !requiredMissing
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Importo peržiūra") },
+        text = {
+            LazyColumn(
+                modifier = Modifier.heightIn(max = 560.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(
+                            text = draft.fileName,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            text = "${draft.rowCount} eilučių, ${draft.headers.size} stulpelių",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (draft.unknownColumns.isNotEmpty()) {
+                            Text(
+                                text = "Neatpažinti stulpeliai bus ignoruoti: ${draft.unknownColumns.joinToString(", ")}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    SkautaiSectionHeader(
+                        title = "Stulpelių mapinimas",
+                        subtitle = if (savedTemplate != null) {
+                            "Pritaikytas paskutinis šio formato mapping šablonas."
+                        } else {
+                            "Privalomas tik pavadinimas. Kiekis, kategorija, būklė ir tipas turi numatytas reikšmes."
+                        }
+                    )
+                }
+
+                items(InventoryImportField.entries, key = { it.key }) { field ->
+                    ImportFieldMappingRow(
+                        field = field,
+                        headers = draft.headers,
+                        selectedIndex = mapping[field],
+                        onSelected = { index ->
+                            mapping = mapping + (field to index)
+                        }
+                    )
+                }
+
+                item {
+                    SkautaiSectionHeader(
+                        title = "Sutapimai su esamais daiktais",
+                        subtitle = "${preview?.duplicateExistingCount ?: 0} importo eilučių sutampa su esamu inventoriumi."
+                    )
+                }
+
+                items(InventoryImportDuplicateMode.entries, key = { it.name }) { mode ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { duplicateMode = mode }
+                            .padding(vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        RadioButton(
+                            selected = duplicateMode == mode,
+                            onClick = { duplicateMode = mode }
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = mode.label, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                text = mode.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+
+                item {
+                    ImportPreviewSummary(preview = preview)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    context.saveInventoryImportMapping(draft.headers, mapping)
+                    onImport(mapping, duplicateMode)
+                },
+                enabled = canImport
+            ) {
+                Text("Importuoti")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Atšaukti")
+            }
+        }
+    )
+}
+
+private fun android.content.Context.loadInventoryImportMapping(headers: List<String>): Map<InventoryImportField, Int?>? {
+    val raw = getSharedPreferences("inventory_import", 0)
+        .getString(headers.importTemplateKey(), null)
+        ?: return null
+    val values = raw.split("|").associate {
+        val parts = it.split("=", limit = 2)
+        parts.first() to parts.getOrNull(1)
+    }
+    val mapping = InventoryImportField.entries.associateWith { field ->
+        values[field.key]?.toIntOrNull()?.takeIf { it in headers.indices }
+    }
+    return mapping.takeIf { it[InventoryImportField.Name] != null }
+}
+
+private fun android.content.Context.saveInventoryImportMapping(
+    headers: List<String>,
+    mapping: Map<InventoryImportField, Int?>
+) {
+    val encoded = InventoryImportField.entries.joinToString("|") { field ->
+        "${field.key}=${mapping[field] ?: ""}"
+    }
+    getSharedPreferences("inventory_import", 0)
+        .edit()
+        .putString(headers.importTemplateKey(), encoded)
+        .apply()
+}
+
+private fun List<String>.importTemplateKey(): String =
+    "mapping_" + joinToString("|") { it.trim().lowercase() }.hashCode()
+
+private fun ItemDto.unitLabel(): String =
+    customFields.firstOrNull { it.fieldName.equals("Mato vienetas", ignoreCase = true) }
+        ?.fieldValue
+        ?.takeIf { it.isNotBlank() }
+        ?: "vnt."
+
+@Composable
+private fun ImportFieldMappingRow(
+    field: InventoryImportField,
+    headers: List<String>,
+    selectedIndex: Int?,
+    onSelected: (Int?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = selectedIndex?.let { headers.getOrNull(it) }
+        ?: field.defaultValue?.let { "Nenaudoti ($it)" }
+        ?: "Nenaudoti"
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(0.9f)) {
+            Text(
+                text = if (field.required) "${field.label} *" else field.label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (field.required) FontWeight.SemiBold else FontWeight.Normal
+            )
+            field.defaultValue?.let {
+                Text(
+                    text = "Jei nemapinta: $it",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Box(modifier = Modifier.weight(1.1f)) {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    text = selectedLabel,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                if (!field.required) {
+                    DropdownMenuItem(
+                        text = { Text(field.defaultValue?.let { "Nenaudoti ($it)" } ?: "Nenaudoti") },
+                        onClick = {
+                            expanded = false
+                            onSelected(null)
+                        }
+                    )
+                }
+                headers.forEachIndexed { index, header ->
+                    DropdownMenuItem(
+                        text = { Text(header.ifBlank { "Stulpelis ${index + 1}" }) },
+                        onClick = {
+                            expanded = false
+                            onSelected(index)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ImportPreviewSummary(preview: InventoryImportPreview?) {
+    val result = preview?.result
+    val error = result?.errors?.firstOrNull()
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = skautaiSurfaceTone(
+            if (error == null) SkautaiSurfaceRole.Muted else SkautaiSurfaceRole.Identity
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = if (error == null) "Kas bus importuota" else "Reikia pataisyti mappingą",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (error != null) {
+                Text(
+                    text = error,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
+                )
+            } else {
+                Text(
+                    text = "Nauji įrašai: ${preview?.rowsToCreateCount ?: 0}, atnaujinami: ${preview?.rowsToUpdateCount ?: 0}, praleistos eilutės: ${result?.skippedRows ?: 0}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                val sample = result?.rows.orEmpty().take(3).joinToString("; ") {
+                    "${it.name} (${it.quantity} vnt.)"
+                }
+                if (sample.isNotBlank()) {
+                    Text(
+                        text = "Pavyzdžiai: $sample",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if ((result?.mergedRows ?: 0) > 0) {
+                    Text(
+                        text = "Failo viduje sujungta pasikartojančių eilučių: ${result?.mergedRows}.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                result?.warnings?.take(2)?.forEach { warning ->
+                    Text(
+                        text = warning,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ApprovalBanner(
     items: List<ItemDto>,
     navController: NavController,
@@ -285,6 +629,36 @@ private fun ApprovalBanner(
     onApproveAll: () -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var showApproveAllConfirm by remember { mutableStateOf(false) }
+    var rejectedItem by remember { mutableStateOf<ItemDto?>(null) }
+
+    if (showApproveAllConfirm) {
+        SkautaiConfirmDialog(
+            title = "Patvirtinti visus?",
+            message = "Bus patvirtinti ${items.size} laukiantys inventoriaus įrašai.",
+            confirmText = "Patvirtinti",
+            onConfirm = {
+                showApproveAllConfirm = false
+                onApproveAll()
+            },
+            onDismiss = { showApproveAllConfirm = false },
+            enabled = items.isNotEmpty()
+        )
+    }
+
+    rejectedItem?.let { item ->
+        SkautaiConfirmDialog(
+            title = "Atmesti įrašą?",
+            message = "Įrašas „${item.name}“ bus atmestas ir nebus įtrauktas į katalogą.",
+            confirmText = "Atmesti",
+            onConfirm = {
+                rejectedItem = null
+                onReject(item.id)
+            },
+            onDismiss = { rejectedItem = null },
+            isDanger = true
+        )
+    }
 
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
@@ -313,7 +687,7 @@ private fun ApprovalBanner(
                     )
                 }
                 SkautaiStatusPill(label = items.size.toString(), tone = SkautaiStatusTone.Warning)
-                IconButton(onClick = onApproveAll, enabled = items.isNotEmpty()) {
+                IconButton(onClick = { showApproveAllConfirm = true }, enabled = items.isNotEmpty()) {
                     Icon(Icons.Default.Check, contentDescription = "Patvirtinti visus")
                 }
                 Icon(
@@ -331,7 +705,7 @@ private fun ApprovalBanner(
                             item = item,
                             onOpen = { navController.navigate(NavRoutes.InventoryDetail.createRoute(item.id)) },
                             onApprove = { onApprove(item.id) },
-                            onReject = { onReject(item.id) }
+                            onReject = { rejectedItem = item }
                         )
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                     }
@@ -349,14 +723,22 @@ private fun InventoryBody(
     selectedCategories: Set<String>,
     selectedLocationIds: Set<String>,
     selectedStatus: String,
+    assignedOnly: Boolean,
     locations: List<LocationDto>,
     openedCustodianId: String?,
+    openedPersonalOwnerOnly: Boolean,
     canCreate: Boolean,
     canCreateSharedDirectly: Boolean,
     canViewInactive: Boolean,
     canApprovePending: Boolean,
+    canExportCsv: Boolean,
+    canImportCsv: Boolean,
+    canGenerateQrPdf: Boolean,
     selectionMode: Boolean,
     selectedItemIds: Set<String>,
+    onExportCsv: () -> Unit,
+    onImportCsv: () -> Unit,
+    onStartQrSelection: () -> Unit,
     viewModel: InventoryListViewModel,
     navController: NavController
 ) {
@@ -370,12 +752,13 @@ private fun InventoryBody(
         is InventoryListUiState.Empty -> {
             SkautaiEmptyState(
                 title = "Inventorius tuščias",
-                subtitle = inventoryContextEmptySubtitle(openedCustodianId, selectedTypes, selectedCategories),
+                subtitle = inventoryContextEmptySubtitle(openedCustodianId, openedPersonalOwnerOnly, selectedTypes, selectedCategories),
                 icon = Icons.Default.Inventory2,
                     actionLabel = if (canCreate) addSharedActionLabel(canCreateSharedDirectly) else "Grįžti į pradžią",
                 onAction = {
                     if (canCreate) {
-                        navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
+                        val mode = if (openedPersonalOwnerOnly || "INDIVIDUAL" in selectedTypes) "PERSONAL" else "SHARED"
+                        navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = mode))
                     } else {
                         navController.navigate(NavRoutes.Home.route)
                     }
@@ -407,17 +790,19 @@ private fun InventoryBody(
             }
             val typeFilters = remember(state.items) {
                 listOf(
-                    "COLLECTIVE" to ("Bendras" to state.items.count { it.type == "COLLECTIVE" }),
-                    "ASSIGNED" to ("Priskirtas" to state.items.count { it.type == "ASSIGNED" }),
-                    "INDIVIDUAL" to ("Asmeninis" to state.items.count { it.type == "INDIVIDUAL" })
+                    "COLLECTIVE" to ("Bendras" to state.items.count { it.effectiveInventoryType() == "COLLECTIVE" }),
+                    "ASSIGNED" to ("Priskirtas" to state.items.count { it.effectiveInventoryType() == "ASSIGNED" }),
+                    "INDIVIDUAL" to ("Asmeninis" to state.items.count { it.effectiveInventoryType() == "INDIVIDUAL" })
                 )
             }
-            val categoryFilters = remember(state.items) {
-                val counts = state.items.groupingBy { it.category }.eachCount()
-                KnownInventoryCategories.map { category ->
-                    category to (inventoryCategoryLabel(category) to (counts[category] ?: 0))
-                }
+        val categoryFilters = remember(state.items) {
+            val counts = state.items.groupingBy { it.category }.eachCount()
+            (KnownInventoryCategories + state.items.map { it.category })
+                .distinct()
+                .map { category ->
+                category to (inventoryCategoryLabel(category) to (counts[category] ?: 0))
             }
+        }
 
             InventoryCatalogContent(
                 allItems = state.items,
@@ -426,17 +811,26 @@ private fun InventoryBody(
                 selectedCategories = selectedCategories,
                 selectedLocationIds = selectedLocationIds,
                 selectedStatus = selectedStatus,
+                assignedOnly = assignedOnly,
                 locations = locations,
                 openedCustodianId = openedCustodianId,
                 canViewInactive = canViewInactive,
                 canApprovePending = canApprovePending,
+                canExportCsv = canExportCsv,
+                canImportCsv = canImportCsv,
+                canGenerateQrPdf = canGenerateQrPdf,
                 selectionMode = selectionMode,
                 selectedItemIds = selectedItemIds,
+                onExportCsv = onExportCsv,
+                onImportCsv = onImportCsv,
+                onStartQrSelection = onStartQrSelection,
                 typeFilters = typeFilters,
                 categoryFilters = categoryFilters,
                 onClearFilters = viewModel::clearFilters,
+                onClearTypeFilters = viewModel::clearTypeFilters,
                 onTypeSelected = viewModel::onTypeSelected,
                 onCategorySelected = viewModel::onCategorySelected,
+                onAssignedOnlyChange = viewModel::onAssignedOnlyChange,
                 onLocationSelected = viewModel::onLocationSelected,
                 onStatusSelected = viewModel::onStatusSelected,
                 onOpenItem = { itemId -> navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId)) },
@@ -455,17 +849,26 @@ private fun InventoryCatalogContent(
     selectedCategories: Set<String>,
     selectedLocationIds: Set<String>,
     selectedStatus: String,
+    assignedOnly: Boolean,
     locations: List<LocationDto>,
     openedCustodianId: String?,
     canViewInactive: Boolean,
     canApprovePending: Boolean,
+    canExportCsv: Boolean,
+    canImportCsv: Boolean,
+    canGenerateQrPdf: Boolean,
     selectionMode: Boolean,
     selectedItemIds: Set<String>,
+    onExportCsv: () -> Unit,
+    onImportCsv: () -> Unit,
+    onStartQrSelection: () -> Unit,
     typeFilters: List<Pair<String, Pair<String, Int>>>,
     categoryFilters: List<Pair<String, Pair<String, Int>>>,
     onClearFilters: () -> Unit,
+    onClearTypeFilters: () -> Unit,
     onTypeSelected: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
+    onAssignedOnlyChange: (Boolean) -> Unit,
     onLocationSelected: (String) -> Unit,
     onStatusSelected: (String) -> Unit,
     onOpenItem: (String) -> Unit,
@@ -473,13 +876,33 @@ private fun InventoryCatalogContent(
 ) {
     val groups = remember(filteredItems) { filteredItems.toInventoryGroups() }
     var filtersExpanded by remember { mutableStateOf(false) }
+    var toolsExpanded by remember { mutableStateOf(false) }
     val activeFilterCount = selectedTypes.size + selectedCategories.size + selectedLocationIds.size +
-        if (selectedStatus != "ACTIVE") 1 else 0
+        (if (assignedOnly) 1 else 0) +
+        (if (selectedStatus != "ACTIVE") 1 else 0)
+    val assignedCount = allItems.count { it.isAssignedToPerson() }
+    val canShowTools = canExportCsv || canImportCsv || canGenerateQrPdf
+    val hasPrintableItems = filteredItems.any { it.toPrintableQrItemOrNull() != null }
 
     LazyColumn(
         verticalArrangement = Arrangement.spacedBy(0.dp),
         contentPadding = PaddingValues(bottom = 140.dp)
     ) {
+        if (!selectionMode && canShowTools) {
+            item {
+                InventoryToolsCard(
+                    expanded = toolsExpanded,
+                    canExportCsv = canExportCsv,
+                    canImportCsv = canImportCsv,
+                    canGenerateQrPdf = canGenerateQrPdf,
+                    canGenerateQrPdfNow = hasPrintableItems,
+                    onExpandedChange = { toolsExpanded = it },
+                    onExportCsv = onExportCsv,
+                    onImportCsv = onImportCsv,
+                    onStartQrSelection = onStartQrSelection
+                )
+            }
+        }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SkautaiCard(
@@ -550,11 +973,27 @@ private fun InventoryCatalogContent(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     contentPadding = PaddingValues(vertical = 2.dp)
                                 ) {
+                                    if (selectedTypes.isNotEmpty()) {
+                                        item {
+                                            SkautaiChip(
+                                                label = "Nuvalyti tipus",
+                                                selected = false,
+                                                onClick = onClearTypeFilters
+                                            )
+                                        }
+                                    }
                                     item {
                                         SkautaiChip(
                                             label = "Visi (${allItems.size})",
                                             selected = activeFilterCount == 0,
                                             onClick = onClearFilters
+                                        )
+                                    }
+                                    item {
+                                        SkautaiChip(
+                                            label = "Priskirta ($assignedCount)",
+                                            selected = assignedOnly,
+                                            onClick = { onAssignedOnlyChange(!assignedOnly) }
                                         )
                                     }
                                     items(typeFilters, key = { it.first }) { (type, chip) ->
@@ -636,6 +1075,109 @@ private fun InventoryCatalogContent(
 }
 
 @Composable
+private fun InventoryToolsCard(
+    expanded: Boolean,
+    canExportCsv: Boolean,
+    canImportCsv: Boolean,
+    canGenerateQrPdf: Boolean,
+    canGenerateQrPdfNow: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    onExportCsv: () -> Unit,
+    onImportCsv: () -> Unit,
+    onStartQrSelection: () -> Unit
+) {
+    val availableCount = listOf(canExportCsv, canImportCsv, canGenerateQrPdf).count { it }
+    SkautaiCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onExpandedChange(!expanded) },
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    SkautaiSectionHeader(
+                        title = "Įrankiai",
+                        subtitle = "$availableCount veiksmai: eksportas, importas ir QR"
+                    )
+                }
+                IconButton(onClick = { onExpandedChange(!expanded) }) {
+                    Icon(
+                        imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = if (expanded) "Sutraukti įrankius" else "Išskleisti įrankius"
+                    )
+                }
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (canExportCsv) {
+                            OutlinedButton(
+                                onClick = onExportCsv,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FileUpload,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text("Eksportuoti CSV", maxLines = 1)
+                            }
+                        }
+                        if (canImportCsv) {
+                            Button(
+                                onClick = onImportCsv,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FileDownload,
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text("Importuoti CSV", maxLines = 1)
+                            }
+                        }
+                    }
+                    if (canGenerateQrPdf) {
+                        OutlinedButton(
+                            onClick = onStartQrSelection,
+                            enabled = canGenerateQrPdfNow,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.QrCode2,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text("Generuoti QR PDF", maxLines = 1)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun LocationFilterRows(
     locations: List<LocationDto>,
     selectedLocationIds: Set<String>,
@@ -687,19 +1229,27 @@ private fun LocationFilterRows(
 @Composable
 private fun InventoryGroupHeader(title: String, count: Int) {
     Surface(color = MaterialTheme.colorScheme.background) {
-        Surface(
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            shape = RoundedCornerShape(14.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp)
         ) {
-            Text(
-                text = "$title / $count",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.SemiBold,
-                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.78f),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            )
+                    .padding(top = 8.dp, bottom = 6.dp)
+            ) {
+                Text(
+                    text = "$title / $count",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 9.dp)
+                )
+            }
         }
     }
 }
@@ -719,17 +1269,34 @@ private fun InventoryDenseRow(
         item.temporaryStorageLabel?.takeIf { it.isNotBlank() }
     ).joinToString(" / ")
 
-    Column(
+    Surface(
+        color = if (isSelected) {
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f)
+        } else {
+            MaterialTheme.colorScheme.background
+        },
+        shape = if (selectionMode) RoundedCornerShape(8.dp) else RoundedCornerShape(0.dp),
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = if (selectionMode) onToggleSelection else onOpen)
-            .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(vertical = if (selectionMode) 4.dp else 0.dp)
     ) {
         Row(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = if (selectionMode) 8.dp else 0.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.Top
         ) {
+            if (selectionMode) {
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .heightIn(min = 52.dp)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                            RoundedCornerShape(999.dp)
+                        )
+                )
+            }
             InventoryRowVisual(item = item)
             Column(
                 modifier = Modifier.weight(1f),
@@ -744,9 +1311,10 @@ private fun InventoryDenseRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = "${item.quantity} vnt. / ${inventoryCategoryLabel(item.category)}",
+                    text = "${item.quantity} ${item.unitLabel()}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                    fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -754,14 +1322,14 @@ private fun InventoryDenseRow(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
             }
             if (selectionMode) {
-                SelectionStatePill(
+                SelectionCheckbox(
                     isSelected = isSelected,
                     isSelectable = isSelectable
                 )
@@ -817,24 +1385,15 @@ private fun QrSelectionBar(
 }
 
 @Composable
-private fun SelectionStatePill(
+private fun SelectionCheckbox(
     isSelected: Boolean,
     isSelectable: Boolean
 ) {
-    when {
-        !isSelectable -> SkautaiStatusPill(
-            label = "Nespausd.",
-            tone = SkautaiStatusTone.Neutral
-        )
-        isSelected -> SkautaiStatusPill(
-            label = "Pažymėta",
-            tone = SkautaiStatusTone.Success
-        )
-        else -> SkautaiStatusPill(
-            label = "Pasirinkti",
-            tone = SkautaiStatusTone.Info
-        )
-    }
+    Checkbox(
+        checked = isSelected,
+        onCheckedChange = null,
+        enabled = isSelectable
+    )
 }
 
 @Composable
@@ -878,14 +1437,14 @@ private fun PendingInventoryRow(
                 overflow = TextOverflow.Ellipsis
             )
         }
-        IconButton(onClick = onReject, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onReject, modifier = Modifier.size(48.dp)) {
             Icon(
                 imageVector = Icons.Default.Close,
                 contentDescription = "Atmesti",
                 tint = MaterialTheme.colorScheme.error
             )
         }
-        IconButton(onClick = onApprove, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onApprove, modifier = Modifier.size(48.dp)) {
             Icon(
                 imageVector = Icons.Default.Check,
                 contentDescription = "Patvirtinti",
@@ -959,33 +1518,39 @@ private fun conditionTone(condition: String): SkautaiStatusTone = when (conditio
 
 private fun inventoryContextTitle(
     openedCustodianId: String?,
+    openedPersonalOwnerOnly: Boolean,
     selectedType: String?,
     selectedCategory: String?,
     items: List<ItemDto>
 ): String = when {
     openedCustodianId != null -> items.firstOrNull()?.custodianName ?: "Vieneto inventorius"
-    selectedType == "INDIVIDUAL" -> "Mano siūlomi skolinti daiktai"
+    selectedType == "INDIVIDUAL" && openedPersonalOwnerOnly -> "Mano siūlomi skolinti daiktai"
+    selectedType == "INDIVIDUAL" -> "Asmeniniai skolinami daiktai"
     selectedCategory != null -> inventoryCategoryLabel(selectedCategory)
     else -> "Bendras tunto inventorius"
 }
 
 private fun inventoryContextSubtitle(
     openedCustodianId: String?,
+    openedPersonalOwnerOnly: Boolean,
     selectedType: String?,
     selectedCategory: String?
 ): String = when {
     openedCustodianId != null -> "Vieneto daiktai, jų būklė ir priskyrimas."
-    selectedType == "INDIVIDUAL" -> "Asmeniniai daiktai, kuriuos galima skolinti kitiems."
+    selectedType == "INDIVIDUAL" && openedPersonalOwnerOnly -> "Tavo asmeniniai daiktai, kuriuos siūlai skolinti kitiems."
+    selectedType == "INDIVIDUAL" -> "Visų narių asmeniniai daiktai, kuriuos galima skolinti kitiems."
     selectedCategory != null -> "Filtruotas sąrašas pagal pasirinktą kategoriją."
     else -> "Bendro inventoriaus katalogas su būkle, kilme ir vieta."
 }
 
 private fun inventoryContextEmptySubtitle(
     openedCustodianId: String?,
+    openedPersonalOwnerOnly: Boolean,
     selectedTypes: Set<String>,
     selectedCategories: Set<String>
 ): String = when {
-    openedCustodianId != null -> "Šis vienetas dar neturi jam priskirtų ar savo sukurtų inventoriaus įrašų."
+    openedCustodianId != null -> "Šis vienetas dar neturi savo inventoriaus įrašų."
+    openedPersonalOwnerOnly -> "Dar neturi asmeninių daiktų, kuriuos siūlai skolinti kitiems."
     "INDIVIDUAL" in selectedTypes -> "Dar nėra asmeninių daiktų, siūlomų skolinti."
     selectedCategories.isNotEmpty() -> "Pasirinktose kategorijose dar nėra inventoriaus įrašų."
     else -> "Kai atsiras pirmi daiktai, čia matysi bendro tunto inventoriaus katalogą."
@@ -1007,6 +1572,44 @@ private data class InventoryGroup(
 )
 
 private fun List<ItemDto>.toInventoryGroups(): List<InventoryGroup> =
-    sortedWith(compareBy<ItemDto>({ it.type }, { inventoryCategoryLabel(it.category) }, { it.name.lowercase() }))
-        .groupBy { item -> "${inventoryTypeLabel(item.type)} - ${inventoryCategoryLabel(item.category)}" }
+    sortedWith(compareBy<ItemDto>({ it.effectiveInventoryType() }, { inventoryCategoryLabel(it.category) }, { it.name.lowercase() }))
+        .groupBy { item -> "${inventoryTypeLabel(item.effectiveInventoryType())} - ${inventoryCategoryLabel(item.category)}" }
         .map { (title, items) -> InventoryGroup(title, items) }
+
+private fun ItemDto.effectiveInventoryType(): String =
+    if (origin == "TRANSFERRED_FROM_TUNTAS" && custodianId != null) "COLLECTIVE" else type
+
+private fun ItemDto.isAssignedToPerson(): Boolean =
+    effectiveInventoryType() == "ASSIGNED" || responsibleUserId != null
+
+private fun android.content.Context.writeTextToUri(uri: Uri, text: String) {
+    contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { writer ->
+        writer.write(text)
+    } ?: error("Nepavyko atidaryti failo rašymui.")
+}
+
+private fun android.content.Context.readInventoryImportTable(uri: Uri): Pair<String, List<List<String>>> {
+    val fileName = displayName(uri) ?: uri.lastPathSegment ?: "inventorius"
+    val mime = contentResolver.getType(uri).orEmpty()
+    val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() }
+        ?: error("Nepavyko atidaryti failo skaitymui.")
+    val table = if (
+        fileName.endsWith(".xlsx", ignoreCase = true) ||
+        mime == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    ) {
+        InventoryCsv.parseXlsxTable(bytes)
+    } else {
+        InventoryCsv.parseTextTable(bytes.toString(Charsets.UTF_8))
+    }
+    return fileName to table
+}
+
+private fun android.content.Context.displayName(uri: Uri): String? =
+    contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+        if (cursor.moveToFirst()) {
+            val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            if (index >= 0) cursor.getString(index) else null
+        } else {
+            null
+        }
+    }

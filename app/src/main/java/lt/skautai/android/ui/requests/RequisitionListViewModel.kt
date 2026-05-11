@@ -14,6 +14,9 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canForwardUnitRequests
+import lt.skautai.android.util.canReviewTopLevelRequisitions
+import lt.skautai.android.util.hasPermission
 
 sealed interface RequisitionListUiState {
     data object Loading : RequisitionListUiState
@@ -31,6 +34,8 @@ class RequisitionListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<RequisitionListUiState>(RequisitionListUiState.Loading)
     val uiState: StateFlow<RequisitionListUiState> = _uiState.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
     private var observeJob: Job? = null
 
     init {
@@ -54,10 +59,13 @@ class RequisitionListViewModel @Inject constructor(
 
     fun loadRequests() {
         viewModelScope.launch {
+            val refreshOnly = _uiState.value is RequisitionListUiState.Success
+            if (refreshOnly) _isRefreshing.value = true
             if (_uiState.value !is RequisitionListUiState.Success) {
                 _uiState.value = RequisitionListUiState.Loading
             }
-            requisitionRepository.refreshRequests()
+            try {
+                requisitionRepository.refreshRequests()
                 .onSuccess {
                     val userId = tokenManager.userId.first()
                     val permissions = tokenManager.permissions.first()
@@ -75,6 +83,9 @@ class RequisitionListViewModel @Inject constructor(
                         error.message ?: "Klaida gaunant prašymus"
                     )
                 }
+            } finally {
+                if (refreshOnly) _isRefreshing.value = false
+            }
         }
     }
 }
@@ -90,21 +101,25 @@ private fun List<RequisitionDto>.filterForMode(
         "assigned" -> filter {
             val waitsForActiveUnit = it.createdByUserId != userId &&
                 it.requestingUnitId == activeUnitId &&
-                it.unitReviewStatus == "PENDING"
+                it.unitReviewStatus == "PENDING" &&
+                (
+                    permissions.hasPermission("items.request.approve.unit") ||
+                        permissions.canForwardUnitRequests()
+                    )
             val waitsForTopLevel = it.createdByUserId != userId &&
-                "requisitions.approve" in permissions &&
+                permissions.canReviewTopLevelRequisitions() &&
                 it.topLevelReviewStatus == "PENDING"
             waitsForActiveUnit || waitsForTopLevel
         }
         else -> filter {
             it.createdByUserId == userId ||
-                "requisitions.approve:ALL" in permissions ||
+                permissions.canReviewTopLevelRequisitions() ||
                 (
                     it.requestingUnitId == activeUnitId &&
                         (
-                            "requisitions.create:OWN_UNIT" in permissions ||
-                            "requisitions.approve:OWN_UNIT" in permissions ||
-                                "items.request.forward.bendras:OWN_UNIT" in permissions
+                            permissions.hasPermission("requisitions.create") ||
+                                permissions.hasPermission("requisitions.approve") ||
+                                permissions.canForwardUnitRequests()
                             )
                     )
         }

@@ -19,10 +19,12 @@ import lt.skautai.android.data.local.mapper.toEntity
 import lt.skautai.android.data.local.mapper.toRequisitionDtos
 import lt.skautai.android.data.local.mapper.toRequisitionEntities
 import lt.skautai.android.data.remote.CreateRequisitionDto
+import lt.skautai.android.data.remote.AddRequisitionToInventoryDto
 import lt.skautai.android.data.remote.RequisitionApiService
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.remote.RequisitionListDto
 import lt.skautai.android.data.remote.RequisitionReviewDto
+import lt.skautai.android.data.remote.RequisitionMarkPurchasedDto
 import lt.skautai.android.data.remote.RequisitionItemDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
@@ -174,6 +176,41 @@ class RequisitionRepository @Inject constructor(
 
     suspend fun topLevelReview(id: String, action: String, rejectionReason: String? = null): Result<RequisitionDto> =
         reviewOnlineOnly(id, action, rejectionReason, topLevel = true)
+
+    suspend fun markPurchased(id: String, notes: String? = null): Result<RequisitionDto> {
+        return try {
+            val response = requisitionApiService.markPurchased(
+                "Bearer ${token()}",
+                tuntasId(),
+                id,
+                RequisitionMarkPurchasedDto(notes)
+            )
+            if (response.isSuccessful) {
+                val updated = response.body()!!
+                requisitionDao.upsert(updated.toEntity())
+                Result.success(updated)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida pažymint kaip nupirkta")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun addToInventory(id: String, request: AddRequisitionToInventoryDto): Result<RequisitionDto> {
+        return try {
+            val response = requisitionApiService.addToInventory("Bearer ${token()}", tuntasId(), id, request)
+            if (response.isSuccessful) {
+                val updated = response.body()!!
+                requisitionDao.upsert(updated.toEntity())
+                Result.success(updated)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida pridedant į inventorių")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
 
     suspend fun cancelRequest(id: String): Result<Unit> {
         return try {

@@ -13,7 +13,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Place
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,7 +59,9 @@ import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.util.TokenManager
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -167,15 +168,13 @@ fun LocationAddEditScreen(
                             subtitle = "Pavadinimas, matomumas ir priklausomybė vienetui."
                         )
 
-                        OutlinedTextField(
+                        SkautaiTextField(
                             value = uiState.name,
                             onValueChange = viewModel::onNameChange,
-                            label = { Text("Pavadinimas") },
+                            label = "Pavadinimas",
                             modifier = Modifier.fillMaxWidth(),
                             isError = uiState.nameError != null,
-                            supportingText = {
-                                uiState.nameError?.let { Text(it) }
-                            }
+                            supportingText = uiState.nameError
                         )
 
                         VisibilityField(
@@ -217,17 +216,17 @@ fun LocationAddEditScreen(
                             subtitle = "Adresas ir trumpas aprašymas, kurie padeda rasti vietą."
                         )
 
-                        OutlinedTextField(
+                        SkautaiTextField(
                             value = uiState.address,
                             onValueChange = viewModel::onAddressChange,
-                            label = { Text("Adresas") },
+                            label = "Adresas",
                             modifier = Modifier.fillMaxWidth()
                         )
 
-                        OutlinedTextField(
+                        SkautaiTextField(
                             value = uiState.description,
                             onValueChange = viewModel::onDescriptionChange,
-                            label = { Text("Aprašymas") },
+                            label = "Aprašymas",
                             modifier = Modifier.fillMaxWidth(),
                             minLines = 3
                         )
@@ -253,20 +252,20 @@ fun LocationAddEditScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.latitude,
                                 onValueChange = viewModel::onLatitudeChange,
-                                label = { Text("Platuma") },
-                                placeholder = { Text("Pvz. 54.6872") },
+                                label = "Platuma",
+                                placeholder = "Pvz. 54.6872",
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
                             )
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.longitude,
                                 onValueChange = viewModel::onLongitudeChange,
-                                label = { Text("Ilguma") },
-                                placeholder = { Text("Pvz. 25.2797") },
+                                label = "Ilguma",
+                                placeholder = "Pvz. 25.2797",
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 singleLine = true,
                                 modifier = Modifier.weight(1f)
@@ -277,21 +276,12 @@ fun LocationAddEditScreen(
             }
 
             item {
-                Button(
+                SkautaiPrimaryButton(
+                    text = if (uiState.isSaving) "Saugoma..." else if (isCreateMode) "Sukurti lokaciją" else "Išsaugoti pakeitimus",
                     onClick = { viewModel.save(locationId) },
                     modifier = Modifier.fillMaxWidth(),
                     enabled = !uiState.isSaving
-                ) {
-                    if (uiState.isSaving) {
-                        CircularProgressIndicator(
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else {
-                        Text(if (isCreateMode) "Sukurti lokaciją" else "Išsaugoti pakeitimus")
-                    }
-                }
+                )
             }
         }
     }

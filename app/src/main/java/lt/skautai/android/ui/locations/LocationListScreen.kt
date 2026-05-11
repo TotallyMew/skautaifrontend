@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.ExpandLess
@@ -34,6 +35,9 @@ import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,6 +76,7 @@ import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.util.TokenManager
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun LocationListScreen(
     onLocationClick: (String) -> Unit,
@@ -81,6 +86,7 @@ fun LocationListScreen(
     viewModel: LocationListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val pullRefreshState = rememberPullRefreshState(uiState.isRefreshing, viewModel::refresh)
 
     LaunchedEffect(refreshSignal) {
         if (refreshSignal) {
@@ -123,21 +129,26 @@ fun LocationListScreen(
     }
     val privateRootCount = allLocations.count { it.visibility == "PRIVATE" && it.parentLocationId == null }
 
-    LazyColumn(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 12.dp, bottom = 136.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+            .pullRefresh(pullRefreshState)
     ) {
-        item {
-            LocationHeroCard(
-                totalCount = allLocations.size,
-                filteredCount = displayed.size,
-                filter = uiState.filter,
-                searchQuery = uiState.searchQuery
-            )
-        }
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 12.dp, bottom = 136.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            item {
+                LocationHeroCard(
+                    totalCount = allLocations.size,
+                    filteredCount = displayed.size,
+                    filter = uiState.filter,
+                    searchQuery = uiState.searchQuery
+                )
+            }
 
         item {
             SkautaiSearchBar(
@@ -244,6 +255,12 @@ fun LocationListScreen(
             onToggle = viewModel::toggleExpanded,
             onLocationClick = onLocationClick,
             accentColor = privateAccent
+        )
+        }
+        PullRefreshIndicator(
+            refreshing = uiState.isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
         )
     }
 }
@@ -438,7 +455,7 @@ private fun LocationRow(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 if (location.hasChildren) {
-                    IconButton(onClick = { onToggle(location.id) }, modifier = Modifier.size(34.dp)) {
+                    IconButton(onClick = { onToggle(location.id) }, modifier = Modifier.size(48.dp)) {
                         Icon(
                             imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                             contentDescription = if (expanded) "Sutraukti" else "Išskleisti"
@@ -449,7 +466,7 @@ private fun LocationRow(
                 }
 
                 Surface(
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(48.dp),
                     color = locationIconContainer(node.depth, location.hasChildren),
                     contentColor = locationIconContent(node.depth, location.hasChildren),
                     shape = RoundedCornerShape(14.dp)
@@ -635,6 +652,7 @@ enum class LocationFilter(val label: String) {
 
 data class LocationListUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val locations: List<LocationDto> = emptyList(),
     val expandedIds: Set<String> = emptySet(),
     val activeUnitId: String? = null,
@@ -702,16 +720,30 @@ class LocationListViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            locationRepository.refreshLocations()
-                .onFailure { error ->
-                    if (_uiState.value.locations.isEmpty()) {
-                        _uiState.value = _uiState.value.copy(
-                            isLoading = false,
-                            error = error.message ?: "Nepavyko gauti lokacijų",
-                            isEmpty = true
-                        )
+            val refreshOnly = _uiState.value.locations.isNotEmpty()
+            if (refreshOnly) {
+                _uiState.value = _uiState.value.copy(isRefreshing = true, error = null)
+            }
+            try {
+                locationRepository.refreshLocations()
+                    .onFailure { error ->
+                        if (_uiState.value.locations.isEmpty()) {
+                            _uiState.value = _uiState.value.copy(
+                                isLoading = false,
+                                error = error.message ?: "Nepavyko gauti lokacijų",
+                                isEmpty = true
+                            )
+                        } else {
+                            _uiState.value = _uiState.value.copy(
+                                error = error.message ?: "Nepavyko gauti lokacijų"
+                            )
+                        }
                     }
+            } finally {
+                if (refreshOnly) {
+                    _uiState.value = _uiState.value.copy(isRefreshing = false)
                 }
+            }
         }
     }
 

@@ -25,6 +25,8 @@ class RequestListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<RequestListUiState>(RequestListUiState.Loading)
     val uiState: StateFlow<RequestListUiState> = _uiState.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
     private var observeJob: Job? = null
 
     init {
@@ -43,10 +45,13 @@ class RequestListViewModel @Inject constructor(
 
     fun loadRequests() {
         viewModelScope.launch {
+            val refreshOnly = _uiState.value is RequestListUiState.Success
+            if (refreshOnly) _isRefreshing.value = true
             if (_uiState.value !is RequestListUiState.Success) {
                 _uiState.value = RequestListUiState.Loading
             }
-            requestRepository.refreshRequests()
+            try {
+                requestRepository.refreshRequests()
                 .onSuccess {
                     val currentRequests = (_uiState.value as? RequestListUiState.Success)?.requests.orEmpty()
                     _uiState.value = RequestListUiState.Success(currentRequests)
@@ -58,6 +63,9 @@ class RequestListViewModel @Inject constructor(
                         )
                     }
                 }
+            } finally {
+                if (refreshOnly) _isRefreshing.value = false
+            }
         }
     }
 }

@@ -19,7 +19,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
 fun PurchasesCard(
@@ -70,15 +70,14 @@ fun PurchasesCard(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Jei žinote galutinę sumą, įrašykite ją dabar.")
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = totalAmountInput,
                         onValueChange = { value ->
                             totalAmountInput = value.filter { it.isDigit() || it == '.' || it == ',' }
                         },
-                        label = { Text("Bendra suma (EUR)") },
+                        label = "Bendra suma (EUR)",
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = eventFormFieldColors()
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },
@@ -269,13 +268,12 @@ fun PurchaseRowCard(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Įrašykite bendrą sąskaitos ar faktūros sumą.")
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = totalAmountInput,
                         onValueChange = { totalAmountInput = it.filter { c -> c.isDigit() || c == '.' || c == ',' } },
-                        label = { Text("Bendra suma (EUR)") },
+                        label = "Bendra suma (EUR)",
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = eventFormFieldColors()
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             },

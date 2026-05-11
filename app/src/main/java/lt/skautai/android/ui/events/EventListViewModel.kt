@@ -5,11 +5,14 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.repository.EventRepository
+import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface EventListUiState {
@@ -20,11 +23,17 @@ sealed interface EventListUiState {
 
 @HiltViewModel
 class EventListViewModel @Inject constructor(
-    private val eventRepository: EventRepository
+    private val eventRepository: EventRepository,
+    tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<EventListUiState>(EventListUiState.Loading)
     val uiState: StateFlow<EventListUiState> = _uiState.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
+
+    val permissions: StateFlow<Set<String>> = tokenManager.permissions
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     private var currentTypeFilter: String? = null
     private var observeJob: Job? = null
@@ -42,24 +51,30 @@ class EventListViewModel @Inject constructor(
             currentTypeFilter = type
         }
         viewModelScope.launch {
+            val refreshOnly = _uiState.value is EventListUiState.Success
+            if (refreshOnly) _isRefreshing.value = true
             if (_uiState.value !is EventListUiState.Success) {
                 _uiState.value = EventListUiState.Loading
             }
-            eventRepository.getEvents(type = type)
-                .onSuccess { events ->
-                    _uiState.value = EventListUiState.Success(
-                        events = events.events,
-                        activeFilter = currentTypeFilter
-                    )
-                }
-                .onFailure { error ->
-                    val current = _uiState.value as? EventListUiState.Success
-                    if (current == null || current.events.isEmpty()) {
-                        _uiState.value = EventListUiState.Error(
-                            error.message ?: "Klaida gaunant renginius"
+            try {
+                eventRepository.getEvents(type = type)
+                    .onSuccess { events ->
+                        _uiState.value = EventListUiState.Success(
+                            events = events.events,
+                            activeFilter = currentTypeFilter
                         )
                     }
-                }
+                    .onFailure { error ->
+                        val current = _uiState.value as? EventListUiState.Success
+                        if (current == null || current.events.isEmpty()) {
+                            _uiState.value = EventListUiState.Error(
+                                error.message ?: "Klaida gaunant renginius"
+                            )
+                        }
+                    }
+            } finally {
+                if (refreshOnly) _isRefreshing.value = false
+            }
         }
     }
 

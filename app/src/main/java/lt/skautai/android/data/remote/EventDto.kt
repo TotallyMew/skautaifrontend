@@ -354,6 +354,7 @@ data class CreatePastovykleRequestDto(
 data class UpdatePastovykleRequestDto(
     @SerializedName("name") val name: String? = null,
     @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
+    @SerializedName("clearResponsibleUser") val clearResponsibleUser: Boolean = false,
     @SerializedName("ageGroup") val ageGroup: String? = null,
     @SerializedName("notes") val notes: String? = null
 )

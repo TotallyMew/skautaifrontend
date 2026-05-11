@@ -17,12 +17,20 @@ sealed class NavRoutes(val route: String) {
     object Profile : NavRoutes("profile")
 
     // Inventory
-    object InventoryList : NavRoutes("inventory_list?type={type}&category={category}&custodianId={custodianId}") {
-        fun createRoute(type: String? = null, category: String? = null, custodianId: String? = null): String {
+    object InventoryList : NavRoutes("inventory_list?type={type}&category={category}&custodianId={custodianId}&sharedOnly={sharedOnly}&personalOwner={personalOwner}") {
+        fun createRoute(
+            type: String? = null,
+            category: String? = null,
+            custodianId: String? = null,
+            sharedOnly: Boolean? = null,
+            personalOwner: String? = null
+        ): String {
             val params = buildList {
                 if (type != null) add("type=$type")
                 if (category != null) add("category=$category")
                 if (custodianId != null) add("custodianId=$custodianId")
+                if (sharedOnly != null) add("sharedOnly=$sharedOnly")
+                if (personalOwner != null) add("personalOwner=$personalOwner")
             }
             return if (params.isEmpty()) {
                 "inventory_list"
@@ -66,6 +74,7 @@ sealed class NavRoutes(val route: String) {
     object SharedRequestDetail : NavRoutes("shared_request_detail/{requestId}") {
         fun createRoute(requestId: String) = "shared_request_detail/$requestId"
     }
+    object SharedRequestCreate : NavRoutes("shared_request_create")
 
 
 
@@ -150,4 +159,52 @@ sealed class NavRoutes(val route: String) {
     }
 
     object SyncStatus : NavRoutes("sync_status")
+
+    companion object {
+        fun titleFor(currentRoute: String?): String = when (currentRoute?.substringBefore("?")) {
+            Home.route -> "Pradžia"
+            InventoryList.route.substringBefore("?") -> "Inventorius"
+            InventoryDetail.route -> "Daikto informacija"
+            InventoryQrScanner.route -> "QR skenavimas"
+            InventoryAddEdit.route.substringBefore("?") -> "Inventoriaus forma"
+            ReservationList.route.substringBefore("?") -> "Rezervacijos"
+            ReservationCreate.route -> "Nauja rezervacija"
+            ReservationDetail.route -> "Rezervacijos informacija"
+            ReservationMovement.route -> "Išdavimas ir grąžinimas"
+            RequestList.route.substringBefore("?") -> "Pirkimai"
+            RequestDetail.route -> "Pirkimo informacija"
+            RequestCreate.route -> "Naujas pirkimas"
+            InviteCreate.route -> "Naujas kvietimas"
+            InviteAccept.route -> "Kvietimai"
+            Profile.route -> "Mano profilis"
+            SharedRequestList.route -> "Paėmimai"
+            SharedRequestDetail.route -> "Paėmimo informacija"
+            SharedRequestCreate.route -> "Naujas paėmimas"
+            MemberList.route -> "Nariai"
+            MemberDetail.route -> "Nario informacija"
+            UnitList.route -> "Vienetai"
+            UnitCreate.route -> "Naujas vienetas"
+            UnitDetail.route -> "Vieneto informacija"
+            UnitEdit.route -> "Vieneto redagavimas"
+            LocationList.route -> "Lokacijos"
+            LocationDetail.route -> "Lokacijos informacija"
+            LocationAddEdit.route.substringBefore("?") -> "Lokacijos forma"
+            TuntasSelect.route -> "Tunto pasirinkimas"
+            EventList.route -> "Renginiai"
+            EventDetail.route -> "Renginio informacija"
+            EventAddEdit.route.substringBefore("?") -> "Renginio forma"
+            EventNeeds.route -> "Renginio poreikiai"
+            EventUkvedys.route -> "Ūkvedys"
+            EventPurchases.route -> "Renginio pirkimai"
+            EventReconciliation.route -> "Suvedimas"
+            EventPlan.route -> "Inventoriaus planas"
+            EventStaff.route -> "Komanda"
+            EventPastovyklės.route -> "Pastovyklės"
+            EventMovement.route -> "Inventoriaus judėjimas"
+            EventMovementQr.route -> "QR judėjimas"
+            PastovykleLeader.route -> "Pastovyklės vadovas"
+            SyncStatus.route -> "Sinchronizavimas"
+            else -> "Skautų Inventorius"
+        }
+    }
 }

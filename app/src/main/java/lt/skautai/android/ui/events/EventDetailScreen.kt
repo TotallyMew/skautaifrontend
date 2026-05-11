@@ -19,14 +19,12 @@ import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -77,25 +76,17 @@ fun EventDetailScreen(
     }
 
     if (showCancelDialog) {
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atšaukti renginį") },
-            text = { Text("Ar tikrai? Visi suplanuoti poreikiai ir pirkimai liks istorijoje, bet renginys bus pažymėtas kaip atšauktas.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
+        SkautaiConfirmDialog(
+            title = "Atšaukti renginį",
+            message = "Ar tikrai? Visi suplanuoti poreikiai ir pirkimai liks istorijoje, bet renginys bus pažymėtas kaip atšauktas.",
+            confirmText = "Atšaukti",
+            dismissText = "Uždaryti",
+            isDanger = true,
+            onConfirm = {
                         showCancelDialog = false
                         viewModel.cancelEvent(eventId, onSuccess = onBack)
-                    }
-                ) {
-                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
-                }
             },
-            dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uždaryti")
-                }
-            }
+            onDismiss = { showCancelDialog = false }
         )
     }
 
@@ -128,13 +119,18 @@ fun EventDetailScreen(
                         .filter { it.userId == state.currentUserId }
                         .map { it.role }
                         .toSet()
-                    val canManage = !readOnly && ("events.manage" in permissions || "VIRSININKAS" in myRoles)
-                    val canStart = !readOnly && ("events.manage" in permissions || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS") })
-                    val canInventory = "events.manage" in permissions ||
-                        "events.inventory.distribute" in permissions ||
-                        myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
                     val myPastovyklės = state.pastovykles
                         .filter { it.responsibleUserId == state.currentUserId }
+                    val canManageGlobal = "events.manage:ALL" in permissions
+                    val canInventoryGlobal = "events.inventory.distribute:ALL" in permissions
+                    val canManage = !readOnly && (canManageGlobal || "VIRSININKAS" in myRoles)
+                    val canStart = !readOnly && (canManageGlobal || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS") })
+                    val canInventory = !readOnly && (
+                        canManageGlobal ||
+                            canInventoryGlobal ||
+                            myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
+                        )
+                    val canOpenMovement = !readOnly && state.event.status == "ACTIVE"
 
                     LazyColumn(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
@@ -174,7 +170,6 @@ fun EventDetailScreen(
                             ) {
                                 val workAreas = buildList {
                                     if (canInventory) {
-                                        add(EventWorkArea(Icons.Default.SwapHoriz, "Judėjimas", "Išdavimas ir grąžinimas") { onOpenMovement(eventId) })
                                         add(EventWorkArea(Icons.Default.Checklist, "Poreikiai", "Greitas kūrimas") { onOpenNeeds(eventId) })
                                         add(
                                             EventWorkArea(
@@ -187,9 +182,12 @@ fun EventDetailScreen(
                                         )
                                         add(EventWorkArea(Icons.Default.ShoppingCart, "Pirkimai", "Būsena ir sąskaitos") { onOpenPurchases(eventId) })
                                         if (state.event.status in listOf("WRAP_UP", "COMPLETED")) {
-                                            add(EventWorkArea(Icons.Default.Inventory2, "Suvedimas", "Grąžinimai ir pirkimai") { onOpenReconciliation(eventId) })
+                                            add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Suvedimas", "Grąžinimai ir pirkimai") { onOpenReconciliation(eventId) })
                                         }
                                         add(EventWorkArea(Icons.Default.Inventory2, "Ūkvedys", "Trūkumai ir atsargos") { onOpenUkvedys(eventId) })
+                                    }
+                                    if (canInventory || canOpenMovement || myPastovyklės.isNotEmpty()) {
+                                        add(EventWorkArea(Icons.Default.SwapHoriz, "Judėjimas", "Išdavimas ir grąžinimas") { onOpenMovement(eventId) })
                                     }
                                     if (canManage || canInventory) {
                                         add(EventWorkArea(Icons.Default.Groups, "Pastovyklės", "Grupės ir vadovai") { onOpenPastovyklės(eventId) })

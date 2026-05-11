@@ -17,6 +17,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -112,12 +113,12 @@ private fun InviteFormContent(
         )
 
         if (!uiState.lockedOrgUnitName.isNullOrBlank()) {
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.lockedOrgUnitName,
                 onValueChange = {},
                 readOnly = true,
-                label = { Text("Vienetas") },
-                supportingText = { Text("Pakvietimas bus priskirtas jūsų vienetui") },
+                label = "Vienetas",
+                supportingText = "Pakvietimas bus priskirtas jūsų vienetui",
                 modifier = Modifier.fillMaxWidth()
             )
         }

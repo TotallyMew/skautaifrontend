@@ -59,8 +59,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiTextField
 
 private enum class StaffPanelMode { Slot, Extra }
 
@@ -137,31 +139,19 @@ fun EventStaffScreen(
     }
 
     if (pendingRemovalSlot != null) {
-        AlertDialog(
-            onDismissRequest = { pendingRemovalSlot = null },
-            title = { Text("Nuimti nuo pareigų?") },
-            text = {
-                Text(
-                    pendingRemovalSlot?.assignedUserName?.let { assignedUser ->
-                        "$assignedUser bus nuimtas nuo \"${pendingRemovalSlot?.title}\"."
-                    } ?: "Šis vaidmuo bus išvalytas."
-                )
+        SkautaiConfirmDialog(
+            title = "Nuimti nuo pareigų?",
+            message = pendingRemovalSlot?.assignedUserName?.let { assignedUser ->
+                "$assignedUser bus nuimtas nuo \"${pendingRemovalSlot?.title}\"."
+            } ?: "Šis vaidmuo bus išvalytas.",
+            confirmText = "Nuimti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingRemovalSlot?.let { viewModel.removeFromSlot(eventId, it) }
+                pendingRemovalSlot = null
             },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        pendingRemovalSlot?.let { viewModel.removeFromSlot(eventId, it) }
-                        pendingRemovalSlot = null
-                    }
-                ) {
-                    Text("Nuimti")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRemovalSlot = null }) {
-                    Text("Atšaukti")
-                }
-            }
+            onDismiss = { pendingRemovalSlot = null }
         )
     }
 
@@ -371,14 +361,14 @@ private fun eligibleStaffMembersForSlot(
     slot: EventStaffSlotUiModel
 ): List<MemberDto> {
     return eligibleStaffMembers(state.members).filter { member ->
-        !memberHasAnotherStaffRole(member.userId, state.event, excludingSlot = slot) &&
+        !memberHasAnotherStaffRole(member.userId, state.event, state.pastovykles, excludingSlot = slot) &&
             memberEligibleForPastovykleAgeGroup(member, slot.pastovykleAgeGroup)
     }
 }
 
 private fun eligibleAdditionalRoleMembers(state: EventStaffUiState.Success): List<MemberDto> {
     return eligibleStaffMembers(state.members).filter { member ->
-        !memberHasAnotherStaffRole(member.userId, state.event)
+        !memberHasAnotherStaffRole(member.userId, state.event, state.pastovykles)
     }
 }
 
@@ -568,14 +558,14 @@ private fun SlotAssignmentPanel(
     ) {
         EventFormEyebrow("Pasirinkimas")
         EventFormSupportText("Pirma rask tinkamą žmogų, tada patvirtink vienu pagrindiniu veiksmu apačioje.")
-        OutlinedTextField(
+        SkautaiTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Ieškoti žmogaus") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            label = "Paieška",
+            placeholder = "Ieškoti žmogaus",
+            leadingIcon = Icons.Default.Search,
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = eventFormFieldColors()
+            singleLine = true
         )
         SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(
@@ -638,14 +628,14 @@ private fun ExtraRoleAssignmentPanel(
             options = listOf("VADOVAS" to "Vadovas", "SAVANORIS" to "Savanoris"),
             onSelect = { selectedRole = it }
         )
-        OutlinedTextField(
+        SkautaiTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Ieškoti žmogaus") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            label = "Paieška",
+            placeholder = "Ieškoti žmogaus",
+            leadingIcon = Icons.Default.Search,
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = eventFormFieldColors()
+            singleLine = true
         )
         SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(

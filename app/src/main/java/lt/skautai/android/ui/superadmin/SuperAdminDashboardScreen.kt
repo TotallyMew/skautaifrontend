@@ -38,6 +38,7 @@ import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.data.remote.TuntasDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.members.displayRoleName
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -937,17 +938,17 @@ private fun EditSuperAdminRoleDialog(
                     }
                 }
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = startsAt,
                     onValueChange = onStartsAtChanged,
-                    label = { Text("Pradžia (YYYY-MM-DD)") },
+                    label = "Pradžia (YYYY-MM-DD)",
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = expiresAt,
                     onValueChange = onExpiresAtChanged,
-                    label = { Text("Pabaiga (YYYY-MM-DD)") },
+                    label = "Pabaiga (YYYY-MM-DD)",
                     modifier = Modifier.fillMaxWidth()
                 )
             }

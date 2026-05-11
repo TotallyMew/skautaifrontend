@@ -33,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.SkautaiSummaryCard
 import java.time.Instant
 import java.time.ZoneId
@@ -115,13 +116,12 @@ fun EventCreateScreen(
                     }
                 }
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = uiState.name,
                     onValueChange = viewModel::onNameChange,
-                    label = { Text("Pavadinimas *") },
+                    label = "Pavadinimas *",
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    colors = eventFormFieldColors()
+                    singleLine = true
                 )
 
                 EventTypeDropdown(
@@ -170,14 +170,13 @@ fun EventCreateScreen(
                 title = "Pastabos",
                 subtitle = "Trumpai aprašyk tik tai, kas svarbu vadovams, ūkvedžiui ar štabui."
             ) {
-                OutlinedTextField(
+                SkautaiTextField(
                     value = uiState.notes,
                     onValueChange = viewModel::onNotesChange,
-                    label = { Text("Pastabos") },
+                    label = "Pastabos",
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 4,
-                    maxLines = 6,
-                    colors = eventFormFieldColors()
+                    maxLines = 6
                 )
             }
 
@@ -230,7 +229,10 @@ private fun EventTypeDropdown(
         "RENGINYS" to "Renginys"
     )
     var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = types.find { it.first == selectedType }?.second ?: selectedType
+    var customType by remember(selectedType) {
+        mutableStateOf(if (types.none { it.first == selectedType }) selectedType.toEventCustomInput() else "")
+    }
+    val selectedLabel = types.find { it.first == selectedType }?.second ?: selectedType.toEventDisplayLabel()
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -263,7 +265,40 @@ private fun EventTypeDropdown(
             }
         }
     }
+
+    if (enabled) {
+        SkautaiTextField(
+            value = customType,
+            onValueChange = {
+                customType = it
+                val normalized = it.toEventOptionCode(maxLength = 20)
+                if (normalized.isNotBlank()) onTypeSelected(normalized)
+            },
+            label = "Kitas tipas",
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = 8.dp),
+            singleLine = true
+        )
+    }
 }
+
+private fun String.toEventOptionCode(maxLength: Int): String =
+    ("CUSTOM_" + toEventCustomInput())
+        .uppercase()
+        .replace(Regex("[^A-Z0-9]+"), "_")
+        .trim('_')
+        .take(maxLength)
+
+private fun String.toEventCustomInput(): String =
+    trim()
+        .replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "")
+        .replace('_', ' ')
+
+private fun String.toEventDisplayLabel(): String =
+    toEventCustomInput()
+        .lowercase()
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -279,6 +314,16 @@ private fun EventAudienceDropdown(
         .firstOrNull { it.organizationalUnitId == selectedAudienceId }
         ?.label
         ?: selectedAudienceLabel
+
+    if (enabled && audienceOptions.size > 6) {
+        SearchablePickerField(
+            label = "Kam skirtas renginys *",
+            value = selectedLabel,
+            options = audienceOptions.map { (it.organizationalUnitId ?: "") to it.label },
+            onSelect = { onAudienceSelected(it.ifBlank { null }) }
+        )
+        return
+    }
 
     ExposedDropdownMenuBox(
         expanded = expanded,

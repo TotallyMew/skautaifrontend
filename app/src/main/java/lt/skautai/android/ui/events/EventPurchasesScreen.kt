@@ -51,9 +51,9 @@ fun EventPurchasesScreen(
     }
 
     val state = uiState
-    val canInventory = "events.inventory.distribute" in permissions ||
+    val canInventory = "events.inventory.distribute:ALL" in permissions ||
         (state as? EventPurchasesUiState.Success)?.event?.eventRoles
-            ?.any { it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
+            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
     EventScreenScaffold(
         title = "Pirkimai",

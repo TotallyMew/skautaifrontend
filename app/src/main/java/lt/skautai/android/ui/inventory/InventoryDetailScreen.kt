@@ -24,11 +24,15 @@ import androidx.compose.material.icons.filled.QrCode2
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -56,6 +60,9 @@ import androidx.navigation.NavController
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
+import lt.skautai.android.data.remote.ItemHistoryDto
+import lt.skautai.android.data.remote.ItemTransferDto
+import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.MetadataRow
 import lt.skautai.android.ui.common.RemoteImage
@@ -63,6 +70,7 @@ import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
@@ -91,12 +99,17 @@ fun InventoryDetailScreen(
     val shareMessage by viewModel.shareMessage.collectAsStateWithLifecycle()
     val isCreatingSharedRequest by viewModel.isCreatingSharedRequest.collectAsStateWithLifecycle()
     val isUpdatingStatus by viewModel.isUpdatingStatus.collectAsStateWithLifecycle()
+    val isTransferring by viewModel.isTransferring.collectAsStateWithLifecycle()
+    val orgUnits by viewModel.orgUnits.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showQrDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showSharedRequestDialog by remember { mutableStateOf(false) }
+    var showTransferDialog by remember { mutableStateOf(false) }
+    var showReturnDialog by remember { mutableStateOf(false) }
+    var showRestockDialog by remember { mutableStateOf(false) }
     var sharedRequestQuantity by remember { mutableStateOf("1") }
     var sharedRequestQuantityError by remember { mutableStateOf<String?>(null) }
 
@@ -145,6 +158,23 @@ fun InventoryDetailScreen(
     } ?: false
     val canChangeStatus = canEdit
     val canDelete = canEdit && currentItem?.status != "INACTIVE"
+    val canRestock = canEdit && currentItem?.status == "ACTIVE"
+    val canDirectTransfer = currentItem?.let {
+        canManageShared && it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 && it.type != "INDIVIDUAL"
+    } ?: false
+    val canReturnToShared = currentItem?.let {
+        it.origin == "TRANSFERRED_FROM_TUNTAS" &&
+            it.status == "ACTIVE" &&
+            it.quantity > 0 &&
+            (canManageShared || (permissions.hasPermissionOwnUnit("items.update") && it.custodianId == activeOrgUnitId))
+    } ?: false
+    val canRequestForUnit = currentItem?.let {
+        !canManageShared &&
+            !activeOrgUnitId.isNullOrBlank() &&
+            it.custodianId == null &&
+            it.status == "ACTIVE" &&
+            it.quantity > 0
+    } ?: false
 
     Scaffold(
         topBar = {
@@ -197,17 +227,27 @@ fun InventoryDetailScreen(
                         reservations = state.reservations,
                         assignments = state.assignments,
                         conditionLog = state.conditionLog,
+                        itemHistory = state.itemHistory,
+                        transfers = state.transfers,
                         canChangeStatus = canChangeStatus,
                         canDelete = canDelete,
                         isCreatingSharedRequest = isCreatingSharedRequest,
                         isUpdatingStatus = isUpdatingStatus,
                         canShowQr = canShowQr,
+                        canRequestForUnit = canRequestForUnit,
+                        canDirectTransfer = canDirectTransfer,
+                        canReturnToShared = canReturnToShared,
+                        canRestock = canRestock,
+                        isTransferring = isTransferring,
                         onRequestSharedItem = {
                             sharedRequestQuantity = "1"
                             sharedRequestQuantityError = null
                             showSharedRequestDialog = true
                         },
                         onStatusChange = { status -> viewModel.updateStatus(itemId, status) },
+                        onDirectTransfer = { showTransferDialog = true },
+                        onReturnToShared = { showReturnDialog = true },
+                        onRestock = { showRestockDialog = true },
                         onDelete = { showDeleteDialog = true },
                         onShowQr = { showQrDialog = true }
                     )
@@ -245,19 +285,16 @@ fun InventoryDetailScreen(
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Nurodyk, kiek šio daikto vienetų reikia gauti į aktyvų vienetą.")
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = sharedRequestQuantity,
                         onValueChange = { value ->
                             sharedRequestQuantity = value.filter(Char::isDigit)
                             sharedRequestQuantityError = null
                         },
-                        label = { Text("Kiekis") },
+                        label = "Kiekis",
                         singleLine = true,
                         isError = sharedRequestQuantityError != null,
-                        supportingText = {
-                            sharedRequestQuantityError?.let { Text(it) }
-                                ?: Text("Galimas kiekis: ${currentItem.quantity} vnt.")
-                        },
+                        supportingText = sharedRequestQuantityError ?: "Galimas kiekis: ${currentItem.quantity} vnt.",
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -296,6 +333,46 @@ fun InventoryDetailScreen(
         )
     }
 
+    if (showTransferDialog && currentItem != null) {
+        TransferToUnitDialog(
+            item = currentItem,
+            orgUnits = orgUnits,
+            isSubmitting = isTransferring,
+            onDismiss = { if (!isTransferring) showTransferDialog = false },
+            onConfirm = { targetUnitId, quantity, notes ->
+                showTransferDialog = false
+                viewModel.transferToUnit(currentItem.id, targetUnitId, quantity, notes)
+            }
+        )
+    }
+
+    if (showReturnDialog && currentItem != null) {
+        QuantityNotesDialog(
+            title = "Grąžinti į bendrą inventorių",
+            description = "Nurodyk, kiek vieneto turimų vienetų grįžta į bendrą tunto inventorių.",
+            maxQuantity = currentItem.quantity,
+            confirmLabel = "Grąžinti",
+            isSubmitting = isTransferring,
+            onDismiss = { if (!isTransferring) showReturnDialog = false },
+            onConfirm = { quantity, notes ->
+                showReturnDialog = false
+                viewModel.returnToShared(currentItem.id, quantity, notes)
+            }
+        )
+    }
+
+    if (showRestockDialog && currentItem != null) {
+        RestockDialog(
+            item = currentItem,
+            isSubmitting = isTransferring,
+            onDismiss = { if (!isTransferring) showRestockDialog = false },
+            onConfirm = { quantity, purchaseDate, purchasePrice, notes ->
+                showRestockDialog = false
+                viewModel.restockItem(currentItem.id, quantity, purchaseDate, purchasePrice, notes)
+            }
+        )
+    }
+
     if (showDeleteDialog && currentItem != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
@@ -321,23 +398,274 @@ fun InventoryDetailScreen(
 }
 
 @Composable
+private fun RestockDialog(
+    item: ItemDto,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, String?, Double?, String?) -> Unit
+) {
+    var quantityText by remember { mutableStateOf("1") }
+    var purchaseDate by remember { mutableStateOf("") }
+    var purchasePriceText by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Papildyti kiekį") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(item.name, fontWeight = FontWeight.SemiBold)
+                SkautaiTextField(
+                    value = quantityText,
+                    onValueChange = {
+                        quantityText = it.filter(Char::isDigit)
+                        error = null
+                    },
+                    label = "Kiekis",
+                    singleLine = true,
+                    isError = error != null,
+                    supportingText = error,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = purchaseDate,
+                    onValueChange = { purchaseDate = it },
+                    label = "Pirkimo data (YYYY-MM-DD)",
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = purchasePriceText,
+                    onValueChange = { purchasePriceText = it.replace(',', '.') },
+                    label = "Kaina",
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    minLines = 2,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting,
+                onClick = {
+                    val quantity = quantityText.toIntOrNull()
+                    val price = purchasePriceText.takeIf { it.isNotBlank() }?.toDoubleOrNull()
+                    when {
+                        quantity == null || quantity < 1 -> error = "Kiekis turi būti bent 1"
+                        purchasePriceText.isNotBlank() && price == null -> error = "Kaina turi būti skaičius"
+                        else -> onConfirm(quantity, purchaseDate.ifBlank { null }, price, notes.ifBlank { null })
+                    }
+                }
+            ) { Text("Papildyti") }
+        },
+        dismissButton = {
+            TextButton(enabled = !isSubmitting, onClick = onDismiss) { Text("Atšaukti") }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferToUnitDialog(
+    item: ItemDto,
+    orgUnits: List<OrganizationalUnitDto>,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Int, String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var selectedUnitId by remember { mutableStateOf<String?>(null) }
+    var quantityText by remember { mutableStateOf("1") }
+    var notes by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+    val selectedUnit = orgUnits.find { it.id == selectedUnitId }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Perduoti vienetui") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Perduok dalį bendro inventoriaus tiesiogiai pasirinktam vienetui.")
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = selectedUnit?.name ?: "Pasirink vienetą",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Vienetas") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        orgUnits.forEach { unit ->
+                            DropdownMenuItem(
+                                text = { Text(unit.name) },
+                                onClick = {
+                                    selectedUnitId = unit.id
+                                    error = null
+                                    expanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                SkautaiTextField(
+                    value = quantityText,
+                    onValueChange = {
+                        quantityText = it.filter(Char::isDigit)
+                        error = null
+                    },
+                    label = "Kiekis",
+                    supportingText = error ?: "Galimas kiekis: ${item.quantity} vnt.",
+                    isError = error != null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    minLines = 2,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting,
+                onClick = {
+                    val unitId = selectedUnitId
+                    val quantity = quantityText.toIntOrNull()
+                    when {
+                        unitId.isNullOrBlank() -> error = "Pasirink vienetą"
+                        quantity == null || quantity < 1 -> error = "Įveskite teigiamą kiekį"
+                        quantity > item.quantity -> error = "Kiekis negali viršyti turimo kiekio"
+                        else -> onConfirm(unitId, quantity, notes.ifBlank { null })
+                    }
+                }
+            ) {
+                Text("Perduoti")
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !isSubmitting, onClick = onDismiss) {
+                Text("Atšaukti")
+            }
+        }
+    )
+}
+
+@Composable
+private fun QuantityNotesDialog(
+    title: String,
+    description: String,
+    maxQuantity: Int,
+    confirmLabel: String,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, String?) -> Unit
+) {
+    var quantityText by remember { mutableStateOf("1") }
+    var notes by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(description)
+                SkautaiTextField(
+                    value = quantityText,
+                    onValueChange = {
+                        quantityText = it.filter(Char::isDigit)
+                        error = null
+                    },
+                    label = "Kiekis",
+                    supportingText = error ?: "Galimas kiekis: $maxQuantity vnt.",
+                    isError = error != null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    minLines = 2,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting,
+                onClick = {
+                    val quantity = quantityText.toIntOrNull()
+                    when {
+                        quantity == null || quantity < 1 -> error = "Įveskite teigiamą kiekį"
+                        quantity > maxQuantity -> error = "Kiekis negali viršyti turimo kiekio"
+                        else -> onConfirm(quantity, notes.ifBlank { null })
+                    }
+                }
+            ) {
+                Text(confirmLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !isSubmitting, onClick = onDismiss) {
+                Text("Atšaukti")
+            }
+        }
+    )
+}
+
+@Composable
 private fun ItemDetailContent(
     item: ItemDto,
     reservations: List<ReservationDto>,
     assignments: List<ItemAssignmentDto>,
     conditionLog: List<ItemConditionLogDto>,
+    itemHistory: List<ItemHistoryDto>,
+    transfers: List<ItemTransferDto>,
     canChangeStatus: Boolean,
     canDelete: Boolean,
     isCreatingSharedRequest: Boolean,
     isUpdatingStatus: Boolean,
     canShowQr: Boolean,
+    canRequestForUnit: Boolean,
+    canDirectTransfer: Boolean,
+    canReturnToShared: Boolean,
+    canRestock: Boolean,
+    isTransferring: Boolean,
     onRequestSharedItem: () -> Unit,
     onStatusChange: (String) -> Unit,
+    onDirectTransfer: () -> Unit,
+    onReturnToShared: () -> Unit,
+    onRestock: () -> Unit,
     onDelete: () -> Unit,
     onShowQr: () -> Unit
 ) {
     val isSharedTransfer = item.origin == "TRANSFERRED_FROM_TUNTAS"
-    val canRequestForUnit = item.custodianId == null && item.status == "ACTIVE" && item.quantity > 0
     val originDisplay = itemOriginDisplay(item)
 
     Column(
@@ -388,13 +716,13 @@ private fun ItemDetailContent(
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     StatusPill(label = itemStatusLabel(item.status))
                     StatusPill(label = itemConditionLabel(item.condition))
-                    StatusPill(label = inventoryTypeLabel(item.type))
+                    StatusPill(label = inventoryTypeLabel(item.effectiveInventoryType()))
                     StatusPill(label = inventoryCategoryLabel(item.category))
                 }
 
                 Text(
                     text = if (isSharedTransfer) {
-                        "Šis daiktas atkeliavęs iš bendro inventoriaus, todėl jo valdymas ribojamas pagal rolę."
+                        "Šis daiktas yra vieneto inventoriuje. Valdymo teisės priklauso nuo rolės ir daikto kilmės."
                     } else {
                         "Savo vieneto daiktas gali būti pilnai tvarkomas, jei naudotojas turi tam reikiamas teises."
                     },
@@ -430,7 +758,7 @@ private fun ItemDetailContent(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        text = "${item.quantity} vnt.",
+                        text = "${item.quantity} ${item.unitLabel()}",
                         style = MaterialTheme.typography.headlineSmall
                     )
                 }
@@ -463,10 +791,12 @@ private fun ItemDetailContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(text = "Metaduomenys", style = MaterialTheme.typography.titleLarge)
-                MetadataRow("Tipas", inventoryTypeLabel(item.type))
+                MetadataRow("Tipas", inventoryTypeLabel(item.effectiveInventoryType()))
                 MetadataRow("Kategorija", inventoryCategoryLabel(item.category))
                 MetadataRow("Būsena", itemStatusLabel(item.status))
                 MetadataRow("Būklė", itemConditionLabel(item.condition))
+                item.customFields.fieldValue("Priežastis")?.let { MetadataRow("Priežastis", it) }
+                item.customFields.fieldValue("Žymos")?.let { MetadataRow("Žymos", it) }
                 MetadataRow("Kilmė", originDisplay)
                 MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandėlis")
                 MetadataRow("Atsakingas", item.responsibleUserName ?: "Nepriskirtas")
@@ -476,14 +806,16 @@ private fun ItemDetailContent(
             }
         }
 
-        if (item.customFields.isNotEmpty()) {
+        val customFields = item.customFields.orEmpty()
+            .filterNot { field -> managedCustomFieldNames.any { it.equals(field.fieldName, ignoreCase = true) } }
+        if (customFields.isNotEmpty()) {
             SkautaiCard(modifier = Modifier.fillMaxWidth()) {
                 Column(
                     modifier = Modifier.padding(18.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Text(text = "Papildomi laukai", style = MaterialTheme.typography.titleLarge)
-                    item.customFields.forEach { field ->
+                    customFields.forEach { field ->
                         MetadataRow(field.fieldName, field.fieldValue ?: "Nenurodyta")
                     }
                 }
@@ -550,6 +882,14 @@ private fun ItemDetailContent(
             ItemAssignmentsCard(assignments = assignments)
         }
 
+        if (itemHistory.isNotEmpty()) {
+            ItemHistoryCard(entries = itemHistory)
+        }
+
+        if (transfers.isNotEmpty()) {
+            ItemTransfersCard(transfers = transfers)
+        }
+
         if (conditionLog.isNotEmpty()) {
             ItemConditionLogCard(entries = conditionLog)
         }
@@ -589,6 +929,36 @@ private fun ItemDetailContent(
                         }
                     }
                 }
+            }
+        }
+
+        if (canDirectTransfer) {
+            Button(
+                onClick = onDirectTransfer,
+                enabled = !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isTransferring) "Perduodama..." else "Perduoti vienetui be prašymo")
+            }
+        }
+
+        if (canRestock) {
+            Button(
+                onClick = onRestock,
+                enabled = !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isTransferring) "Papildoma..." else "Papildyti kiekį")
+            }
+        }
+
+        if (canReturnToShared) {
+            OutlinedButton(
+                onClick = onReturnToShared,
+                enabled = !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isTransferring) "Grąžinama..." else "Grąžinti į bendrą inventorių")
             }
         }
 
@@ -640,8 +1010,73 @@ private fun itemOriginDisplay(item: ItemDto): String = when {
     item.type == "INDIVIDUAL" -> item.createdByUserName?.takeIf { it.isNotBlank() } ?: "Asmeninis daiktas"
     item.custodianName?.isNotBlank() == true -> item.custodianName!!
     item.custodianId == null -> "Tunto inventorius"
-    item.origin == "TRANSFERRED_FROM_TUNTAS" -> "Tunto inventorius"
+    item.origin == "TRANSFERRED_FROM_TUNTAS" -> "Vieneto inventorius"
     else -> "Nenurodyta"
+}
+
+private fun ItemDto.effectiveInventoryType(): String =
+    if (origin == "TRANSFERRED_FROM_TUNTAS" && custodianId != null) "COLLECTIVE" else type
+
+@Composable
+private fun ItemHistoryCard(entries: List<ItemHistoryDto>) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Daikto istorija",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            entries.forEach { entry ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = itemHistoryLabel(entry),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = listOfNotNull(
+                            entry.createdAt.take(10),
+                            entry.performedByUserName,
+                            entry.notes
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun itemHistoryLabel(entry: ItemHistoryDto): String {
+    val quantity = entry.quantityChange?.let { " ($it vnt.)" }.orEmpty()
+    return when (entry.eventType) {
+        "CREATED" -> "Sukurtas įrašas$quantity"
+        "PURCHASED_NEW" -> "Nupirkta ir sukurta inventoriuje$quantity"
+        "RESTOCKED" -> "Papildytas kiekis$quantity"
+        "MANUAL_RESTOCKED" -> "Papildytas kiekis$quantity"
+        "EVENT_PURCHASED_NEW" -> "Nupirkta renginiui ir sukurta inventoriuje$quantity"
+        "EVENT_PURCHASE_RESTOCKED" -> "Papildyta po renginio pirkimo$quantity"
+        "TRANSFERRED_TO_UNIT" -> "Perduota vienetui$quantity"
+        "RECEIVED_FROM_SHARED" -> "Gauta iš bendro inventoriaus$quantity"
+        "RETURNED_TO_SHARED" -> "Grąžinta į bendrą inventorių$quantity"
+        "RECEIVED_FROM_UNIT" -> "Gauta atgal iš vieneto$quantity"
+        "RESERVATION_ISSUED" -> "Išduota rezervacijai$quantity"
+        "RESERVATION_RETURN_MARKED" -> "Pažymėta kaip grąžinama$quantity"
+        "RESERVATION_RETURNED" -> "Grąžinta iš rezervacijos$quantity"
+        "EVENT_RECONCILE_RETURNED" -> "Grąžinta po renginio$quantity"
+        "EVENT_RECONCILE_DAMAGED" -> "Pažymėta sugadinta po renginio$quantity"
+        "EVENT_RECONCILE_MISSING" -> "Pažymėta dingusi po renginio$quantity"
+        "EVENT_RECONCILE_CONSUMED" -> "Sunaudota renginyje$quantity"
+        "DEACTIVATED" -> "Deaktyvuotas įrašas"
+        else -> entry.eventType + quantity
+    }
 }
 
 @Composable
@@ -750,6 +1185,45 @@ private fun ItemAssignmentsCard(assignments: List<ItemAssignmentDto>) {
                 }
             }
         }
+
+    }
+}
+
+@Composable
+private fun ItemTransfersCard(transfers: List<ItemTransferDto>) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Judėjimo istorija",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            transfers.forEach { transfer ->
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    Text(
+                        text = "${transfer.fromCustodianName ?: "Bendras sandėlis"} -> ${transfer.toCustodianName ?: "Bendras sandėlis"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = listOfNotNull(
+                            transfer.completedAt?.take(10) ?: transfer.createdAt.take(10),
+                            transfer.initiatedByUserName?.let { "inicijavo $it" },
+                            transfer.approvedByUserName?.let { "patvirtino $it" },
+                            transfer.notes
+                        ).joinToString(" · "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -802,6 +1276,16 @@ private fun StatusPill(label: String) {
     )
 }
 
+private fun ItemDto.unitLabel(): String =
+    customFields.fieldValue("Mato vienetas") ?: "vnt."
+
+private fun List<lt.skautai.android.data.remote.ItemCustomFieldDto>.fieldValue(name: String): String? =
+    firstOrNull { it.fieldName.equals(name, ignoreCase = true) }
+        ?.fieldValue
+        ?.takeIf { it.isNotBlank() }
+
+private val managedCustomFieldNames = setOf("Mato vienetas", "Žymos", "Priežastis")
+
 @Composable
 private fun ItemQrDialog(
     item: ItemDto,
@@ -815,14 +1299,10 @@ private fun ItemQrDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Uzdaryti")
-            }
+            TextButton(onClick = onSharePdf) { Text("Dalintis PDF") }
         },
         dismissButton = {
-            OutlinedButton(onClick = onSharePdf) {
-                Text("Dalintis PDF")
-            }
+            OutlinedButton(onClick = onDismiss) { Text("Uždaryti") }
         },
         title = {
             Text("Inventoriaus QR kodas")

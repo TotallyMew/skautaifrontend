@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
@@ -29,6 +30,7 @@ sealed interface EventMovementQrUiState {
         val pastovykles: List<PastovykleDto>,
         val members: List<MemberDto>,
         val custody: List<EventInventoryCustodyDto>,
+        val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val isResolving: Boolean = false,
         val message: String? = null
@@ -41,7 +43,7 @@ sealed interface EventMovementQrUiState {
 class EventMovementQrViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val itemRepository: ItemRepository,
-    tokenManager: TokenManager
+    private val tokenManager: TokenManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<EventMovementQrUiState>(EventMovementQrUiState.Loading)
@@ -80,6 +82,7 @@ class EventMovementQrViewModel @Inject constructor(
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
             val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody.orEmpty()
+            val currentUserId = tokenManager.userId.first()
 
             _uiState.value = EventMovementQrUiState.Success(
                 event = event,
@@ -87,6 +90,7 @@ class EventMovementQrViewModel @Inject constructor(
                 pastovykles = pastovykles,
                 members = members,
                 custody = custody,
+                currentUserId = currentUserId,
                 isWorking = false
             )
         }

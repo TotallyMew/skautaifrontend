@@ -38,6 +38,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.InventoryTemplateDto
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 
@@ -62,9 +63,9 @@ fun EventPlanScreen(
     }
 
     val state = uiState
-    val canInventory = "events.inventory.distribute" in permissions ||
+    val canInventory = "events.inventory.distribute:ALL" in permissions ||
         (state as? EventPlanUiState.Success)?.event?.eventRoles
-            ?.any { it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
+            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
     EventScreenScaffold(
         title = "Inventoriaus planas",
@@ -129,19 +130,18 @@ fun EventPlanScreen(
                     }
 
                     if (!readOnly) deletingItem?.let { item ->
-                        AlertDialog(
-                            onDismissRequest = { deletingItem = null },
-                            title = { Text("Trinti poreikį?") },
-                            text = { Text("Poreikis ${item.name} bus ištrintas iš plano.") },
-                            confirmButton = {
-                                TextButton(
-                                    onClick = { viewModel.deleteNeed(eventId, item.id); deletingItem = null },
-                                    enabled = !state.isWorking
-                                ) { Text("Trinti") }
+                        SkautaiConfirmDialog(
+                            title = "Trinti poreikį?",
+                            message = "Poreikis ${item.name} bus ištrintas iš plano.",
+                            confirmText = "Trinti",
+                            dismissText = "Atšaukti",
+                            isDanger = true,
+                            enabled = !state.isWorking,
+                            onConfirm = {
+                                viewModel.deleteNeed(eventId, item.id)
+                                deletingItem = null
                             },
-                            dismissButton = {
-                                TextButton(onClick = { deletingItem = null }) { Text("Atšaukti") }
-                            }
+                            onDismiss = { deletingItem = null }
                         )
                     }
 

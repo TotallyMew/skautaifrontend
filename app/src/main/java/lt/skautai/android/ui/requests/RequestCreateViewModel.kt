@@ -28,6 +28,7 @@ data class RequestCreateUiState(
     val orgUnits: List<OrganizationalUnitDto> = emptyList(),
     val sharedItems: List<ItemDto> = emptyList(),
     val selectedItems: Map<String, String> = emptyMap(),
+    val searchQuery: String = "",
     val selectedOrgUnitId: String? = null,
     val selectedOrgUnitName: String? = null,
     val neededByDate: String = "",
@@ -92,6 +93,27 @@ class RequestCreateViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(selectedItems = selectedItems)
     }
 
+    fun increaseItem(itemId: String) {
+        val state = _uiState.value
+        val item = state.sharedItems.find { it.id == itemId } ?: return
+        val current = state.selectedItems[itemId]?.toIntOrNull() ?: 0
+        if (current >= item.quantity) return
+        _uiState.value = state.copy(
+            selectedItems = state.selectedItems + (itemId to (current + 1).toString())
+        )
+    }
+
+    fun decreaseItem(itemId: String) {
+        val state = _uiState.value
+        val current = state.selectedItems[itemId]?.toIntOrNull() ?: 0
+        val nextItems = if (current <= 1) {
+            state.selectedItems - itemId
+        } else {
+            state.selectedItems + (itemId to (current - 1).toString())
+        }
+        _uiState.value = state.copy(selectedItems = nextItems)
+    }
+
     fun onItemQuantityChange(itemId: String, value: String) {
         if (!_uiState.value.selectedItems.containsKey(itemId)) return
         _uiState.value = _uiState.value.copy(
@@ -101,6 +123,10 @@ class RequestCreateViewModel @Inject constructor(
 
     fun onNeededByDateChange(value: String) {
         _uiState.value = _uiState.value.copy(neededByDate = value)
+    }
+
+    fun onSearchQueryChange(value: String) {
+        _uiState.value = _uiState.value.copy(searchQuery = value)
     }
 
     fun onNotesChange(value: String) {

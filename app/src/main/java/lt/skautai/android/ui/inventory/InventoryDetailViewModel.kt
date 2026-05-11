@@ -16,12 +16,20 @@ import lt.skautai.android.data.remote.CreateBendrasRequestItemDto
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.ItemHistoryDto
+import lt.skautai.android.data.remote.ItemTransferDto
+import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
 import lt.skautai.android.data.remote.ReservationDto
+import lt.skautai.android.data.remote.RestockItemRequestDto
+import lt.skautai.android.data.remote.TransferItemToUnitRequestDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canManageSharedInventory
 import javax.inject.Inject
 
 sealed interface InventoryDetailUiState {
@@ -30,7 +38,9 @@ sealed interface InventoryDetailUiState {
         val item: ItemDto,
         val reservations: List<ReservationDto> = emptyList(),
         val assignments: List<ItemAssignmentDto> = emptyList(),
-        val conditionLog: List<ItemConditionLogDto> = emptyList()
+        val conditionLog: List<ItemConditionLogDto> = emptyList(),
+        val itemHistory: List<ItemHistoryDto> = emptyList(),
+        val transfers: List<ItemTransferDto> = emptyList()
     ) : InventoryDetailUiState
     data class Error(val message: String) : InventoryDetailUiState
 }
@@ -40,6 +50,7 @@ class InventoryDetailViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val requestRepository: RequestRepository,
     private val reservationRepository: ReservationRepository,
+    private val orgUnitRepository: OrganizationalUnitRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -70,6 +81,12 @@ class InventoryDetailViewModel @Inject constructor(
     private val _isUpdatingStatus = MutableStateFlow(false)
     val isUpdatingStatus: StateFlow<Boolean> = _isUpdatingStatus.asStateFlow()
 
+    private val _orgUnits = MutableStateFlow<List<OrganizationalUnitDto>>(emptyList())
+    val orgUnits: StateFlow<List<OrganizationalUnitDto>> = _orgUnits.asStateFlow()
+
+    private val _isTransferring = MutableStateFlow(false)
+    val isTransferring: StateFlow<Boolean> = _isTransferring.asStateFlow()
+
     private var itemObserverJob: Job? = null
 
     fun loadItem(itemId: String) {
@@ -82,7 +99,9 @@ class InventoryDetailViewModel @Inject constructor(
                         item = item,
                         reservations = current?.reservations.orEmpty(),
                         assignments = current?.assignments.orEmpty(),
-                        conditionLog = current?.conditionLog.orEmpty()
+                        conditionLog = current?.conditionLog.orEmpty(),
+                        itemHistory = current?.itemHistory.orEmpty(),
+                        transfers = current?.transfers.orEmpty()
                     )
                 }
             }
@@ -107,6 +126,11 @@ class InventoryDetailViewModel @Inject constructor(
                             }
                     }
                 }
+        }
+
+        viewModelScope.launch {
+            orgUnitRepository.getUnits()
+                .onSuccess { units -> _orgUnits.value = units }
         }
     }
 
@@ -137,7 +161,9 @@ class InventoryDetailViewModel @Inject constructor(
                         item = item,
                         reservations = reservations,
                         assignments = current?.assignments.orEmpty(),
-                        conditionLog = current?.conditionLog.orEmpty()
+                        conditionLog = current?.conditionLog.orEmpty(),
+                        itemHistory = current?.itemHistory.orEmpty(),
+                        transfers = current?.transfers.orEmpty()
                     )
                     loadItemReservations(itemId)
                     loadItemHistory(itemId)
@@ -149,11 +175,78 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    fun transferToUnit(itemId: String, targetUnitId: String, quantity: Int, notes: String?) {
+        viewModelScope.launch {
+            if (_isTransferring.value) return@launch
+            _isTransferring.value = true
+            itemRepository.transferItemToUnit(
+                itemId,
+                TransferItemToUnitRequestDto(
+                    targetUnitId = targetUnitId,
+                    quantity = quantity,
+                    notes = notes?.ifBlank { null }
+                )
+            ).onSuccess {
+                _shareMessage.value = "Daiktas perduotas vienetui."
+                loadItem(itemId)
+            }.onFailure { error ->
+                _actionError.value = error.message ?: "Nepavyko perduoti daikto"
+            }
+            _isTransferring.value = false
+        }
+    }
+
+    fun returnToShared(itemId: String, quantity: Int, notes: String?) {
+        viewModelScope.launch {
+            if (_isTransferring.value) return@launch
+            _isTransferring.value = true
+            itemRepository.returnItemToShared(
+                itemId,
+                ReturnItemToSharedRequestDto(
+                    quantity = quantity,
+                    notes = notes?.ifBlank { null }
+                )
+            ).onSuccess {
+                _shareMessage.value = "Daiktas grąžintas į bendrą inventorių."
+                loadItem(itemId)
+            }.onFailure { error ->
+                _actionError.value = error.message ?: "Nepavyko grąžinti daikto"
+            }
+            _isTransferring.value = false
+        }
+    }
+
+    fun restockItem(itemId: String, quantity: Int, purchaseDate: String?, purchasePrice: Double?, notes: String?) {
+        viewModelScope.launch {
+            if (_isTransferring.value) return@launch
+            _isTransferring.value = true
+            itemRepository.restockItem(
+                itemId,
+                RestockItemRequestDto(
+                    quantity = quantity,
+                    purchaseDate = purchaseDate?.ifBlank { null },
+                    purchasePrice = purchasePrice,
+                    notes = notes?.ifBlank { null }
+                )
+            ).onSuccess {
+                _shareMessage.value = "Daiktas papildytas."
+                loadItem(itemId)
+            }.onFailure { error ->
+                _actionError.value = error.message ?: "Nepavyko papildyti daikto"
+            }
+            _isTransferring.value = false
+        }
+    }
+
     fun requestSharedItemForActiveUnit(itemId: String, quantity: Int) {
         viewModelScope.launch {
             val activeUnitId = tokenManager.activeOrgUnitId.first()
             if (activeUnitId.isNullOrBlank()) {
                 _actionError.value = "Pasirink aktyvų vienetą, kuriam nori gauti daiktą"
+                return@launch
+            }
+            if (tokenManager.permissions.first().canManageSharedInventory()) {
+                _actionError.value = "Bendro inventoriaus valdytojai daiktus vienetui perduoda tiesiogiai, be prašymo."
                 return@launch
             }
 
@@ -198,10 +291,14 @@ class InventoryDetailViewModel @Inject constructor(
         viewModelScope.launch {
             val assignments = itemRepository.getItemAssignments(itemId).getOrNull()
             val conditionLog = itemRepository.getItemConditionLog(itemId).getOrNull()
+            val itemHistory = itemRepository.getItemHistory(itemId).getOrNull()
+            val transfers = itemRepository.getItemTransfers(itemId).getOrNull()
             val current = _uiState.value as? InventoryDetailUiState.Success ?: return@launch
             _uiState.value = current.copy(
                 assignments = assignments ?: current.assignments,
-                conditionLog = conditionLog ?: current.conditionLog
+                conditionLog = conditionLog ?: current.conditionLog,
+                itemHistory = itemHistory ?: current.itemHistory,
+                transfers = transfers ?: current.transfers
             )
         }
     }

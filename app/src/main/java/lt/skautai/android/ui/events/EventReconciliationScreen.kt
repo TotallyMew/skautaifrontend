@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -19,18 +20,24 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventReconciliationPurchaseLineDto
@@ -50,6 +57,7 @@ fun EventReconciliationScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingPurchaseDecision by remember { mutableStateOf<Pair<EventReconciliationPurchaseLineDto, String>?>(null) }
 
     LaunchedEffect(eventId) { viewModel.load(eventId) }
     LaunchedEffect((state as? EventReconciliationUiState.Success)?.error) {
@@ -111,13 +119,7 @@ fun EventReconciliationScreen(
                                 rows = reconciliation.unresolvedPurchases,
                                 isWorking = current.isWorking || current.event.status == "COMPLETED",
                                 onDecision = { row, decision ->
-                                    viewModel.reconcilePurchase(
-                                        eventId = eventId,
-                                        purchaseItemId = row.purchaseItemId,
-                                        decision = decision,
-                                        quantity = row.purchasedQuantity,
-                                        existingItemId = if (decision == "INCREASE_EXISTING_ITEM") row.itemId else null
-                                    )
+                                    pendingPurchaseDecision = row to decision
                                 }
                             )
                         }
@@ -137,6 +139,24 @@ fun EventReconciliationScreen(
                 }
             }
         }
+    }
+
+    pendingPurchaseDecision?.let { (row, decision) ->
+        ReconcilePurchaseQuantityDialog(
+            row = row,
+            decision = decision,
+            onDismiss = { pendingPurchaseDecision = null },
+            onConfirm = { quantity ->
+                pendingPurchaseDecision = null
+                viewModel.reconcilePurchase(
+                    eventId = eventId,
+                    purchaseItemId = row.purchaseItemId,
+                    decision = decision,
+                    quantity = quantity,
+                    existingItemId = if (decision == "INCREASE_EXISTING_ITEM") row.itemId else null
+                )
+            }
+        )
     }
 }
 
@@ -211,6 +231,61 @@ private fun ReconciliationPurchaseSection(
             }
         }
     }
+}
+
+@Composable
+private fun ReconcilePurchaseQuantityDialog(
+    row: EventReconciliationPurchaseLineDto,
+    decision: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    var quantityText by remember(row.purchaseItemId, decision) { mutableStateOf(row.purchasedQuantity.toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val decisionLabel = when (decision) {
+        "INCREASE_EXISTING_ITEM" -> "Papildyti"
+        "ADD_NEW_ITEM" -> "Naujas įrašas"
+        "CONSUMED" -> "Sunaudota"
+        "IGNORE" -> "Ignoruoti"
+        else -> decision
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(decisionLabel) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(row.itemName, fontWeight = FontWeight.SemiBold)
+                Text("Likęs kiekis: ${row.purchasedQuantity} vnt.", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = {
+                        quantityText = it.filter(Char::isDigit)
+                        error = null
+                    },
+                    label = { Text("Kiekis") },
+                    singleLine = true,
+                    isError = error != null,
+                    supportingText = { error?.let { Text(it) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                val quantity = quantityText.toIntOrNull()
+                when {
+                    quantity == null || quantity < 1 -> error = "Kiekis turi būti bent 1"
+                    quantity > row.purchasedQuantity -> error = "Negali viršyti likusio kiekio"
+                    else -> onConfirm(quantity)
+                }
+            }) { Text("Patvirtinti") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Atšaukti") }
+        }
+    )
 }
 
 @Composable

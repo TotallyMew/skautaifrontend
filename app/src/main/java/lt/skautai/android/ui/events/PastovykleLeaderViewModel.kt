@@ -1,4 +1,4 @@
-package lt.skautai.android.ui.events
+﻿package lt.skautai.android.ui.events
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
@@ -69,7 +70,7 @@ class PastovykleLeaderViewModel @Inject constructor(
                         pastovykleInventoryById = current?.pastovykleInventoryById.orEmpty(),
                         pastovykleRequestsById = current?.pastovykleRequestsById.orEmpty(),
                         items = current?.items.orEmpty(),
-                        isWorking = current?.isWorking == true,
+                        isWorking = false,
                         error = current?.error
                     )
                 } else if (_uiState.value !is PastovykleLeaderUiState.Success) {
@@ -112,20 +113,35 @@ class PastovykleLeaderViewModel @Inject constructor(
         }
     }
 
-    fun createPastovykleRequest(eventId: String, pastovykleId: String, eventInventoryItemId: String, quantityText: String, notes: String) {
+    fun createPastovykleRequest(eventId: String, pastovykleId: String, itemId: String, quantityText: String, notes: String) {
         val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return
         val quantity = quantityText.toIntOrNull()
-        if (eventInventoryItemId.isBlank() || quantity == null || quantity <= 0) {
+        val item = current.items.firstOrNull { it.id == itemId }
+        if (itemId.isBlank() || item == null || quantity == null || quantity <= 0) {
             _uiState.value = current.copy(error = "Pasirinkite daiktą ir teigiamą kiekį.")
             return
         }
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
+            val eventInventoryItem = eventRepository.createInventoryItem(
+                eventId,
+                CreateEventInventoryItemRequestDto(
+                    itemId = item.id,
+                    name = item.name,
+                    plannedQuantity = quantity,
+                    notes = notes.ifBlank { null }
+                )
+            ).getOrElse { error ->
+                (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
+                    _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pridėti daikto į renginio poreikius.")
+                }
+                return@launch
+            }
             eventRepository.createPastovykleRequest(
                 eventId, pastovykleId,
-                CreatePastovykleInventoryRequestRequestDto(eventInventoryItemId, quantity, notes.ifBlank { null })
+                CreatePastovykleInventoryRequestRequestDto(eventInventoryItem.id, quantity, notes.ifBlank { null })
             )
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti pastovyklės poreikio.")
@@ -144,7 +160,7 @@ class PastovykleLeaderViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.assignFromUnitInventory(eventId, pastovykleId, itemId, quantity, notes.ifBlank { null })
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko priskirti inventoriaus iš vieneto.")
@@ -158,7 +174,7 @@ class PastovykleLeaderViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.selfProvidePastovykleRequest(eventId, pastovykleId, requestId, notes.ifBlank { null })
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko atnaujinti pastovyklės poreikio.")
@@ -169,5 +185,12 @@ class PastovykleLeaderViewModel @Inject constructor(
 
     fun clearError() {
         (_uiState.value as? PastovykleLeaderUiState.Success)?.let { _uiState.value = it.copy(error = null) }
+    }
+
+    private fun refreshAfterSuccessfulMutation(eventId: String) {
+        (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
+            _uiState.value = it.copy(isWorking = false, error = null)
+        }
+        load(eventId)
     }
 }

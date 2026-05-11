@@ -46,6 +46,9 @@ data class InventoryAddEditUiState(
     val origin: String = "UNIT_ACQUIRED",
     val quantity: String = "1",
     val notes: String = "",
+    val unitOfMeasure: String = "vnt.",
+    val tags: String = "",
+    val statusReason: String = "",
     val purchaseDate: String = "",
     val purchasePrice: String = "",
     val customFields: List<CustomFieldInput> = emptyList(),
@@ -135,14 +138,19 @@ class InventoryAddEditViewModel @Inject constructor(
                             origin = item.origin,
                             quantity = item.quantity.toString(),
                             notes = item.notes ?: "",
+                            unitOfMeasure = item.customFields.fieldValue("Mato vienetas") ?: "vnt.",
+                            tags = item.customFields.fieldValue("Žymos").orEmpty(),
+                            statusReason = item.customFields.fieldValue("Priežastis").orEmpty(),
                             purchaseDate = item.purchaseDate ?: "",
                             purchasePrice = item.purchasePrice?.toString() ?: "",
-                            customFields = item.customFields.map {
-                                CustomFieldInput(
-                                    fieldName = it.fieldName,
-                                    fieldValue = it.fieldValue.orEmpty()
-                                )
-                            },
+                            customFields = item.customFields.orEmpty()
+                                .filterNot { field -> managedCustomFieldNames.any { it.equals(field.fieldName, ignoreCase = true) } }
+                                .map {
+                                    CustomFieldInput(
+                                        fieldName = it.fieldName,
+                                        fieldValue = it.fieldValue.orEmpty()
+                                    )
+                                },
                             photoUrl = item.photoUrl ?: "",
                             selectedPhotoUri = "",
                             temporaryStorageLabel = item.temporaryStorageLabel ?: "",
@@ -173,6 +181,18 @@ class InventoryAddEditViewModel @Inject constructor(
 
     fun onNotesChange(value: String) {
         _uiState.value = _uiState.value.copy(notes = value)
+    }
+
+    fun onUnitOfMeasureChange(value: String) {
+        _uiState.value = _uiState.value.copy(unitOfMeasure = value)
+    }
+
+    fun onTagsChange(value: String) {
+        _uiState.value = _uiState.value.copy(tags = value)
+    }
+
+    fun onStatusReasonChange(value: String) {
+        _uiState.value = _uiState.value.copy(statusReason = value)
     }
 
     fun onQuantityChange(value: String) {
@@ -416,6 +436,9 @@ class InventoryAddEditViewModel @Inject constructor(
             condition = "GOOD",
             quantity = "1",
             notes = "",
+            unitOfMeasure = "vnt.",
+            tags = "",
+            statusReason = "",
             purchaseDate = "",
             purchasePrice = "",
             customFields = emptyList(),
@@ -465,7 +488,7 @@ class InventoryAddEditViewModel @Inject constructor(
             val customFields = state.customFields
                 .mapNotNull { field ->
                     val name = field.fieldName.trim()
-                    if (name.isBlank()) {
+                    if (name.isBlank() || managedCustomFieldNames.any { it.equals(name, ignoreCase = true) }) {
                         null
                     } else {
                         ItemCustomFieldDto(
@@ -473,6 +496,20 @@ class InventoryAddEditViewModel @Inject constructor(
                             fieldValue = field.fieldValue.trim().ifBlank { null }
                         )
                     }
+                }
+                .let { fields ->
+                    fields + listOfNotNull(
+                        ItemCustomFieldDto(
+                            fieldName = "Mato vienetas",
+                            fieldValue = state.unitOfMeasure.trim().ifBlank { "vnt." }
+                        ),
+                        state.tags.trim().takeIf { it.isNotBlank() }?.let {
+                            ItemCustomFieldDto(fieldName = "Žymos", fieldValue = it)
+                        },
+                        state.statusReason.trim().takeIf { it.isNotBlank() }?.let {
+                            ItemCustomFieldDto(fieldName = "Priežastis", fieldValue = it)
+                        }
+                    )
                 }
             val locationId = state.selectedLocationId.ifBlank { null }
             val responsibleUserId = state.selectedResponsibleUserId.ifBlank { null }
@@ -595,3 +632,8 @@ class InventoryAddEditViewModel @Inject constructor(
         }
     }
 }
+
+private val managedCustomFieldNames = setOf("Mato vienetas", "Žymos", "Priežastis")
+
+private fun List<ItemCustomFieldDto>.fieldValue(name: String): String? =
+    firstOrNull { it.fieldName.equals(name, ignoreCase = true) }?.fieldValue

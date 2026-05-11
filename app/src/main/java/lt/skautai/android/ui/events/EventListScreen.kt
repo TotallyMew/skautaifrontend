@@ -13,12 +13,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingActionButton
@@ -43,7 +47,9 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSummaryCard
+import lt.skautai.android.ui.common.eventStatusTone
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun EventListScreen(
     onEventClick: (String) -> Unit,
@@ -51,8 +57,16 @@ fun EventListScreen(
     viewModel: EventListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadEvents)
+    val canCreate = "events.create" in permissions
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
         when (val state = uiState) {
             is EventListUiState.Loading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -79,8 +93,8 @@ fun EventListScreen(
                             title = "Renginių nėra",
                             subtitle = "Čia matysi stovyklas, sueigas ir kitus vieneto renginius, kai tik jie bus sukurti.",
                             icon = Icons.Default.CalendarMonth,
-                            actionLabel = "Kurti renginį",
-                            onAction = onCreateClick,
+                            actionLabel = if (canCreate) "Kurti renginį" else null,
+                            onAction = if (canCreate) onCreateClick else null,
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 32.dp)
                         )
                     } else {
@@ -101,17 +115,24 @@ fun EventListScreen(
                     }
                 }
 
-                FloatingActionButton(
-                    onClick = onCreateClick,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(16.dp),
-                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Naujas renginys")
+                if (canCreate && state.events.isNotEmpty()) {
+                    FloatingActionButton(
+                        onClick = onCreateClick,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(16.dp),
+                        elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Naujas renginys")
+                    }
                 }
             }
         }
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -289,14 +310,6 @@ private fun EventMetricMini(
 
 @Composable
 fun EventStatusChip(status: String) {
-    val tone = when (status) {
-        "PLANNING" -> SkautaiStatusTone.Warning
-        "ACTIVE" -> SkautaiStatusTone.Success
-        "WRAP_UP" -> SkautaiStatusTone.Warning
-        "COMPLETED" -> SkautaiStatusTone.Neutral
-        "CANCELLED" -> SkautaiStatusTone.Danger
-        else -> SkautaiStatusTone.Neutral
-    }
     val label = when (status) {
         "PLANNING" -> "Planuojamas"
         "ACTIVE" -> "Vyksta"
@@ -305,5 +318,5 @@ fun EventStatusChip(status: String) {
         "CANCELLED" -> "Atšauktas"
         else -> status
     }
-    SkautaiStatusPill(label = label, tone = tone)
+    SkautaiStatusPill(label = label, tone = eventStatusTone(status))
 }

@@ -52,4 +52,20 @@ interface RequisitionApiService {
         @Path("id") id: String,
         @Body request: RequisitionReviewDto
     ): Response<RequisitionDto>
+
+    @POST("api/requisitions/{id}/mark-purchased")
+    suspend fun markPurchased(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: RequisitionMarkPurchasedDto
+    ): Response<RequisitionDto>
+
+    @POST("api/requisitions/{id}/add-to-inventory")
+    suspend fun addToInventory(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: AddRequisitionToInventoryDto
+    ): Response<RequisitionDto>
 }

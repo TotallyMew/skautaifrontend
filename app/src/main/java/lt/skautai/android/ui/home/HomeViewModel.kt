@@ -22,7 +22,10 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canForwardUnitRequests
 import lt.skautai.android.util.canManageSharedInventory
+import lt.skautai.android.util.canReviewTopLevelRequisitions
+import lt.skautai.android.util.hasPermission
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -140,9 +143,13 @@ class HomeViewModel @Inject constructor(
             val assignedRequisitions = requisitions.count { request ->
                 val waitsForActiveUnit = request.createdByUserId != userId &&
                     request.requestingUnitId == resolvedUnit?.id &&
-                    request.unitReviewStatus == "PENDING"
+                    request.unitReviewStatus == "PENDING" &&
+                    (
+                        permissions.hasPermission("items.request.approve.unit") ||
+                            permissions.canForwardUnitRequests()
+                        )
                 val waitsForTopLevel = request.createdByUserId != userId &&
-                    "requisitions.approve" in permissions &&
+                    permissions.canReviewTopLevelRequisitions() &&
                     request.topLevelReviewStatus == "PENDING"
                 waitsForActiveUnit || waitsForTopLevel
             }

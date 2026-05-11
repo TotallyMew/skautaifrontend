@@ -21,7 +21,6 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Public
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -58,6 +57,7 @@ import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.ui.common.MetadataRow
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
@@ -97,28 +97,18 @@ fun LocationDetailScreen(
     }
 
     if (showDeleteDialog && uiState.location != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Trinti lokaciją?") },
-            text = {
-                Text("Lokacija \"${uiState.location!!.name}\" bus ištrinta. Veiksmo atšaukti nepavyks.")
+        SkautaiConfirmDialog(
+            title = "Trinti lokaciją?",
+            message = "Lokacija \"${uiState.location!!.name}\" bus ištrinta. Veiksmo atšaukti nepavyks.",
+            confirmText = "Trinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isDeleting,
+            onConfirm = {
+                showDeleteDialog = false
+                viewModel.delete(uiState.location!!.id, onBack)
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteDialog = false
-                        viewModel.delete(uiState.location!!.id, onBack)
-                    },
-                    enabled = !uiState.isDeleting
-                ) {
-                    Text("Trinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Atšaukti")
-                }
-            }
+            onDismiss = { showDeleteDialog = false }
         )
     }
 

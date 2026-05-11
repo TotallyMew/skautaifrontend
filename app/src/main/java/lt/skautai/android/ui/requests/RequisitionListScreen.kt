@@ -14,9 +14,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,7 +42,9 @@ import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiSummaryCard
+import lt.skautai.android.ui.common.requisitionStatusTone
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun RequisitionListScreen(
     onRequestClick: (String) -> Unit,
@@ -46,10 +52,16 @@ fun RequisitionListScreen(
     viewModel: RequisitionListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadRequests)
     val isMyActiveMode = viewModel.mode == "my_active"
     val isAssignedMode = viewModel.mode == "assigned"
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
         when (val state = uiState) {
             is RequisitionListUiState.Loading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -117,7 +129,7 @@ fun RequisitionListScreen(
                     }
                 }
 
-                if (!isAssignedMode) {
+                if (!isAssignedMode && state.requests.isNotEmpty()) {
                     FloatingActionButton(
                         onClick = onCreateClick,
                         modifier = Modifier
@@ -129,6 +141,11 @@ fun RequisitionListScreen(
                 }
             }
         }
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -191,29 +208,23 @@ private fun RequisitionCard(
 
 @Composable
 private fun RequisitionStatusPill(request: RequisitionDto) {
-    val (label, container, content) = when {
-        request.status == "CANCELLED" ->
-            Triple("Atšaukta", MaterialTheme.colorScheme.surfaceVariant, MaterialTheme.colorScheme.onSurfaceVariant)
-        request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" ->
-            Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        request.status == "APPROVED" ->
-            Triple("Patvirtinta vienete", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        request.unitReviewStatus == "FORWARDED" ->
-            Triple("Perduota", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-        request.unitReviewStatus == "PENDING" ->
-            Triple("Laukia vieneto", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
-        request.topLevelReviewStatus == "PENDING" ->
-            Triple("Laukia tunto", MaterialTheme.colorScheme.tertiaryContainer, MaterialTheme.colorScheme.onTertiaryContainer)
-        request.status == "REJECTED" ->
-            Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-        else ->
-            Triple("Pateikta", MaterialTheme.colorScheme.secondaryContainer, MaterialTheme.colorScheme.onSecondaryContainer)
+    val label = when {
+        request.status == "CANCELLED" -> "Atšaukta"
+        request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" -> "Patvirtinta"
+        request.status == "APPROVED" -> "Patvirtinta vienete"
+        request.unitReviewStatus == "FORWARDED" -> "Perduota"
+        request.unitReviewStatus == "PENDING" -> "Laukia vieneto"
+        request.topLevelReviewStatus == "PENDING" -> "Laukia tunto"
+        request.status == "REJECTED" -> "Atmesta"
+        else -> "Pateikta"
     }
-    SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
+    SkautaiStatusPill(label = label, tone = requisitionStatusTone(request.status))
 }
 
 internal fun requisitionStatusLabel(request: RequisitionDto): String = when {
     request.status == "CANCELLED" -> "Atšaukta"
+    request.status == "INVENTORY_ADDED" -> "Pridėta į inventorių"
+    request.status == "PURCHASED" -> "Nupirkta"
     request.status == "APPROVED" && request.topLevelReviewStatus == "APPROVED" -> "Patvirtinta inventorininko / tuntininko"
     request.status == "APPROVED" -> "Patvirtinta vienete"
     request.unitReviewStatus == "FORWARDED" -> "Perduota inventorininkui"

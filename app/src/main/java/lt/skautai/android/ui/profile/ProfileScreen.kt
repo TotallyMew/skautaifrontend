@@ -15,7 +15,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,6 +30,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
 fun ProfileScreen(
@@ -108,50 +109,42 @@ fun ProfileScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                             HorizontalDivider()
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.name,
                                 onValueChange = viewModel::onNameChange,
-                                label = { Text("Vardas") },
+                                label = "Vardas",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.surname,
                                 onValueChange = viewModel::onSurnameChange,
-                                label = { Text("Pavardė") },
+                                label = "Pavardė",
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.email,
                                 onValueChange = viewModel::onEmailChange,
-                                label = { Text("El. paštas") },
+                                label = "El. paštas",
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.phone,
                                 onValueChange = viewModel::onPhoneChange,
-                                label = { Text("Telefono numeris") },
+                                label = "Telefono numeris",
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Button(
+                            SkautaiPrimaryButton(
+                                text = if (uiState.isSavingProfile) "Saugoma..." else "Išsaugoti pakeitimus",
                                 onClick = viewModel::saveProfile,
                                 enabled = !uiState.isSavingProfile,
                                 modifier = Modifier.fillMaxWidth()
-                            ) {
-                                if (uiState.isSavingProfile) {
-                                    CircularProgressIndicator(
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                } else {
-                                    Text("Išsaugoti pakeitimus")
-                                }
-                            }
+                            )
                         }
                     }
 
@@ -169,47 +162,39 @@ fun ProfileScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                             HorizontalDivider()
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.currentPassword,
                                 onValueChange = viewModel::onCurrentPasswordChange,
-                                label = { Text("Dabartinis slaptažodis") },
+                                label = "Dabartinis slaptažodis",
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.newPassword,
                                 onValueChange = viewModel::onNewPasswordChange,
-                                label = { Text("Naujas slaptažodis") },
+                                label = "Naujas slaptažodis",
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            OutlinedTextField(
+                            SkautaiTextField(
                                 value = uiState.repeatPassword,
                                 onValueChange = viewModel::onRepeatPasswordChange,
-                                label = { Text("Pakartokite naują slaptažodį") },
+                                label = "Pakartokite naują slaptažodį",
                                 singleLine = true,
                                 visualTransformation = PasswordVisualTransformation(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            Button(
+                            SkautaiPrimaryButton(
+                                text = if (uiState.isSavingPassword) "Keičiama..." else "Keisti slaptažodį",
                                 onClick = viewModel::changePassword,
                                 enabled = !uiState.isSavingPassword,
                                 modifier = Modifier.fillMaxWidth()
-                            ) {
-                                if (uiState.isSavingPassword) {
-                                    CircularProgressIndicator(
-                                        strokeWidth = 2.dp,
-                                        color = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                } else {
-                                    Text("Keisti slaptažodį")
-                                }
-                            }
+                            )
                         }
                     }
 

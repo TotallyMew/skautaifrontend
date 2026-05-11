@@ -38,6 +38,7 @@ import lt.skautai.android.data.remote.EventInventoryCustodyDto
 import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.util.QrDestination
 import lt.skautai.android.util.QrPayload
 
@@ -74,7 +75,7 @@ fun EventMovementQrScreen(
     var selectedEventItemId by remember { mutableStateOf<String?>(null) }
     var selectedCustodyId by remember { mutableStateOf<String?>(null) }
     var itemAction by remember { mutableStateOf(ItemQrAction.Checkout) }
-    var custodyAction by remember { mutableStateOf(CustodyQrAction.Transfer) }
+    var custodyAction by remember { mutableStateOf(CustodyQrAction.Return) }
     var quantityText by remember { mutableStateOf("1") }
     var selectedPastovykleId by remember { mutableStateOf<String?>(null) }
     var selectedUserId by remember { mutableStateOf<String?>(null) }
@@ -86,7 +87,7 @@ fun EventMovementQrScreen(
         selectedEventItemId = null
         selectedCustodyId = null
         itemAction = ItemQrAction.Checkout
-        custodyAction = CustodyQrAction.Transfer
+        custodyAction = CustodyQrAction.Return
         quantityText = "1"
         selectedPastovykleId = null
         selectedUserId = null
@@ -177,10 +178,18 @@ fun EventMovementQrScreen(
                 }
 
                 is EventMovementQrUiState.Success -> {
-                    val myRoles = state.event.eventRoles.map { it.role }.toSet()
-                    val canManage = !isEventReadOnlyStatus(state.event.status) &&
-                        ("events.inventory.distribute" in permissions ||
+                    val myRoles = state.event.eventRoles
+                        .filter { it.userId == state.currentUserId }
+                        .map { it.role }
+                        .toSet()
+                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    val canManage = !readOnly &&
+                        ("events.inventory.distribute:ALL" in permissions ||
                             myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") })
+                    val responsiblePastovykleIds = state.pastovykles
+                        .filter { it.responsibleUserId == state.currentUserId }
+                        .map { it.id }
+                        .toSet()
                     val itemMatches = state.inventoryPlan.items.filter { it.itemId == resolvedItemId }
                     val eventItemById = state.inventoryPlan.items.associateBy { it.id }
                     val custodyMatches = state.custody.filter { row ->
@@ -260,6 +269,7 @@ fun EventMovementQrScreen(
                                 pastovykles = state.pastovykles,
                                 members = state.members,
                                 canManage = canManage,
+                                responsiblePastovykleIds = responsiblePastovykleIds,
                                 selectedEventItemId = selectedEventItemId,
                                 onSelectedEventItemId = { selectedEventItemId = it },
                                 action = itemAction,
@@ -286,7 +296,7 @@ fun EventMovementQrScreen(
                                             movementType = "CHECKOUT_TO_PERSON",
                                             quantity = quantity,
                                             pastovykleId = selectedPastovykleId,
-                                            toUserId = if (canManage) selectedUserId else null,
+                                            toUserId = if (canManage || selectedPastovykleId in responsiblePastovykleIds) selectedUserId else null,
                                             notes = notes.ifBlank { null }
                                         )
                                         ItemQrAction.Assign -> {
@@ -317,6 +327,7 @@ fun EventMovementQrScreen(
                                 pastovykles = state.pastovykles,
                                 members = state.members,
                                 canManage = canManage,
+                                responsiblePastovykleIds = responsiblePastovykleIds,
                                 selectedCustodyId = selectedCustodyId,
                                 onSelectedCustodyId = { selectedCustodyId = it },
                                 action = custodyAction,
@@ -341,10 +352,10 @@ fun EventMovementQrScreen(
                                     }
                                     val request = when (custodyAction) {
                                         CustodyQrAction.Transfer -> {
-                                            if (!canManage) {
-                                                viewModel.showMessage("Perdavimui reikia platesnių teisių.")
-                                                return@CustodyQrActionCard
-                                            }
+                                        if (!canManage && selectedCustody.pastovykleId !in responsiblePastovykleIds) {
+                                            viewModel.showMessage("Perdavimui reikia platesnių teisių.")
+                                            return@CustodyQrActionCard
+                                        }
                                             val targetPastovykleId = selectedPastovykleId ?: selectedUserId?.let {
                                                 selectedCustody.pastovykleId
                                             }
@@ -390,6 +401,7 @@ private fun ItemQrActionCard(
     pastovykles: List<lt.skautai.android.data.remote.PastovykleDto>,
     members: List<lt.skautai.android.data.remote.MemberDto>,
     canManage: Boolean,
+    responsiblePastovykleIds: Set<String>,
     selectedEventItemId: String?,
     onSelectedEventItemId: (String) -> Unit,
     action: ItemQrAction,
@@ -406,6 +418,7 @@ private fun ItemQrActionCard(
     onSubmit: () -> Unit
 ) {
     val selectedItem = matches.firstOrNull { it.id == selectedEventItemId } ?: matches.first()
+    val canSelectTargetUser = canManage || selectedPastovykleId in responsiblePastovykleIds
     LaunchedEffect(matches) {
         if (selectedEventItemId == null) onSelectedEventItemId(matches.first().id)
     }
@@ -432,12 +445,11 @@ private fun ItemQrActionCard(
                     }
                 }
             }
-            OutlinedTextField(
+            SkautaiTextField(
                 value = quantityText,
                 onValueChange = onQuantityTextChange,
-                label = { Text("Kiekis") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = eventFormFieldColors()
+                label = "Kiekis",
+                modifier = Modifier.fillMaxWidth()
             )
             if (action == ItemQrAction.Checkout) {
                 DropdownField(
@@ -446,7 +458,7 @@ private fun ItemQrActionCard(
                     options = listOf("" to "Renginio sandėlis") + pastovykles.map { it.id to it.name },
                     onSelect = { onSelectedPastovykleId(it.ifBlank { null }) }
                 )
-                if (canManage) {
+                if (canSelectTargetUser) {
                     DropdownField(
                         label = "Kam",
                         value = members.firstOrNull { it.userId == selectedUserId }?.fullName() ?: "Sau",
@@ -462,12 +474,11 @@ private fun ItemQrActionCard(
                     onSelect = { onSelectedPastovykleId(it) }
                 )
             }
-            OutlinedTextField(
+            SkautaiTextField(
                 value = notes,
                 onValueChange = onNotesChange,
-                label = { Text("Pastabos") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = eventFormFieldColors()
+                label = "Pastabos",
+                modifier = Modifier.fillMaxWidth()
             )
             Button(onClick = onSubmit, enabled = !isWorking, modifier = Modifier.fillMaxWidth()) {
                 Text(if (action == ItemQrAction.Checkout) "Registruoti paėmimą" else "Registruoti išdavimą")
@@ -482,6 +493,7 @@ private fun CustodyQrActionCard(
     pastovykles: List<lt.skautai.android.data.remote.PastovykleDto>,
     members: List<lt.skautai.android.data.remote.MemberDto>,
     canManage: Boolean,
+    responsiblePastovykleIds: Set<String>,
     selectedCustodyId: String?,
     onSelectedCustodyId: (String) -> Unit,
     action: CustodyQrAction,
@@ -501,6 +513,8 @@ private fun CustodyQrActionCard(
 ) {
     val selectedCustody = matches.firstOrNull { it.id == selectedCustodyId } ?: matches.first()
     val returnOptions = buildReturnOptions(selectedCustody)
+    val canTransfer = canManage || selectedCustody.pastovykleId in responsiblePastovykleIds
+    val effectiveAction = if (action == CustodyQrAction.Transfer && !canTransfer) CustodyQrAction.Return else action
 
     LaunchedEffect(matches) {
         if (selectedCustodyId == null) onSelectedCustodyId(matches.first().id)
@@ -524,7 +538,7 @@ private fun CustodyQrActionCard(
                 onSelect = onSelectedCustodyId
             )
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                if (canManage) {
+                if (canTransfer) {
                     FilledTonalButton(onClick = { onActionChange(CustodyQrAction.Transfer) }, modifier = Modifier.weight(1f)) {
                         Text("Perduoti")
                     }
@@ -533,14 +547,13 @@ private fun CustodyQrActionCard(
                     Text("Grąžinti")
                 }
             }
-            OutlinedTextField(
+            SkautaiTextField(
                 value = quantityText,
                 onValueChange = onQuantityTextChange,
-                label = { Text("Kiekis") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = eventFormFieldColors()
+                label = "Kiekis",
+                modifier = Modifier.fillMaxWidth()
             )
-            if (action == CustodyQrAction.Transfer) {
+            if (effectiveAction == CustodyQrAction.Transfer) {
                 DropdownField(
                     label = "Tikslinė pastovykla",
                     value = pastovykles.firstOrNull { it.id == selectedPastovykleId }?.name ?: "Nekeisti / nėra",
@@ -561,15 +574,14 @@ private fun CustodyQrActionCard(
                     onSelect = onSelectedReturnType
                 )
             }
-            OutlinedTextField(
+            SkautaiTextField(
                 value = notes,
                 onValueChange = onNotesChange,
-                label = { Text("Pastabos") },
-                modifier = Modifier.fillMaxWidth(),
-                colors = eventFormFieldColors()
+                label = "Pastabos",
+                modifier = Modifier.fillMaxWidth()
             )
             Button(onClick = onSubmit, enabled = !isWorking, modifier = Modifier.fillMaxWidth()) {
-                Text(if (action == CustodyQrAction.Transfer) "Registruoti perdavimą" else "Registruoti grąžinimą")
+                Text(if (effectiveAction == CustodyQrAction.Transfer) "Registruoti perdavimą" else "Registruoti grąžinimą")
             }
         }
     }

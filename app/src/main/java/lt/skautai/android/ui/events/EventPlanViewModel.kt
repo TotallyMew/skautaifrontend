@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.EventDto
@@ -26,6 +27,7 @@ sealed interface EventPlanUiState {
         val inventoryPlan: EventInventoryPlanDto? = null,
         val templates: List<InventoryTemplateDto> = emptyList(),
         val members: List<MemberDto> = emptyList(),
+        val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
     ) : EventPlanUiState
@@ -54,10 +56,11 @@ class EventPlanViewModel @Inject constructor(
                     _uiState.value = EventPlanUiState.Success(
                         event = event,
                         inventoryPlan = current?.inventoryPlan,
-                        templates = current?.templates.orEmpty(),
-                        members = current?.members.orEmpty(),
-                        isWorking = current?.isWorking == true,
-                        error = current?.error
+                templates = current?.templates.orEmpty(),
+                members = current?.members.orEmpty(),
+                currentUserId = current?.currentUserId ?: tokenManager.userId.first(),
+                isWorking = current?.isWorking == true,
+                error = current?.error
                     )
                 } else if (_uiState.value !is EventPlanUiState.Success) {
                     _uiState.value = EventPlanUiState.Loading

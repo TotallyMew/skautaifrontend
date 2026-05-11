@@ -23,12 +23,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -66,6 +68,7 @@ import lt.skautai.android.data.remote.EventInventorySummaryDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.QuickActionTile
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
@@ -75,6 +78,7 @@ import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.SkautaiTopBarTitle
+import lt.skautai.android.ui.common.eventStatusTone
 
 fun isEventReadOnlyStatus(status: String): Boolean = status in setOf("COMPLETED", "CANCELLED")
 
@@ -242,14 +246,6 @@ fun EventPrimaryButton(
 
 @Composable
 fun EventStatusPill(status: String) {
-    val tone = when (status) {
-        "PLANNING" -> SkautaiStatusTone.Warning
-        "ACTIVE" -> SkautaiStatusTone.Success
-        "WRAP_UP" -> SkautaiStatusTone.Warning
-        "COMPLETED" -> SkautaiStatusTone.Neutral
-        "CANCELLED" -> SkautaiStatusTone.Danger
-        else -> SkautaiStatusTone.Neutral
-    }
     val label = when (status) {
         "PLANNING" -> "Planuojamas"
         "ACTIVE" -> "Vyksta"
@@ -258,15 +254,21 @@ fun EventStatusPill(status: String) {
         "CANCELLED" -> "Atšauktas"
         else -> status
     }
-    SkautaiStatusPill(label = label, tone = tone)
+    SkautaiStatusPill(label = label, tone = eventStatusTone(status))
 }
 
 @Composable
-fun EventModeChip(selected: Boolean, text: String, onClick: () -> Unit) {
+fun EventModeChip(
+    selected: Boolean,
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     SkautaiChip(
         label = text,
         selected = selected,
-        onClick = onClick
+        onClick = onClick,
+        modifier = modifier
     )
 }
 
@@ -369,7 +371,7 @@ fun EventContextBanner(
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 shape = RoundedCornerShape(16.dp)
             ) {
-                Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.size(48.dp), contentAlignment = Alignment.Center) {
                     Icon(Icons.Default.EventAvailable, contentDescription = null)
                 }
             }
@@ -661,6 +663,17 @@ fun DropdownField(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier.fillMaxWidth()
 ) {
+    if (options.size > 6) {
+        SearchablePickerField(
+            label = label,
+            value = value,
+            options = options,
+            onSelect = onSelect,
+            modifier = modifier
+        )
+        return
+    }
+
     var expanded by remember { mutableStateOf(false) }
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -693,6 +706,116 @@ fun DropdownField(
 }
 
 @Composable
+fun SearchablePickerField(
+    label: String,
+    value: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier.fillMaxWidth()
+) {
+    var showDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredOptions = remember(options, searchQuery) {
+        val query = searchQuery.trim()
+        options
+            .sortedBy { it.second.lowercase() }
+            .filter { (_, text) ->
+                query.isBlank() || text.contains(query, ignoreCase = true)
+            }
+    }
+
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            trailingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            colors = eventFormFieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { showDialog = true }
+        )
+    }
+
+    if (showDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showDialog = false
+                searchQuery = ""
+            },
+            title = { Text(label) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    SkautaiTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        label = "Ieškoti",
+                        modifier = Modifier.fillMaxWidth(),
+                        singleLine = true
+                    )
+                    SkautaiCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+                    ) {
+                        if (filteredOptions.isEmpty()) {
+                            Text(
+                                text = "Nieko nerasta",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(16.dp)
+                            )
+                        } else {
+                            LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                                items(filteredOptions, key = { it.first }) { (id, text) ->
+                                    TextButton(
+                                        onClick = {
+                                            onSelect(id)
+                                            showDialog = false
+                                            searchQuery = ""
+                                        },
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = text,
+                                                modifier = Modifier.weight(1f),
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            if (text == value) {
+                                                Icon(
+                                                    imageVector = Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(18.dp),
+                                                    tint = MaterialTheme.colorScheme.primary
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDialog = false
+                        searchQuery = ""
+                    }
+                ) {
+                    Text("Uždaryti")
+                }
+            }
+        )
+    }
+}
+
+@Composable
 fun EventInfoRow(label: String, value: String) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -706,7 +829,8 @@ fun eventTypeLabel(type: String): String = when (type) {
     "STOVYKLA" -> "Stovykla"
     "SUEIGA" -> "Sueiga"
     "RENGINYS" -> "Renginys"
-    else -> type
+    else -> type.replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "").replace('_', ' ').lowercase()
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 }
 
 fun planItemSubtitle(item: EventInventoryItemDto): String {
@@ -736,10 +860,10 @@ fun MemberPickerSheet(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
+        SkautaiTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            label = { Text("Ieškoti") },
+            label = "Ieškoti",
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )

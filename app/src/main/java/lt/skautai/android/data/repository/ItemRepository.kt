@@ -23,6 +23,11 @@ import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.ItemHistoryDto
+import lt.skautai.android.data.remote.ItemTransferDto
+import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
+import lt.skautai.android.data.remote.RestockItemRequestDto
+import lt.skautai.android.data.remote.TransferItemToUnitRequestDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
@@ -90,7 +95,7 @@ class ItemRepository @Inject constructor(
                 sharedOnly = sharedOnly
             )
             if (response.isSuccessful) {
-                val items = response.body()?.items.orEmpty()
+                val items = response.body()?.items.orEmpty().map { it.withSafeCollections() }
                 itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
                 itemDao.upsertAll(items.toItemEntities())
                 Result.success(Unit)
@@ -114,7 +119,7 @@ class ItemRepository @Inject constructor(
                 itemId = itemId
             )
             if (response.isSuccessful) {
-                itemDao.upsert(response.body()!!.toEntity())
+                itemDao.upsert(response.body()!!.withSafeCollections().toEntity())
                 Result.success(Unit)
             } else {
                 if (response.code() == 404) {
@@ -209,6 +214,36 @@ class ItemRepository @Inject constructor(
         Result.failure(e.userFacingException())
     }
 
+    suspend fun getItemTransfers(itemId: String): Result<List<ItemTransferDto>> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getItemTransfers("Bearer $token", tuntasId, itemId)
+        if (response.isSuccessful) {
+            Result.success(response.body()?.transfers.orEmpty())
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant judejimo istorija")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun getItemHistory(itemId: String): Result<List<ItemHistoryDto>> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getItemHistory("Bearer $token", tuntasId, itemId)
+        if (response.isSuccessful) {
+            Result.success(response.body()?.entries.orEmpty())
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant daikto istorija")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
     suspend fun deleteItem(itemId: String): Result<Unit> {
         return try {
             val token = tokenManager.token.first()
@@ -272,7 +307,7 @@ class ItemRepository @Inject constructor(
                 request = request
             )
             if (response.isSuccessful) {
-                val item = response.body()!!
+                val item = response.body()!!.withSafeCollections()
                 itemDao.upsert(item.toEntity())
                 Result.success(item)
             } else {
@@ -361,7 +396,7 @@ class ItemRepository @Inject constructor(
                 request = request
             )
             if (response.isSuccessful) {
-                val item = response.body()!!
+                val item = response.body()!!.withSafeCollections()
                 itemDao.upsert(item.toEntity())
                 Result.success(item)
             } else {
@@ -388,7 +423,7 @@ class ItemRepository @Inject constructor(
                 purchaseDate = request.purchaseDate ?: cached.purchaseDate,
                 purchasePrice = request.purchasePrice ?: cached.purchasePrice,
                 notes = request.notes ?: cached.notes,
-                customFields = request.customFields ?: cached.customFields,
+                customFields = request.customFields ?: cached.customFields.orEmpty(),
                 status = request.status ?: cached.status,
                 updatedAt = Instant.now().toString()
             )
@@ -418,6 +453,84 @@ class ItemRepository @Inject constructor(
         }
     }
 
+    suspend fun transferItemToUnit(
+        itemId: String,
+        request: TransferItemToUnitRequestDto
+    ): Result<ItemDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.transferItemToUnit(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            itemId = itemId,
+            request = request
+        )
+        if (response.isSuccessful) {
+            val item = response.body()!!.withSafeCollections()
+            itemDao.upsert(item.toEntity())
+            refreshItem(itemId)
+            Result.success(item)
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida perduodant daikta vienetui")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun returnItemToShared(
+        itemId: String,
+        request: ReturnItemToSharedRequestDto
+    ): Result<ItemDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.returnItemToShared(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            itemId = itemId,
+            request = request
+        )
+        if (response.isSuccessful) {
+            val item = response.body()!!.withSafeCollections()
+            itemDao.upsert(item.toEntity())
+            refreshItem(itemId)
+            Result.success(item)
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida grazinant daikta i bendra inventoriu")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun restockItem(
+        itemId: String,
+        request: RestockItemRequestDto
+    ): Result<ItemDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.restockItem(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            itemId = itemId,
+            request = request
+        )
+        if (response.isSuccessful) {
+            val item = response.body()!!.withSafeCollections()
+            itemDao.upsert(item.toEntity())
+            refreshItem(itemId)
+            Result.success(item)
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida papildant daikta")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
     private fun ItemDto.toCreateRequest(): CreateItemRequestDto = CreateItemRequestDto(
         name = name,
         description = description,
@@ -435,6 +548,11 @@ class ItemRepository @Inject constructor(
         purchaseDate = purchaseDate,
         purchasePrice = purchasePrice,
         notes = notes,
-        customFields = customFields
+        customFields = customFields.orEmpty()
+    )
+
+    private fun ItemDto.withSafeCollections(): ItemDto = copy(
+        quantityBreakdown = quantityBreakdown.orEmpty(),
+        customFields = customFields.orEmpty()
     )
 }

@@ -88,6 +88,45 @@ data class ItemConditionLogListResponseDto(
     val total: Int
 )
 
+data class ItemTransferDto(
+    val id: String,
+    val itemId: String,
+    val fromCustodianId: String? = null,
+    val fromCustodianName: String? = null,
+    val toCustodianId: String? = null,
+    val toCustodianName: String? = null,
+    val initiatedByUserId: String? = null,
+    val initiatedByUserName: String? = null,
+    val approvedByUserId: String? = null,
+    val approvedByUserName: String? = null,
+    val notes: String? = null,
+    val status: String,
+    val createdAt: String,
+    val completedAt: String? = null
+)
+
+data class ItemTransferListResponseDto(
+    val transfers: List<ItemTransferDto>,
+    val total: Int
+)
+
+data class ItemHistoryDto(
+    val id: String,
+    val itemId: String,
+    val eventType: String,
+    val quantityChange: Int? = null,
+    val performedByUserId: String? = null,
+    val performedByUserName: String? = null,
+    val requisitionId: String? = null,
+    val notes: String? = null,
+    val createdAt: String
+)
+
+data class ItemHistoryListResponseDto(
+    val entries: List<ItemHistoryDto>,
+    val total: Int
+)
+
 data class CreateItemRequestDto(
     val name: String,
     val description: String? = null,
@@ -132,4 +171,22 @@ data class UpdateItemRequestDto(
     val clearLocationId: Boolean = false,
     val clearSourceSharedItemId: Boolean = false,
     val clearResponsibleUserId: Boolean = false
+)
+
+data class TransferItemToUnitRequestDto(
+    val targetUnitId: String,
+    val quantity: Int,
+    val notes: String? = null
+)
+
+data class ReturnItemToSharedRequestDto(
+    val quantity: Int,
+    val notes: String? = null
+)
+
+data class RestockItemRequestDto(
+    val quantity: Int,
+    val purchaseDate: String? = null,
+    val purchasePrice: Double? = null,
+    val notes: String? = null
 )

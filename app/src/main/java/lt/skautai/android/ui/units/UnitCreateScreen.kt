@@ -12,6 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
 
 private val UNIT_TYPES = listOf(
     "VILKU_DRAUGOVE",
@@ -65,10 +67,10 @@ fun UnitCreateScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChange,
-                label = { Text("Pavadinimas *") },
+                label = "Pavadinimas *",
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true
             )
@@ -87,21 +89,12 @@ fun UnitCreateScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Button(
+            SkautaiPrimaryButton(
+                text = if (uiState.isSaving) "Kuriama..." else "Sukurti vienetą",
                 onClick = viewModel::createUnit,
                 enabled = !uiState.isSaving,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isSaving) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text("Sukurti vienetą")
-                }
-            }
+            )
         }
     }
 }
@@ -190,4 +183,3 @@ private fun UnitSubTypeDropdown(
         }
     }
 }
-

@@ -21,6 +21,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberRankDto
 import lt.skautai.android.data.remote.UnitMembershipDto
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.members.displayRoleName
@@ -56,36 +57,28 @@ fun UnitDetailScreen(
     }
 
     if (uiState.showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::hideDeleteDialog,
-            title = { Text("Trinti vienetą?") },
-            text = { Text("Šis veiksmas negrįžtamas. Vienetas bus ištrintas.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.deleteUnit(unitId) },
-                    enabled = !uiState.isSaving
-                ) { Text("Trinti", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::hideDeleteDialog) { Text("Atšaukti") }
-            }
+        SkautaiConfirmDialog(
+            title = "Trinti vienetą?",
+            message = "Šis veiksmas negrįžtamas. Vienetas bus ištrintas.",
+            confirmText = "Trinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = { viewModel.deleteUnit(unitId) },
+            onDismiss = viewModel::hideDeleteDialog
         )
     }
 
     if (uiState.showLeaveDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::hideLeaveDialog,
-            title = { Text("Palikti vienetą?") },
-            text = { Text("Paliksi šį vienetą, bet liksi tunto nariu. Su šiuo vienetu susieti nario priskyrimai bus uždaryti.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.leaveUnit(unitId) },
-                    enabled = !uiState.isSaving
-                ) { Text("Palikti", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::hideLeaveDialog) { Text("Atšaukti") }
-            }
+        SkautaiConfirmDialog(
+            title = "Palikti vienetą?",
+            message = "Paliksi šį vienetą, bet liksi tunto nariu. Su šiuo vienetu susieti nario priskyrimai bus uždaryti.",
+            confirmText = "Palikti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = { viewModel.leaveUnit(unitId) },
+            onDismiss = viewModel::hideLeaveDialog
         )
     }
 
@@ -103,28 +96,18 @@ fun UnitDetailScreen(
     }
 
     memberPendingRemoval?.let { membership ->
-        AlertDialog(
-            onDismissRequest = { memberPendingRemoval = null },
-            title = { Text("Šalinti narį iš vieneto?") },
-            text = {
-                Text(
-                    "Narys ${membership.userName} ${membership.userSurname} bus pašalintas iš šio vieneto."
-                )
+        SkautaiConfirmDialog(
+            title = "Šalinti narį iš vieneto?",
+            message = "Narys ${membership.userName} ${membership.userSurname} bus pašalintas iš šio vieneto.",
+            confirmText = "Šalinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = {
+                memberPendingRemoval = null
+                viewModel.removeUnitMember(unitId, membership.userId)
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        memberPendingRemoval = null
-                        viewModel.removeUnitMember(unitId, membership.userId)
-                    },
-                    enabled = !uiState.isSaving
-                ) {
-                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { memberPendingRemoval = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { memberPendingRemoval = null }
         )
     }
 

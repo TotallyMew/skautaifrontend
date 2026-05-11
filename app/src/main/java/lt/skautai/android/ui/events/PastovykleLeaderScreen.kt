@@ -18,7 +18,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventInventoryAllocationDto
-import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
@@ -44,6 +42,7 @@ import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -98,6 +97,7 @@ fun PastovykleLeaderScreen(
                     val selectedPastovykle = myPastovyklės.firstOrNull { it.id == selectedPastovykleId }
                     val inventory = state.pastovykleInventoryById[selectedPastovykleId].orEmpty()
                     val requests = state.pastovykleRequestsById[selectedPastovykleId].orEmpty()
+                    val sharedItems = state.items.filter { it.custodianId == null }
                     val unitItems = state.items.filter { it.custodianId == state.activeOrgUnitId }
                     val pastovykleBucketIds = state.inventoryPlan?.buckets
                         .orEmpty()
@@ -149,10 +149,10 @@ fun PastovykleLeaderScreen(
                                 }
                                 item {
                                     RequestNeedCard(
-                                        inventoryItems = state.inventoryPlan?.items.orEmpty(),
+                                        items = sharedItems,
                                         isWorking = state.isWorking || readOnly,
-                                        onCreateRequest = { inventoryItemId, quantity, notes ->
-                                            viewModel.createPastovykleRequest(eventId, selectedPastovykle.id, inventoryItemId, quantity, notes)
+                                        onCreateRequest = { itemId, quantity, notes ->
+                                            viewModel.createPastovykleRequest(eventId, selectedPastovykle.id, itemId, quantity, notes)
                                         }
                                     )
                                 }
@@ -196,7 +196,7 @@ fun PastovykleLeaderScreen(
 
 @Composable
 private fun RequestNeedCard(
-    inventoryItems: List<EventInventoryItemDto>,
+    items: List<ItemDto>,
     isWorking: Boolean,
     onCreateRequest: (String, String, String) -> Unit
 ) {
@@ -210,24 +210,22 @@ private fun RequestNeedCard(
     ) {
         DropdownField(
             label = "Daiktas",
-            value = inventoryItems.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
-            options = inventoryItems.map { it.id to it.name },
+            value = items.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
+            options = items.map { it.id to "${it.name} (${it.quantity})" },
             onSelect = { selectedItemId = it }
         )
-        OutlinedTextField(
+        SkautaiTextField(
             value = quantity,
             onValueChange = { quantity = it.filter(Char::isDigit) },
-            label = { Text("Kiekis") },
+            label = "Kiekis",
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = eventFormFieldColors()
+            singleLine = true
         )
-        OutlinedTextField(
+        SkautaiTextField(
             value = notes,
             onValueChange = { notes = it },
-            label = { Text("Pastabos") },
-            modifier = Modifier.fillMaxWidth(),
-            colors = eventFormFieldColors()
+            label = "Pastabos",
+            modifier = Modifier.fillMaxWidth()
         )
         EventPrimaryButton(
             text = "Prašyti iš ūkvedžio",
@@ -261,20 +259,18 @@ private fun BringFromUnitCard(
             options = unitItems.map { it.id to "${it.name} (${it.quantity})" },
             onSelect = { selectedItemId = it }
         )
-        OutlinedTextField(
+        SkautaiTextField(
             value = quantity,
             onValueChange = { quantity = it.filter(Char::isDigit) },
-            label = { Text("Kiekis") },
+            label = "Kiekis",
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = eventFormFieldColors()
+            singleLine = true
         )
-        OutlinedTextField(
+        SkautaiTextField(
             value = notes,
             onValueChange = { notes = it },
-            label = { Text("Pastabos") },
-            modifier = Modifier.fillMaxWidth(),
-            colors = eventFormFieldColors()
+            label = "Pastabos",
+            modifier = Modifier.fillMaxWidth()
         )
         EventPrimaryButton(
             text = "Pažymėti, kad atsivešiu",

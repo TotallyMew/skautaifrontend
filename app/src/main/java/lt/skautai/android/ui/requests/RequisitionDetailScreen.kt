@@ -18,6 +18,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -43,8 +45,19 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.RequisitionDto
+import lt.skautai.android.data.remote.RequisitionItemDto
+import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
+import lt.skautai.android.ui.common.SkautaiDangerButton
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiSecondaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.util.canCreateItems
+import lt.skautai.android.util.canForwardUnitRequests
+import lt.skautai.android.util.canReviewTopLevelRequisitions
+import lt.skautai.android.util.hasPermission
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,6 +74,7 @@ fun RequisitionDetailScreen(
     var rejectReason by remember { mutableStateOf("") }
     var rejectTarget by remember { mutableStateOf("") }
     var showCancelDialog by remember { mutableStateOf(false) }
+    var showAddInventoryDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(requestId) { viewModel.loadRequest(requestId) }
 
@@ -79,12 +93,12 @@ fun RequisitionDetailScreen(
             },
             title = { Text("Atmesti prašymą") },
             text = {
-                OutlinedTextField(
+                SkautaiTextField(
                     value = rejectReason,
                     onValueChange = { rejectReason = it },
+                    label = "Priežastis",
                     modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    label = { Text("Priežastis") }
+                    minLines = 2
                 )
             },
             confirmButton = {
@@ -107,22 +121,30 @@ fun RequisitionDetailScreen(
     }
 
     if (showCancelDialog) {
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atšaukti prašymą") },
-            text = { Text("Ar tikrai nori atšaukti šį pirkimo arba papildymo prašymą?") },
-            confirmButton = {
-                TextButton(onClick = {
+        SkautaiConfirmDialog(
+            title = "Atšaukti prašymą",
+            message = "Ar tikrai nori atšaukti šį pirkimo arba papildymo prašymą?",
+            confirmText = "Atšaukti",
+            dismissText = "Uždaryti",
+            isDanger = true,
+            onConfirm = {
                     showCancelDialog = false
                     viewModel.cancelRequest(requestId)
-                }) {
-                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
-                }
             },
-            dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uždaryti")
-                }
+            onDismiss = { showCancelDialog = false }
+        )
+    }
+
+    val successState = uiState as? RequisitionDetailUiState.Success
+    if (showAddInventoryDialog && successState != null) {
+        AddPurchasedItemDialog(
+            request = successState.request,
+            inventoryItems = successState.inventoryItems,
+            isSubmitting = successState.isActioning,
+            onDismiss = { if (!successState.isActioning) showAddInventoryDialog = false },
+            onConfirm = { requisitionItemId, action, existingItemId, notes ->
+                showAddInventoryDialog = false
+                viewModel.addPurchasedItemToInventory(requestId, requisitionItemId, action, existingItemId, notes)
             }
         )
     }
@@ -160,9 +182,17 @@ fun RequisitionDetailScreen(
                     val request = state.request
                     val canUnitReview = request.requestingUnitId != null &&
                         request.requestingUnitId == activeOrgUnitId &&
-                        request.unitReviewStatus == "PENDING"
-                    val canTopLevelReview = "requisitions.approve" in permissions &&
+                        request.unitReviewStatus == "PENDING" &&
+                        (
+                            permissions.hasPermission("items.request.approve.unit") ||
+                                permissions.canForwardUnitRequests()
+                            )
+                    val canTopLevelReview = permissions.canReviewTopLevelRequisitions() &&
                         request.topLevelReviewStatus == "PENDING"
+                    val canMarkPurchased = permissions.canReviewTopLevelRequisitions() &&
+                        request.status == "APPROVED"
+                    val canAddToInventory = permissions.canCreateItems() &&
+                        request.status == "PURCHASED"
                     val isOwnRequest = request.createdByUserId == currentUserId
                     val canCancel = isOwnRequest &&
                         request.status !in listOf("APPROVED", "REJECTED", "CANCELLED")
@@ -174,12 +204,16 @@ fun RequisitionDetailScreen(
                         canCancel = canCancel,
                         canUnitReview = canUnitReview,
                         canTopLevelReview = canTopLevelReview,
+                        canMarkPurchased = canMarkPurchased,
+                        canAddToInventory = canAddToInventory,
                         onCancel = { showCancelDialog = true },
                         onApproveInUnit = { viewModel.approveInUnit(requestId) },
                         onForwardToTop = { viewModel.forwardToTop(requestId) },
                         onRejectInUnit = { rejectTarget = "UNIT" },
                         onApproveTop = { viewModel.approveTopLevel(requestId) },
-                        onRejectTop = { rejectTarget = "TOP" }
+                        onRejectTop = { rejectTarget = "TOP" },
+                        onMarkPurchased = { viewModel.markPurchased(requestId) },
+                        onAddToInventory = { showAddInventoryDialog = true }
                     )
                 }
             }
@@ -195,12 +229,16 @@ private fun RequisitionDetailContent(
     canCancel: Boolean,
     canUnitReview: Boolean,
     canTopLevelReview: Boolean,
+    canMarkPurchased: Boolean,
+    canAddToInventory: Boolean,
     onCancel: () -> Unit,
     onApproveInUnit: () -> Unit,
     onForwardToTop: () -> Unit,
     onRejectInUnit: () -> Unit,
     onApproveTop: () -> Unit,
-    onRejectTop: () -> Unit
+    onRejectTop: () -> Unit,
+    onMarkPurchased: () -> Unit,
+    onAddToInventory: () -> Unit
 ) {
     val item = request.items.firstOrNull()
     Column(
@@ -249,6 +287,33 @@ private fun RequisitionDetailContent(
             }
         }
 
+        androidx.compose.material3.Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Prašomi daiktai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                HorizontalDivider()
+                request.items.forEachIndexed { index, item ->
+                    if (index > 0) HorizontalDivider()
+                    RequisitionItemRow(
+                        item = item,
+                        showInventoryActions = index == request.items.lastIndex,
+                        request = request,
+                        canMarkPurchased = canMarkPurchased,
+                        canAddToInventory = canAddToInventory,
+                        isActioning = isActioning,
+                        onMarkPurchased = onMarkPurchased,
+                        onAddToInventory = onAddToInventory
+                    )
+                }
+            }
+        }
+
         if (canUnitReview) {
             androidx.compose.material3.Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -265,32 +330,36 @@ private fun RequisitionDetailContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(onClick = onApproveInUnit, enabled = !isActioning, modifier = Modifier.weight(1f)) {
-                            Text("Patvirtinti vienete")
-                        }
-                        OutlinedButton(onClick = onForwardToTop, enabled = !isActioning, modifier = Modifier.weight(1f)) {
-                            Text("Perduoti inventorininkui")
-                        }
+                        SkautaiPrimaryButton(
+                            text = "Patvirtinti vienete",
+                            onClick = onApproveInUnit,
+                            enabled = !isActioning,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SkautaiSecondaryButton(
+                            text = "Perduoti inventorininkui",
+                            onClick = onForwardToTop,
+                            enabled = !isActioning,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    OutlinedButton(
+                    SkautaiDangerButton(
+                        text = "Atmesti",
                         onClick = onRejectInUnit,
                         enabled = !isActioning,
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Atmesti")
-                    }
+                    )
                 }
             }
         }
 
         if (canCancel) {
-            OutlinedButton(
+            SkautaiDangerButton(
+                text = "Atšaukti prašymą",
                 onClick = onCancel,
                 enabled = !isActioning,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Atšaukti prašymą", color = MaterialTheme.colorScheme.error)
-            }
+            )
         }
 
         if (canTopLevelReview) {
@@ -309,17 +378,176 @@ private fun RequisitionDetailContent(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Button(onClick = onApproveTop, enabled = !isActioning, modifier = Modifier.weight(1f)) {
-                            Text("Patvirtinti")
-                        }
-                        OutlinedButton(onClick = onRejectTop, enabled = !isActioning, modifier = Modifier.weight(1f)) {
-                            Text("Atmesti")
-                        }
+                        SkautaiPrimaryButton(
+                            text = "Patvirtinti",
+                            onClick = onApproveTop,
+                            enabled = !isActioning,
+                            modifier = Modifier.weight(1f)
+                        )
+                        SkautaiDangerButton(
+                            text = "Atmesti",
+                            onClick = onRejectTop,
+                            enabled = !isActioning,
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun RequisitionItemRow(
+    item: RequisitionItemDto,
+    showInventoryActions: Boolean,
+    request: RequisitionDto,
+    canMarkPurchased: Boolean,
+    canAddToInventory: Boolean,
+    isActioning: Boolean,
+    onMarkPurchased: () -> Unit,
+    onAddToInventory: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(item.itemName, fontWeight = FontWeight.SemiBold)
+                item.itemDescription?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        text = it,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Text(
+                text = "${item.quantityRequested} vnt.",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+        item.notes?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item.quantityApproved?.let {
+            Text(
+                text = "Patvirtinta: $it vnt.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary
+            )
+        }
+        item.rejectionReason?.takeIf { it.isNotBlank() }?.let {
+            Text(
+                text = "Atmetimo priežastis: $it",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+
+        if (showInventoryActions && canMarkPurchased) {
+            SkautaiPrimaryButton(
+                text = "Pažymėti kaip nupirkta",
+                onClick = onMarkPurchased,
+                enabled = !isActioning,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        if (showInventoryActions && canAddToInventory) {
+            SkautaiPrimaryButton(
+                text = "Pridėti į inventorių",
+                onClick = onAddToInventory,
+                enabled = !isActioning,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+
+@Composable
+private fun AddPurchasedItemDialog(
+    request: RequisitionDto,
+    inventoryItems: List<ItemDto>,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String, String?, String?) -> Unit
+) {
+    val line = request.items.firstOrNull { it.itemId == null } ?: return
+    var action by remember { mutableStateOf("NEW_ITEM") }
+    var expanded by remember { mutableStateOf(false) }
+    var selectedExistingItemId by remember { mutableStateOf<String?>(null) }
+    var notes by remember { mutableStateOf("") }
+    val selectedItem = inventoryItems.firstOrNull { it.id == selectedExistingItemId }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Pridėti nupirktą daiktą") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(line.itemName, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = { action = "NEW_ITEM" }, enabled = !isSubmitting) {
+                        Text("Naujas įrašas")
+                    }
+                    OutlinedButton(onClick = { action = "RESTOCK_EXISTING" }, enabled = !isSubmitting) {
+                        Text("Papildymas")
+                    }
+                }
+                if (action == "RESTOCK_EXISTING") {
+                    Box {
+                        OutlinedTextField(
+                            value = selectedItem?.name ?: "Pasirink daiktą",
+                            onValueChange = {},
+                            readOnly = true,
+                            label = { Text("Papildomas daiktas") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Button(onClick = { expanded = true }, modifier = Modifier.align(Alignment.CenterEnd)) {
+                            Text("Rinktis")
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            inventoryItems.forEach { item ->
+                                DropdownMenuItem(
+                                    text = { Text("${item.name} (${item.quantity} vnt.)") },
+                                    onClick = {
+                                        selectedExistingItemId = item.id
+                                        expanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting && (action == "NEW_ITEM" || selectedExistingItemId != null),
+                onClick = { onConfirm(line.id, action, selectedExistingItemId, notes) }
+            ) { Text("Pridėti") }
+        },
+        dismissButton = {
+            TextButton(enabled = !isSubmitting, onClick = onDismiss) { Text("Uždaryti") }
+        }
+    )
 }
 
 @Composable

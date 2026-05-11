@@ -10,10 +10,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateEventInventoryAllocationRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryBucketRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseItemRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
@@ -25,9 +28,11 @@ import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
 import lt.skautai.android.data.remote.UpdateEventInventoryAllocationRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryBucketRequestDto
+import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.UploadRepository
+import lt.skautai.android.util.InventoryCsv
 import lt.skautai.android.util.TokenManager
 
 sealed interface EventUkvedysUiState {
@@ -41,6 +46,7 @@ sealed interface EventUkvedysUiState {
         val selectedPastovykleId: String? = null,
         val pastovykleInventoryById: Map<String, List<PastovykleInventoryDto>> = emptyMap(),
         val pastovykleRequestsById: Map<String, List<EventInventoryRequestDto>> = emptyMap(),
+        val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
     ) : EventUkvedysUiState
@@ -76,9 +82,10 @@ class EventUkvedysViewModel @Inject constructor(
                         pastovykles = current?.pastovykles.orEmpty(),
                         purchases = current?.purchases.orEmpty(),
                         createdPurchase = current?.createdPurchase,
-                        selectedPastovykleId = current?.selectedPastovykleId,
-                        pastovykleInventoryById = current?.pastovykleInventoryById.orEmpty(),
-                        pastovykleRequestsById = current?.pastovykleRequestsById.orEmpty(),
+                   selectedPastovykleId = current?.selectedPastovykleId,
+                   pastovykleInventoryById = current?.pastovykleInventoryById.orEmpty(),
+                   pastovykleRequestsById = current?.pastovykleRequestsById.orEmpty(),
+                   currentUserId = current?.currentUserId ?: tokenManager.userId.first(),
                         isWorking = current?.isWorking == true,
                         error = current?.error
                     )
@@ -258,6 +265,79 @@ class EventUkvedysViewModel @Inject constructor(
         }
     }
 
+    fun eventInventoryExportCsv(): String {
+        val current = _uiState.value as? EventUkvedysUiState.Success
+        return InventoryCsv.exportEventPlan(current?.inventoryPlan?.items.orEmpty())
+    }
+
+    fun eventInventoryImportTemplateCsv(): String = InventoryCsv.eventTemplate()
+
+    fun importEventInventoryCsv(eventId: String, csv: String) {
+        viewModelScope.launch {
+            val current = _uiState.value as? EventUkvedysUiState.Success ?: return@launch
+            val result = InventoryCsv.parseEventPlan(csv)
+            if (result.hasFatalErrors || result.rows.isEmpty()) {
+                _uiState.value = current.copy(
+                    error = result.errors.firstOrNull() ?: "Importe nerasta tinkamų plano eilučių."
+                )
+                return@launch
+            }
+
+            _uiState.value = current.copy(isWorking = true, error = null)
+            val existingByKey = current.inventoryPlan?.items.orEmpty()
+                .associateBy { InventoryCsv.eventPlanKey(it.name) }
+            val rowsToCreate = mutableListOf<CreateEventInventoryItemRequestDto>()
+            var updated = 0
+            var failed = 0
+
+            result.rows.forEach { request ->
+                val existing = existingByKey[InventoryCsv.eventPlanKey(request.name)]
+                if (existing == null) {
+                    rowsToCreate += request
+                } else {
+                    eventRepository.updateInventoryItem(
+                        eventId,
+                        existing.id,
+                        UpdateEventInventoryItemRequestDto(
+                            plannedQuantity = existing.plannedQuantity + request.plannedQuantity,
+                            notes = mergeNotes(existing.notes, request.notes)
+                        )
+                    )
+                        .onSuccess { updated += 1 }
+                        .onFailure { failed += 1 }
+                }
+            }
+
+            val createResult = if (rowsToCreate.isNotEmpty()) {
+                eventRepository.createInventoryItemsBulk(
+                    eventId,
+                    CreateEventInventoryItemsBulkRequestDto(rowsToCreate)
+                )
+            } else {
+                Result.success(lt.skautai.android.data.remote.EventInventoryItemListDto(emptyList(), 0))
+            }
+
+            createResult.onSuccess { created ->
+                val refreshedPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
+                (_uiState.value as? EventUkvedysUiState.Success)?.let {
+                    _uiState.value = it.copy(
+                        inventoryPlan = refreshedPlan ?: it.inventoryPlan,
+                        isWorking = false,
+                        error = result.summary(created = created.items.size, updated = updated) +
+                            if (failed > 0) " Nepavyko: $failed." else ""
+                    )
+                }
+            }.onFailure { error ->
+                (_uiState.value as? EventUkvedysUiState.Success)?.let {
+                    _uiState.value = it.copy(
+                        isWorking = false,
+                        error = error.message ?: "Nepavyko importuoti CSV."
+                    )
+                }
+            }
+        }
+    }
+
     fun createInventoryBucket(eventId: String, name: String, type: String, pastovykleId: String?, notes: String) {
         val current = _uiState.value as? EventUkvedysUiState.Success ?: return
         if (name.isBlank()) {
@@ -421,5 +501,17 @@ class EventUkvedysViewModel @Inject constructor(
 
     fun clearError() {
         (_uiState.value as? EventUkvedysUiState.Success)?.let { _uiState.value = it.copy(error = null) }
+    }
+
+    fun showMessage(message: String) {
+        (_uiState.value as? EventUkvedysUiState.Success)?.let {
+            _uiState.value = it.copy(error = message)
+        }
+    }
+
+    private fun mergeNotes(existing: String?, imported: String?): String? {
+        if (imported.isNullOrBlank()) return existing
+        if (existing.isNullOrBlank()) return imported
+        return listOf(existing.trim(), imported.trim()).distinct().joinToString("; ")
     }
 }

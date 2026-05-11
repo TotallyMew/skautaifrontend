@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.EventDto
@@ -24,6 +25,7 @@ sealed interface EventPurchasesUiState {
     data class Success(
         val event: EventDto,
         val purchases: List<EventPurchaseDto> = emptyList(),
+        val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
     ) : EventPurchasesUiState
@@ -51,10 +53,11 @@ class EventPurchasesViewModel @Inject constructor(
                 if (event != null) {
                     val current = _uiState.value as? EventPurchasesUiState.Success
                     _uiState.value = EventPurchasesUiState.Success(
-                        event = event,
-                        purchases = current?.purchases.orEmpty(),
-                        isWorking = current?.isWorking == true,
-                        error = current?.error
+                    event = event,
+                    purchases = current?.purchases.orEmpty(),
+                    currentUserId = current?.currentUserId ?: tokenManager.userId.first(),
+                    isWorking = current?.isWorking == true,
+                    error = current?.error
                     )
                 } else if (_uiState.value !is EventPurchasesUiState.Success) {
                     _uiState.value = EventPurchasesUiState.Loading

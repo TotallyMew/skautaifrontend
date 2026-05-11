@@ -23,18 +23,24 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +48,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -62,6 +71,11 @@ enum class SkautaiSurfaceRole {
     Muted,
     Identity,
     DenseList
+}
+
+enum class SummaryVariant {
+    Plain,
+    Hero
 }
 
 @Composable
@@ -166,7 +180,20 @@ fun SkautaiSearchBar(
             {
                 if (onTrailingIconClick != null) {
                     IconButton(onClick = onTrailingIconClick) {
-                        Icon(icon, contentDescription = null)
+                        Surface(
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    icon,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 } else {
                     Icon(icon, contentDescription = null)
@@ -175,6 +202,181 @@ fun SkautaiSearchBar(
         },
         singleLine = true,
         shape = RoundedCornerShape(20.dp)
+    )
+}
+
+@Composable
+fun SkautaiTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier = Modifier,
+    placeholder: String? = null,
+    isError: Boolean = false,
+    supportingText: String? = null,
+    singleLine: Boolean = false,
+    minLines: Int = 1,
+    maxLines: Int = if (singleLine) 1 else Int.MAX_VALUE,
+    leadingIcon: ImageVector? = null,
+    trailingIcon: ImageVector? = null,
+    onTrailingIconClick: (() -> Unit)? = null,
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+    keyboardActions: KeyboardActions = KeyboardActions.Default,
+    readOnly: Boolean = false,
+    enabled: Boolean = true
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier.fillMaxWidth(),
+        label = { Text(label) },
+        placeholder = placeholder?.let { text -> { Text(text) } },
+        isError = isError,
+        supportingText = supportingText?.let { text -> { Text(text) } },
+        singleLine = singleLine,
+        minLines = minLines,
+        maxLines = maxLines,
+        leadingIcon = leadingIcon?.let { icon -> { Icon(icon, contentDescription = null) } },
+        trailingIcon = trailingIcon?.let { icon ->
+            {
+                if (onTrailingIconClick != null) {
+                    IconButton(onClick = onTrailingIconClick) {
+                        Icon(icon, contentDescription = null)
+                    }
+                } else {
+                    Icon(icon, contentDescription = null)
+                }
+            }
+        },
+        visualTransformation = visualTransformation,
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        shape = MaterialTheme.shapes.large,
+        readOnly = readOnly,
+        enabled = enabled,
+        colors = OutlinedTextFieldDefaults.colors()
+    )
+}
+
+@Composable
+fun SkautaiPrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: ImageVector? = null
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large
+    ) {
+        leadingIcon?.let {
+            Icon(it, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+        }
+        Text(text)
+    }
+}
+
+@Composable
+fun SkautaiSecondaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: ImageVector? = null
+) {
+    FilledTonalButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large
+    ) {
+        leadingIcon?.let {
+            Icon(it, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+        }
+        Text(text)
+    }
+}
+
+@Composable
+fun SkautaiTertiaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: ImageVector? = null
+) {
+    TextButton(onClick = onClick, enabled = enabled, modifier = modifier) {
+        leadingIcon?.let {
+            Icon(it, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+        }
+        Text(text)
+    }
+}
+
+@Composable
+fun SkautaiDangerButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    leadingIcon: ImageVector? = null
+) {
+    OutlinedButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = MaterialTheme.colorScheme.error
+        ),
+        border = ButtonDefaults.outlinedButtonBorder(enabled).copy(
+            brush = Brush.linearGradient(
+                listOf(MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.error)
+            )
+        )
+    ) {
+        leadingIcon?.let {
+            Icon(it, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+        }
+        Text(text)
+    }
+}
+
+@Composable
+fun SkautaiConfirmDialog(
+    title: String,
+    message: String,
+    confirmText: String,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    dismissText: String = "Atšaukti",
+    isDanger: Boolean = false,
+    enabled: Boolean = true
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = { Text(message) },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = enabled,
+                colors = if (isDanger) {
+                    ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                } else {
+                    ButtonDefaults.textButtonColors()
+                }
+            ) {
+                Text(confirmText)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(dismissText) }
+        }
     )
 }
 
@@ -224,6 +426,37 @@ fun SkautaiStatusPill(
             fontWeight = FontWeight.SemiBold,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
         )
+    }
+}
+
+@Composable
+fun SkautaiStatusBadge(
+    label: String,
+    tone: SkautaiStatusTone,
+    modifier: Modifier = Modifier,
+    showIcon: Boolean = false
+) {
+    val style = skautaiStatusStyle(tone)
+    Surface(
+        color = style.containerColor,
+        contentColor = style.contentColor,
+        shape = RoundedCornerShape(999.dp),
+        modifier = modifier
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (showIcon) {
+                style.icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(14.dp)) }
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
     }
 }
 
@@ -439,21 +672,22 @@ fun SkautaiSummaryCard(
     eyebrow: String? = null,
     metrics: List<Pair<String, String>> = emptyList(),
     foresty: Boolean = false,
+    variant: SummaryVariant = if (foresty) SummaryVariant.Hero else SummaryVariant.Plain,
     content: (@Composable () -> Unit)? = null
 ) {
-    val containerColor = if (foresty) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceBright
-    val titleColor = if (foresty) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val subtitleColor = if (foresty) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f) else MaterialTheme.colorScheme.onSurfaceVariant
-    val eyebrowColor = if (foresty) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f) else MaterialTheme.colorScheme.primary
+    val isHero = variant == SummaryVariant.Hero
+    val titleColor = if (isHero) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+    val subtitleColor = if (isHero) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f) else MaterialTheme.colorScheme.onSurfaceVariant
+    val eyebrowColor = if (isHero) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f) else MaterialTheme.colorScheme.primary
     SkautaiCard(
         modifier = modifier,
-        tonal = if (foresty) Color.Transparent else MaterialTheme.colorScheme.surfaceBright,
+        tonal = if (isHero) Color.Transparent else MaterialTheme.colorScheme.surfaceBright,
         shape = RoundedCornerShape(28.dp)
     ) {
         Column(
             modifier = Modifier
                 .background(
-                    brush = if (foresty) {
+                    brush = if (isHero) {
                         Brush.linearGradient(ScoutGradients.HomeHero)
                     } else {
                         Brush.linearGradient(
@@ -497,10 +731,7 @@ fun SkautaiSummaryCard(
                                 text = value,
                                 style = MaterialTheme.typography.titleMedium,
                                 color = titleColor,
-                                fontWeight = FontWeight.SemiBold,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                softWrap = false
+                                fontWeight = FontWeight.SemiBold
                             )
                         }
                     }
@@ -611,19 +842,54 @@ fun MetadataRow(label: String, value: String) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.Top
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.weight(0.4f)
-        )
+        Text(text = label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.weight(1f))
         Text(
             text = value,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(0.6f)
+            textAlign = TextAlign.End
         )
     }
+}
+
+fun itemStatusTone(status: String): SkautaiStatusTone = when (status) {
+    "ACTIVE" -> SkautaiStatusTone.Success
+    "PENDING_APPROVAL" -> SkautaiStatusTone.Warning
+    "INACTIVE" -> SkautaiStatusTone.Neutral
+    else -> SkautaiStatusTone.Neutral
+}
+
+fun itemConditionTone(condition: String): SkautaiStatusTone = when (condition) {
+    "GOOD" -> SkautaiStatusTone.Success
+    "DAMAGED" -> SkautaiStatusTone.Warning
+    "WRITTEN_OFF" -> SkautaiStatusTone.Danger
+    else -> SkautaiStatusTone.Neutral
+}
+
+fun eventStatusTone(status: String): SkautaiStatusTone = when (status) {
+    "PLANNING" -> SkautaiStatusTone.Info
+    "ACTIVE" -> SkautaiStatusTone.Success
+    "WRAP_UP" -> SkautaiStatusTone.Warning
+    "COMPLETED" -> SkautaiStatusTone.Neutral
+    "CANCELLED" -> SkautaiStatusTone.Danger
+    else -> SkautaiStatusTone.Neutral
+}
+
+fun requestStatusTone(status: String): SkautaiStatusTone = when (status) {
+    "PENDING", "SUBMITTED", "FORWARDED", "PENDING_TOP_LEVEL_APPROVAL" -> SkautaiStatusTone.Warning
+    "APPROVED", "FULFILLED", "COMPLETED" -> SkautaiStatusTone.Success
+    "REJECTED", "CANCELLED" -> SkautaiStatusTone.Danger
+    else -> SkautaiStatusTone.Neutral
+}
+
+fun requisitionStatusTone(status: String): SkautaiStatusTone = requestStatusTone(status)
+
+fun reservationStatusTone(status: String): SkautaiStatusTone = when (status) {
+    "PENDING", "PENDING_UNIT_REVIEW", "PENDING_TOP_LEVEL_REVIEW" -> SkautaiStatusTone.Warning
+    "APPROVED", "ISSUED", "RETURNED", "COMPLETED" -> SkautaiStatusTone.Success
+    "REJECTED", "CANCELLED", "OVERDUE" -> SkautaiStatusTone.Danger
+    else -> SkautaiStatusTone.Neutral
 }
 
 fun itemStatusLabel(status: String): String = when (status) {
@@ -637,7 +903,7 @@ fun itemConditionLabel(condition: String): String = when (condition) {
     "GOOD" -> "Gera"
     "DAMAGED" -> "Vidutinė"
     "WRITTEN_OFF" -> "Bloga"
-    else -> condition
+    else -> customCodeLabel(condition)
 }
 
 fun inventoryTypeLabel(type: String): String = when (type) {
@@ -655,8 +921,15 @@ fun inventoryCategoryLabel(category: String): String = when (category) {
     "UNIFORMS" -> "Uniformos"
     "BOOKS" -> "Knygos"
     "PERSONAL_LOANS" -> "Asmeniniai"
-    else -> category
+    else -> customCodeLabel(category)
 }
+
+private fun customCodeLabel(value: String): String =
+    value.trim()
+        .replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "")
+        .replace('_', ' ')
+        .lowercase()
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
 fun itemOriginLabel(origin: String): String = when (origin) {
     "UNIT_ACQUIRED" -> "Savo vieneto"

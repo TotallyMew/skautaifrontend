@@ -68,6 +68,7 @@ import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.locations.LocationPickerField
 import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.inventoryCategoryLabel
@@ -354,6 +355,27 @@ private fun ContextStep(
             errorText = uiState.categoryError
         )
 
+        var customCategory by remember(uiState.category) {
+            mutableStateOf(
+                if (inventoryCategoryOptions().none { it.first == uiState.category }) {
+                    uiState.category.toInventoryCustomInput()
+                } else {
+                    ""
+                }
+            )
+        }
+        SkautaiTextField(
+            value = customCategory,
+            onValueChange = {
+                customCategory = it
+                val normalized = it.toInventoryOptionCode(maxLength = 30)
+                if (normalized.isNotBlank()) viewModel.onCategoryChange(normalized)
+            },
+            label = "Kita kategorija",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
         if (uiState.mode == "UNIT_OWN") {
             SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -396,10 +418,10 @@ private fun ContextStep(
             )
         }
 
-        OutlinedTextField(
+        SkautaiTextField(
             value = uiState.temporaryStorageLabel,
             onValueChange = viewModel::onTemporaryStorageLabelChange,
-            label = { Text("Vienkartinė laikymo vieta") },
+            label = "Vienkartinė laikymo vieta",
             modifier = Modifier.fillMaxWidth(),
             minLines = 2
         )
@@ -433,20 +455,20 @@ private fun ItemInfoStep(
 
         PhotoField(uiState = uiState, viewModel = viewModel)
 
-        OutlinedTextField(
+        SkautaiTextField(
             value = uiState.name,
             onValueChange = viewModel::onNameChange,
-            label = { Text("Pavadinimas *") },
+            label = "Pavadinimas *",
             isError = uiState.nameError != null,
-            supportingText = uiState.nameError?.let { message -> { Text(message) } },
+            supportingText = uiState.nameError,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
-        OutlinedTextField(
+        SkautaiTextField(
             value = uiState.description,
             onValueChange = viewModel::onDescriptionChange,
-            label = { Text("Aprašymas") },
+            label = "Aprašymas",
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             maxLines = 4
@@ -458,9 +480,27 @@ private fun ItemInfoStep(
             errorText = uiState.quantityError
         )
 
+        SkautaiTextField(
+            value = uiState.unitOfMeasure,
+            onValueChange = viewModel::onUnitOfMeasureChange,
+            label = "Mato vienetas",
+            placeholder = "vnt., poros, komplektai, m, l",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+
         ConditionSelector(
             selected = uiState.condition,
             onSelected = viewModel::onConditionChange
+        )
+
+        SkautaiTextField(
+            value = uiState.statusReason,
+            onValueChange = viewModel::onStatusReasonChange,
+            label = "Būklės / remonto / nurašymo priežastis",
+            modifier = Modifier.fillMaxWidth(),
+            minLines = 2,
+            maxLines = 3
         )
 
         ResponsibleUserDropdown(
@@ -469,13 +509,22 @@ private fun ItemInfoStep(
             onSelected = viewModel::onResponsibleUserChange
         )
 
-        OutlinedTextField(
+        SkautaiTextField(
             value = uiState.notes,
             onValueChange = viewModel::onNotesChange,
-            label = { Text("Pastabos") },
+            label = "Pastabos",
             modifier = Modifier.fillMaxWidth(),
             minLines = 2,
             maxLines = 4
+        )
+
+        SkautaiTextField(
+            value = uiState.tags,
+            onValueChange = viewModel::onTagsChange,
+            label = "Žymos",
+            placeholder = "žygis, žiema, virtuvė, brangus",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
 
         PurchaseDateField(
@@ -483,10 +532,10 @@ private fun ItemInfoStep(
             onSelected = viewModel::onPurchaseDateSelected
         )
 
-        OutlinedTextField(
+        SkautaiTextField(
             value = uiState.purchasePrice,
             onValueChange = viewModel::onPurchasePriceChange,
-            label = { Text("Pirkimo kaina (EUR)") },
+            label = "Pirkimo kaina (EUR)",
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -533,17 +582,17 @@ private fun CustomFieldsEditor(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                OutlinedTextField(
+                SkautaiTextField(
                     value = field.fieldName,
                     onValueChange = { onNameChange(index, it) },
-                    label = { Text("Laukas") },
+                    label = "Laukas",
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
-                OutlinedTextField(
+                SkautaiTextField(
                     value = field.fieldValue,
                     onValueChange = { onValueChange(index, it) },
-                    label = { Text("Reikšmė") },
+                    label = "Reikšmė",
                     modifier = Modifier.weight(1f),
                     singleLine = true
                 )
@@ -585,7 +634,14 @@ private fun ReviewStep(uiState: InventoryAddEditUiState) {
                 ReviewRow("Atsakingas žmogus", selectedResponsibleUser?.fullName() ?: "Nepriskirtas")
                 ReviewRow("Kilmė", originLabelForMode(uiState.mode))
                 ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
+                ReviewRow("Mato vienetas", uiState.unitOfMeasure.ifBlank { "vnt." })
                 ReviewRow("Būklė", itemConditionLabel(uiState.condition))
+                uiState.statusReason.takeIf { it.isNotBlank() }?.let {
+                    ReviewRow("Priežastis", it)
+                }
+                uiState.tags.takeIf { it.isNotBlank() }?.let {
+                    ReviewRow("Žymos", it)
+                }
                 uiState.photoUrl.takeIf { it.isNotBlank() }?.let {
                     ReviewRow("Nuotrauka", "Pridėta")
                 }
@@ -773,12 +829,12 @@ private fun QuantityStepper(
         ) {
             androidx.compose.material3.Icon(Icons.Default.Remove, contentDescription = "Mažinti")
         }
-        OutlinedTextField(
+        SkautaiTextField(
             value = quantity,
             onValueChange = onQuantityChange,
-            label = { Text("Kiekis *") },
+            label = "Kiekis *",
             isError = errorText != null,
-            supportingText = errorText?.let { message -> { Text(message) } },
+            supportingText = errorText,
             modifier = Modifier.weight(1f),
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -841,6 +897,20 @@ private fun ConditionSelector(
                 }
             }
         }
+        var customCondition by remember(selected) {
+            mutableStateOf(if (conditionOptions().none { it.first == selected }) selected.toInventoryCustomInput() else "")
+        }
+        SkautaiTextField(
+            value = customCondition,
+            onValueChange = {
+                customCondition = it
+                val normalized = it.toInventoryOptionCode(maxLength = 30)
+                if (normalized.isNotBlank()) onSelected(normalized)
+            },
+            label = "Kita būklė",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
     }
 }
 
@@ -890,11 +960,11 @@ private fun ReviewRow(label: String, value: String) {
 
 @Composable
 private fun ReadOnlyInfo(label: String, value: String) {
-    OutlinedTextField(
+    SkautaiTextField(
         value = value,
         onValueChange = {},
         readOnly = true,
-        label = { Text(label) },
+        label = label,
         modifier = Modifier.fillMaxWidth()
     )
 }
@@ -909,7 +979,7 @@ private fun DropdownField(
     errorText: String? = null
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = options.firstOrNull { it.first == selected }?.second ?: selected
+    val selectedLabel = options.firstOrNull { it.first == selected }?.second ?: selected.toInventoryDisplayLabel()
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
         OutlinedTextField(
             value = selectedLabel,
@@ -991,6 +1061,23 @@ private fun inventoryCategoryOptions(): List<Pair<String, String>> = listOf(
     "BOOKS" to "Knygos",
     "PERSONAL_LOANS" to "Asmeninis skolinimas"
 )
+
+private fun String.toInventoryOptionCode(maxLength: Int): String =
+    ("CUSTOM_" + toInventoryCustomInput())
+        .uppercase()
+        .replace(Regex("[^A-Z0-9]+"), "_")
+        .trim('_')
+        .take(maxLength)
+
+private fun String.toInventoryCustomInput(): String =
+    trim()
+        .replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "")
+        .replace('_', ' ')
+
+private fun String.toInventoryDisplayLabel(): String =
+    toInventoryCustomInput()
+        .lowercase()
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
 private fun conditionOptions(): List<Pair<String, String>> = listOf(
     "GOOD" to "Gera",

@@ -48,6 +48,7 @@ import androidx.navigation.NavController
 import lt.skautai.android.data.remote.UserTuntasDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.util.NavRoutes
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -275,10 +276,10 @@ private fun InviteCard(
                     fontWeight = FontWeight.SemiBold
                 )
             }
-            OutlinedTextField(
+            SkautaiTextField(
                 value = inviteCode,
                 onValueChange = onInviteCodeChange,
-                label = { Text("Pakvietimo kodas") },
+                label = "Pakvietimo kodas",
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )

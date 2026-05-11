@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.DrawerValue
@@ -47,6 +48,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -60,6 +62,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.canManageLocations
 import lt.skautai.android.util.canViewMembers
@@ -78,7 +83,10 @@ fun MainScaffold(
     content: @Composable () -> Unit
 ) {
     val pendingSyncViewModel: PendingSyncViewModel = hiltViewModel()
+    val attentionViewModel: AttentionViewModel = hiltViewModel()
     val syncStatus by pendingSyncViewModel.syncStatus.collectAsState()
+    val attentionState by attentionViewModel.uiState.collectAsState()
+    val lifecycleOwner = LocalLifecycleOwner.current
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -89,12 +97,20 @@ fun MainScaffold(
     val activeTuntasName by tokenManager.activeTuntasName.collectAsState(initial = null)
     val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
 
-    val topBarTitle = currentRouteTitle(currentRoute)
+    val topBarTitle = NavRoutes.titleFor(currentRoute)
     val drawerScrollState = rememberScrollState()
+    val assignedRequisitionCount = attentionState.assignedRequisitionCount
+
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            attentionViewModel.refresh()
+        }
+    }
 
     val visibleNavItems = BottomNavItem.all.filter { item ->
         shouldShowBottomNavItem(item, permissions)
     }
+    val bottomNavLabels = visibleNavItems.take(4).map { it.label }.toSet()
 
     val quickAccessItems = buildList {
         add(
@@ -124,6 +140,7 @@ fun MainScaffold(
         add(
             DrawerNavItem(
                 label = "Pirkimai",
+                badgeCount = assignedRequisitionCount.takeIf { it > 0 },
                 icon = Icons.Default.ShoppingCart,
                 selected = currentRoute == NavRoutes.RequestList.route,
                 onClick = { navController.navigate(NavRoutes.RequestList.createRoute()) }
@@ -137,7 +154,7 @@ fun MainScaffold(
                 onClick = { navController.navigate(NavRoutes.SharedRequestList.route) }
             )
         )
-    }
+    }.filterNot { item -> item.label in bottomNavLabels }
 
     val managementItems = buildList {
         if (permissions.canManageLocations()) {
@@ -202,7 +219,7 @@ fun MainScaffold(
             add(
                 DrawerNavItem(
                     label = "Bandyti sinchronizaciją dar kartą",
-                    icon = Icons.Default.SwapHoriz,
+                    icon = Icons.Default.Refresh,
                     selected = false,
                     onClick = { pendingSyncViewModel.retryFailed() }
                 )
@@ -335,6 +352,12 @@ fun MainScaffold(
                                 onClick = { navController.navigate(NavRoutes.SyncStatus.route) }
                             )
                         }
+                        if (assignedRequisitionCount > 0) {
+                            RequisitionAttentionPill(
+                                count = assignedRequisitionCount,
+                                onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "assigned")) }
+                            )
+                        }
                         topBarActions()
                     },
                     colors = TopAppBarDefaults.topAppBarColors(
@@ -432,13 +455,13 @@ private fun SyncStatusPill(
     val (label, icon, containerColor, contentColor) = when {
         status.failedCount > 0 -> Quadruple(
             "${status.failedCount} ${syncErrorLabel(status.failedCount)}",
-            Icons.Default.SwapHoriz,
+            Icons.Default.Refresh,
             MaterialTheme.colorScheme.errorContainer,
             MaterialTheme.colorScheme.onErrorContainer
         )
         status.pendingCount > 0 -> Quadruple(
             "${status.pendingCount} laukia",
-            Icons.Default.SwapHoriz,
+            Icons.Default.Refresh,
             MaterialTheme.colorScheme.tertiaryContainer,
             MaterialTheme.colorScheme.onTertiaryContainer
         )
@@ -468,6 +491,35 @@ private fun SyncStatusPill(
             )
             Text(
                 text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+    }
+}
+
+@Composable
+private fun RequisitionAttentionPill(
+    count: Int,
+    onClick: () -> Unit
+) {
+    Surface(
+        onClick = onClick,
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        shape = RoundedCornerShape(999.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.ShoppingCart,
+                contentDescription = null
+            )
+            Text(
+                text = "$count praš.",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -540,7 +592,7 @@ private fun DrawerSection(
         ) {
             items.forEachIndexed { index, item ->
                 NavigationDrawerItem(
-                    label = { Text(item.label) },
+                    label = { Text(item.labelWithBadge()) },
                     icon = { Icon(item.icon, contentDescription = null) },
                     selected = item.selected,
                     onClick = { onItemClick(item.onClick) },
@@ -562,10 +614,13 @@ private fun DrawerSection(
 
 private data class DrawerNavItem(
     val label: String,
+    val badgeCount: Int? = null,
     val icon: ImageVector,
     val selected: Boolean,
     val onClick: () -> Unit
-)
+) {
+    fun labelWithBadge(): String = badgeCount?.let { "$label ($it)" } ?: label
+}
 
 private data class Quadruple<A, B, C, D>(
     val first: A,

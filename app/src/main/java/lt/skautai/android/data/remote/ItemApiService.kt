@@ -44,6 +44,20 @@ interface ItemApiService {
         @Path("itemId") itemId: String
     ): Response<ItemConditionLogListResponseDto>
 
+    @GET("api/items/{itemId}/transfers")
+    suspend fun getItemTransfers(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String
+    ): Response<ItemTransferListResponseDto>
+
+    @GET("api/items/{itemId}/history")
+    suspend fun getItemHistory(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String
+    ): Response<ItemHistoryListResponseDto>
+
     @GET("api/items/resolve-qr/{tokenValue}")
     suspend fun resolveQrToken(
         @Header("Authorization") token: String,
@@ -71,5 +85,29 @@ interface ItemApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Path("itemId") itemId: String,
         @Body request: UpdateItemRequestDto
+    ): Response<ItemDto>
+
+    @POST("api/items/{itemId}/transfer-to-unit")
+    suspend fun transferItemToUnit(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: TransferItemToUnitRequestDto
+    ): Response<ItemDto>
+
+    @POST("api/items/{itemId}/return-to-shared")
+    suspend fun returnItemToShared(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: ReturnItemToSharedRequestDto
+    ): Response<ItemDto>
+
+    @POST("api/items/{itemId}/restock")
+    suspend fun restockItem(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: RestockItemRequestDto
     ): Response<ItemDto>
 }

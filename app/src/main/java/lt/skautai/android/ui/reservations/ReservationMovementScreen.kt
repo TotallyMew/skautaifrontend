@@ -26,7 +26,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -43,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ReservationItemDto
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.locations.LocationPickerField
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -166,10 +166,10 @@ fun ReservationMovementScreen(
                     )
                 }
                 item {
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = uiState.notes,
                         onValueChange = viewModel::onNotesChange,
-                        label = { Text("Pastabos") },
+                        label = "Pastabos",
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 4

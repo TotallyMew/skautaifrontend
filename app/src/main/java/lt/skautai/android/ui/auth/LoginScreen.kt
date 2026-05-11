@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
+import lt.skautai.android.ui.common.SkautaiSecondaryButton
+import lt.skautai.android.ui.common.SkautaiTertiaryButton
 import lt.skautai.android.ui.theme.ScoutGradients
 import lt.skautai.android.util.NavRoutes
 
@@ -176,22 +178,19 @@ fun LoginScreen(
                         }
                     }
 
-                    FilledTonalButton(
+                    SkautaiSecondaryButton(
+                        text = "Turi pakvietimą? Susikurk paskyrą!",
                         onClick = { navController.navigate(NavRoutes.RegisterInvite.route) },
-                        shape = RoundedCornerShape(18.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(52.dp)
-                    ) {
-                        Text("Turi pakvietimą? Susikurk paskyrą!")
-                    }
+                    )
 
-                    TextButton(
+                    SkautaiTertiaryButton(
+                        text = "Tavo tunto nėra programoje? Užregistruok!",
                         onClick = { navController.navigate(NavRoutes.Register.route) },
                         modifier = Modifier.fillMaxWidth()
-                    ) {
-                        Text("Tavo tunto nėra programoje? Užregistruok!")
-                    }
+                    )
                 }
             }
         }

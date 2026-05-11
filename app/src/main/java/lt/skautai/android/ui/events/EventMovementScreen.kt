@@ -31,7 +31,6 @@ fun EventMovementScreen(
     viewModel: EventMovementViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
 
@@ -70,11 +69,6 @@ fun EventMovementScreen(
                 }
 
                 is EventMovementUiState.Success -> {
-                    val myRoles = state.event.eventRoles.map { it.role }.toSet()
-                    val canInventory = !isEventReadOnlyStatus(state.event.status) &&
-                        ("events.inventory.distribute" in permissions ||
-                            myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") })
-
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -84,17 +78,11 @@ fun EventMovementScreen(
                         item {
                             EventMovementCard(
                                 inventoryPlan = state.inventoryPlan,
-                                pastovykles = state.pastovykles,
-                                members = state.members,
                                 custody = state.custody,
                                 movements = state.movements,
-                                canManage = canInventory,
                                 isWorking = state.isWorking,
                                 onOpenItemQr = { onOpenItemQr(eventId) },
                                 onOpenCustodyQr = { onOpenCustodyQr(eventId) },
-                                onCreatePastovykle = { name, responsibleUserId, notes ->
-                                    viewModel.createPastovykle(eventId, name, responsibleUserId, notes)
-                                },
                                 onCreateMovement = { movementType, itemId, quantity, pastovykleId, toUserId, fromCustodyId, notes ->
                                     viewModel.createMovement(
                                         eventId = eventId,

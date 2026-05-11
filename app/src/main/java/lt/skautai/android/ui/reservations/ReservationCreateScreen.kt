@@ -65,6 +65,7 @@ import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.locations.LocationPickerField
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -205,12 +206,12 @@ fun ReservationCreateScreen(
                 }
 
                 item {
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = uiState.title,
                         onValueChange = viewModel::onTitleChange,
-                        label = { Text("Rezervacijos pavadinimas") },
+                        label = "Rezervacijos pavadinimas",
                         isError = uiState.titleError != null,
-                        supportingText = uiState.titleError?.let { text -> { Text(text) } },
+                        supportingText = uiState.titleError,
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
@@ -251,20 +252,20 @@ fun ReservationCreateScreen(
                 }
 
                 item {
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = uiState.searchQuery,
                         onValueChange = viewModel::onSearchQueryChange,
-                        label = { Text("Ieškoti daikto") },
+                        label = "Ieškoti daikto",
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true
                     )
                 }
 
                 item {
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = uiState.notes,
                         onValueChange = viewModel::onNotesChange,
-                        label = { Text("Pastabos") },
+                        label = "Pastabos",
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 2,
                         maxLines = 3
@@ -618,7 +619,7 @@ private fun ReservationItemCard(
             FilledTonalIconButton(
                 onClick = onDecrease,
                 enabled = selectedQuantity > 0,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Default.Remove, contentDescription = "Mažinti")
             }
@@ -631,7 +632,7 @@ private fun ReservationItemCard(
             FilledIconButton(
                 onClick = onIncrease,
                 enabled = availableQuantity > selectedQuantity,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(48.dp)
             ) {
                 Icon(Icons.Default.Add, contentDescription = "Didinti")
             }

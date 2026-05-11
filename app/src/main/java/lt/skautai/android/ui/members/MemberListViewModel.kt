@@ -31,6 +31,8 @@ class MemberListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<MemberListUiState>(MemberListUiState.Loading)
     val uiState: StateFlow<MemberListUiState> = _uiState.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
     private var isReadOnlyForCurrentUser: Boolean = false
 
     init {
@@ -69,14 +71,20 @@ class MemberListViewModel @Inject constructor(
 
     fun loadMembers() {
         viewModelScope.launch {
-            memberRepository.refreshMembers()
-                .onFailure { error ->
-                    if (_uiState.value is MemberListUiState.Loading) {
-                        _uiState.value = MemberListUiState.Error(
-                            error.message ?: "Klaida gaunant narius"
-                        )
+            val refreshOnly = _uiState.value is MemberListUiState.Success
+            if (refreshOnly) _isRefreshing.value = true
+            try {
+                memberRepository.refreshMembers()
+                    .onFailure { error ->
+                        if (_uiState.value is MemberListUiState.Loading) {
+                            _uiState.value = MemberListUiState.Error(
+                                error.message ?: "Klaida gaunant narius"
+                            )
+                        }
                     }
-                }
+            } finally {
+                if (refreshOnly) _isRefreshing.value = false
+            }
         }
     }
 }

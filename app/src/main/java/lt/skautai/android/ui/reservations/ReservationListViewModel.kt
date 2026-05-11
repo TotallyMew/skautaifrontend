@@ -38,6 +38,8 @@ class ReservationListViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow<ReservationListUiState>(ReservationListUiState.Loading)
     val uiState: StateFlow<ReservationListUiState> = _uiState.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
     private var observeJob: Job? = null
 
     init {
@@ -67,29 +69,35 @@ class ReservationListViewModel @Inject constructor(
 
     fun loadReservations() {
         viewModelScope.launch {
+            val refreshOnly = _uiState.value is ReservationListUiState.Success
+            if (refreshOnly) _isRefreshing.value = true
             if (_uiState.value !is ReservationListUiState.Success) {
                 _uiState.value = ReservationListUiState.Loading
             }
-            reservationRepository.refreshReservations()
-                .onSuccess {
-                    val userId = tokenManager.userId.first()
-                    val permissions = tokenManager.permissions.first()
-                    val activeUnitId = tokenManager.activeOrgUnitId.first()
-                    val allReservations = reservationRepository.getReservations().getOrNull()?.reservations.orEmpty()
-                    val canUseReviewModes = permissions.canUseReviewModes()
-                    _uiState.value = ReservationListUiState.Success(
-                        reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),
-                        myCount = allReservations.filterForMode("my_active", userId, permissions, activeUnitId).size,
-                        assignedCount = if (canUseReviewModes) allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size else 0,
-                        trackedCount = if (canUseReviewModes) allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size else 0,
-                        canUseReviewModes = canUseReviewModes
-                    )
-                }
-                .onFailure { error ->
-                    _uiState.value = ReservationListUiState.Error(
-                        error.message ?: "Klaida gaunant rezervacijas"
-                    )
-                }
+            try {
+                reservationRepository.refreshReservations()
+                    .onSuccess {
+                        val userId = tokenManager.userId.first()
+                        val permissions = tokenManager.permissions.first()
+                        val activeUnitId = tokenManager.activeOrgUnitId.first()
+                        val allReservations = reservationRepository.getReservations().getOrNull()?.reservations.orEmpty()
+                        val canUseReviewModes = permissions.canUseReviewModes()
+                        _uiState.value = ReservationListUiState.Success(
+                            reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),
+                            myCount = allReservations.filterForMode("my_active", userId, permissions, activeUnitId).size,
+                            assignedCount = if (canUseReviewModes) allReservations.filterForMode("assigned", userId, permissions, activeUnitId).size else 0,
+                            trackedCount = if (canUseReviewModes) allReservations.filterForMode("tracked", userId, permissions, activeUnitId).size else 0,
+                            canUseReviewModes = canUseReviewModes
+                        )
+                    }
+                    .onFailure { error ->
+                        _uiState.value = ReservationListUiState.Error(
+                            error.message ?: "Klaida gaunant rezervacijas"
+                        )
+                    }
+            } finally {
+                if (refreshOnly) _isRefreshing.value = false
+            }
         }
     }
 }

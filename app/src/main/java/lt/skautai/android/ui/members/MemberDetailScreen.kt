@@ -18,8 +18,10 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.*
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
 fun MemberDetailScreen(
@@ -49,19 +51,15 @@ fun MemberDetailScreen(
     }
 
     if (uiState.showRemoveMemberDialog) {
-        AlertDialog(
-            onDismissRequest = viewModel::hideRemoveMemberDialog,
-            title = { Text("Šalinti iš tunto?") },
-            text = { Text("Narys bus pašalintas iš tunto. Taip pat bus uždarytos jo pareigos ir vienetų narystės šiame tunte.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { viewModel.removeMember(userId) },
-                    enabled = !uiState.isSaving
-                ) { Text("Šalinti iš tunto", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = {
-                TextButton(onClick = viewModel::hideRemoveMemberDialog) { Text("Atšaukti") }
-            }
+        SkautaiConfirmDialog(
+            title = "Šalinti iš tunto?",
+            message = "Narys bus pašalintas iš tunto. Taip pat bus uždarytos jo pareigos ir vienetų narystės šiame tunte.",
+            confirmText = "Šalinti iš tunto",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = { viewModel.removeMember(userId) },
+            onDismiss = viewModel::hideRemoveMemberDialog
         )
     }
 
@@ -130,99 +128,70 @@ fun MemberDetailScreen(
     }
 
     pendingStepDownRole?.let { role ->
-        AlertDialog(
-            onDismissRequest = { pendingStepDownRole = null },
-            title = { Text("Atsistatydinti iš pareigų?") },
-            text = {
-                Text(
-                    buildString {
-                        append("Bus uždarytos pareigos ")
-                        append(displayRoleName(role.roleName))
-                        role.organizationalUnitName?.let {
-                            append(" vienete ")
-                            append(it)
-                        }
-                        append(".")
-                    }
-                )
+        SkautaiConfirmDialog(
+            title = "Atsistatydinti iš pareigų?",
+            message = buildString {
+                append("Bus uždarytos pareigos ")
+                append(displayRoleName(role.roleName))
+                role.organizationalUnitName?.let {
+                    append(" vienete ")
+                    append(it)
+                }
+                append(".")
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingStepDownRole = null
-                        if (isTuntininkasRoleName(role.roleName)) {
-                            viewModel.openTransferTuntininkasDialog(userId, role.id)
-                        } else {
-                            viewModel.stepDownLeadershipRole(userId, role.id)
-                        }
-                    },
-                    enabled = !uiState.isSaving
-                ) {
-                    Text(
-                        if (isTuntininkasRoleName(role.roleName)) "Perleisti pareigas" else "Atsistatydinti",
-                        color = MaterialTheme.colorScheme.error
-                    )
+            confirmText = if (isTuntininkasRoleName(role.roleName)) "Perleisti pareigas" else "Atsistatydinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = {
+                pendingStepDownRole = null
+                if (isTuntininkasRoleName(role.roleName)) {
+                    viewModel.openTransferTuntininkasDialog(userId, role.id)
+                } else {
+                    viewModel.stepDownLeadershipRole(userId, role.id)
                 }
             },
-            dismissButton = {
-                TextButton(onClick = { pendingStepDownRole = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingStepDownRole = null }
         )
     }
 
     pendingRoleRemoval?.let { role ->
-        AlertDialog(
-            onDismissRequest = { pendingRoleRemoval = null },
-            title = { Text("Šalinti pareigas?") },
-            text = {
-                Text(
-                    buildString {
-                        append("Pareigos ")
-                        append(displayRoleName(role.roleName))
-                        role.organizationalUnitName?.let {
-                            append(" vienete ")
-                            append(it)
-                        }
-                        append(" bus pašalintos.")
-                    }
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRoleRemoval = null
-                        viewModel.removeLeadershipRole(userId, role.id)
-                    },
-                    enabled = !uiState.isSaving
-                ) {
-                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
+        SkautaiConfirmDialog(
+            title = "Šalinti pareigas?",
+            message = buildString {
+                append("Pareigos ")
+                append(displayRoleName(role.roleName))
+                role.organizationalUnitName?.let {
+                    append(" vienete ")
+                    append(it)
                 }
+                append(" bus pašalintos.")
             },
-            dismissButton = {
-                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atšaukti") }
-            }
+            confirmText = "Šalinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = {
+                pendingRoleRemoval = null
+                viewModel.removeLeadershipRole(userId, role.id)
+            },
+            onDismiss = { pendingRoleRemoval = null }
         )
     }
 
     pendingRankRemoval?.let { rank ->
-        AlertDialog(
-            onDismissRequest = { pendingRankRemoval = null },
-            title = { Text("Šalinti laipsnį?") },
-            text = { Text("Laipsnis ${displayRoleName(rank.roleName)} bus pašalintas iš šio nario.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRankRemoval = null
-                        viewModel.removeRank(userId, rank.id)
-                    },
-                    enabled = !uiState.isSaving
-                ) {
-                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
-                }
+        SkautaiConfirmDialog(
+            title = "Šalinti laipsnį?",
+            message = "Laipsnis ${displayRoleName(rank.roleName)} bus pašalintas iš šio nario.",
+            confirmText = "Šalinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            enabled = !uiState.isSaving,
+            onConfirm = {
+                pendingRankRemoval = null
+                viewModel.removeRank(userId, rank.id)
             },
-            dismissButton = {
-                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingRankRemoval = null }
         )
     }
 
@@ -804,17 +773,17 @@ private fun EditRoleDialog(
                     }
                 }
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = startsAt,
                     onValueChange = onStartsAtChanged,
-                    label = { Text("Pradžia (YYYY-MM-DD)") },
+                    label = "Pradžia (YYYY-MM-DD)",
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = expiresAt,
                     onValueChange = onExpiresAtChanged,
-                    label = { Text("Pabaiga (YYYY-MM-DD)") },
+                    label = "Pabaiga (YYYY-MM-DD)",
                     modifier = Modifier.fillMaxWidth()
                 )
             }

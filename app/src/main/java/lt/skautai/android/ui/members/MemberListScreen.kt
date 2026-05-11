@@ -22,12 +22,16 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
@@ -60,7 +64,7 @@ private const val AllFilter = "Visi"
 private const val LeadersFilter = "Vadovai"
 private const val NoUnitLabel = "Be vieneto"
 
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterialApi::class)
 @Composable
 fun MemberListScreen(
     onMemberClick: (String) -> Unit,
@@ -70,11 +74,17 @@ fun MemberListScreen(
     viewModel: MemberListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadMembers)
     var query by remember { mutableStateOf("") }
     var selectedFilter by remember { mutableStateOf(AllFilter) }
     val listState = rememberLazyListState()
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
         when (val state = uiState) {
             is MemberListUiState.Loading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -173,7 +183,7 @@ fun MemberListScreen(
                     }
                 }
 
-                if (canInvite) {
+                if (canInvite && state.members.isNotEmpty()) {
                     FloatingActionButton(
                         onClick = onInviteClick,
                         modifier = Modifier
@@ -185,6 +195,11 @@ fun MemberListScreen(
                 }
             }
         }
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 

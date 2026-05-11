@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
+import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
 fun StabasCard(
@@ -37,25 +39,17 @@ fun StabasCard(
     var pendingRoleRemoval by remember { mutableStateOf<EventRoleDto?>(null) }
 
     pendingRoleRemoval?.let { role ->
-        AlertDialog(
-            onDismissRequest = { pendingRoleRemoval = null },
-            title = { Text("Šalinti iš štabo?") },
-            text = {
-                Text("${role.userName ?: role.userId} bus pašalintas iš renginio štabo pareigų: ${eventRoleLabel(role.role)}.")
+        SkautaiConfirmDialog(
+            title = "Šalinti iš štabo?",
+            message = "${role.userName ?: role.userId} bus pašalintas iš renginio štabo pareigų: ${eventRoleLabel(role.role)}.",
+            confirmText = "Šalinti",
+            dismissText = "Atšaukti",
+            isDanger = true,
+            onConfirm = {
+                pendingRoleRemoval = null
+                onRemoveRole(role.id)
             },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRoleRemoval = null
-                        onRemoveRole(role.id)
-                    }
-                ) {
-                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atšaukti") }
-            }
+            onDismiss = { pendingRoleRemoval = null }
         )
     }
 
@@ -128,13 +122,12 @@ fun StaffPickerSheet(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Pridėti į štabą", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-        OutlinedTextField(
+        SkautaiTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            label = { Text("Ieškoti žmogaus") },
+            label = "Ieškoti žmogaus",
             modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-            colors = eventFormFieldColors()
+            singleLine = true
         )
         SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
             LazyColumn(

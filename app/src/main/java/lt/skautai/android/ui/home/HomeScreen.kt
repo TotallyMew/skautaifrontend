@@ -3,16 +3,16 @@ package lt.skautai.android.ui.home
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
@@ -94,18 +94,23 @@ fun HomeScreen(
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+    @Composable
+    fun item(content: @Composable () -> Unit) {
+        content()
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        item {
-            OverviewCard(
-                uiState = uiState,
-                userName = LithuanianNameVocativeFormatter.firstNameVocative(userName),
-                onManageTuntai = { navController.navigate(NavRoutes.TuntasSelect.route) }
-            )
-        }
+        OverviewCard(
+            uiState = uiState,
+            userName = LithuanianNameVocativeFormatter.firstNameVocative(userName),
+            onManageTuntai = { navController.navigate(NavRoutes.TuntasSelect.route) }
+        )
 
         if (uiState.availableUnits.size > 1) {
             item {
@@ -192,10 +197,10 @@ fun HomeScreen(
                     navController.navigate(NavRoutes.InventoryList.createRoute(custodianId = uiState.activeUnitId))
                 },
                 onOpenShared = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute())
+                    navController.navigate(NavRoutes.InventoryList.createRoute(sharedOnly = true))
                 },
                 onOpenPersonal = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute(type = "INDIVIDUAL"))
+                    navController.navigate(NavRoutes.InventoryList.createRoute(type = "INDIVIDUAL", personalOwner = "me"))
                 },
                 onAddToUnit = {
                     navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
@@ -527,7 +532,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (tile.showAdd) {
                     Surface(
-                        modifier = Modifier.size(28.dp),
+                        modifier = Modifier.size(48.dp),
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
                         contentColor = MaterialTheme.colorScheme.primary,
                         shape = RoundedCornerShape(8.dp),
@@ -537,7 +542,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
                             Icon(
                                 imageVector = Icons.Default.Add,
                                 contentDescription = "Pridėti",
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }

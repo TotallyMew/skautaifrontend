@@ -57,11 +57,13 @@ import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.theme.ScoutUnitColors
 import lt.skautai.android.ui.theme.ScoutUnitPalette
 
@@ -104,7 +106,7 @@ fun EventPastovyklėsScreen(
 
     val state = uiState
     val readOnly = (state as? EventPastovyklėsUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
-    val canManage = !readOnly && ("events.manage" in permissions ||
+    val canManage = !readOnly && ("events.manage:ALL" in permissions ||
         (state as? EventPastovyklėsUiState.Success)?.event?.eventRoles
             ?.any { it.userId == state.currentUserId && it.role == "VIRSININKAS" } == true
         )
@@ -114,6 +116,7 @@ fun EventPastovyklėsScreen(
             pastovykle = editingPastovykle,
             event = state.event,
             members = eligibleStaffMembers(state.members),
+            pastovykles = state.pastovykles,
             isWorking = state.isWorking,
             snackbarHostState = snackbarHostState,
             onBack = { showEditor = false },
@@ -133,23 +136,17 @@ fun EventPastovyklėsScreen(
     }
 
     if (!readOnly) deletingPastovykle?.let { pastovykle ->
-        AlertDialog(
-            onDismissRequest = { deletingPastovykle = null },
-            title = { Text("Ištrinti pastovyklę?") },
-            text = { Text("Pastovyklė \"${pastovykle.name}\" bus pašalinta iš šio renginio.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        deletingPastovykle = null
-                        viewModel.deletePastovykle(eventId, pastovykle)
-                    }
-                ) {
-                    Text("Ištrinti", color = MaterialTheme.colorScheme.error)
-                }
+        SkautaiConfirmDialog(
+            title = "Ištrinti pastovyklę?",
+            message = "Pastovyklė \"${pastovykle.name}\" bus pašalinta iš šio renginio.",
+            confirmText = "Ištrinti",
+            dismissText = "Uždaryti",
+            isDanger = true,
+            onConfirm = {
+                deletingPastovykle = null
+                viewModel.deletePastovykle(eventId, pastovykle)
             },
-            dismissButton = {
-                TextButton(onClick = { deletingPastovykle = null }) { Text("Uždaryti") }
-            }
+            onDismiss = { deletingPastovykle = null }
         )
     }
 
@@ -352,14 +349,14 @@ private fun PastovykleRow(
                     IconButton(
                         onClick = onEdit,
                         enabled = !isWorking,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(Icons.Default.Edit, contentDescription = "Keisti", tint = palette.accent)
                     }
                     IconButton(
                         onClick = onDelete,
                         enabled = !isWorking,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             Icons.Default.Delete,
@@ -381,6 +378,7 @@ private fun PastovykleEditorScreen(
     pastovykle: PastovykleDto?,
     event: EventDto,
     members: List<MemberDto>,
+    pastovykles: List<PastovykleDto>,
     isWorking: Boolean,
     snackbarHostState: SnackbarHostState,
     onBack: () -> Unit,
@@ -391,9 +389,9 @@ private fun PastovykleEditorScreen(
     var notes by remember(pastovykle) { mutableStateOf(pastovykle?.notes.orEmpty()) }
     var selectedLeaderId by remember(pastovykle) { mutableStateOf(pastovykle?.responsibleUserId) }
     var searchQuery by remember(pastovykle) { mutableStateOf("") }
-    val filteredMembers = remember(members, searchQuery, ageGroup, pastovykle, event) {
+    val filteredMembers = remember(members, searchQuery, ageGroup, pastovykle, event, pastovykles) {
         val query = searchQuery.trim()
-        eligiblePastovykleLeaderMembers(members, event, pastovykle, ageGroup)
+        eligiblePastovykleLeaderMembers(members, event, pastovykles, pastovykle, ageGroup)
             .sortedBy { it.fullName().lowercase() }
             .filter { member ->
                 query.isBlank() ||
@@ -435,13 +433,12 @@ private fun PastovykleEditorScreen(
                     title = "Pastovyklės duomenys",
                     subtitle = "Pavadinimas ir amžiaus grupė bus matomi pastovyklių sąraše."
                 ) {
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = name,
                         onValueChange = { name = it },
-                        label = { Text("Pavadinimas *") },
+                        label = "Pavadinimas *",
                         modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        colors = eventFormFieldColors()
+                        singleLine = true
                     )
                     DropdownField(
                         label = "Amžiaus grupė",
@@ -449,14 +446,13 @@ private fun PastovykleEditorScreen(
                         options = PastovykleAgeGroups.map { it.code to it.label },
                         onSelect = { ageGroup = it }
                     )
-                    OutlinedTextField(
+                    SkautaiTextField(
                         value = notes,
                         onValueChange = { notes = it },
-                        label = { Text("Pastabos") },
+                        label = "Pastabos",
                         modifier = Modifier.fillMaxWidth(),
                         minLines = 3,
-                        maxLines = 5,
-                        colors = eventFormFieldColors()
+                        maxLines = 5
                     )
                 }
             }
@@ -520,6 +516,7 @@ private fun PastovykleEditorScreen(
 private fun eligiblePastovykleLeaderMembers(
     members: List<MemberDto>,
     event: EventDto,
+    pastovykles: List<PastovykleDto>,
     pastovykle: PastovykleDto?,
     ageGroup: String?
 ): List<MemberDto> {
@@ -537,7 +534,7 @@ private fun eligiblePastovykleLeaderMembers(
         linkedRoleId = currentLeaderRoleId
     )
     return members.filter { member ->
-        !memberHasAnotherStaffRole(member.userId, event, excludingSlot = currentSlot) &&
+        !memberHasAnotherStaffRole(member.userId, event, pastovykles, excludingSlot = currentSlot) &&
             memberEligibleForPastovykleAgeGroup(member, ageGroup)
     }
 }

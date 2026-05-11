@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -52,6 +51,10 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiConfirmDialog
+import lt.skautai.android.ui.common.SkautaiDangerButton
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiSecondaryButton
 import lt.skautai.android.ui.reservations.physicalStatus
 import java.time.Instant
 import java.time.LocalDate
@@ -88,23 +91,17 @@ fun ReservationDetailScreen(
     }
 
     if (showCancelDialog) {
-        AlertDialog(
-            onDismissRequest = { showCancelDialog = false },
-            title = { Text("Atšaukti rezervaciją") },
-            text = { Text("Ar tikrai norite atšaukti šią rezervaciją?") },
-            confirmButton = {
-                TextButton(onClick = {
+        SkautaiConfirmDialog(
+            title = "Atšaukti rezervaciją",
+            message = "Ar tikrai norite atšaukti šią rezervaciją?",
+            confirmText = "Atšaukti",
+            dismissText = "Uždaryti",
+            isDanger = true,
+            onConfirm = {
                     showCancelDialog = false
                     viewModel.cancelReservation(reservationId)
-                }) {
-                    Text("Atšaukti", color = MaterialTheme.colorScheme.error)
-                }
             },
-            dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) {
-                    Text("Uždaryti")
-                }
-            }
+            onDismiss = { showCancelDialog = false }
         )
     }
 
@@ -322,30 +319,27 @@ private fun ReservationDetailContent(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Button(
+                            SkautaiPrimaryButton(
+                                text = "Išduoti",
                                 onClick = onIssue,
                                 enabled = reservation.items.any { it.remainingToIssue > 0 },
                                 modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Išduoti")
-                            }
-                            OutlinedButton(
+                            )
+                            SkautaiSecondaryButton(
+                                text = "Pažymėti gautą",
                                 onClick = onReturn,
                                 enabled = reservation.items.any { it.remainingToReceive > 0 },
                                 modifier = Modifier.weight(1f)
-                            ) {
-                                Text("Pažymėti gautą")
-                            }
+                            )
                         }
                     }
                     if (isOwnReservation) {
-                        OutlinedButton(
+                        SkautaiSecondaryButton(
+                            text = "Pažymėti grąžintą",
                             onClick = onMarkReturned,
                             enabled = reservation.items.any { it.remainingToMarkReturned > 0 },
                             modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text("Pažymėti grąžintą")
-                        }
+                        )
                     }
                 }
             }
@@ -405,23 +399,12 @@ private fun ReservationDetailContent(
                         )
                     }
                     if (canCancel) {
-                        OutlinedButton(
+                        SkautaiDangerButton(
+                            text = "Atšaukti rezervaciją",
                             onClick = onCancel,
                             enabled = !isCancelling,
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error
-                            )
-                        ) {
-                            if (isCancelling) {
-                                CircularProgressIndicator(
-                                    strokeWidth = 2.dp,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            } else {
-                                Text("Atšaukti rezervaciją")
-                            }
-                        }
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -675,21 +658,16 @@ private fun ReviewActionRow(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Button(
+        SkautaiPrimaryButton(
+            text = approveText,
             onClick = onApprove,
             modifier = Modifier.weight(1f)
-        ) {
-            Text(approveText)
-        }
-        OutlinedButton(
+        )
+        SkautaiDangerButton(
+            text = rejectText,
             onClick = onReject,
-            modifier = Modifier.weight(1f),
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error
-            )
-        ) {
-            Text(rejectText)
-        }
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 

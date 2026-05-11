@@ -13,8 +13,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -41,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.RegistrationValidation
 
@@ -93,53 +93,53 @@ fun RegisterScreen(
                 SkautaiInlineErrorBanner(message = message)
             }
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChange,
-                label = { Text("Vardas *") },
+                label = "Vardas *",
                 isError = uiState.nameError != null,
-                supportingText = uiState.nameError?.let { message -> { Text(message) } },
+                supportingText = uiState.nameError,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.surname,
                 onValueChange = viewModel::onSurnameChange,
-                label = { Text("Pavardė *") },
+                label = "Pavardė *",
                 isError = uiState.surnameError != null,
-                supportingText = uiState.surnameError?.let { message -> { Text(message) } },
+                supportingText = uiState.surnameError,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
-                label = { Text("El. paštas *") },
+                label = "El. paštas *",
                 isError = uiState.emailError != null,
-                supportingText = uiState.emailError?.let { message -> { Text(message) } },
+                supportingText = uiState.emailError,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
-                label = { Text("Slaptažodis *") },
+                label = "Slaptažodis *",
                 isError = uiState.passwordError != null,
-                supportingText = uiState.passwordError?.let { message -> { Text(message) } },
+                supportingText = uiState.passwordError,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.phone,
                 onValueChange = viewModel::onPhoneChange,
-                label = { Text("Telefono numeris") },
+                label = "Telefono numeris",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -153,12 +153,12 @@ fun RegisterScreen(
                 color = MaterialTheme.colorScheme.primary
             )
 
-            OutlinedTextField(
+            SkautaiTextField(
                 value = uiState.tuntasName,
                 onValueChange = viewModel::onTuntasNameChange,
-                label = { Text("Tunto pavadinimas *") },
+                label = "Tunto pavadinimas *",
                 isError = uiState.tuntasNameError != null,
-                supportingText = uiState.tuntasNameError?.let { message -> { Text(message) } },
+                supportingText = uiState.tuntasNameError,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -177,21 +177,12 @@ fun RegisterScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
-            Button(
+            SkautaiPrimaryButton(
+                text = if (uiState.isLoading) "Registruojama..." else "Registruotis",
                 onClick = viewModel::register,
                 enabled = !uiState.isLoading,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                if (uiState.isLoading) {
-                    CircularProgressIndicator(
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        strokeWidth = 2.dp,
-                        modifier = Modifier.height(20.dp)
-                    )
-                } else {
-                    Text("Registruotis")
-                }
-            }
+            )
 
             Spacer(modifier = Modifier.height(16.dp))
         }

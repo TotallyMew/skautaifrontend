@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,8 +46,10 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.reservationStatusTone
 import lt.skautai.android.ui.theme.ScoutStatusColors
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun ReservationListScreen(
     onReservationClick: (String) -> Unit,
@@ -54,6 +60,8 @@ fun ReservationListScreen(
     viewModel: ReservationListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadReservations)
     val isMyActiveMode = viewModel.mode == "my_active"
     val isAssignedMode = viewModel.mode == "assigned"
     val isTrackedMode = viewModel.mode == "tracked"
@@ -65,7 +73,11 @@ fun ReservationListScreen(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
         when (val state = uiState) {
             is ReservationListUiState.Loading -> {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
@@ -135,7 +147,7 @@ fun ReservationListScreen(
                     }
                 }
 
-                if (!isAssignedMode) {
+                if (!isAssignedMode && state.reservations.isNotEmpty()) {
                     FloatingActionButton(
                         onClick = onCreateClick,
                         modifier = Modifier
@@ -147,6 +159,11 @@ fun ReservationListScreen(
                 }
             }
         }
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
     }
 }
 
@@ -351,14 +368,14 @@ fun List<ReservationItemDto>.physicalStatus(): ReservationPhysicalStatus {
 
 @Composable
 fun ReservationStatusChip(status: String) {
-    val (label, container, content) = when (status) {
-        "PENDING" -> Triple("Laukia", ScoutStatusColors.PendingContainer, ScoutStatusColors.OnPendingContainer)
-        "APPROVED" -> Triple("Patvirtinta", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        "ACTIVE" -> Triple("Aktyvi", MaterialTheme.colorScheme.primaryContainer, MaterialTheme.colorScheme.onPrimaryContainer)
-        "RETURNED" -> Triple("Grąžinta", ScoutStatusColors.InfoContainer, ScoutStatusColors.OnInfoContainer)
-        "CANCELLED" -> Triple("Atšaukta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-        "REJECTED" -> Triple("Atmesta", MaterialTheme.colorScheme.errorContainer, MaterialTheme.colorScheme.onErrorContainer)
-        else -> Triple(status, ScoutStatusColors.NeutralContainer, ScoutStatusColors.OnNeutralContainer)
+    val label = when (status) {
+        "PENDING" -> "Laukia"
+        "APPROVED" -> "Patvirtinta"
+        "ACTIVE" -> "Aktyvi"
+        "RETURNED" -> "Grąžinta"
+        "CANCELLED" -> "Atšaukta"
+        "REJECTED" -> "Atmesta"
+        else -> status
     }
-    SkautaiStatusPill(label = label, containerColor = container, contentColor = content)
+    SkautaiStatusPill(label = label, tone = reservationStatusTone(status))
 }

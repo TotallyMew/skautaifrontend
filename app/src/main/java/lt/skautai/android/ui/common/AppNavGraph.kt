@@ -193,6 +193,15 @@ fun AppNavGraph(
                     type = NavType.StringType
                     defaultValue = null
                     nullable = true
+                },
+                navArgument("sharedOnly") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+                navArgument("personalOwner") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
                 }
             )
         ) {
@@ -531,10 +540,14 @@ fun AppNavGraph(
                         navController.navigate(NavRoutes.SharedRequestDetail.createRoute(id))
                     },
                     onCreateClick = {
-                        navController.navigate(NavRoutes.InventoryList.createRoute())
+                        navController.navigate(NavRoutes.SharedRequestCreate.route)
                     }
                 )
             }
+        }
+
+        composable(NavRoutes.SharedRequestCreate.route) {
+            RequestCreateScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

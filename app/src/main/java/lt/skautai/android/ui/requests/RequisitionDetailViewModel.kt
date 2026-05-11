@@ -9,7 +9,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.AddRequisitionItemToInventoryDto
+import lt.skautai.android.data.remote.AddRequisitionToInventoryDto
+import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.RequisitionDto
+import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
@@ -18,6 +22,7 @@ sealed interface RequisitionDetailUiState {
     data object Loading : RequisitionDetailUiState
     data class Success(
         val request: RequisitionDto,
+        val inventoryItems: List<ItemDto> = emptyList(),
         val isActioning: Boolean = false,
         val error: String? = null
     ) : RequisitionDetailUiState
@@ -27,6 +32,7 @@ sealed interface RequisitionDetailUiState {
 @HiltViewModel
 class RequisitionDetailViewModel @Inject constructor(
     private val repository: RequisitionRepository,
+    private val itemRepository: ItemRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -46,7 +52,10 @@ class RequisitionDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = RequisitionDetailUiState.Loading
             repository.getRequest(id)
-                .onSuccess { _uiState.value = RequisitionDetailUiState.Success(it) }
+                .onSuccess { request ->
+                    val items = itemRepository.getItems(status = "ACTIVE").getOrDefault(emptyList())
+                    _uiState.value = RequisitionDetailUiState.Success(request, inventoryItems = items)
+                }
                 .onFailure {
                     _uiState.value = RequisitionDetailUiState.Error(
                         it.message ?: "Klaida gaunant prašymą"
@@ -64,6 +73,54 @@ class RequisitionDetailViewModel @Inject constructor(
     fun approveTopLevel(id: String) = runTopLevelReview(id, "APPROVED", null)
 
     fun rejectTopLevel(id: String, reason: String?) = runTopLevelReview(id, "REJECTED", reason)
+
+    fun markPurchased(id: String) {
+        val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isActioning = true, error = null)
+            repository.markPurchased(id)
+                .onSuccess { loadRequest(id) }
+                .onFailure {
+                    _uiState.value = current.copy(
+                        isActioning = false,
+                        error = it.message ?: "Klaida pažymint kaip nupirkta"
+                    )
+                }
+        }
+    }
+
+    fun addPurchasedItemToInventory(
+        id: String,
+        requisitionItemId: String,
+        action: String,
+        existingItemId: String?,
+        notes: String?
+    ) {
+        val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isActioning = true, error = null)
+            repository.addToInventory(
+                id,
+                AddRequisitionToInventoryDto(
+                    items = listOf(
+                        AddRequisitionItemToInventoryDto(
+                            requisitionItemId = requisitionItemId,
+                            action = action,
+                            existingItemId = existingItemId,
+                            custodianId = current.request.requestingUnitId,
+                            notes = notes?.ifBlank { null }
+                        )
+                    )
+                )
+            ).onSuccess { loadRequest(id) }
+                .onFailure {
+                    _uiState.value = current.copy(
+                        isActioning = false,
+                        error = it.message ?: "Klaida pridedant į inventorių"
+                    )
+                }
+        }
+    }
 
     fun cancelRequest(id: String) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return

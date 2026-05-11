@@ -16,13 +16,18 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -40,44 +45,42 @@ import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventInventoryCustodyDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
-import lt.skautai.android.data.remote.MemberDto
-import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiTextField
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventMovementCard(
     inventoryPlan: EventInventoryPlanDto?,
-    pastovykles: List<PastovykleDto>,
-    members: List<MemberDto>,
     custody: List<EventInventoryCustodyDto>,
     movements: List<EventInventoryMovementDto>,
-    canManage: Boolean,
     isWorking: Boolean,
     onOpenItemQr: () -> Unit,
     onOpenCustodyQr: () -> Unit,
-    onCreatePastovykle: (String, String?, String) -> Unit,
     onCreateMovement: (String, String, String, String?, String?, String?, String) -> Unit
 ) {
-    var showPastovykleDialog by remember { mutableStateOf(false) }
-
     val plannedItems = inventoryPlan?.items.orEmpty()
-    val hasAvailableInventory = plannedItems.any { it.availableQuantity > 0 }
-    val activeMovements = custody.count { it.status == "OPEN" }
-    val peopleCustody = custody.filter { it.status == "OPEN" && it.holderUserId != null }
-    val campCustody = custody.filter { it.status == "OPEN" && it.holderUserId == null && it.pastovykleId != null }
-
-    if (showPastovykleDialog) {
-        PastovykleDialog(
-            members = members,
-            isWorking = isWorking,
-            onDismiss = { showPastovykleDialog = false },
-            onSubmit = { name, responsibleUserId, notes ->
-                onCreatePastovykle(name, responsibleUserId, notes)
-                showPastovykleDialog = false
-            }
-        )
+    val movementItemOptions = remember(plannedItems, movements, custody) {
+        val planned = plannedItems.map { MovementItemOption(it.id, it.name) }
+        val fromMovements = movements.map { MovementItemOption(it.eventInventoryItemId, it.itemName) }
+        val fromCustody = custody.map { MovementItemOption(it.eventInventoryItemId, it.itemName) }
+        (planned + fromMovements + fromCustody)
+            .distinctBy { it.id }
+            .sortedBy { it.name.lowercase() }
     }
+    var selectedItemId by remember { mutableStateOf<String?>(null) }
+    val selectedItemName = movementItemOptions.firstOrNull { it.id == selectedItemId }?.name
+    val scopedCustody = remember(custody, selectedItemId) {
+        selectedItemId?.let { itemId -> custody.filter { it.eventInventoryItemId == itemId } } ?: custody
+    }
+    val scopedMovements = remember(movements, selectedItemId) {
+        selectedItemId?.let { itemId -> movements.filter { it.eventInventoryItemId == itemId } } ?: movements
+    }
+    val hasAvailableInventory = plannedItems.any { it.availableQuantity > 0 }
+    val activeMovements = scopedCustody.count { it.status == "OPEN" }
+    val peopleCustody = scopedCustody.filter { it.status == "OPEN" && it.holderUserId != null }
+    val campCustody = scopedCustody.filter { it.status == "OPEN" && it.holderUserId == null && it.pastovykleId != null }
 
     SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
         Column(
@@ -108,18 +111,22 @@ fun EventMovementCard(
                 )
                 MovementStatusCard(
                     label = "Istorijoje",
-                    value = movements.size.toString(),
+                    value = scopedMovements.size.toString(),
                     modifier = Modifier.weight(1f)
                 )
             }
 
+            MovementItemFilter(
+                items = movementItemOptions,
+                selectedItemId = selectedItemId,
+                onSelectedItemChange = { selectedItemId = it }
+            )
+
             ActionGrid(
-                canManage = canManage,
                 isWorking = isWorking,
                 hasAvailableInventory = hasAvailableInventory,
                 onOpenItemQr = onOpenItemQr,
-                onOpenCustodyQr = onOpenCustodyQr,
-                onCreatePastovykle = { showPastovykleDialog = true }
+                onOpenCustodyQr = onOpenCustodyQr
             )
 
             if (!hasAvailableInventory) {
@@ -172,19 +179,75 @@ fun EventMovementCard(
                     )
                 }
             )
-            HistorySection(movements = movements)
+            HistorySection(
+                movements = scopedMovements,
+                selectedItemName = selectedItemName,
+                totalMovementCount = movements.size
+            )
+        }
+    }
+}
+
+private data class MovementItemOption(
+    val id: String,
+    val name: String
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MovementItemFilter(
+    items: List<MovementItemOption>,
+    selectedItemId: String?,
+    onSelectedItemChange: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedName = items.firstOrNull { it.id == selectedItemId }?.name ?: "Visi daiktai"
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = selectedName,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Rodyti judėjimą") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Visi daiktai") },
+                onClick = {
+                    onSelectedItemChange(null)
+                    expanded = false
+                }
+            )
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text(item.name) },
+                    onClick = {
+                        onSelectedItemChange(item.id)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }
 
 @Composable
 private fun ActionGrid(
-    canManage: Boolean,
     isWorking: Boolean,
     hasAvailableInventory: Boolean,
     onOpenItemQr: () -> Unit,
-    onOpenCustodyQr: () -> Unit,
-    onCreatePastovykle: () -> Unit
+    onOpenCustodyQr: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -206,15 +269,6 @@ private fun ActionGrid(
         )
     }
 
-    if (canManage) {
-        ActionGridButton(
-            title = "Nauja pastovykla",
-            icon = Icons.Default.Forest,
-            onClick = onCreatePastovykle,
-            enabled = !isWorking,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
 }
 
 @Composable
@@ -345,19 +399,60 @@ private fun CustodySection(
 }
 
 @Composable
-private fun HistorySection(movements: List<EventInventoryMovementDto>) {
-    EventListSection(title = "Istorija", subtitle = "${movements.size} įrašai") {
+private fun HistorySection(
+    movements: List<EventInventoryMovementDto>,
+    selectedItemName: String?,
+    totalMovementCount: Int
+) {
+    var query by remember { mutableStateOf("") }
+    val normalizedQuery = query.trim()
+    val filteredMovements = remember(movements, normalizedQuery) {
+        if (normalizedQuery.isBlank()) {
+            movements
+        } else {
+            movements.filter { it.matchesMovementQuery(normalizedQuery) }
+        }
+    }
+    val visibleMovements = if (normalizedQuery.isBlank()) filteredMovements.take(12) else filteredMovements
+    val scopeLabel = selectedItemName?.let { " · $it" }.orEmpty()
+    val subtitle = when {
+        normalizedQuery.isNotBlank() -> "${filteredMovements.size} rasta iš ${movements.size}$scopeLabel"
+        selectedItemName != null -> "${movements.size} iš ${totalMovementCount}$scopeLabel"
+        else -> "${movements.size} įrašai"
+    }
+
+    EventListSection(title = "Istorija", subtitle = subtitle) {
         if (movements.isEmpty()) {
             CompactMovementEmptyState(
-                title = "Judėjimo istorija tuščia",
-                message = "Pirmi veiksmai čia atsiras automatiškai.",
+                title = if (selectedItemName == null) "Judėjimo istorija tuščia" else "Šis daiktas dar nejudėjo",
+                message = if (selectedItemName == null) {
+                    "Pirmi veiksmai čia atsiras automatiškai."
+                } else {
+                    "Pasirink kitą daiktą arba grįžk į visų daiktų judėjimą."
+                },
                 icon = Icons.Default.History
             )
         } else {
-            val recent = movements.take(12)
-            recent.forEachIndexed { index, movement ->
+            SkautaiTextField(
+                value = query,
+                onValueChange = { query = it },
+                label = "Ieškoti istorijoje",
+                placeholder = "Daiktas, žmogus, pastovyklė, tipas ar pastabos",
+                singleLine = true,
+                leadingIcon = Icons.Default.Search,
+                modifier = Modifier.fillMaxWidth()
+            )
+            if (visibleMovements.isEmpty()) {
+                CompactMovementEmptyState(
+                    title = "Šiam daiktui judėjimo įrašų nerasta",
+                    message = "Pabandyk kitą pavadinimą, žmogų arba pastovyklę.",
+                    icon = Icons.Default.History
+                )
+                return@EventListSection
+            }
+            visibleMovements.forEachIndexed { index, movement ->
                 MovementHistoryRow(movement)
-                if (index != recent.lastIndex) {
+                if (index != visibleMovements.lastIndex) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
             }
@@ -431,57 +526,6 @@ private fun MovementHistoryRow(movement: EventInventoryMovementDto) {
     }
 }
 
-@Composable
-private fun PastovykleDialog(
-    members: List<MemberDto>,
-    isWorking: Boolean,
-    onDismiss: () -> Unit,
-    onSubmit: (String, String?, String) -> Unit
-) {
-    var name by remember { mutableStateOf("") }
-    var responsibleUserId by remember { mutableStateOf<String?>(null) }
-    var notes by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Nauja pastovykla") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text("Pavadinimas") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = eventFormFieldColors()
-                )
-                DropdownField(
-                    label = "Vadovas",
-                    value = members.firstOrNull { it.userId == responsibleUserId }?.fullName() ?: "Nepasirinkta",
-                    options = members.map { it.userId to it.fullName() },
-                    onSelect = { responsibleUserId = it }
-                )
-                OutlinedTextField(
-                    value = notes,
-                    onValueChange = { notes = it },
-                    label = { Text("Pastabos") },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = eventFormFieldColors()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = !isWorking, onClick = { onSubmit(name, responsibleUserId, notes) }) {
-                Text("Sukurti")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Atšaukti")
-            }
-        }
-    )
-}
-
 private fun movementLabel(type: String): String = when (type) {
     "PASTOVYKLE_REQUEST" -> "Prašymas"
     "ASSIGN_TO_PASTOVYKLE" -> "Išduota pastovyklei"
@@ -490,4 +534,19 @@ private fun movementLabel(type: String): String = when (type) {
     "RETURN_TO_EVENT_STORAGE" -> "Grąžinta į sandėlį"
     "TRANSFER" -> "Perduota"
     else -> type
+}
+
+private fun EventInventoryMovementDto.matchesMovementQuery(query: String): Boolean {
+    val needle = query.lowercase()
+    return listOfNotNull(
+        itemName,
+        movementLabel(movementType),
+        movementType,
+        fromPastovykleName,
+        toPastovykleName,
+        fromUserName,
+        toUserName,
+        performedByUserName,
+        notes
+    ).any { value -> value.lowercase().contains(needle) }
 }

@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.ui.common.SkautaiTextField
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -126,29 +127,29 @@ fun RequisitionCreateScreen(
                     }
                 }
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = uiState.itemName,
                     onValueChange = viewModel::onItemNameChange,
-                    label = { Text("Norimas daiktas *") },
-                    placeholder = { Text("pvz. Palapinė 4 asmenims") },
+                    label = "Norimas daiktas *",
+                    placeholder = "pvz. Palapinė 4 asmenims",
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true
                 )
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = uiState.itemDescription,
                     onValueChange = viewModel::onItemDescriptionChange,
-                    label = { Text("Paaiškinimas") },
-                    placeholder = { Text("Kuo tiksliau aprašyk, ko reikia") },
+                    label = "Paaiškinimas",
+                    placeholder = "Kuo tiksliau aprašyk, ko reikia",
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4
                 )
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = uiState.quantity,
                     onValueChange = viewModel::onQuantityChange,
-                    label = { Text("Kiekis *") },
+                    label = "Kiekis *",
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -167,10 +168,10 @@ fun RequisitionCreateScreen(
                     onOrgUnitSelected = viewModel::onOrgUnitSelected
                 )
 
-                OutlinedTextField(
+                SkautaiTextField(
                     value = uiState.notes,
                     onValueChange = viewModel::onNotesChange,
-                    label = { Text("Pagrindimas / pastabos") },
+                    label = "Pagrindimas / pastabos",
                     modifier = Modifier.fillMaxWidth(),
                     minLines = 2,
                     maxLines = 4

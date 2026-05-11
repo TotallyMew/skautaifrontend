@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
@@ -30,6 +31,7 @@ sealed interface EventNeedsUiState {
         val inventoryPlan: EventInventoryPlanDto? = null,
         val items: List<ItemDto> = emptyList(),
         val members: List<MemberDto> = emptyList(),
+        val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
     ) : EventNeedsUiState
@@ -66,10 +68,11 @@ class EventNeedsViewModel @Inject constructor(
                     _uiState.value = EventNeedsUiState.Success(
                         event = event,
                         inventoryPlan = current?.inventoryPlan,
-                        items = current?.items.orEmpty(),
-                        members = current?.members.orEmpty(),
-                        isWorking = current?.isWorking == true,
-                        error = current?.error
+                items = current?.items.orEmpty(),
+                members = current?.members.orEmpty(),
+                currentUserId = current?.currentUserId ?: tokenManager.userId.first(),
+                isWorking = false,
+                error = current?.error
                     )
                 } else if (_uiState.value !is EventNeedsUiState.Success) {
                     _uiState.value = EventNeedsUiState.Loading
@@ -145,7 +148,7 @@ class EventNeedsViewModel @Inject constructor(
                     notes = notes.ifBlank { null }
                 )
             )
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventNeedsUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti poreikio.")
@@ -186,7 +189,7 @@ class EventNeedsViewModel @Inject constructor(
                 }
             )
             eventRepository.createInventoryItemsBulk(eventId, request)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventNeedsUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti poreikių.")
@@ -219,13 +222,26 @@ class EventNeedsViewModel @Inject constructor(
                 }
             )
             eventRepository.createInventoryItemsBulk(eventId, request)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventNeedsUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti poreikių.")
                     }
                 }
         }
+    }
+
+    fun showValidationError(message: String) {
+        (_uiState.value as? EventNeedsUiState.Success)?.let {
+            _uiState.value = it.copy(error = message)
+        }
+    }
+
+    private fun refreshAfterSuccessfulMutation(eventId: String) {
+        (_uiState.value as? EventNeedsUiState.Success)?.let {
+            _uiState.value = it.copy(isWorking = false, error = null)
+        }
+        load(eventId)
     }
 
     fun createPurchaseFromSelected(eventId: String, selectedInventoryItemIds: Set<String>) {
@@ -248,7 +264,7 @@ class EventNeedsViewModel @Inject constructor(
                 }
             )
             eventRepository.createPurchase(eventId, request)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventNeedsUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti pirkimo.")

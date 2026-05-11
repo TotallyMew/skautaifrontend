@@ -22,6 +22,15 @@ fun Set<String>.canManageSharedInventory(): Boolean =
 fun Set<String>.canManageAllItems(): Boolean =
     hasPermissionAll("items.update") || hasPermissionAll("items.delete") || canManageSharedInventory()
 
+fun Set<String>.canExportInventory(): Boolean =
+    canManageAllItems() || hasPermissionOwnUnit("items.create") || hasPermissionOwnUnit("items.update")
+
+fun Set<String>.canImportInventory(): Boolean =
+    canManageSharedInventory()
+
+fun Set<String>.canGenerateInventoryQrPdf(): Boolean =
+    canExportInventory()
+
 fun Set<String>.canViewMembers(): Boolean = hasPermission("members.view")
 
 fun Set<String>.canInviteMembers(): Boolean = hasPermission("invitations.create")

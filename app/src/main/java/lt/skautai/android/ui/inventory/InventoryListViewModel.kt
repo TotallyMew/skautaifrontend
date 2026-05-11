@@ -17,6 +17,11 @@ import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
+import lt.skautai.android.util.InventoryCsv
+import lt.skautai.android.util.InventoryImportDraft
+import lt.skautai.android.util.InventoryImportDuplicateMode
+import lt.skautai.android.util.InventoryImportField
+import lt.skautai.android.util.InventoryImportPreview
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
@@ -31,6 +36,12 @@ sealed interface InventoryListUiState {
     data class Error(val message: String) : InventoryListUiState
     object Empty : InventoryListUiState
 }
+
+private fun ItemDto.effectiveInventoryType(): String =
+    if (origin == "TRANSFERRED_FROM_TUNTAS" && custodianId != null) "COLLECTIVE" else type
+
+private fun ItemDto.isAssignedToPerson(): Boolean =
+    effectiveInventoryType() == "ASSIGNED" || responsibleUserId != null
 
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
@@ -58,6 +69,9 @@ class InventoryListViewModel @Inject constructor(
     private val _actionMessage = MutableStateFlow<String?>(null)
     val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
 
+    private val _importDraft = MutableStateFlow<InventoryImportDraft?>(null)
+    val importDraft: StateFlow<InventoryImportDraft?> = _importDraft.asStateFlow()
+
     private val _selectedTypes = MutableStateFlow(savedStateHandle.get<String?>("type")?.let { setOf(it) } ?: emptySet())
     val selectedTypes: StateFlow<Set<String>> = _selectedTypes.asStateFlow()
 
@@ -70,10 +84,16 @@ class InventoryListViewModel @Inject constructor(
     private val _selectedStatus = MutableStateFlow("ACTIVE")
     val selectedStatus: StateFlow<String> = _selectedStatus.asStateFlow()
 
+    private val _assignedOnly = MutableStateFlow(false)
+    val assignedOnly: StateFlow<Boolean> = _assignedOnly.asStateFlow()
+
     private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
     private val initialType = savedStateHandle.get<String?>("type")
-    private val initialSharedOnly = initialCustodianId == null && initialType == null
+    private val initialSharedOnly = savedStateHandle.get<Boolean>("sharedOnly") ?: false
+    private val initialPersonalOwner = savedStateHandle.get<String?>("personalOwner")
+    private val personalOwnerOnly = initialPersonalOwner == "me"
     val openedCustodianId: String? = initialCustodianId
+    val openedPersonalOwnerOnly: Boolean = personalOwnerOnly
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
@@ -89,7 +109,7 @@ class InventoryListViewModel @Inject constructor(
     private fun observeCachedItems() {
         viewModelScope.launch {
             val currentUserId = tokenManager.userId.first()
-            val personalOwnerId = if (initialType == "INDIVIDUAL") currentUserId else null
+            val personalOwnerId = if (personalOwnerOnly) currentUserId else null
             combine(
                 itemRepository.observeItems(
                     custodianId = initialCustodianId,
@@ -139,7 +159,7 @@ class InventoryListViewModel @Inject constructor(
             }
             try {
                 val currentUserId = tokenManager.userId.first()
-                val personalOwnerId = if (initialType == "INDIVIDUAL") currentUserId else null
+                val personalOwnerId = if (personalOwnerOnly) currentUserId else null
                 val itemsResult = itemRepository.refreshItems(
                     custodianId = initialCustodianId,
                     type = initialType,
@@ -275,10 +295,21 @@ class InventoryListViewModel @Inject constructor(
         loadItems()
     }
 
+    fun onAssignedOnlyChange(enabled: Boolean) {
+        _assignedOnly.value = enabled
+        clearSelection()
+    }
+
     fun clearFilters() {
         _selectedTypes.value = emptySet()
         _selectedCategories.value = emptySet()
         _selectedLocationIds.value = emptySet()
+        _assignedOnly.value = false
+        clearSelection()
+    }
+
+    fun clearTypeFilters() {
+        _selectedTypes.value = emptySet()
         clearSelection()
     }
 
@@ -310,6 +341,118 @@ class InventoryListViewModel @Inject constructor(
         _actionMessage.value = message
     }
 
+    fun inventoryExportCsv(items: List<ItemDto>): String = InventoryCsv.exportInventory(items)
+
+    fun inventoryImportTemplateCsv(): String = InventoryCsv.inventoryTemplate()
+
+    fun importInventoryCsv(csv: String) {
+        prepareInventoryImport("inventorius.csv", InventoryCsv.parseTextTable(csv))
+    }
+
+    fun prepareInventoryImport(fileName: String, table: List<List<String>>) {
+        if (table.isEmpty()) {
+            _actionMessage.value = "Importo failas tuščias arba nepavyko perskaityti lentelės."
+            return
+        }
+        if (table.size == 1) {
+            _actionMessage.value = "Faile yra tik antraštė, be importuojamų eilučių."
+            return
+        }
+        _importDraft.value = InventoryCsv.analyzeInventoryTable(fileName, table)
+    }
+
+    fun previewInventoryImport(
+        mapping: Map<InventoryImportField, Int?>,
+        duplicateMode: InventoryImportDuplicateMode
+    ): InventoryImportPreview? {
+        val draft = _importDraft.value ?: return null
+        val existingItems = (_uiState.value as? InventoryListUiState.Success)?.items.orEmpty()
+        return InventoryCsv.previewInventoryImport(
+            draft = draft,
+            mapping = mapping,
+            type = initialType ?: "COLLECTIVE",
+            custodianId = initialCustodianId,
+            existingItems = existingItems,
+            duplicateMode = duplicateMode
+        )
+    }
+
+    fun cancelInventoryImport() {
+        _importDraft.value = null
+    }
+
+    fun executeInventoryImport(
+        mapping: Map<InventoryImportField, Int?>,
+        duplicateMode: InventoryImportDuplicateMode
+    ) {
+        viewModelScope.launch {
+            val type = initialType ?: "COLLECTIVE"
+            val draft = _importDraft.value ?: return@launch
+            val result = InventoryCsv.parseInventoryRows(
+                rows = draft.rows,
+                mapping = mapping,
+                type = type,
+                custodianId = initialCustodianId,
+                unknownColumns = draft.unknownColumns
+            )
+            if (result.hasFatalErrors || result.rows.isEmpty()) {
+                _actionMessage.value = result.errors.firstOrNull()
+                    ?: "Importe nerasta tinkamų inventoriaus eilučių."
+                return@launch
+            }
+
+            val existingItems = (_uiState.value as? InventoryListUiState.Success)?.items.orEmpty()
+            val existingByKey = existingItems.associateBy { item ->
+                InventoryCsv.inventoryKey(
+                    name = item.name,
+                    category = item.category,
+                    condition = item.condition,
+                    type = item.type
+                )
+            }
+            var created = 0
+            var updated = 0
+            var skippedExisting = 0
+            var failed = 0
+
+            result.rows.forEach { request ->
+                val requestWithLocation = resolveImportedLocation(request)
+                val existing = existingByKey[InventoryCsv.inventoryKey(request.name, request.category, request.condition, request.type)]
+                val actionResult = when {
+                    existing != null && duplicateMode == InventoryImportDuplicateMode.Merge -> {
+                        itemRepository.updateItem(
+                            existing.id,
+                            UpdateItemRequestDto(
+                                quantity = existing.quantity + requestWithLocation.quantity,
+                                locationId = requestWithLocation.locationId ?: existing.locationId,
+                                temporaryStorageLabel = requestWithLocation.temporaryStorageLabel ?: existing.temporaryStorageLabel,
+                                notes = mergeNotes(existing.notes, requestWithLocation.notes),
+                                customFields = mergeCustomFields(existing.customFields, requestWithLocation.customFields),
+                                clearLocationId = false
+                            )
+                        )
+                    }
+                    existing != null && duplicateMode == InventoryImportDuplicateMode.SkipExisting -> {
+                        skippedExisting += 1
+                        null
+                    }
+                    else -> itemRepository.createItem(requestWithLocation.copy(duplicateHandling = "CREATE_NEW"))
+                }
+                actionResult?.onSuccess {
+                    if (existing != null && duplicateMode == InventoryImportDuplicateMode.Merge) updated += 1 else created += 1
+                }?.onFailure { failed += 1 }
+            }
+
+            _importDraft.value = null
+            loadItems()
+            _actionMessage.value = buildString {
+                append(result.summary(created = created, updated = updated))
+                if (skippedExisting > 0) append(" Praleista esamų: $skippedExisting.")
+                if (failed > 0) append(" Nepavyko: $failed.")
+            }
+        }
+    }
+
     fun onActionMessageShown() {
         _actionMessage.value = null
     }
@@ -319,10 +462,11 @@ class InventoryListViewModel @Inject constructor(
         val selectedTypes = _selectedTypes.value
         val selectedCategories = _selectedCategories.value
         val selectedLocationIds = _selectedLocationIds.value
+        val assignedOnly = _assignedOnly.value
         val byType = if (selectedTypes.isEmpty()) {
             items
         } else {
-            items.filter { it.type in selectedTypes }
+            items.filter { it.effectiveInventoryType() in selectedTypes }
         }
         val byCategory = if (selectedCategories.isEmpty()) {
             byType
@@ -335,12 +479,24 @@ class InventoryListViewModel @Inject constructor(
             val selectedAndChildren = selectedLocationIds.flatMap { selectedLocationTreeIds(it) }.toSet()
             byCategory.filter { item -> item.locationId?.let { it in selectedAndChildren } == true }
         }
+        val byAssigned = if (assignedOnly) {
+            byLocation.filter { it.isAssignedToPerson() }
+        } else {
+            byLocation
+        }
 
-        if (query.isBlank()) return byLocation
-        return byLocation.filter {
+        if (query.isBlank()) return byAssigned
+        return byAssigned.filter {
             it.name.contains(query, ignoreCase = true) ||
                 it.notes?.contains(query, ignoreCase = true) == true ||
-                it.custodianName?.contains(query, ignoreCase = true) == true
+                it.custodianName?.contains(query, ignoreCase = true) == true ||
+                it.locationPath?.contains(query, ignoreCase = true) == true ||
+                it.locationName?.contains(query, ignoreCase = true) == true ||
+                it.condition.contains(query, ignoreCase = true) ||
+                it.customFields.any { field ->
+                    field.fieldName.contains(query, ignoreCase = true) ||
+                        field.fieldValue?.contains(query, ignoreCase = true) == true
+                }
         }
     }
 
@@ -366,4 +522,51 @@ class InventoryListViewModel @Inject constructor(
 
     private fun Set<String>.toggle(value: String): Set<String> =
         if (value in this) this - value else this + value
+
+    private fun mergeNotes(existing: String?, imported: String?): String? {
+        if (imported.isNullOrBlank()) return existing
+        if (existing.isNullOrBlank()) return imported
+        return listOf(existing.trim(), imported.trim()).distinct().joinToString("; ")
+    }
+
+    private fun resolveImportedLocation(request: lt.skautai.android.data.remote.CreateItemRequestDto): lt.skautai.android.data.remote.CreateItemRequestDto {
+        val label = request.temporaryStorageLabel?.trim()?.takeIf { it.isNotBlank() } ?: return request
+        val normalized = label.normalizedImportKey()
+        val match = locations.value.firstOrNull { location ->
+            location.fullPath.normalizedImportKey() == normalized ||
+                location.name.normalizedImportKey() == normalized
+        } ?: return request
+        return request.copy(locationId = match.id, temporaryStorageLabel = null)
+    }
+
+    private fun mergeCustomFields(
+        existing: List<lt.skautai.android.data.remote.ItemCustomFieldDto>,
+        imported: List<lt.skautai.android.data.remote.ItemCustomFieldDto>
+    ): List<lt.skautai.android.data.remote.ItemCustomFieldDto> {
+        val byName = (existing + imported).groupBy { it.fieldName.trim().lowercase() }
+        return byName.values.mapNotNull { group ->
+            val name = group.firstOrNull()?.fieldName?.trim().orEmpty()
+            if (name.isBlank()) null else lt.skautai.android.data.remote.ItemCustomFieldDto(
+                fieldName = name,
+                fieldValue = group.mapNotNull { it.fieldValue?.trim()?.takeIf(String::isNotBlank) }
+                    .distinct()
+                    .joinToString("; ")
+                    .ifBlank { null }
+            )
+        }
+    }
+
+    private fun String.normalizedImportKey(): String =
+        trim().lowercase()
+            .replace("ą", "a")
+            .replace("č", "c")
+            .replace("ę", "e")
+            .replace("ė", "e")
+            .replace("į", "i")
+            .replace("š", "s")
+            .replace("ų", "u")
+            .replace("ū", "u")
+            .replace("ž", "z")
+            .replace(Regex("[^a-z0-9]+"), " ")
+            .trim()
 }

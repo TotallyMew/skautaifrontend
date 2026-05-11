@@ -1,4 +1,4 @@
-package lt.skautai.android.ui.events
+﻿package lt.skautai.android.ui.events
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -130,9 +130,9 @@ class EventStaffViewModel @Inject constructor(
             _uiState.value = current.copy(error = "Pasirinktas narys nerastas.")
             return
         }
-        activeStaffRoleForMember(userId, current.event, excludingSlot = slot)?.let { occupiedRole ->
+        activeStaffAssignmentLabelForMember(userId, current.event, current.pastovykles, excludingSlot = slot)?.let { occupiedRole ->
             _uiState.value = current.copy(
-                error = "${member.fullName()} jau turi štabo pareigą \"${staffRoleLabel(occupiedRole.role)}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
+                error = "${member.fullName()} jau turi štabo pareigą \"$occupiedRole\". Pirmiausia nuimkite nuo ankstesnės pareigos."
             )
             return
         }
@@ -173,9 +173,9 @@ class EventStaffViewModel @Inject constructor(
             _uiState.value = current.copy(error = "Pasirinktas narys nerastas.")
             return
         }
-        activeStaffRoleForMember(userId, current.event)?.let { occupiedRole ->
+        activeStaffAssignmentLabelForMember(userId, current.event, current.pastovykles)?.let { occupiedRole ->
             _uiState.value = current.copy(
-                error = "${member.fullName()} jau turi štabo pareigą \"${staffRoleLabel(occupiedRole.role)}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
+                error = "${member.fullName()} jau turi štabo pareigą \"$occupiedRole\". Pirmiausia nuimkite nuo ankstesnės pareigos."
             )
             return
         }
@@ -240,28 +240,20 @@ class EventStaffViewModel @Inject constructor(
 
     private suspend fun assignPastovykleLeader(eventId: String, slot: EventStaffSlotUiModel, userId: String): Result<Unit> {
         val pastovykleId = slot.pastovykleId ?: return Result.failure(Exception("Pastovyklė nerasta."))
-        slot.linkedRoleId?.let { existingRoleId ->
-            eventRepository.removeEventRole(eventId, existingRoleId).getOrElse { return Result.failure(it) }
-        }
-        eventRepository.updatePastovykle(
+        return eventRepository.updatePastovykle(
             eventId,
             pastovykleId,
             UpdatePastovykleRequestDto(responsibleUserId = userId)
-        ).getOrElse { return Result.failure(it) }
-        return eventRepository.assignEventRole(
-            eventId,
-            AssignEventRoleRequestDto(userId = userId, role = "PASTOVYKLE_LEADER")
-        )
+        ).map { Unit }
     }
 
     private suspend fun removePastovykleLeader(eventId: String, slot: EventStaffSlotUiModel): Result<Unit> {
         val pastovykleId = slot.pastovykleId ?: return Result.failure(Exception("Pastovyklė nerasta."))
-        eventRepository.updatePastovykle(
+        return eventRepository.updatePastovykle(
             eventId,
             pastovykleId,
-            UpdatePastovykleRequestDto(responsibleUserId = null)
-        ).getOrElse { return Result.failure(it) }
-        return slot.linkedRoleId?.let { eventRepository.removeEventRole(eventId, it) } ?: Result.success(Unit)
+            UpdatePastovykleRequestDto(clearResponsibleUser = true)
+        ).map { Unit }
     }
 
     private fun buildSuccessState(
@@ -333,11 +325,11 @@ class EventStaffViewModel @Inject constructor(
             currentUserId = currentUserId
         )
         slots += createRoleSlot(
-            id = "program-vilkai-skautai",
+            id = "program-vilkai",
             title = "Programeris",
-            subtitle = "Vilkų / skautų grupei",
+            subtitle = "Vilkų pastovyklėms",
             role = "PROGRAMERIS",
-            targetGroup = "SKAUTAI_VILKAI",
+            targetGroup = "VILKAI",
             event = event,
             members = members,
             currentUserId = currentUserId
@@ -348,6 +340,16 @@ class EventStaffViewModel @Inject constructor(
             subtitle = "Patyrusių skautų grupei",
             role = "PROGRAMERIS",
             targetGroup = "PATYRE_SKAUTAI",
+            event = event,
+            members = members,
+            currentUserId = currentUserId
+        )
+        slots += createRoleSlot(
+            id = "program-skautai",
+            title = "Programeris",
+            subtitle = "Skautų pastovyklėms",
+            role = "PROGRAMERIS",
+            targetGroup = "SKAUTAI",
             event = event,
             members = members,
             currentUserId = currentUserId
@@ -422,11 +424,32 @@ internal fun activeStaffRoleForMember(
     }
 }
 
+internal fun activeStaffAssignmentLabelForMember(
+    memberId: String,
+    event: EventDto,
+    pastovykles: List<PastovykleDto>,
+    excludingSlot: EventStaffSlotUiModel? = null
+): String? {
+    activeStaffRoleForMember(memberId, event, excludingSlot)?.let { role ->
+        return staffRoleLabel(role.role)
+    }
+
+    val excludedPastovykleId = excludingSlot
+        ?.takeIf { it.role == "PASTOVYKLE_LEADER" }
+        ?.pastovykleId
+    val responsiblePastovykle = pastovykles.firstOrNull { pastovykle ->
+        pastovykle.responsibleUserId == memberId && pastovykle.id != excludedPastovykleId
+    }
+
+    return responsiblePastovykle?.let { "Pastovyklės vadovas: ${it.name}" }
+}
+
 internal fun memberHasAnotherStaffRole(
     memberId: String,
     event: EventDto,
+    pastovykles: List<PastovykleDto>,
     excludingSlot: EventStaffSlotUiModel? = null
-): Boolean = activeStaffRoleForMember(memberId, event, excludingSlot) != null
+): Boolean = activeStaffAssignmentLabelForMember(memberId, event, pastovykles, excludingSlot) != null
 
 internal fun memberEligibleForPastovykleAgeGroup(
     member: MemberDto,
