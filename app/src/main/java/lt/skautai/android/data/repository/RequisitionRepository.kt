@@ -154,6 +154,8 @@ class RequisitionRepository @Inject constructor(
                     RequisitionItemDto(
                         id = "local-${UUID.randomUUID()}",
                         itemId = null,
+                        requestType = it.requestType,
+                        existingItemId = it.existingItemId,
                         itemName = it.itemName,
                         itemDescription = it.itemDescription,
                         quantityRequested = it.quantity,

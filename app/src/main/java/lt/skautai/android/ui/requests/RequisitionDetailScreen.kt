@@ -276,6 +276,10 @@ private fun RequisitionDetailContent(
                 Text("Detalės", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
                 HorizontalDivider()
                 item?.itemDescription?.let { RequisitionInfoRow("Aprašymas", it) }
+                item?.let {
+                    val typeLabel = if (it.requestType == "RESTOCK_EXISTING") "Papildyti esamą daiktą" else "Naujas daiktas"
+                    RequisitionInfoRow("Prašymo tipas", typeLabel)
+                }
                 item?.let { RequisitionInfoRow("Kiekis", "${it.quantityRequested}") }
                 request.requestingUnitName?.let { RequisitionInfoRow("Vienetas", it) }
                 request.neededByDate?.let { RequisitionInfoRow("Reikia iki", it) }
@@ -484,9 +488,10 @@ private fun AddPurchasedItemDialog(
     onConfirm: (String, String, String?, String?) -> Unit
 ) {
     val line = request.items.firstOrNull { it.itemId == null } ?: return
-    var action by remember { mutableStateOf("NEW_ITEM") }
+    val defaultAction = if (line.requestType == "RESTOCK_EXISTING") "RESTOCK_EXISTING" else "NEW_ITEM"
+    var action by remember(line.id, line.requestType) { mutableStateOf(defaultAction) }
     var expanded by remember { mutableStateOf(false) }
-    var selectedExistingItemId by remember { mutableStateOf<String?>(null) }
+    var selectedExistingItemId by remember(line.id, line.existingItemId) { mutableStateOf(line.existingItemId) }
     var notes by remember { mutableStateOf("") }
     val selectedItem = inventoryItems.firstOrNull { it.id == selectedExistingItemId }
 

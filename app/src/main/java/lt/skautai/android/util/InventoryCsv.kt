@@ -62,8 +62,10 @@ enum class InventoryImportDuplicateMode(val label: String, val description: Stri
 
 data class InventoryImportDraft(
     val fileName: String,
+    val sourceRows: List<List<String>>,
     val headers: List<String>,
     val rows: List<List<String>>,
+    val headerRowIndex: Int,
     val suggestedMapping: Map<InventoryImportField, Int?>,
     val unknownColumns: List<String>,
     val rowCount: Int
@@ -78,18 +80,18 @@ data class InventoryImportPreview(
 
 object InventoryCsv {
     private val inventoryHeaders = listOf(
-        "name",
-        "description",
-        "category",
-        "quantity",
-        "condition",
-        "notes",
-        "purchaseDate",
-        "purchasePrice",
-        "locationName",
-        "unitOfMeasure",
-        "tags",
-        "statusReason"
+        "Pavadinimas",
+        "Aprasymas",
+        "Kategorija",
+        "Kiekis",
+        "Bukle",
+        "Pastabos",
+        "Pirkimo data",
+        "Pirkimo kaina",
+        "Lokacija",
+        "Mato vienetas",
+        "Zymos",
+        "Bukles priezastis"
     )
 
     private val eventHeaders = listOf(
@@ -155,7 +157,7 @@ object InventoryCsv {
                 item.status
             )
         }
-        return toCsv(listOf(inventoryHeaders + listOf("type", "custodianName", "responsibleUserName", "status")) + rows)
+        return toCsv(listOf(inventoryHeaders) + rows)
     }
 
     fun exportEventPlan(items: List<EventInventoryItemDto>): String {
@@ -179,18 +181,38 @@ object InventoryCsv {
     fun parseXlsxTable(bytes: ByteArray): List<List<String>> = XlsxTableReader.readFirstSheet(bytes)
 
     fun analyzeInventoryTable(fileName: String, table: List<List<String>>): InventoryImportDraft {
-        val headers = table.firstOrNull().orEmpty()
+        val headerRowIndex = detectHeaderRowIndex(table, inventoryAliases, requiredCanonical = "name")
+        val headers = table.getOrNull(headerRowIndex).orEmpty()
         val headerMap = HeaderMap.from(headers, inventoryAliases)
         val suggested = InventoryImportField.entries.associateWith { field ->
             headerMap.indexOf(field.key).takeIf { it >= 0 }
         }
         return InventoryImportDraft(
             fileName = fileName,
+            sourceRows = table,
             headers = headers,
-            rows = table.drop(1),
+            rows = table.drop(headerRowIndex + 1),
+            headerRowIndex = headerRowIndex,
             suggestedMapping = suggested,
             unknownColumns = headerMap.unknownColumns,
-            rowCount = (table.size - 1).coerceAtLeast(0)
+            rowCount = (table.size - (headerRowIndex + 1)).coerceAtLeast(0)
+        )
+    }
+
+    fun withHeaderRow(draft: InventoryImportDraft, headerRowIndex: Int): InventoryImportDraft {
+        val safeIndex = headerRowIndex.coerceIn(0, (draft.sourceRows.lastIndex).coerceAtLeast(0))
+        val headers = draft.sourceRows.getOrNull(safeIndex).orEmpty()
+        val headerMap = HeaderMap.from(headers, inventoryAliases)
+        val suggested = InventoryImportField.entries.associateWith { field ->
+            headerMap.indexOf(field.key).takeIf { it >= 0 }
+        }
+        return draft.copy(
+            headers = headers,
+            rows = draft.sourceRows.drop(safeIndex + 1),
+            headerRowIndex = safeIndex,
+            suggestedMapping = suggested,
+            unknownColumns = headerMap.unknownColumns,
+            rowCount = (draft.sourceRows.size - (safeIndex + 1)).coerceAtLeast(0)
         )
     }
 
@@ -238,11 +260,12 @@ object InventoryCsv {
         if (table.isEmpty()) return CsvImportResult(emptyList(), 0, errors = listOf("Failas tuscias."))
         if (table.size == 1) return CsvImportResult(emptyList(), 0, errors = listOf("Faile yra tik antraste, be importuojamu eiluciu."))
 
-        val headerMap = HeaderMap.from(table.first(), inventoryAliases)
+        val headerRowIndex = detectHeaderRowIndex(table, inventoryAliases, requiredCanonical = "name")
+        val headerMap = HeaderMap.from(table[headerRowIndex], inventoryAliases)
         val mapping = InventoryImportField.entries.associateWith { field ->
             headerMap.indexOf(field.key).takeIf { it >= 0 }
         }
-        return parseInventoryRows(table.drop(1), mapping, type, custodianId, headerMap.unknownColumns)
+        return parseInventoryRows(table.drop(headerRowIndex + 1), mapping, type, custodianId, headerMap.unknownColumns)
     }
 
     fun parseInventoryRows(
@@ -626,6 +649,31 @@ object InventoryCsv {
                     .replace("[^a-z0-9]+".toRegex(), "")
         }
     }
+
+    private fun detectHeaderRowIndex(
+        table: List<List<String>>,
+        aliases: Map<String, List<String>>,
+        requiredCanonical: String
+    ): Int {
+        if (table.isEmpty()) return 0
+        val aliasLookup = aliases.flatMap { (canonical, values) ->
+            values.map { normalizeAliasValue(it) to canonical }
+        }.toMap()
+        val candidates = table.take(10).mapIndexed { rowIndex, row ->
+            val canonicalHits = row.mapNotNull { aliasLookup[normalizeAliasValue(it)] }.toSet()
+            val score = canonicalHits.size
+            Triple(rowIndex, score, requiredCanonical in canonicalHits)
+        }
+        val withRequired = candidates.filter { it.third }
+        val best = (withRequired.ifEmpty { candidates }).maxByOrNull { it.second }
+        return best?.first ?: 0
+    }
+
+    private fun normalizeAliasValue(value: String): String =
+        Normalizer.normalize(value.trim(), Normalizer.Form.NFD)
+            .replace("\\p{Mn}+".toRegex(), "")
+            .lowercase(Locale.ROOT)
+            .replace("[^a-z0-9]+".toRegex(), "")
 
     private object XlsxTableReader {
         fun readFirstSheet(bytes: ByteArray): List<List<String>> {

@@ -151,8 +151,15 @@ fun PastovykleLeaderScreen(
                                     RequestNeedCard(
                                         items = sharedItems,
                                         isWorking = state.isWorking || readOnly,
-                                        onCreateRequest = { itemId, quantity, notes ->
-                                            viewModel.createPastovykleRequest(eventId, selectedPastovykle.id, itemId, quantity, notes)
+                                        onCreateRequest = { itemId, customName, quantity, notes ->
+                                            viewModel.createPastovykleRequest(
+                                                eventId = eventId,
+                                                pastovykleId = selectedPastovykle.id,
+                                                itemId = itemId,
+                                                customName = customName,
+                                                quantityText = quantity,
+                                                notes = notes
+                                            )
                                         }
                                     )
                                 }
@@ -198,9 +205,10 @@ fun PastovykleLeaderScreen(
 private fun RequestNeedCard(
     items: List<ItemDto>,
     isWorking: Boolean,
-    onCreateRequest: (String, String, String) -> Unit
+    onCreateRequest: (String?, String?, String, String) -> Unit
 ) {
     var selectedItemId by remember { mutableStateOf<String?>(null) }
+    var customItemName by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
 
@@ -213,6 +221,13 @@ private fun RequestNeedCard(
             value = items.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
             options = items.map { it.id to "${it.name} (${it.quantity})" },
             onSelect = { selectedItemId = it }
+        )
+        SkautaiTextField(
+            value = customItemName,
+            onValueChange = { customItemName = it },
+            label = "Arba laisvas poreikis",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
         )
         SkautaiTextField(
             value = quantity,
@@ -230,11 +245,12 @@ private fun RequestNeedCard(
         EventPrimaryButton(
             text = "Prašyti iš ūkvedžio",
             onClick = {
-                selectedItemId?.let { onCreateRequest(it, quantity, notes) }
+                onCreateRequest(selectedItemId, customItemName.ifBlank { null }, quantity, notes)
                 quantity = ""
                 notes = ""
+                customItemName = ""
             },
-            enabled = !isWorking && selectedItemId != null
+            enabled = !isWorking && (selectedItemId != null || customItemName.isNotBlank())
         )
     }
 }

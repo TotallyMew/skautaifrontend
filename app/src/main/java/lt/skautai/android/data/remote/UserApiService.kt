@@ -8,7 +8,10 @@ import retrofit2.http.Body
 import retrofit2.http.POST
 import retrofit2.http.Path
 
-data class PermissionsResponseDto(val permissions: List<String>)
+data class PermissionsResponseDto(
+    val permissions: List<String>,
+    val leadershipUnitIds: List<String> = emptyList()
+)
 
 interface UserApiService {
 

@@ -55,11 +55,17 @@ class InviteAcceptViewModel @Inject constructor(
                         tokenManager.setActiveTuntas(responseTuntasId, response.tuntasName)
                         tokenManager.setActiveOrgUnit(response.organizationalUnitId)
                         userRepository.getMyPermissions(responseTuntasId)
-                            .onSuccess { tokenManager.savePermissions(it) }
+                            .onSuccess {
+                                tokenManager.savePermissions(it.permissions)
+                                tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
+                            }
                     } else {
                         tokenManager.activeTuntasId.first()?.let { tuntasId ->
                             userRepository.getMyPermissions(tuntasId)
-                                .onSuccess { tokenManager.savePermissions(it) }
+                                .onSuccess {
+                                    tokenManager.savePermissions(it.permissions)
+                                    tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
+                                }
                         }
                     }
                     _uiState.value = _uiState.value.copy(

@@ -63,6 +63,9 @@ class InventoryDetailViewModel @Inject constructor(
     val activeOrgUnitId: StateFlow<String?> = tokenManager.activeOrgUnitId
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
 
+    val leadershipUnitIds: StateFlow<List<String>> = tokenManager.leadershipUnitIds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _deleted = MutableStateFlow(false)
     val deleted: StateFlow<Boolean> = _deleted.asStateFlow()
 
@@ -235,6 +238,27 @@ class InventoryDetailViewModel @Inject constructor(
                 _actionError.value = error.message ?: "Nepavyko papildyti daikto"
             }
             _isTransferring.value = false
+        }
+    }
+
+    fun reviewItemAddition(itemId: String, decision: String, rejectionReason: String? = null) {
+        viewModelScope.launch {
+            itemRepository.reviewItemAddition(itemId, decision, rejectionReason)
+                .onSuccess { item ->
+                    val current = _uiState.value as? InventoryDetailUiState.Success
+                    _uiState.value = InventoryDetailUiState.Success(
+                        item = item,
+                        reservations = current?.reservations.orEmpty(),
+                        assignments = current?.assignments.orEmpty(),
+                        conditionLog = current?.conditionLog.orEmpty(),
+                        itemHistory = current?.itemHistory.orEmpty(),
+                        transfers = current?.transfers.orEmpty()
+                    )
+                    loadItemHistory(itemId)
+                }
+                .onFailure { error ->
+                    _actionError.value = error.message ?: "Nepavyko atlikti veiksmo"
+                }
         }
     }
 

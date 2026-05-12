@@ -66,6 +66,8 @@ import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.theme.ScoutUnitColors
 import lt.skautai.android.ui.theme.ScoutUnitPalette
+import lt.skautai.android.util.canManageEventSections
+import lt.skautai.android.util.eventRolesForUser
 
 private data class PastovykleAgeGroupOption(
     val code: String,
@@ -106,10 +108,14 @@ fun EventPastovyklėsScreen(
 
     val state = uiState
     val readOnly = (state as? EventPastovyklėsUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
-    val canManage = !readOnly && ("events.manage:ALL" in permissions ||
-        (state as? EventPastovyklėsUiState.Success)?.event?.eventRoles
-            ?.any { it.userId == state.currentUserId && it.role == "VIRSININKAS" } == true
-        )
+    val eventRoles = (state as? EventPastovyklėsUiState.Success)
+        ?.let { eventRolesForUser(it.event.eventRoles, it.currentUserId) }
+        .orEmpty()
+    val canManage = canManageEventSections(
+        permissions = permissions,
+        eventRoles = eventRoles,
+        isReadOnly = readOnly
+    )
 
     if (state is EventPastovyklėsUiState.Success && showEditor && canManage) {
         PastovykleEditorScreen(
@@ -521,13 +527,13 @@ private fun eligiblePastovykleLeaderMembers(
     ageGroup: String?
 ): List<MemberDto> {
     val currentLeaderRoleId = event.eventRoles.firstOrNull {
-        it.role == "PASTOVYKLE_LEADER" && it.userId == pastovykle?.responsibleUserId
+        it.role == "PASTOVYKLES_GURU" && it.userId == pastovykle?.responsibleUserId
     }?.id
     val currentSlot = EventStaffSlotUiModel(
         id = pastovykle?.id ?: "new_pastovykle",
         title = pastovykle?.name.orEmpty(),
         subtitle = "Pastovyklės pagrindinis vadovas",
-        role = "PASTOVYKLE_LEADER",
+        role = "PASTOVYKLES_GURU",
         pastovykleId = pastovykle?.id,
         pastovykleAgeGroup = ageGroup,
         assignedUserId = pastovykle?.responsibleUserId,

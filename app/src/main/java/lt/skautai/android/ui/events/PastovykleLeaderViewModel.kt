@@ -113,12 +113,24 @@ class PastovykleLeaderViewModel @Inject constructor(
         }
     }
 
-    fun createPastovykleRequest(eventId: String, pastovykleId: String, itemId: String, quantityText: String, notes: String) {
+    fun createPastovykleRequest(
+        eventId: String,
+        pastovykleId: String,
+        itemId: String?,
+        customName: String?,
+        quantityText: String,
+        notes: String
+    ) {
         val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return
         val quantity = quantityText.toIntOrNull()
-        val item = current.items.firstOrNull { it.id == itemId }
-        if (itemId.isBlank() || item == null || quantity == null || quantity <= 0) {
-            _uiState.value = current.copy(error = "Pasirinkite daiktą ir teigiamą kiekį.")
+        val item = itemId?.let { id -> current.items.firstOrNull { it.id == id } }
+        val normalizedName = customName?.trim().orEmpty()
+        if (quantity == null || quantity <= 0) {
+            _uiState.value = current.copy(error = "Įveskite teigiamą kiekį.")
+            return
+        }
+        if (item == null && normalizedName.isBlank()) {
+            _uiState.value = current.copy(error = "Pasirinkite daiktą arba įveskite laisvą poreikį.")
             return
         }
         viewModelScope.launch {
@@ -126,8 +138,8 @@ class PastovykleLeaderViewModel @Inject constructor(
             val eventInventoryItem = eventRepository.createInventoryItem(
                 eventId,
                 CreateEventInventoryItemRequestDto(
-                    itemId = item.id,
-                    name = item.name,
+                    itemId = item?.id,
+                    name = item?.name ?: normalizedName,
                     plannedQuantity = quantity,
                     notes = notes.ifBlank { null }
                 )

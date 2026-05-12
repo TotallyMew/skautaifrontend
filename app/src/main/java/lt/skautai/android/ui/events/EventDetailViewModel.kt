@@ -40,15 +40,18 @@ class EventDetailViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<EventDetailUiState>(EventDetailUiState.Loading)
     val uiState: StateFlow<EventDetailUiState> = _uiState.asStateFlow()
     private var observeJob: Job? = null
+    private var refreshJob: Job? = null
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
     fun loadEvent(id: String) {
+        _uiState.value = EventDetailUiState.Loading
         observeJob?.cancel()
+        refreshJob?.cancel()
         observeJob = viewModelScope.launch {
             eventRepository.observeEvent(id).collect { event ->
-                if (event != null) {
+                if (event != null && event.id == id) {
                     val current = _uiState.value as? EventDetailUiState.Success
                     _uiState.value = EventDetailUiState.Success(
                         event = event,
@@ -63,7 +66,8 @@ class EventDetailViewModel @Inject constructor(
                 }
             }
         }
-        viewModelScope.launch {
+        refreshJob = viewModelScope.launch {
+            val requestedEventId = id
             if (_uiState.value !is EventDetailUiState.Success) {
                 _uiState.value = EventDetailUiState.Loading
             }
@@ -78,7 +82,9 @@ class EventDetailViewModel @Inject constructor(
                 }
             val currentUserId = tokenManager.userId.first()
             val current = _uiState.value as? EventDetailUiState.Success ?: return@launch
+            if (current.event.id != requestedEventId) return@launch
             val pastovykles = eventRepository.getPastovyklės(id).getOrNull()?.pastovykles.orEmpty()
+            if (((_uiState.value as? EventDetailUiState.Success)?.event?.id) != requestedEventId) return@launch
             _uiState.value = current.copy(currentUserId = currentUserId, pastovykles = pastovykles)
         }
     }

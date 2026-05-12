@@ -23,6 +23,7 @@ import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
+import lt.skautai.android.util.canSubmitItemAddition
 import lt.skautai.android.util.hasPermissionAll
 
 data class InventoryAddEditUiState(
@@ -65,6 +66,7 @@ data class InventoryAddEditUiState(
     val mode: String = "SHARED",
     val canManageLocations: Boolean = true,
     val canCreateSharedDirectly: Boolean = false,
+    val canSubmitForApproval: Boolean = false,
     val duplicateCandidate: ItemDto? = null
 )
 
@@ -87,7 +89,7 @@ class InventoryAddEditViewModel @Inject constructor(
     val uiState: StateFlow<InventoryAddEditUiState> = _uiState.asStateFlow()
     private var pendingCreateRequest: CreateItemRequestDto? = null
 
-    fun init(itemId: String?, mode: String?) {
+    fun init(itemId: String?, mode: String?, custodianId: String? = null) {
         viewModelScope.launch {
             val tuntasId = tokenManager.activeTuntasId.first() ?: ""
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first().orEmpty()
@@ -97,16 +99,23 @@ class InventoryAddEditViewModel @Inject constructor(
                 permissions.contains("locations.manage:ALL") ||
                 permissions.contains("locations.manage:OWN_UNIT")
             val canCreateSharedDirectly = permissions.hasPermissionAll("items.create")
+            val canSubmitForApproval = permissions.canSubmitItemAddition()
+            val preselectedUnitId = if (resolvedMode == "UNIT_OWN") {
+                custodianId ?: activeOrgUnitId
+            } else {
+                ""
+            }
             _uiState.value = _uiState.value.copy(
                 tuntasId = tuntasId,
                 isLoading = itemId != null,
                 mode = resolvedMode,
                 type = defaultTypeForMode(resolvedMode),
                 origin = defaultOriginForMode(resolvedMode),
-                selectedOrgUnitId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId else "",
-                custodianId = if (resolvedMode == "UNIT_OWN") activeOrgUnitId.ifBlank { null } else null,
+                selectedOrgUnitId = preselectedUnitId,
+                custodianId = preselectedUnitId.ifBlank { null },
                 canManageLocations = canManageLocations,
-                canCreateSharedDirectly = canCreateSharedDirectly
+                canCreateSharedDirectly = canCreateSharedDirectly,
+                canSubmitForApproval = canSubmitForApproval
             )
 
             orgUnitRepository.getUnits()

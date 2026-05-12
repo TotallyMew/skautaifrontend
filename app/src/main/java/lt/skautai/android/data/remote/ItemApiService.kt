@@ -110,4 +110,12 @@ interface ItemApiService {
         @Path("itemId") itemId: String,
         @Body request: RestockItemRequestDto
     ): Response<ItemDto>
+
+    @POST("api/items/{itemId}/review")
+    suspend fun reviewItemAddition(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: ReviewItemAdditionRequestDto
+    ): Response<ItemDto>
 }

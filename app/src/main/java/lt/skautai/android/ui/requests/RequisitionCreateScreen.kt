@@ -57,6 +57,7 @@ import java.util.Date
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun RequisitionCreateScreen(
     onBack: () -> Unit,
@@ -130,21 +131,35 @@ fun RequisitionCreateScreen(
                 SkautaiTextField(
                     value = uiState.itemName,
                     onValueChange = viewModel::onItemNameChange,
-                    label = "Norimas daiktas *",
-                    placeholder = "pvz. Palapinė 4 asmenims",
+                    label = if (uiState.requestType == "RESTOCK_EXISTING") "Daiktas papildymui *" else "Norimas daiktas *",
+                    placeholder = if (uiState.requestType == "RESTOCK_EXISTING") "Pasirink iš sąrašo žemiau" else "pvz. Palapinė 4 asmenims",
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    enabled = uiState.requestType != "RESTOCK_EXISTING"
                 )
 
-                SkautaiTextField(
-                    value = uiState.itemDescription,
-                    onValueChange = viewModel::onItemDescriptionChange,
-                    label = "Paaiškinimas",
-                    placeholder = "Kuo tiksliau aprašyk, ko reikia",
-                    modifier = Modifier.fillMaxWidth(),
-                    minLines = 2,
-                    maxLines = 4
+                RequisitionTypeSelector(
+                    selectedType = uiState.requestType,
+                    onTypeSelected = viewModel::onRequestTypeChange
                 )
+
+                if (uiState.requestType == "RESTOCK_EXISTING") {
+                    RequisitionExistingItemDropdown(
+                        items = uiState.existingItems,
+                        selectedItemId = uiState.existingItemId,
+                        onItemSelected = viewModel::onExistingItemSelected
+                    )
+                } else {
+                    SkautaiTextField(
+                        value = uiState.itemDescription,
+                        onValueChange = viewModel::onItemDescriptionChange,
+                        label = "Paaiškinimas",
+                        placeholder = "Kuo tiksliau aprašyk, ko reikia",
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                }
 
                 SkautaiTextField(
                     value = uiState.quantity,
@@ -194,6 +209,82 @@ fun RequisitionCreateScreen(
                         Text("Pateikti prašymą")
                     }
                 }
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RequisitionTypeSelector(
+    selectedType: String,
+    onTypeSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf(
+        "NEW_ITEM" to "Naujas daiktas",
+        "RESTOCK_EXISTING" to "Papildyti esamą daiktą"
+    )
+    val selectedLabel = options.firstOrNull { it.first == selectedType }?.second ?: "Pasirinkti"
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Prašymo tipas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option.second) },
+                    onClick = {
+                        onTypeSelected(option.first)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RequisitionExistingItemDropdown(
+    items: List<lt.skautai.android.data.remote.ItemDto>,
+    selectedItemId: String?,
+    onItemSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedItem = items.firstOrNull { it.id == selectedItemId }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedItem?.let { "${it.name} (${it.quantity})" } ?: "Pasirinkti daiktą",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Esamas daiktas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            items.sortedBy { it.name.lowercase() }.forEach { item ->
+                DropdownMenuItem(
+                    text = { Text("${item.name} (${item.quantity} vnt.)") },
+                    onClick = {
+                        onItemSelected(item.id)
+                        expanded = false
+                    }
+                )
             }
         }
     }

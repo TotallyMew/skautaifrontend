@@ -173,13 +173,17 @@ private fun RequisitionCard(
                 verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    val requestKindLabel = when (firstItem?.requestType) {
+                        "RESTOCK_EXISTING" -> "Papildymas"
+                        else -> "Naujas daiktas"
+                    }
                     Text(
                         text = firstItem?.itemName ?: "Pirkimo prašymas",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "${request.items.sumOf { it.quantityRequested }} vnt. prašoma papildyti",
+                        text = "$requestKindLabel · ${request.items.sumOf { it.quantityRequested }} vnt.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

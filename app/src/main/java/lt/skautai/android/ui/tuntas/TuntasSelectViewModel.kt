@@ -204,11 +204,12 @@ class TuntasSelectViewModel @Inject constructor(
         }
         val cachedPerms = tokenManager.permissionsForTuntas(tuntasId)
         return userRepository.getMyPermissions(tuntasId)
-            .mapCatching { permissions ->
+            .mapCatching { result ->
                 tokenManager.setActiveTuntas(tuntasId, tuntas.name)
                 tokenManager.setActiveOrgUnit(null)
-                tokenManager.savePermissions(permissions)
-                tokenManager.cachePermissionsForTuntas(tuntasId, permissions)
+                tokenManager.savePermissions(result.permissions)
+                tokenManager.saveLeadershipUnitIds(result.leadershipUnitIds)
+                tokenManager.cachePermissionsForTuntas(tuntasId, result.permissions)
             }
             .recoverCatching { error ->
                 if (cachedPerms != null) {

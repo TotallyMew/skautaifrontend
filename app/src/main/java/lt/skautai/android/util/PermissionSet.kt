@@ -14,7 +14,12 @@ fun Set<String>.hasPermissionOwnUnit(permission: String): Boolean =
 
 fun Set<String>.canViewInventory(): Boolean = hasPermission("items.view")
 
-fun Set<String>.canCreateItems(): Boolean = hasPermission("items.create")
+fun Set<String>.canCreateItems(): Boolean =
+    hasPermission("items.create") || hasPermission("items.create.submit")
+
+fun Set<String>.canSubmitItemAddition(): Boolean = hasPermission("items.create.submit")
+
+fun Set<String>.canReviewItemAdditions(): Boolean = hasPermission("items.review")
 
 fun Set<String>.canManageSharedInventory(): Boolean =
     hasPermissionAll("items.transfer") || "items.transfer" in this

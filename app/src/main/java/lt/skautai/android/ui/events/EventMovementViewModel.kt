@@ -17,9 +17,11 @@ import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryCustodyDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
+import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.repository.EventRepository
+import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.util.TokenManager
 import java.util.UUID
 
@@ -30,6 +32,7 @@ sealed interface EventMovementUiState {
         val inventoryPlan: EventInventoryPlanDto? = null,
         val pastovykles: List<PastovykleDto> = emptyList(),
         val members: List<MemberDto> = emptyList(),
+        val inventoryItems: List<ItemDto> = emptyList(),
         val custody: List<EventInventoryCustodyDto> = emptyList(),
         val movements: List<EventInventoryMovementDto> = emptyList(),
         val isWorking: Boolean = false,
@@ -41,6 +44,7 @@ sealed interface EventMovementUiState {
 @HiltViewModel
 class EventMovementViewModel @Inject constructor(
     private val eventRepository: EventRepository,
+    private val itemRepository: ItemRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -62,6 +66,7 @@ class EventMovementViewModel @Inject constructor(
                         inventoryPlan = current?.inventoryPlan,
                         pastovykles = current?.pastovykles.orEmpty(),
                         members = current?.members.orEmpty(),
+                        inventoryItems = current?.inventoryItems.orEmpty(),
                         custody = current?.custody.orEmpty(),
                         movements = current?.movements.orEmpty(),
                         isWorking = current?.isWorking == true,
@@ -86,6 +91,7 @@ class EventMovementViewModel @Inject constructor(
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
+            val inventoryItems = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
             val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody.orEmpty()
             val movements = eventRepository.getInventoryMovements(eventId).getOrNull()?.movements.orEmpty()
             val current = _uiState.value as? EventMovementUiState.Success ?: return@launch
@@ -93,6 +99,7 @@ class EventMovementViewModel @Inject constructor(
                 inventoryPlan = inventoryPlan,
                 pastovykles = pastovykles,
                 members = members,
+                inventoryItems = inventoryItems,
                 custody = custody,
                 movements = movements
             )

@@ -41,6 +41,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.util.canManageEventInventorySections
+import lt.skautai.android.util.canManageEventSections
+import lt.skautai.android.util.canRequestEventInventory
+import lt.skautai.android.util.canViewEventPlan
+import lt.skautai.android.util.eventRolesForUser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,20 +121,15 @@ fun EventDetailScreen(
                 is EventDetailUiState.Success -> {
                     val readOnly = isEventReadOnlyStatus(state.event.status)
                     val myRoles = state.event.eventRoles
-                        .filter { it.userId == state.currentUserId }
-                        .map { it.role }
-                        .toSet()
+                        .let { eventRolesForUser(it, state.currentUserId) }
                     val myPastovyklės = state.pastovykles
                         .filter { it.responsibleUserId == state.currentUserId }
-                    val canManageGlobal = "events.manage:ALL" in permissions
-                    val canInventoryGlobal = "events.inventory.distribute:ALL" in permissions
-                    val canManage = !readOnly && (canManageGlobal || "VIRSININKAS" in myRoles)
-                    val canStart = !readOnly && (canManageGlobal || myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS") })
-                    val canInventory = !readOnly && (
-                        canManageGlobal ||
-                            canInventoryGlobal ||
-                            myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
-                        )
+                    val isPastovykleLeader = myPastovyklės.isNotEmpty()
+                    val canManage = canManageEventSections(permissions, myRoles, readOnly)
+                    val canStart = !readOnly && (canManage || "KOMENDANTAS" in myRoles)
+                    val canInventory = canManageEventInventorySections(permissions, myRoles, readOnly)
+                    val canPlanView = canViewEventPlan(permissions, myRoles)
+                    val canInventoryRequest = canRequestEventInventory(myRoles, readOnly)
                     val canOpenMovement = !readOnly && state.event.status == "ACTIVE"
 
                     LazyColumn(
@@ -186,13 +186,19 @@ fun EventDetailScreen(
                                         }
                                         add(EventWorkArea(Icons.Default.Inventory2, "Ūkvedys", "Trūkumai ir atsargos") { onOpenUkvedys(eventId) })
                                     }
-                                    if (canInventory || canOpenMovement || myPastovyklės.isNotEmpty()) {
+                                    if (!canInventory && canInventoryRequest) {
+                                        add(EventWorkArea(Icons.Default.Checklist, "Mano užsakymai", "Programos poreikiai") { onOpenNeeds(eventId) })
+                                    }
+                                    if (!canInventory && canPlanView) {
+                                        add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Inventoriaus planas", "Peržiūra") { onOpenPlan(eventId) })
+                                    }
+                                    if (canInventory || canOpenMovement || isPastovykleLeader) {
                                         add(EventWorkArea(Icons.Default.SwapHoriz, "Judėjimas", "Išdavimas ir grąžinimas") { onOpenMovement(eventId) })
                                     }
-                                    if (canManage || canInventory) {
+                                    if (canManage || canInventory || isPastovykleLeader) {
                                         add(EventWorkArea(Icons.Default.Groups, "Pastovyklės", "Grupės ir vadovai") { onOpenPastovyklės(eventId) })
                                     }
-                                    if (canManage) {
+                                    if (canManage || isPastovykleLeader) {
                                         add(EventWorkArea(Icons.Default.Groups, "Štabas", "${state.event.eventRoles.size} nariai") { onOpenStaff(eventId) })
                                     }
                                 }

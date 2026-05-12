@@ -5,6 +5,8 @@ import com.google.gson.annotations.SerializedName
 data class RequisitionItemDto(
     @SerializedName("id") val id: String,
     @SerializedName("itemId") val itemId: String?,
+    @SerializedName("requestType") val requestType: String = "NEW_ITEM",
+    @SerializedName("existingItemId") val existingItemId: String? = null,
     @SerializedName("itemName") val itemName: String,
     @SerializedName("itemDescription") val itemDescription: String?,
     @SerializedName("quantityRequested") val quantityRequested: Int,
@@ -46,7 +48,9 @@ data class CreateRequisitionItemDto(
     @SerializedName("itemName") val itemName: String,
     @SerializedName("itemDescription") val itemDescription: String? = null,
     @SerializedName("quantity") val quantity: Int,
-    @SerializedName("notes") val notes: String? = null
+    @SerializedName("notes") val notes: String? = null,
+    @SerializedName("requestType") val requestType: String = "NEW_ITEM",
+    @SerializedName("existingItemId") val existingItemId: String? = null
 )
 
 data class CreateRequisitionDto(

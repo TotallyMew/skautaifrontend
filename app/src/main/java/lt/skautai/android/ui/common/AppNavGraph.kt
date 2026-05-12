@@ -472,12 +472,18 @@ fun AppNavGraph(
                     type = NavType.StringType
                     defaultValue = null
                     nullable = true
+                },
+                navArgument("custodianId") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
                 }
             )
         ) {
             val itemId = it.arguments?.getString("itemId")
             val mode = it.arguments?.getString("mode")
-            InventoryAddEditScreen(itemId = itemId, mode = mode, navController = navController)
+            val custodianId = it.arguments?.getString("custodianId")
+            InventoryAddEditScreen(itemId = itemId, mode = mode, custodianId = custodianId, navController = navController)
         }
 
         composable(NavRoutes.ReservationCreate.route) {

@@ -43,6 +43,8 @@ private val translations = mapOf(
     "Location not found or not active" to "Lokacija nerasta.",
     "Organizational unit not found" to "Vienetas nerastas.",
     "Request not found" to "Prašymas nerastas.",
+    "Only active leaders can create a tuntas-level request" to "Tik aktyvus draugininkas arba tuntinio lygio vadovas gali teikti prašymą tuntui.",
+    "Tik aktyvus draugininkas arba tuntinio lygio vadovas gali kurti prašymą tuntui" to "Tik aktyvus draugininkas arba tuntinio lygio vadovas gali teikti prašymą tuntui.",
     "Not found" to "Nerasta.",
     "Not a member of this tuntas" to "Nesate šio tunto narys.",
     "You are not an active member of this tuntas" to "Nesate aktyvus šio tunto narys.",

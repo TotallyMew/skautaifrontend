@@ -144,7 +144,9 @@ class EventRepository @Inject constructor(
     fun observeEvent(id: String): Flow<EventDto?> {
         return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
             if (currentTuntasId == null) flowOf(null)
-            else eventDao.observeEvent(id, currentTuntasId).map { it?.toDto() }
+            else eventDao.observeEvent(id, currentTuntasId)
+                .map { it?.toDto() }
+                .map { event -> event?.takeIf { it.tuntasId == currentTuntasId } }
         }
     }
 

@@ -111,6 +111,8 @@ import lt.skautai.android.util.canGenerateInventoryQrPdf
 import lt.skautai.android.util.canImportInventory
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
+import lt.skautai.android.util.canReviewItemAdditions
+import lt.skautai.android.util.canSubmitItemAddition
 import lt.skautai.android.util.hasPermissionAll
 import lt.skautai.android.util.toPrintableQrItemOrNull
 import java.time.LocalDate
@@ -160,7 +162,8 @@ fun InventoryListScreen(
     val assignedOnly by viewModel.assignedOnly.collectAsStateWithLifecycle()
     val importDraft by viewModel.importDraft.collectAsStateWithLifecycle()
     val locations by viewModel.locations.collectAsStateWithLifecycle()
-    val canApprove = permissions.canManageSharedInventory()
+    val canReviewAdditions = permissions.canReviewItemAdditions()
+    val canApprove = canReviewAdditions || permissions.canSubmitItemAddition()
     val canExportCsv = permissions.canExportInventory()
     val canImportCsv = permissions.canImportInventory()
     val canGenerateQrPdf = permissions.canGenerateInventoryQrPdf()
@@ -220,6 +223,7 @@ fun InventoryListScreen(
         InventoryImportMappingDialog(
             draft = draft,
             previewProvider = viewModel::previewInventoryImport,
+            onHeaderRowSelected = viewModel::updateInventoryImportHeaderRow,
             onImport = viewModel::executeInventoryImport,
             onDismiss = viewModel::cancelInventoryImport
         )
@@ -267,7 +271,7 @@ fun InventoryListScreen(
                 )
             }
 
-            if (canApprove && pendingItems.isNotEmpty()) {
+            if (canReviewAdditions && pendingItems.isNotEmpty()) {
                 ApprovalBanner(
                     items = pendingItems,
                     navController = navController,
@@ -335,6 +339,7 @@ fun InventoryListScreen(
 private fun InventoryImportMappingDialog(
     draft: InventoryImportDraft,
     previewProvider: (Map<InventoryImportField, Int?>, InventoryImportDuplicateMode) -> InventoryImportPreview?,
+    onHeaderRowSelected: (Int) -> Unit,
     onImport: (Map<InventoryImportField, Int?>, InventoryImportDuplicateMode) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -364,7 +369,7 @@ private fun InventoryImportMappingDialog(
                             fontWeight = FontWeight.SemiBold
                         )
                         Text(
-                            text = "${draft.rowCount} eilučių, ${draft.headers.size} stulpelių",
+                            text = "${draft.rowCount} eilučių, ${draft.headers.size} stulpelių. Antraštė aptikta ${draft.headerRowIndex + 1} eilutėje.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -374,6 +379,34 @@ private fun InventoryImportMappingDialog(
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                        }
+                    }
+                }
+
+                item {
+                    var headerExpanded by remember(draft.fileName, draft.headerRowIndex, draft.sourceRows.size) { mutableStateOf(false) }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Antraštės eilutė", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                        Box {
+                            OutlinedButton(onClick = { headerExpanded = true }) {
+                                Text("${draft.headerRowIndex + 1} eilutė")
+                            }
+                            DropdownMenu(expanded = headerExpanded, onDismissRequest = { headerExpanded = false }) {
+                                draft.sourceRows.take(12).forEachIndexed { index, row ->
+                                    val preview = row.joinToString(" | ").take(60).ifBlank { "(tuščia)" }
+                                    DropdownMenuItem(
+                                        text = { Text("${index + 1}: $preview") },
+                                        onClick = {
+                                            onHeaderRowSelected(index)
+                                            headerExpanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -757,8 +790,17 @@ private fun InventoryBody(
                     actionLabel = if (canCreate) addSharedActionLabel(canCreateSharedDirectly) else "Grįžti į pradžią",
                 onAction = {
                     if (canCreate) {
-                        val mode = if (openedPersonalOwnerOnly || "INDIVIDUAL" in selectedTypes) "PERSONAL" else "SHARED"
-                        navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = mode))
+                        val mode = when {
+                            openedPersonalOwnerOnly || "INDIVIDUAL" in selectedTypes -> "PERSONAL"
+                            openedCustodianId != null -> "UNIT_OWN"
+                            else -> "SHARED"
+                        }
+                        navController.navigate(
+                            NavRoutes.InventoryAddEdit.createRoute(
+                                mode = mode,
+                                custodianId = if (mode == "UNIT_OWN") openedCustodianId else null
+                            )
+                        )
                     } else {
                         navController.navigate(NavRoutes.Home.route)
                     }

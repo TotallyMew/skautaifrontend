@@ -129,6 +129,15 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `items` ADD COLUMN `responsibleUserName` TEXT")
             }
         }
+        val migration11To12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `submittedByUserId` TEXT")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `submittedByUserName` TEXT")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `targetScope` TEXT")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `reviewedByUserId` TEXT")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `rejectionReason` TEXT")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
@@ -145,7 +154,8 @@ object DatabaseModule {
                 migration7To8,
                 migration8To9,
                 migration9To10,
-                migration10To11
+                migration10To11,
+                migration11To12
             )
             // The local Room store is used for offline/cache state. If a device already has
             // a newer dev schema, wiping only on downgrade is safer than crashing on launch.

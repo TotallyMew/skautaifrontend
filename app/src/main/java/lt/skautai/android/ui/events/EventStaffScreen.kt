@@ -63,6 +63,8 @@ import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.util.canManageEventSections
+import lt.skautai.android.util.eventRolesForUser
 
 private enum class StaffPanelMode { Slot, Extra }
 
@@ -98,11 +100,14 @@ fun EventStaffScreen(
     val state = uiState
     val readOnly = (state as? EventStaffUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val canManage = !readOnly && (
-        (state as? EventStaffUiState.Success)?.event?.eventRoles
-            ?.filter { it.userId == state.currentUserId }
-            ?.any { it.role == "VIRSININKAS" } == true
-        )
+    val eventRoles = (state as? EventStaffUiState.Success)
+        ?.let { eventRolesForUser(it.event.eventRoles, it.currentUserId) }
+        .orEmpty()
+    val canManage = canManageEventSections(
+        permissions = permissions,
+        eventRoles = eventRoles,
+        isReadOnly = readOnly
+    )
 
     if (canManage && state is EventStaffUiState.Success && panelMode == StaffPanelMode.Slot && activeSlot != null) {
         ModalBottomSheet(
@@ -383,7 +388,7 @@ private fun StaffSlotCard(
     onOpenPastovyklEs: () -> Unit
 ) {
     val isAssigned = slot.assignedUserName != null
-    val isPastovykleLeader = slot.role == "PASTOVYKLE_LEADER"
+    val isPastovykleLeader = slot.role == "PASTOVYKLES_GURU"
     val pastovyklePalette = if (isPastovykleLeader) pastovykleAgeGroupPalette(slot.pastovykleAgeGroup) else null
     val containerColor = when {
         isSelected -> MaterialTheme.colorScheme.primaryContainer
@@ -759,6 +764,6 @@ private fun eventRoleLabel(role: String): String = when (role) {
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"
     "SAVANORIS" -> "Savanoris"
-    "PASTOVYKLE_LEADER" -> "Pastovyklės vadovas"
+    "PASTOVYKLES_GURU" -> "Pastovyklės vadovas"
     else -> role
 }

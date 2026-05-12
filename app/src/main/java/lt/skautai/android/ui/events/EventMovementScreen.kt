@@ -78,6 +78,7 @@ fun EventMovementScreen(
                         item {
                             EventMovementCard(
                                 inventoryPlan = state.inventoryPlan,
+                                inventoryItems = state.inventoryItems,
                                 custody = state.custody,
                                 movements = state.movements,
                                 isWorking = state.isWorking,

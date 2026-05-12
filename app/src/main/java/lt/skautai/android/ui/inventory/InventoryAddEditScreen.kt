@@ -85,6 +85,7 @@ private const val STEP_REVIEW = 2
 fun InventoryAddEditScreen(
     itemId: String?,
     mode: String?,
+    custodianId: String? = null,
     navController: NavController,
     viewModel: InventoryAddEditViewModel = hiltViewModel()
 ) {
@@ -96,7 +97,7 @@ fun InventoryAddEditScreen(
     val isCreateFlow = itemId == null
 
     LaunchedEffect(Unit) {
-        viewModel.init(itemId, mode)
+        viewModel.init(itemId, mode, custodianId)
     }
 
     LaunchedEffect(uiState.isSuccess) {
@@ -235,7 +236,7 @@ fun InventoryAddEditScreen(
                                 enabled = !uiState.isSaving && !uiState.isUploadingPhoto,
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(if (uiState.mode == "SHARED" && !uiState.canCreateSharedDirectly) "Pateikti ir pridėti kitą" else "Išsaugoti ir pridėti kitą")
+                                Text(if (submitLabel(uiState) == "Pateikti patvirtinimui") "Pateikti ir pridėti kitą" else "Išsaugoti ir pridėti kitą")
                             }
                         }
                     } else {
@@ -1091,12 +1092,11 @@ private fun createTitle(mode: String): String = when (mode) {
     else -> "Pridėti į tunto inventorių"
 }
 
-private fun submitLabel(uiState: InventoryAddEditUiState): String =
-    if (uiState.mode == "SHARED" && !uiState.canCreateSharedDirectly) {
-        "Pateikti patvirtinimui"
-    } else {
-        "Išsaugoti"
-    }
+private fun submitLabel(uiState: InventoryAddEditUiState): String {
+    val needsApproval = uiState.canSubmitForApproval && !uiState.canCreateSharedDirectly &&
+        (uiState.mode == "SHARED" || uiState.mode == "UNIT_OWN")
+    return if (needsApproval) "Pateikti patvirtinimui" else "Išsaugoti"
+}
 
 private fun contextTitle(mode: String): String = when (mode) {
     "UNIT_OWN" -> "Aktyvaus vieneto inventorius"
@@ -1117,13 +1117,15 @@ private fun originLabelForMode(mode: String): String = when (mode) {
     else -> "Sukurtas naujai"
 }
 
-private fun approvalMessage(uiState: InventoryAddEditUiState): String = when (uiState.mode) {
-    "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventorius."
-    "PERSONAL" -> "Daiktas bus iškart matomas kaip tavo siūlomas skolinti inventorius."
-    else -> if (uiState.canCreateSharedDirectly) {
-        "Daiktas bus iš karto įtrauktas į bendrą tunto inventorių."
-    } else {
-        "Daiktas bus pateiktas patvirtinimui. Iki patvirtinimo jis bus pažymėtas kaip laukiantis."
+private fun approvalMessage(uiState: InventoryAddEditUiState): String {
+    val needsApproval = uiState.canSubmitForApproval && !uiState.canCreateSharedDirectly
+    return when {
+        uiState.mode == "PERSONAL" -> "Daiktas bus iškart matomas kaip tavo siūlomas skolinti inventorius."
+        uiState.mode == "UNIT_OWN" && needsApproval ->
+            "Prašymas bus pateiktas draugininkui/pirmininkui patvirtinimui."
+        uiState.mode == "UNIT_OWN" -> "Daiktas bus sukurtas tavo aktyviam vienetui kaip jo nuosavas inventorius."
+        uiState.canCreateSharedDirectly -> "Daiktas bus iš karto įtrauktas į bendrą tunto inventorių."
+        else -> "Daiktas bus pateiktas patvirtinimui. Iki patvirtinimo jis bus pažymėtas kaip laukiantis."
     }
 }
 

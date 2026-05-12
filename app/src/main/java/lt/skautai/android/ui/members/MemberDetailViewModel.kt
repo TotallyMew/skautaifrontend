@@ -410,7 +410,10 @@ class MemberDetailViewModel @Inject constructor(
     private suspend fun refreshPermissions() {
         val tuntasId = tokenManager.activeTuntasId.first() ?: return
         userRepository.getMyPermissions(tuntasId)
-            .onSuccess { tokenManager.savePermissions(it) }
+            .onSuccess {
+                tokenManager.savePermissions(it.permissions)
+                tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
+            }
     }
 
     private suspend fun refreshPermissionsIfCurrentUser(userId: String) {

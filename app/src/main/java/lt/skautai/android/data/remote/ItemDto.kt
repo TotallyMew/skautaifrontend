@@ -30,8 +30,18 @@ data class ItemDto(
     val notes: String?,
     val customFields: List<ItemCustomFieldDto> = emptyList(),
     val status: String,
+    val submittedByUserId: String? = null,
+    val submittedByUserName: String? = null,
+    val targetScope: String? = null,
+    val reviewedByUserId: String? = null,
+    val rejectionReason: String? = null,
     val createdAt: String,
     val updatedAt: String
+)
+
+data class ReviewItemAdditionRequestDto(
+    val decision: String,
+    val rejectionReason: String? = null
 )
 
 data class ItemCustomFieldDto(

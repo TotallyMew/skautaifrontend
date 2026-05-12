@@ -27,6 +27,7 @@ import lt.skautai.android.data.remote.ItemHistoryDto
 import lt.skautai.android.data.remote.ItemTransferDto
 import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
 import lt.skautai.android.data.remote.RestockItemRequestDto
+import lt.skautai.android.data.remote.ReviewItemAdditionRequestDto
 import lt.skautai.android.data.remote.TransferItemToUnitRequestDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
@@ -526,6 +527,32 @@ class ItemRepository @Inject constructor(
             Result.success(item)
         } else {
             Result.failure(Exception(response.errorMessage("Klaida papildant daikta")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun reviewItemAddition(
+        itemId: String,
+        decision: String,
+        rejectionReason: String? = null
+    ): Result<ItemDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.reviewItemAddition(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            itemId = itemId,
+            request = ReviewItemAdditionRequestDto(decision = decision, rejectionReason = rejectionReason)
+        )
+        if (response.isSuccessful) {
+            val item = response.body()!!.withSafeCollections()
+            itemDao.upsert(item.toEntity())
+            Result.success(item)
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida peržiūrint prašymą")))
         }
     } catch (e: Exception) {
         Result.failure(e.userFacingException())

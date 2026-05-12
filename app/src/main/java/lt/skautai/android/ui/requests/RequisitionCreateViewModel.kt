@@ -10,8 +10,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateRequisitionDto
 import lt.skautai.android.data.remote.CreateRequisitionItemDto
+import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequisitionRepository
@@ -27,6 +29,9 @@ data class RequisitionCreateUiState(
     val orgUnits: List<OrganizationalUnitDto> = emptyList(),
     val selectedOrgUnitId: String? = null,
     val selectedOrgUnitName: String? = null,
+    val requestType: String = "NEW_ITEM",
+    val existingItemId: String? = null,
+    val existingItems: List<ItemDto> = emptyList(),
     val itemName: String = "",
     val itemDescription: String = "",
     val quantity: String = "1",
@@ -39,6 +44,7 @@ class RequisitionCreateViewModel @Inject constructor(
     private val repository: RequisitionRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val memberRepository: MemberRepository,
+    private val itemRepository: ItemRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -69,6 +75,11 @@ class RequisitionCreateViewModel @Inject constructor(
                 .onFailure {
                     _uiState.value = _uiState.value.copy(isLoadingUnits = false)
                 }
+
+            itemRepository.getItems(status = "ACTIVE")
+                .onSuccess { items ->
+                    _uiState.value = _uiState.value.copy(existingItems = items)
+                }
         }
     }
 
@@ -82,6 +93,23 @@ class RequisitionCreateViewModel @Inject constructor(
 
     fun onQuantityChange(value: String) {
         _uiState.value = _uiState.value.copy(quantity = value)
+    }
+
+    fun onRequestTypeChange(value: String) {
+        val resetFields = if (value == "RESTOCK_EXISTING") {
+            _uiState.value.copy(itemDescription = "")
+        } else {
+            _uiState.value.copy(existingItemId = null)
+        }
+        _uiState.value = resetFields.copy(requestType = value)
+    }
+
+    fun onExistingItemSelected(itemId: String?) {
+        val selected = _uiState.value.existingItems.firstOrNull { it.id == itemId }
+        _uiState.value = _uiState.value.copy(
+            existingItemId = itemId,
+            itemName = selected?.name ?: _uiState.value.itemName
+        )
     }
 
     fun onNeededByDateChange(value: String) {
@@ -106,13 +134,17 @@ class RequisitionCreateViewModel @Inject constructor(
 
     fun createRequest() {
         val state = _uiState.value
-        if (state.itemName.isBlank()) {
+        if (state.requestType == "NEW_ITEM" && state.itemName.isBlank()) {
             _uiState.value = state.copy(error = "Įveskite norimo daikto pavadinimą")
             return
         }
         val quantity = state.quantity.toIntOrNull()
         if (quantity == null || quantity < 1) {
             _uiState.value = state.copy(error = "Kiekis turi būti teigiamas skaičius")
+            return
+        }
+        if (state.requestType == "RESTOCK_EXISTING" && state.existingItemId.isNullOrBlank()) {
+            _uiState.value = state.copy(error = "Pasirinkite esamą daiktą papildymui")
             return
         }
 
@@ -125,9 +157,19 @@ class RequisitionCreateViewModel @Inject constructor(
                     notes = state.notes.ifBlank { null },
                     items = listOf(
                         CreateRequisitionItemDto(
-                            itemName = state.itemName,
-                            itemDescription = state.itemDescription.ifBlank { null },
-                            quantity = quantity
+                            itemName = if (state.requestType == "RESTOCK_EXISTING") {
+                                state.existingItems.firstOrNull { it.id == state.existingItemId }?.name ?: state.itemName
+                            } else {
+                                state.itemName
+                            },
+                            itemDescription = if (state.requestType == "RESTOCK_EXISTING") {
+                                null
+                            } else {
+                                state.itemDescription.ifBlank { null }
+                            },
+                            quantity = quantity,
+                            requestType = state.requestType,
+                            existingItemId = state.existingItemId
                         )
                     )
                 )
@@ -167,10 +209,18 @@ class RequisitionCreateViewModel @Inject constructor(
     private fun canRequestForTuntas(currentMember: MemberDto?): Boolean {
         if (currentMember == null) return false
 
-        val hasActiveLeadershipRole = currentMember.leadershipRoles
-            .any { it.termStatus == "ACTIVE" }
-        val hasVadovasRank = currentMember.ranks.any { it.roleName == "Vadovas" }
-
-        return hasActiveLeadershipRole || hasVadovasRank
+        val allowedTopLevelRoles = setOf("Tuntininkas", "Tuntininko pavaduotojas", "Inventorininkas")
+        val isTopLevel = currentMember.leadershipRoles.any {
+            it.termStatus == "ACTIVE" &&
+                it.organizationalUnitId.isNullOrBlank() &&
+                it.roleName in allowedTopLevelRoles
+        }
+        val isDraugininkas = currentMember.leadershipRoles.any {
+            it.termStatus == "ACTIVE" &&
+                !it.organizationalUnitId.isNullOrBlank() &&
+                it.roleName.contains("drauginink", ignoreCase = true) &&
+                !it.roleName.contains("pavaduotoj", ignoreCase = true)
+        }
+        return isTopLevel || isDraugininkas
     }
 }

@@ -24,7 +24,9 @@ import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.canForwardUnitRequests
 import lt.skautai.android.util.canManageSharedInventory
+import lt.skautai.android.util.canReviewItemAdditions
 import lt.skautai.android.util.canReviewTopLevelRequisitions
+import lt.skautai.android.util.canSubmitItemAddition
 import lt.skautai.android.util.hasPermission
 
 data class HomeUiState(
@@ -86,7 +88,10 @@ class HomeViewModel @Inject constructor(
             val permissions = tokenManager.permissions.first()
             activeTuntasId?.let { tuntasId ->
                 userRepository.getMyPermissions(tuntasId)
-                    .onSuccess { tokenManager.savePermissions(it) }
+                    .onSuccess {
+                        tokenManager.savePermissions(it.permissions)
+                        tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
+                    }
             }
             val unitsResult = orgUnitRepository.getUnits()
             val currentMember = userId?.let { memberRepository.getMember(it).getOrNull() }
@@ -117,7 +122,7 @@ class HomeViewModel @Inject constructor(
             }
 
             val itemsResult = itemRepository.getItems()
-            val pendingItemsResult = if (permissions.canManageSharedInventory()) {
+            val pendingItemsResult = if (permissions.canReviewItemAdditions() || permissions.canSubmitItemAddition()) {
                 itemRepository.getItems(status = "PENDING_APPROVAL")
             } else {
                 Result.success(emptyList())

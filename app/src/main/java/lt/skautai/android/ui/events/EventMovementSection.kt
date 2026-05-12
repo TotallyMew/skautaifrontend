@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Forest
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PersonOutline
 import androidx.compose.material.icons.filled.QrCodeScanner
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Button
@@ -24,6 +26,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -43,8 +47,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventInventoryCustodyDto
+import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
+import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiTextField
@@ -53,6 +59,7 @@ import lt.skautai.android.ui.common.SkautaiTextField
 @Composable
 fun EventMovementCard(
     inventoryPlan: EventInventoryPlanDto?,
+    inventoryItems: List<ItemDto>,
     custody: List<EventInventoryCustodyDto>,
     movements: List<EventInventoryMovementDto>,
     isWorking: Boolean,
@@ -129,6 +136,13 @@ fun EventMovementCard(
                 onOpenCustodyQr = onOpenCustodyQr
             )
 
+            EventMovementPickerCard(
+                inventoryPlanItems = plannedItems,
+                inventoryItems = inventoryItems,
+                isWorking = isWorking,
+                onCreateMovement = onCreateMovement
+            )
+
             if (!hasAvailableInventory) {
                 Text(
                     text = "Daikto skenavimas aktyviai veiks, kai renginyje bus bent vienas prieinamas inventoriaus įrašas.",
@@ -192,6 +206,183 @@ private data class MovementItemOption(
     val id: String,
     val name: String
 )
+
+private data class MovementPickerItem(
+    val id: String,
+    val name: String,
+    val availableQuantity: Int,
+    val description: String? = null
+)
+
+@Composable
+private fun EventMovementPickerCard(
+    inventoryPlanItems: List<EventInventoryItemDto>,
+    inventoryItems: List<ItemDto>,
+    isWorking: Boolean,
+    onCreateMovement: (String, String, String, String?, String?, String?, String) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    var selectedQuantities by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
+    val pickerItems = remember(inventoryPlanItems, inventoryItems) {
+        val planned = inventoryPlanItems
+            .filter { it.availableQuantity > 0 }
+            .map {
+                MovementPickerItem(
+                    id = it.id,
+                    name = it.name,
+                    availableQuantity = it.availableQuantity,
+                    description = it.bucketName
+                )
+            }
+        val plannedSourceItemIds = inventoryPlanItems.mapNotNull { it.itemId }.toSet()
+        val sourceItems = inventoryItems
+            .filter { it.quantity > 0 && it.id !in plannedSourceItemIds }
+            .map {
+                MovementPickerItem(
+                    id = it.id,
+                    name = it.name,
+                    availableQuantity = it.quantity,
+                    description = it.custodianName ?: it.temporaryStorageLabel
+                )
+            }
+        (planned + sourceItems)
+            .distinctBy { it.id }
+            .sortedBy { it.name.lowercase() }
+    }
+    val filteredItems = remember(pickerItems, searchQuery) {
+        val query = searchQuery.trim().lowercase()
+        if (query.isBlank()) pickerItems.take(12)
+        else pickerItems.filter { item ->
+            listOfNotNull(item.name, item.description).any { it.lowercase().contains(query) }
+        }
+    }
+
+    EventListSection(title = "Pasirinkti daiktą", subtitle = "${pickerItems.size} galimi") {
+        SkautaiTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            label = "Ieškoti daikto",
+            placeholder = "Palapinė, tentas, arbatinukas...",
+            singleLine = true,
+            leadingIcon = Icons.Default.Search,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (filteredItems.isEmpty()) {
+            CompactMovementEmptyState(
+                title = "Daiktų nerasta",
+                message = "Pabandyk kitą pavadinimą arba naudok QR skenavimą.",
+                icon = Icons.Default.Inventory2
+            )
+        } else {
+            filteredItems.forEachIndexed { index, item ->
+                MovementPickerRow(
+                    item = item,
+                    selectedQuantity = selectedQuantities[item.id] ?: 0,
+                    isWorking = isWorking,
+                    onIncrease = {
+                        val current = selectedQuantities[item.id] ?: 0
+                        if (current < item.availableQuantity) {
+                            selectedQuantities = selectedQuantities + (item.id to current + 1)
+                        }
+                    },
+                    onDecrease = {
+                        val current = selectedQuantities[item.id] ?: 0
+                        selectedQuantities = if (current <= 1) {
+                            selectedQuantities - item.id
+                        } else {
+                            selectedQuantities + (item.id to current - 1)
+                        }
+                    },
+                    onSubmit = {
+                        val quantity = selectedQuantities[item.id] ?: 0
+                        if (quantity > 0) {
+                            onCreateMovement("CHECKOUT_TO_PERSON", item.id, quantity.toString(), null, null, null, "")
+                            selectedQuantities = selectedQuantities - item.id
+                        }
+                    }
+                )
+                if (index != filteredItems.lastIndex) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovementPickerRow(
+    item: MovementPickerItem,
+    selectedQuantity: Int,
+    isWorking: Boolean,
+    onIncrease: () -> Unit,
+    onDecrease: () -> Unit,
+    onSubmit: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1
+            )
+            Text(
+                text = "Laisva: ${(item.availableQuantity - selectedQuantity).coerceAtLeast(0)} / ${item.availableQuantity}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            item.description?.takeIf { it.isNotBlank() }?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            FilledTonalIconButton(
+                onClick = onDecrease,
+                enabled = selectedQuantity > 0 && !isWorking,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Mažinti")
+            }
+            Text(
+                text = selectedQuantity.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            FilledIconButton(
+                onClick = onIncrease,
+                enabled = selectedQuantity < item.availableQuantity && !isWorking,
+                modifier = Modifier.size(44.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Didinti")
+            }
+            Button(
+                onClick = onSubmit,
+                enabled = selectedQuantity > 0 && !isWorking,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+            ) {
+                Text("Paimti")
+            }
+        }
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -32,6 +32,7 @@ class TokenManager @Inject constructor(
         val PERMISSIONS_KEY = stringPreferencesKey("permissions")
         // Per-tuntas cache: "tuntasId1=perm1,perm2;tuntasId2=perm3" (max 5 entries)
         val PERMISSIONS_CACHE_KEY = stringPreferencesKey("permissions_cache")
+        val LEADERSHIP_UNIT_IDS_KEY = stringPreferencesKey("leadership_unit_ids")
     }
 
     private fun enc(value: String?) = EncryptionHelper.encrypt(value ?: "")
@@ -48,6 +49,9 @@ class TokenManager @Inject constructor(
     val activeOrgUnitId: Flow<String?> = context.dataStore.data.map { dec(it[ACTIVE_ORG_UNIT_ID_KEY]) }
     val permissions: Flow<Set<String>> = context.dataStore.data.map { prefs ->
         dec(prefs[PERMISSIONS_KEY])?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
+    }
+    val leadershipUnitIds: Flow<List<String>> = context.dataStore.data.map { prefs ->
+        dec(prefs[LEADERSHIP_UNIT_IDS_KEY])?.split(",")?.filter { it.isNotBlank() } ?: emptyList()
     }
 
     suspend fun saveToken(
@@ -100,6 +104,7 @@ class TokenManager @Inject constructor(
             prefs.remove(ACTIVE_TUNTAS_NAME_KEY)
             prefs.remove(ACTIVE_ORG_UNIT_ID_KEY)
             prefs.remove(PERMISSIONS_KEY)
+            prefs.remove(LEADERSHIP_UNIT_IDS_KEY)
         }
     }
 
@@ -115,6 +120,10 @@ class TokenManager @Inject constructor(
 
     suspend fun savePermissions(perms: List<String>) {
         context.dataStore.edit { it[PERMISSIONS_KEY] = enc(perms.joinToString(",")) }
+    }
+
+    suspend fun saveLeadershipUnitIds(ids: List<String>) {
+        context.dataStore.edit { it[LEADERSHIP_UNIT_IDS_KEY] = enc(ids.joinToString(",")) }
     }
 
     suspend fun updateUserIdentity(

@@ -111,13 +111,13 @@ class EventPastovyklėsViewModel @Inject constructor(
                 return
             }
             val currentLeaderRoleId = current.event.eventRoles.firstOrNull {
-                it.role == "PASTOVYKLE_LEADER" && it.userId == previous?.responsibleUserId
+                it.role == "PASTOVYKLES_GURU" && it.userId == previous?.responsibleUserId
             }?.id
             val currentSlot = EventStaffSlotUiModel(
                 id = pastovykleId ?: "new_pastovykle",
                 title = cleanName,
                 subtitle = "Pastovyklės pagrindinis vadovas",
-                role = "PASTOVYKLE_LEADER",
+                role = "PASTOVYKLES_GURU",
                 pastovykleId = pastovykleId,
                 pastovykleAgeGroup = ageGroup,
                 assignedUserId = previous?.responsibleUserId,
@@ -217,12 +217,12 @@ class EventPastovyklėsViewModel @Inject constructor(
         if (!savedResponsibleUserId.isNullOrBlank()) {
             val event = (_uiState.value as? EventPastovyklėsUiState.Success)?.event
             val alreadyAssigned = event?.eventRoles.orEmpty().any {
-                it.role == "PASTOVYKLE_LEADER" && it.userId == savedResponsibleUserId
+                it.role == "PASTOVYKLES_GURU" && it.userId == savedResponsibleUserId
             }
             if (!alreadyAssigned) {
                 eventRepository.assignEventRole(
                     eventId,
-                    AssignEventRoleRequestDto(userId = savedResponsibleUserId, role = "PASTOVYKLE_LEADER")
+                    AssignEventRoleRequestDto(userId = savedResponsibleUserId, role = "PASTOVYKLES_GURU")
                 )
             }
         }
@@ -237,7 +237,7 @@ class EventPastovyklėsViewModel @Inject constructor(
         if (stillLeadsAnotherPastovykle) return
         val event = state.event
         event.eventRoles
-            .filter { it.role == "PASTOVYKLE_LEADER" && it.userId == userId }
+            .filter { it.role == "PASTOVYKLES_GURU" && it.userId == userId }
             .forEach { role: EventRoleDto -> eventRepository.removeEventRole(eventId, role.id) }
     }
 }

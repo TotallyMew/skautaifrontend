@@ -24,8 +24,9 @@ class MainViewModel @Inject constructor(
             val tuntasId = tokenManager.activeTuntasId.first() ?: return@launch
             userRepository.getMyPermissions(tuntasId)
                 .onSuccess {
-                    tokenManager.savePermissions(it)
-                    tokenManager.cachePermissionsForTuntas(tuntasId, it)
+                    tokenManager.savePermissions(it.permissions)
+                    tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
+                    tokenManager.cachePermissionsForTuntas(tuntasId, it.permissions)
                 }
         }
     }

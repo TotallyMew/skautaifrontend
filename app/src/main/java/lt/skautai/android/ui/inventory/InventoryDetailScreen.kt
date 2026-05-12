@@ -81,6 +81,7 @@ import lt.skautai.android.util.QrPdfShareLauncher
 import lt.skautai.android.util.QrPayload
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
+import lt.skautai.android.util.hasPermission
 import lt.skautai.android.util.hasPermissionOwnUnit
 import lt.skautai.android.util.toPrintableQrItemOrNull
 
@@ -103,6 +104,7 @@ fun InventoryDetailScreen(
     val orgUnits by viewModel.orgUnits.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
+    val leadershipUnitIds by viewModel.leadershipUnitIds.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showQrDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -110,6 +112,9 @@ fun InventoryDetailScreen(
     var showTransferDialog by remember { mutableStateOf(false) }
     var showReturnDialog by remember { mutableStateOf(false) }
     var showRestockDialog by remember { mutableStateOf(false) }
+    var showApproveDialog by remember { mutableStateOf(false) }
+    var showRejectDialog by remember { mutableStateOf(false) }
+    var rejectionReasonText by remember { mutableStateOf("") }
     var sharedRequestQuantity by remember { mutableStateOf("1") }
     var sharedRequestQuantityError by remember { mutableStateOf<String?>(null) }
 
@@ -153,7 +158,8 @@ fun InventoryDetailScreen(
             isTransferredFromTuntas -> canManageShared
             item.custodianId == null -> permissions.canManageAllItems()
             permissions.canManageAllItems() -> true
-            else -> permissions.hasPermissionOwnUnit("items.update") && item.custodianId == activeOrgUnitId
+            else -> permissions.hasPermissionOwnUnit("items.update") &&
+                (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
         }
     } ?: false
     val canChangeStatus = canEdit
@@ -166,7 +172,8 @@ fun InventoryDetailScreen(
         it.origin == "TRANSFERRED_FROM_TUNTAS" &&
             it.status == "ACTIVE" &&
             it.quantity > 0 &&
-            (canManageShared || (permissions.hasPermissionOwnUnit("items.update") && it.custodianId == activeOrgUnitId))
+            (canManageShared || (permissions.hasPermissionOwnUnit("items.update") &&
+                (it.custodianId in leadershipUnitIds || it.custodianId == activeOrgUnitId)))
     } ?: false
     val canRequestForUnit = currentItem?.let {
         !canManageShared &&
@@ -174,6 +181,15 @@ fun InventoryDetailScreen(
             it.custodianId == null &&
             it.status == "ACTIVE" &&
             it.quantity > 0
+    } ?: false
+    val canReviewAddition = currentItem?.let { item ->
+        if (item.status != "PENDING_APPROVAL") return@let false
+        when (item.targetScope) {
+            "SHARED" -> permissions.hasPermission("items.review:ALL")
+            "UNIT" -> permissions.hasPermissionOwnUnit("items.review") &&
+                (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
+            else -> permissions.hasPermission("items.review:ALL")
+        }
     } ?: false
 
     Scaffold(
@@ -238,6 +254,7 @@ fun InventoryDetailScreen(
                         canDirectTransfer = canDirectTransfer,
                         canReturnToShared = canReturnToShared,
                         canRestock = canRestock,
+                        canReviewAddition = canReviewAddition,
                         isTransferring = isTransferring,
                         onRequestSharedItem = {
                             sharedRequestQuantity = "1"
@@ -249,7 +266,9 @@ fun InventoryDetailScreen(
                         onReturnToShared = { showReturnDialog = true },
                         onRestock = { showRestockDialog = true },
                         onDelete = { showDeleteDialog = true },
-                        onShowQr = { showQrDialog = true }
+                        onShowQr = { showQrDialog = true },
+                        onApprove = { showApproveDialog = true },
+                        onReject = { showRejectDialog = true }
                     )
                 }
             }
@@ -392,6 +411,59 @@ fun InventoryDetailScreen(
                 TextButton(onClick = { showDeleteDialog = false }) {
                     Text("Atšaukti")
                 }
+            }
+        )
+    }
+
+    if (showApproveDialog && currentItem != null) {
+        AlertDialog(
+            onDismissRequest = { showApproveDialog = false },
+            title = { Text("Patvirtinti prašymą?") },
+            text = { Text("Daiktas „${currentItem.name}“ bus įtrauktas į inventorių kaip aktyvus.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showApproveDialog = false
+                    viewModel.reviewItemAddition(currentItem.id, "APPROVED")
+                }) { Text("Patvirtinti") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showApproveDialog = false }) { Text("Atšaukti") }
+            }
+        )
+    }
+
+    if (showRejectDialog && currentItem != null) {
+        AlertDialog(
+            onDismissRequest = { showRejectDialog = false },
+            title = { Text("Atmesti prašymą?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Nurodyk atmetimo priežastį (neprivaloma).")
+                    SkautaiTextField(
+                        value = rejectionReasonText,
+                        onValueChange = { rejectionReasonText = it },
+                        label = "Priežastis",
+                        minLines = 2,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    showRejectDialog = false
+                    viewModel.reviewItemAddition(
+                        currentItem.id,
+                        "REJECTED",
+                        rejectionReasonText.ifBlank { null }
+                    )
+                    rejectionReasonText = ""
+                }) { Text("Atmesti") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showRejectDialog = false
+                    rejectionReasonText = ""
+                }) { Text("Atšaukti") }
             }
         )
     }
@@ -656,6 +728,7 @@ private fun ItemDetailContent(
     canDirectTransfer: Boolean,
     canReturnToShared: Boolean,
     canRestock: Boolean,
+    canReviewAddition: Boolean,
     isTransferring: Boolean,
     onRequestSharedItem: () -> Unit,
     onStatusChange: (String) -> Unit,
@@ -663,7 +736,9 @@ private fun ItemDetailContent(
     onReturnToShared: () -> Unit,
     onRestock: () -> Unit,
     onDelete: () -> Unit,
-    onShowQr: () -> Unit
+    onShowQr: () -> Unit,
+    onApprove: () -> Unit,
+    onReject: () -> Unit
 ) {
     val isSharedTransfer = item.origin == "TRANSFERRED_FROM_TUNTAS"
     val originDisplay = itemOriginDisplay(item)
@@ -892,6 +967,48 @@ private fun ItemDetailContent(
 
         if (conditionLog.isNotEmpty()) {
             ItemConditionLogCard(entries = conditionLog)
+        }
+
+        if (item.status == "PENDING_APPROVAL") {
+            SkautaiCard(
+                modifier = Modifier.fillMaxWidth(),
+                tonal = MaterialTheme.colorScheme.tertiaryContainer
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Laukiama patvirtinimo",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
+                    )
+                    if (item.submittedByUserName != null) {
+                        Text(
+                            text = "Pateikė: ${item.submittedByUserName}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (canReviewAddition) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Button(
+                    onClick = onApprove,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Patvirtinti") }
+                OutlinedButton(
+                    onClick = onReject,
+                    modifier = Modifier.weight(1f)
+                ) { Text("Atmesti") }
+            }
         }
 
         if (canRequestForUnit) {

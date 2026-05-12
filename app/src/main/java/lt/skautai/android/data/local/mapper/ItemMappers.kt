@@ -41,6 +41,11 @@ fun ItemDto.toEntity(): ItemEntity = ItemEntity(
     notes = notes,
     customFieldsJson = gson.toJson(customFields.orEmpty()),
     status = status,
+    submittedByUserId = submittedByUserId,
+    submittedByUserName = submittedByUserName,
+    targetScope = targetScope,
+    reviewedByUserId = reviewedByUserId,
+    rejectionReason = rejectionReason,
     createdAt = createdAt,
     updatedAt = updatedAt
 )
@@ -79,6 +84,11 @@ fun ItemEntity.toDto(): ItemDto = ItemDto(
         gson.fromJson<List<ItemCustomFieldDto>>(customFieldsJson, customFieldsType)
     }.getOrNull().orEmpty(),
     status = status,
+    submittedByUserId = submittedByUserId,
+    submittedByUserName = submittedByUserName,
+    targetScope = targetScope,
+    reviewedByUserId = reviewedByUserId,
+    rejectionReason = rejectionReason,
     createdAt = createdAt,
     updatedAt = updatedAt
 )

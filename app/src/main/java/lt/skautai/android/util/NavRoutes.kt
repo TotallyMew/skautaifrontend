@@ -43,11 +43,12 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(itemId: String) = "inventory_detail/$itemId"
     }
     object InventoryQrScanner : NavRoutes("inventory_qr_scanner")
-    object InventoryAddEdit : NavRoutes("inventory_add_edit?itemId={itemId}&mode={mode}") {
-        fun createRoute(itemId: String? = null, mode: String? = null): String {
+    object InventoryAddEdit : NavRoutes("inventory_add_edit?itemId={itemId}&mode={mode}&custodianId={custodianId}") {
+        fun createRoute(itemId: String? = null, mode: String? = null, custodianId: String? = null): String {
             val params = buildList {
                 if (itemId != null) add("itemId=$itemId")
                 if (mode != null) add("mode=$mode")
+                if (custodianId != null) add("custodianId=$custodianId")
             }
             return if (params.isEmpty()) "inventory_add_edit" else "inventory_add_edit?${params.joinToString("&")}"
         }

@@ -56,7 +56,7 @@ sealed interface EventStaffUiState {
         val programSlots: List<EventStaffSlotUiModel>
             get() = slots.filter { it.role == "PROGRAMERIS" }
         val pastovykleSlots: List<EventStaffSlotUiModel>
-            get() = slots.filter { it.role == "PASTOVYKLE_LEADER" }
+            get() = slots.filter { it.role == "PASTOVYKLES_GURU" }
     }
     data class Error(val message: String) : EventStaffUiState
 }
@@ -149,7 +149,7 @@ class EventStaffViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             val result = when (slot.role) {
-                "PASTOVYKLE_LEADER" -> assignPastovykleLeader(eventId, slot, userId)
+                "PASTOVYKLES_GURU" -> assignPastovykleLeader(eventId, slot, userId)
                 else -> reassignRole(eventId, slot, userId)
             }
             result
@@ -210,7 +210,7 @@ class EventStaffViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             val result = when (slot.role) {
-                "PASTOVYKLE_LEADER" -> removePastovykleLeader(eventId, slot)
+                "PASTOVYKLES_GURU" -> removePastovykleLeader(eventId, slot)
                 else -> slot.linkedRoleId?.let { eventRepository.removeEventRole(eventId, it) }
                     ?: Result.failure(Exception("Pareiga nėra priskirta."))
             }
@@ -357,14 +357,14 @@ class EventStaffViewModel @Inject constructor(
 
         pastovykles.sortedBy { it.name.lowercase() }.forEach { pastovykle ->
             val linkedRole = event.eventRoles.firstOrNull { role ->
-                role.role == "PASTOVYKLE_LEADER" && role.userId == pastovykle.responsibleUserId
+                role.role == "PASTOVYKLES_GURU" && role.userId == pastovykle.responsibleUserId
             }
             val assignedUser = members.firstOrNull { it.userId == pastovykle.responsibleUserId }
             slots += EventStaffSlotUiModel(
                 id = "pastovykle_${pastovykle.id}",
                 title = pastovykle.name,
                 subtitle = "Pastovyklės pagrindinis vadovas",
-                role = "PASTOVYKLE_LEADER",
+                role = "PASTOVYKLES_GURU",
                 pastovykleId = pastovykle.id,
                 pastovykleAgeGroup = pastovykle.ageGroup,
                 assignedUserId = pastovykle.responsibleUserId ?: linkedRole?.userId,
@@ -402,7 +402,7 @@ class EventStaffViewModel @Inject constructor(
             assignedUserName = assignedMember?.fullName() ?: assignedRole?.userName,
             linkedRoleId = assignedRole?.id,
             isLocked = isLocked,
-            opensPastovykleScreen = role == "PASTOVYKLE_LEADER" && assignedRole?.userId == currentUserId
+            opensPastovykleScreen = role == "PASTOVYKLES_GURU" && assignedRole?.userId == currentUserId
         )
     }
 }
@@ -414,13 +414,14 @@ internal fun activeStaffRoleForMember(
 ): EventRoleDto? {
     val excludedRoleId = excludingSlot?.linkedRoleId
     val excludedPastovykleLeaderUserId = excludingSlot
-        ?.takeIf { it.role == "PASTOVYKLE_LEADER" }
+        ?.takeIf { it.role == "PASTOVYKLES_GURU" }
+        
         ?.assignedUserId
 
     return event.eventRoles.firstOrNull { role ->
         role.userId == memberId &&
             role.id != excludedRoleId &&
-            !(role.role == "PASTOVYKLE_LEADER" && role.userId == excludedPastovykleLeaderUserId)
+            !(role.role == "PASTOVYKLES_GURU" && role.userId == excludedPastovykleLeaderUserId)
     }
 }
 
@@ -435,7 +436,7 @@ internal fun activeStaffAssignmentLabelForMember(
     }
 
     val excludedPastovykleId = excludingSlot
-        ?.takeIf { it.role == "PASTOVYKLE_LEADER" }
+        ?.takeIf { it.role == "PASTOVYKLES_GURU" }
         ?.pastovykleId
     val responsiblePastovykle = pastovykles.firstOrNull { pastovykle ->
         pastovykle.responsibleUserId == memberId && pastovykle.id != excludedPastovykleId
@@ -485,6 +486,6 @@ private fun staffRoleLabel(role: String): String = when (role) {
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"
     "SAVANORIS" -> "Savanoris"
-    "PASTOVYKLE_LEADER" -> "Pastovyklės vadovas"
+    "PASTOVYKLES_GURU" -> "Pastovyklės vadovas"
     else -> role
 }

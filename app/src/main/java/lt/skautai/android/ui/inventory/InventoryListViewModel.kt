@@ -25,6 +25,8 @@ import lt.skautai.android.util.InventoryImportPreview
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
+import lt.skautai.android.util.canReviewItemAdditions
+import lt.skautai.android.util.canSubmitItemAddition
 import javax.inject.Inject
 
 sealed interface InventoryListUiState {
@@ -129,7 +131,8 @@ class InventoryListViewModel @Inject constructor(
                 permissions
             ) { activeItems, inactiveItems, pendingItems, selectedStatus, permissions ->
                 val visibleInactiveItems = if (permissions.canManageAllItems()) inactiveItems else emptyList()
-                val visiblePendingItems = if (permissions.canManageSharedInventory()) pendingItems else emptyList()
+                val canSeePending = permissions.canReviewItemAdditions() || permissions.canSubmitItemAddition()
+                val visiblePendingItems = if (canSeePending) pendingItems else emptyList()
                 val visibleItems = when (selectedStatus) {
                     "INACTIVE" -> visibleInactiveItems
                     "PENDING_APPROVAL" -> visiblePendingItems
@@ -167,9 +170,9 @@ class InventoryListViewModel @Inject constructor(
                     createdByUserId = personalOwnerId
                 )
                 val currentPermissions = permissions.value
-                val canApprovePending = currentPermissions.canManageSharedInventory()
+                val canSeePending = currentPermissions.canReviewItemAdditions() || currentPermissions.canSubmitItemAddition()
 
-                val pendingItemsResult = if (canApprovePending) {
+                val pendingItemsResult = if (canSeePending) {
                     itemRepository.refreshItems(status = "PENDING_APPROVAL")
                 } else Result.success(Unit)
 
@@ -379,6 +382,11 @@ class InventoryListViewModel @Inject constructor(
 
     fun cancelInventoryImport() {
         _importDraft.value = null
+    }
+
+    fun updateInventoryImportHeaderRow(headerRowIndex: Int) {
+        val draft = _importDraft.value ?: return
+        _importDraft.value = InventoryCsv.withHeaderRow(draft, headerRowIndex)
     }
 
     fun executeInventoryImport(

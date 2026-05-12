@@ -51,13 +51,13 @@ class UserRepository @Inject constructor(
         }
     }
 
-    suspend fun getMyPermissions(tuntasId: String): Result<List<String>> {
+    suspend fun getMyPermissions(tuntasId: String): Result<PermissionsResponseDto> {
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.getMyPermissions("Bearer $token", tuntasId)
             if (response.isSuccessful) {
-                Result.success(response.body()!!.permissions)
+                Result.success(response.body()!!)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti naudotojo teisių.")))
             }
