@@ -1,11 +1,14 @@
 package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -14,6 +17,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
@@ -29,6 +33,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
@@ -55,6 +60,7 @@ import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
@@ -83,7 +89,7 @@ fun InventoryTemplateScreen(
     }
 
     uiState.editor?.let { editor ->
-        InventoryTemplateEditorDialog(
+        InventoryTemplateEditorSheet(
             editor = editor,
             inventoryItems = uiState.inventoryItems,
             isSaving = uiState.isSaving,
@@ -232,6 +238,188 @@ private fun InventoryTemplateCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SkautaiStatusPill(label = eventTypeLabel(template.eventType ?: "RENGINYS"), tone = SkautaiStatusTone.Info)
                 SkautaiStatusPill(label = "${template.items.size} eilutės", tone = SkautaiStatusTone.Neutral)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InventoryTemplateEditorSheetLegacy(
+    editor: InventoryTemplateEditorState,
+    inventoryItems: List<ItemDto>,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onEventTypeChange: (String) -> Unit,
+    onItemChange: (Int, InventoryTemplateEditorItem) -> Unit,
+    onAddItem: () -> Unit,
+    onRemoveItem: (Int) -> Unit,
+    onSave: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    SkautaiSectionHeader(
+                        title = if (editor.templateId == null) "Naujas šablonas" else "Redaguoti šabloną",
+                        subtitle = "${editor.items.size} eilutės · ${inventoryItems.size} daiktai kataloge"
+                    )
+                    IconButton(onClick = onDismiss, enabled = !isSaving) {
+                        Icon(Icons.Default.Close, contentDescription = "Uždaryti")
+                    }
+                }
+            }
+            item {
+                SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SkautaiTextField(
+                            value = editor.name,
+                            onValueChange = onNameChange,
+                            label = "Pavadinimas",
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        InventoryTemplateEventTypeDropdown(
+                            selected = editor.eventType,
+                            onSelected = onEventTypeChange
+                        )
+                    }
+                }
+            }
+            items(editor.items.size, key = { index -> "template_sheet_item_$index" }) { index ->
+                InventoryTemplateItemEditor(
+                    index = index,
+                    item = editor.items[index],
+                    inventoryItems = inventoryItems,
+                    canRemove = editor.items.size > 1,
+                    onChange = { onItemChange(index, it) },
+                    onRemove = { onRemoveItem(index) }
+                )
+            }
+            item {
+                OutlinedButton(onClick = onAddItem, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Pridėti eilutę")
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving
+                    ) {
+                        Text("Uždaryti")
+                    }
+                    SkautaiPrimaryButton(
+                        text = if (isSaving) "Saugoma..." else "Išsaugoti",
+                        onClick = onSave,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InventoryTemplateEditorSheet(
+    editor: InventoryTemplateEditorState,
+    inventoryItems: List<ItemDto>,
+    isSaving: Boolean,
+    onDismiss: () -> Unit,
+    onNameChange: (String) -> Unit,
+    onEventTypeChange: (String) -> Unit,
+    onItemChange: (Int, InventoryTemplateEditorItem) -> Unit,
+    onAddItem: () -> Unit,
+    onRemoveItem: (Int) -> Unit,
+    onSave: () -> Unit
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    SkautaiSectionHeader(
+                        title = if (editor.templateId == null) "Naujas šablonas" else "Redaguoti šabloną",
+                        subtitle = "${editor.items.size} eilutės · ${inventoryItems.size} daiktai kataloge"
+                    )
+                    IconButton(onClick = onDismiss, enabled = !isSaving) {
+                        Icon(Icons.Default.Close, contentDescription = "Uždaryti")
+                    }
+                }
+            }
+            item {
+                SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        SkautaiTextField(
+                            value = editor.name,
+                            onValueChange = onNameChange,
+                            label = "Pavadinimas",
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        InventoryTemplateEventTypeDropdown(
+                            selected = editor.eventType,
+                            onSelected = onEventTypeChange
+                        )
+                    }
+                }
+            }
+            items(editor.items.size, key = { index -> "template_sheet_item_$index" }) { index ->
+                InventoryTemplateItemEditor(
+                    index = index,
+                    item = editor.items[index],
+                    inventoryItems = inventoryItems,
+                    canRemove = editor.items.size > 1,
+                    onChange = { onItemChange(index, it) },
+                    onRemove = { onRemoveItem(index) }
+                )
+            }
+            item {
+                OutlinedButton(onClick = onAddItem, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Default.Add, contentDescription = null)
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text("Pridėti eilutę")
+                }
+            }
+            item {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving
+                    ) {
+                        Text("Uždaryti")
+                    }
+                    SkautaiPrimaryButton(
+                        text = if (isSaving) "Saugoma..." else "Išsaugoti",
+                        onClick = onSave,
+                        enabled = !isSaving,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }

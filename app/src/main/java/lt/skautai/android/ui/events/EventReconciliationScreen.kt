@@ -119,6 +119,13 @@ fun EventReconciliationScreen(
                         }
 
                         item {
+                            ReconciliationCompletedSection(
+                                title = "Grąžinimų suvestinė",
+                                rows = reconciliation.returnedToEventStorage
+                            )
+                        }
+
+                        item {
                             ReconciliationPurchaseSection(
                                 title = "Pirkimai sprendimui",
                                 rows = reconciliation.unresolvedPurchases,
@@ -187,9 +194,12 @@ private fun ReconciliationReturnSection(
                 rows.forEachIndexed { index, row ->
                     ReconciliationLine(
                         title = row.itemName,
-                        subtitle = listOfNotNull(row.pastovykleName, row.holderUserName).joinToString(" · ").ifBlank { "Renginio sandėlis" },
+                        subtitle = row.currentHolderSummary ?: listOfNotNull(row.pastovykleName, row.holderUserName).joinToString(" · ").ifBlank { "Renginio sandėlis" },
                         trailing = "${row.remainingQuantity}/${row.quantity} vnt."
                     )
+                    row.sourcePickupSummary?.let {
+                        Text("Originali vieta: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     DecisionButtons(
                         enabled = !isWorking,
                         decisions = listOf(
@@ -200,6 +210,43 @@ private fun ReconciliationReturnSection(
                         ),
                         onDecision = { onDecision(row, it) }
                     )
+                    if (index != rows.lastIndex) HorizontalDivider()
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReconciliationCompletedSection(
+    title: String,
+    rows: List<EventReconciliationReturnLineDto>
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            if (rows.isEmpty()) {
+                Text("Užbaigtų grąžinimų dar nėra.", style = MaterialTheme.typography.bodySmall)
+            } else {
+                rows.forEachIndexed { index, row ->
+                    ReconciliationLine(
+                        title = row.itemName,
+                        subtitle = listOfNotNull(
+                            row.returnDecision?.let(::returnDecisionLabel),
+                            row.returnCondition?.let(::returnConditionLabel),
+                            row.returnedToSummary
+                        ).joinToString(" · ").ifBlank { row.status },
+                        trailing = if (row.isReturned) "Užbaigta" else row.status
+                    )
+                    row.currentHolderSummary?.let {
+                        Text("Buvo pas: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    row.sourcePickupSummary?.let {
+                        Text("Paimta iš: $it", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (!row.notes.isNullOrBlank()) {
+                        Text(row.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                     if (index != rows.lastIndex) HorizontalDivider()
                 }
             }
@@ -425,4 +472,20 @@ private fun ReconciliationLine(title: String, subtitle: String, trailing: String
         }
         SkautaiStatusPill(label = trailing, tone = SkautaiStatusTone.Warning)
     }
+}
+
+private fun returnDecisionLabel(value: String): String = when (value) {
+    "RETURNED" -> "Grįžo"
+    "DAMAGED" -> "Grįžo sugadinta"
+    "MISSING" -> "Negrįžo"
+    "CONSUMED" -> "Sunaudota"
+    else -> value
+}
+
+private fun returnConditionLabel(value: String): String = when (value) {
+    "GOOD" -> "Būklė gera"
+    "DAMAGED" -> "Būklė sugadinta"
+    "MISSING" -> "Būklė nežinoma"
+    "CONSUMED" -> "Sunaudota"
+    else -> "Būklė: $value"
 }

@@ -37,8 +37,11 @@ import lt.skautai.android.data.remote.MemberRankDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.data.remote.TuntasDto
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiSelectableCard
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSelectionStyle
 import lt.skautai.android.ui.members.displayRoleName
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -378,22 +381,30 @@ private fun MembersSection(
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 members.forEachIndexed { index, member ->
                     val isSelected = member.userId == selectedMemberId
-                    Column(
+                    val selectionStyle = skautaiSelectionStyle(
+                        selected = isSelected,
+                        idleContainer = MaterialTheme.colorScheme.surfaceBright
+                    )
+                    SkautaiSelectableCard(
+                        selected = isSelected,
+                        onClick = { onMemberSelected(member.userId) },
+                        modifier = Modifier.fillMaxWidth(),
+                        style = selectionStyle
+                    ) {
+                        Column(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                                else MaterialTheme.colorScheme.surface
-                            )
-                            .clickable { onMemberSelected(member.userId) }
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
-                        Text("${member.name} ${member.surname}", fontWeight = FontWeight.Medium)
+                        Text(
+                            "${member.name} ${member.surname}",
+                            fontWeight = FontWeight.Medium,
+                            color = selectionStyle.titleColor
+                        )
                         Text(
                             member.email,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = selectionStyle.supportingColor
                         )
                         val unitsText = member.unitAssignments.orEmpty()
                             .joinToString { it.organizationalUnitName }
@@ -401,8 +412,9 @@ private fun MembersSection(
                         Text(
                             unitsText,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = selectionStyle.supportingColor
                         )
+                    }
                     }
                     if (index != members.lastIndex) HorizontalDivider()
                 }
@@ -655,9 +667,9 @@ private fun SectionCard(
     title: String,
     content: @Composable () -> Unit
 ) {
-    Card(
+    SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        tonal = MaterialTheme.colorScheme.surfaceBright
     ) {
         Column(
             modifier = Modifier.padding(16.dp),

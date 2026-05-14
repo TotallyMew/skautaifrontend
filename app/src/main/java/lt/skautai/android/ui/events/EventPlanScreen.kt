@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -18,13 +20,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,14 +33,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.InventoryTemplateDto
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,6 +101,17 @@ fun EventPlanScreen(
 
                     val buckets = state.inventoryPlan?.buckets.orEmpty()
                     val planItems = state.inventoryPlan?.items.orEmpty()
+                    val pickupGroups = remember(planItems, searchQuery, selectedBucketId) {
+                        planItems
+                            .filter { item ->
+                                item.itemId != null &&
+                                    !item.sourcePickupSummary.isNullOrBlank() &&
+                                    (selectedBucketId == null || item.bucketId == selectedBucketId) &&
+                                    (searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true))
+                            }
+                            .sortedWith(compareBy({ it.sourcePickupSummary ?: "" }, { it.name.lowercase() }))
+                            .groupBy { it.sourcePickupSummary ?: "Nenurodyta vieta" }
+                    }
                     val filteredGrouped = remember(planItems, searchQuery, selectedBucketId) {
                         planItems
                             .filter { item ->
@@ -146,7 +163,7 @@ fun EventPlanScreen(
                     }
 
                     if (!readOnly && showTemplatePicker) {
-                        InventoryTemplateDialog(
+                        InventoryTemplatePickerSheet(
                             templates = state.templates,
                             isWorking = state.isWorking,
                             onDismiss = { showTemplatePicker = false },
@@ -198,6 +215,14 @@ fun EventPlanScreen(
                             item(key = "header") {
                                 PlanCard(event = state.event, inventoryPlan = state.inventoryPlan)
                             }
+                            if (pickupGroups.isNotEmpty()) {
+                                item(key = "pickup_plan") {
+                                    PickupPlanCard(
+                                        pickupGroups = pickupGroups,
+                                        totalItems = pickupGroups.values.sumOf { it.size }
+                                    )
+                                }
+                            }
                             if (planItems.isEmpty()) {
                                 item { EmptyStateText("Planas dar tuščias.") }
                             } else if (filteredGrouped.isEmpty()) {
@@ -228,6 +253,169 @@ fun EventPlanScreen(
                                         )
                                     }
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickupPlanCard(
+    pickupGroups: Map<String, List<EventInventoryItemDto>>,
+    totalItems: Int
+) {
+    EventDetailSection(
+        title = "Surinkimo sÄ…raÅ¡as ukvedÅ¾iui",
+        subtitle = "$totalItems eil. iÅ¡ ${pickupGroups.size} vietÅ³"
+    ) {
+        pickupGroups.forEach { (pickupSource, items) ->
+            EventListGroupHeader(title = pickupSource, count = items.size)
+            items.forEach { item ->
+                PickupPlanRow(item = item)
+            }
+        }
+    }
+}
+
+@Composable
+private fun PickupPlanRow(item: EventInventoryItemDto) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = item.name,
+                fontWeight = FontWeight.SemiBold
+            )
+            val details = buildList {
+                item.bucketName?.takeIf { it.isNotBlank() }?.let { add("Paskirtis: $it") }
+                item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { add("Atsakingas: $it") }
+                item.notes?.takeIf { it.isNotBlank() }?.let { add(it) }
+            }
+            if (details.isNotEmpty()) {
+                Text(
+                    text = details.joinToString(" / "),
+                    style = androidx.compose.material3.MaterialTheme.typography.bodySmall,
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Text(
+            text = "${item.plannedQuantity} vnt.",
+            style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
+            color = androidx.compose.material3.MaterialTheme.colorScheme.primary
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun InventoryTemplatePickerSheet(
+    templates: List<InventoryTemplateDto>,
+    isWorking: Boolean,
+    onDismiss: () -> Unit,
+    onSelect: (InventoryTemplateDto) -> Unit
+) {
+    var searchQuery by remember { mutableStateOf("") }
+    val filtered = remember(templates, searchQuery) {
+        templates.filter { template ->
+            searchQuery.isBlank() ||
+                template.name.contains(searchQuery, ignoreCase = true) ||
+                eventTypeLabel(template.eventType ?: "RENGINYS").contains(searchQuery, ignoreCase = true)
+        }
+    }
+
+    ModalBottomSheet(onDismissRequest = onDismiss) {
+        LazyColumn(
+            contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    SkautaiSectionHeader(
+                        title = "Kurti iš šablono",
+                        subtitle = "${templates.size} šablonai"
+                    )
+                    TextButton(onClick = onDismiss) { Text("Uždaryti") }
+                }
+            }
+            item {
+                EventDetailSearchBar(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Ieškoti šablonų",
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            if (filtered.isEmpty()) {
+                item {
+                    EmptyStateText(
+                        if (templates.isEmpty()) "Šablonų dar nėra."
+                        else "Pagal paiešką šablonų nerasta."
+                    )
+                }
+            } else {
+                items(filtered, key = { it.id }) { template ->
+                    SkautaiCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        tonal = MaterialTheme.colorScheme.surfaceBright
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        text = template.name,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                    template.createdByUserName?.let {
+                                        Text(
+                                            text = "Sukūrė $it",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                TextButton(
+                                    onClick = { onSelect(template) },
+                                    enabled = !isWorking
+                                ) { Text(if (isWorking) "Krauna..." else "Naudoti") }
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                SkautaiStatusPill(
+                                    label = eventTypeLabel(template.eventType ?: "RENGINYS"),
+                                    tone = SkautaiStatusTone.Info
+                                )
+                                SkautaiStatusPill(
+                                    label = "${template.items.sumOf { it.quantity }} vnt.",
+                                    tone = SkautaiStatusTone.Neutral
+                                )
+                                SkautaiStatusPill(
+                                    label = "${template.items.size} eil.",
+                                    tone = SkautaiStatusTone.Warning
+                                )
                             }
                         }
                     }

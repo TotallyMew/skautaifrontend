@@ -61,8 +61,10 @@ import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiSelectableCard
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSelectionStyle
 import lt.skautai.android.util.canManageEventSections
 import lt.skautai.android.util.eventRolesForUser
 
@@ -679,16 +681,16 @@ private fun MemberSelectionRow(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
-        ),
-        shape = RoundedCornerShape(18.dp)
+    val selectionStyle = skautaiSelectionStyle(
+        selected = selected,
+        idleContainer = Color.Transparent
+    )
+    SkautaiSelectableCard(
+        selected = selected,
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        style = selectionStyle
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -698,18 +700,14 @@ private fun MemberSelectionRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = name,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface,
+                    color = selectionStyle.titleColor,
                     fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = email,
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
+                    color = selectionStyle.supportingColor,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -718,7 +716,7 @@ private fun MemberSelectionRow(
             Icon(
                 imageVector = Icons.Default.CheckCircle,
                 contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent
+                tint = if (selected) selectionStyle.accentColor else Color.Transparent
             )
         }
     }

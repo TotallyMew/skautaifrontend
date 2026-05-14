@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.common
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -78,6 +79,19 @@ enum class SummaryVariant {
     Hero
 }
 
+data class SkautaiPillStyle(
+    val containerColor: Color,
+    val contentColor: Color
+)
+
+data class SkautaiSelectionStyle(
+    val containerColor: Color,
+    val borderColor: Color,
+    val titleColor: Color,
+    val supportingColor: Color,
+    val accentColor: Color
+)
+
 @Composable
 fun skautaiSurfaceTone(role: SkautaiSurfaceRole): Color {
     val scheme = MaterialTheme.colorScheme
@@ -87,6 +101,42 @@ fun skautaiSurfaceTone(role: SkautaiSurfaceRole): Color {
         SkautaiSurfaceRole.Identity -> scheme.primaryContainer
         SkautaiSurfaceRole.DenseList -> scheme.surfaceContainer
     }
+}
+
+@Composable
+fun skautaiHeroPillStyle(): SkautaiPillStyle = SkautaiPillStyle(
+    containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
+    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+)
+
+@Composable
+fun skautaiSelectionStyle(
+    selected: Boolean,
+    idleContainer: Color = MaterialTheme.colorScheme.surfaceBright,
+    idleBorder: Color = MaterialTheme.colorScheme.outlineVariant,
+    idleTitle: Color = MaterialTheme.colorScheme.onSurface,
+    idleSupporting: Color = MaterialTheme.colorScheme.onSurfaceVariant,
+    selectedContainer: Color = MaterialTheme.colorScheme.primaryContainer,
+    selectedBorder: Color = MaterialTheme.colorScheme.primary,
+    selectedTitle: Color = MaterialTheme.colorScheme.onPrimaryContainer,
+    selectedSupporting: Color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+    selectedAccent: Color = MaterialTheme.colorScheme.primary
+): SkautaiSelectionStyle = if (selected) {
+    SkautaiSelectionStyle(
+        containerColor = selectedContainer,
+        borderColor = selectedBorder,
+        titleColor = selectedTitle,
+        supportingColor = selectedSupporting,
+        accentColor = selectedAccent
+    )
+} else {
+    SkautaiSelectionStyle(
+        containerColor = idleContainer,
+        borderColor = idleBorder,
+        titleColor = idleTitle,
+        supportingColor = idleSupporting,
+        accentColor = idleBorder
+    )
 }
 
 data class SkautaiStatusStyle(
@@ -141,6 +191,25 @@ fun SkautaiCard(
         shape = shape,
         border = CardDefaults.outlinedCardBorder(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        content()
+    }
+}
+
+@Composable
+fun SkautaiSelectableCard(
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    shape: Shape = RoundedCornerShape(20.dp),
+    style: SkautaiSelectionStyle = skautaiSelectionStyle(selected),
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = modifier.clickable(onClick = onClick),
+        shape = shape,
+        color = style.containerColor,
+        border = BorderStroke(1.dp, style.borderColor)
     ) {
         content()
     }
@@ -325,18 +394,16 @@ fun SkautaiDangerButton(
     enabled: Boolean = true,
     leadingIcon: ImageVector? = null
 ) {
-    OutlinedButton(
+    Button(
         onClick = onClick,
         enabled = enabled,
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
-        colors = ButtonDefaults.outlinedButtonColors(
-            contentColor = MaterialTheme.colorScheme.error
-        ),
-        border = ButtonDefaults.outlinedButtonBorder(enabled).copy(
-            brush = Brush.linearGradient(
-                listOf(MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.error)
-            )
+        colors = ButtonDefaults.buttonColors(
+            containerColor = MaterialTheme.colorScheme.error,
+            contentColor = MaterialTheme.colorScheme.onError,
+            disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.38f),
+            disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.7f)
         )
     ) {
         leadingIcon?.let {
@@ -362,16 +429,27 @@ fun SkautaiConfirmDialog(
         title = { Text(title) },
         text = { Text(message) },
         confirmButton = {
-            TextButton(
-                onClick = onConfirm,
-                enabled = enabled,
-                colors = if (isDanger) {
-                    ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                } else {
-                    ButtonDefaults.textButtonColors()
+            if (isDanger) {
+                Button(
+                    onClick = onConfirm,
+                    enabled = enabled,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error,
+                        contentColor = MaterialTheme.colorScheme.onError,
+                        disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.38f),
+                        disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.7f)
+                    )
+                ) {
+                    Text(confirmText)
                 }
-            ) {
-                Text(confirmText)
+            } else {
+                TextButton(
+                    onClick = onConfirm,
+                    enabled = enabled,
+                    colors = ButtonDefaults.textButtonColors()
+                ) {
+                    Text(confirmText)
+                }
             }
         },
         dismissButton = {

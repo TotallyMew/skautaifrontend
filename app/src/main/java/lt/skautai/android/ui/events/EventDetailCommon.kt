@@ -834,9 +834,10 @@ fun eventTypeLabel(type: String): String = when (type) {
 
 fun planItemSubtitle(item: EventInventoryItemDto): String {
     val parts = mutableListOf<String>()
-    item.bucketName?.takeIf { it.isNotBlank() }?.let { parts += "Paskirtis: " }
+    item.bucketName?.takeIf { it.isNotBlank() }?.let { parts += "Paskirtis: $it" }
     if (item.reservationGroupId != null) parts += "Rezervuota"
-    item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { parts += "Atsakingas: " }
+    item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { parts += "Atsakingas: $it" }
+    item.sourcePickupSummary?.takeIf { it.isNotBlank() }?.let { parts += "Pasiimti iš: $it" }
     parts += "Santykis rodo aprūpinimą, ne sandėlio likutį"
     return parts.joinToString(" / ").ifBlank { "Paskirtis neparinkta" }
 }

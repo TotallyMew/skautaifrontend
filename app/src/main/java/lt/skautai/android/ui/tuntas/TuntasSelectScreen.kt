@@ -19,8 +19,6 @@ import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.MarkEmailUnread
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -48,7 +46,11 @@ import androidx.navigation.NavController
 import lt.skautai.android.data.remote.UserTuntasDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiSelectableCard
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSelectionStyle
 import lt.skautai.android.util.NavRoutes
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -260,9 +262,9 @@ private fun InviteCard(
     onInviteCodeChange: (String) -> Unit,
     onAcceptInvite: () -> Unit
 ) {
-    Card(
+    lt.skautai.android.ui.common.SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)
+        tonal = MaterialTheme.colorScheme.secondaryContainer
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -310,16 +312,15 @@ private fun TuntasCard(
     onSelect: () -> Unit,
     onLeave: () -> Unit
 ) {
-    Card(
+    val selectionStyle = skautaiSelectionStyle(
+        selected = selected,
+        idleContainer = MaterialTheme.colorScheme.surfaceBright
+    )
+    SkautaiSelectableCard(
+        selected = selected,
+        onClick = onSelect,
         modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = if (selected) 4.dp else 1.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) {
-                MaterialTheme.colorScheme.primaryContainer
-            } else {
-                MaterialTheme.colorScheme.surface
-            }
-        )
+        style = selectionStyle
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -332,39 +333,29 @@ private fun TuntasCard(
             ) {
                 Icon(
                     imageVector = if (selected) Icons.Default.CheckCircle else Icons.Default.Flag,
-                    contentDescription = null
+                    contentDescription = null,
+                    tint = if (selected) selectionStyle.accentColor else MaterialTheme.colorScheme.primary
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = tuntas.name,
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        fontWeight = FontWeight.SemiBold,
+                        color = selectionStyle.titleColor
                     )
                     if (tuntas.krastas.isNotBlank()) {
                         Text(
                             text = tuntas.krastas,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = selectionStyle.supportingColor
                         )
                     }
                     if (selected) {
-                        Text(
-                            text = "Aktyvus tuntas",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.primary
-                        )
+                        SkautaiStatusPill(label = "Aktyvus tuntas", tone = SkautaiStatusTone.Info)
                     } else if (tuntas.status == "PENDING") {
-                        Text(
-                            text = "Laukia patvirtinimo",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.tertiary
-                        )
+                        SkautaiStatusPill(label = "Laukia patvirtinimo", tone = SkautaiStatusTone.Warning)
                     } else if (tuntas.status == "REJECTED") {
-                        Text(
-                            text = "Registracija atmesta",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.error
-                        )
+                        SkautaiStatusPill(label = "Registracija atmesta", tone = SkautaiStatusTone.Danger)
                     }
                 }
             }

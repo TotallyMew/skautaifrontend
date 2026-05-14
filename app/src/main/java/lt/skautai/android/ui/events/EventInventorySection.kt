@@ -63,6 +63,7 @@ import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.inventoryCategoryLabel
+import lt.skautai.android.ui.common.skautaiSelectionStyle
 
 private enum class NeedEntryMode { Inventory, Manual }
 
@@ -307,11 +308,16 @@ private fun BulkInventoryItemRow(
     onQuantityChange: (Int) -> Unit
 ) {
     val selected = quantity > 0
+    val selectionStyle = skautaiSelectionStyle(
+        selected = selected,
+        idleContainer = Color.Transparent,
+        idleBorder = Color.Transparent
+    )
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                selectionStyle.containerColor,
                 RoundedCornerShape(10.dp)
             )
             .padding(horizontal = 8.dp, vertical = 10.dp),
@@ -333,7 +339,7 @@ private fun BulkInventoryItemRow(
                 Text(
                     "pasirinkta $quantity",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = selectionStyle.accentColor
                 )
             }
         }
@@ -783,8 +789,8 @@ private fun UkvedysOverviewTabs(
                         .weight(1f)
                         .clickable { onTabSelected(tab) },
                     shape = RoundedCornerShape(18.dp),
-                    color = if (selected) MaterialTheme.colorScheme.primary else Color.Transparent,
-                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
+                    color = if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                    contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurface
                 ) {
                     Text(
                         text = tab.title,

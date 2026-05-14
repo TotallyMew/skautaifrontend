@@ -74,6 +74,7 @@ import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.skautaiHeroPillStyle
 import lt.skautai.android.util.TokenManager
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -272,6 +273,7 @@ private fun LocationHeroCard(
     filter: LocationFilter,
     searchQuery: String
 ) {
+    val heroPillStyle = skautaiHeroPillStyle()
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
         tonal = MaterialTheme.colorScheme.primaryContainer
@@ -312,19 +314,19 @@ private fun LocationHeroCard(
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SkautaiStatusPill(
                     label = "$totalCount iš viso",
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = heroPillStyle.containerColor,
+                    contentColor = heroPillStyle.contentColor
                 )
                 SkautaiStatusPill(
                     label = "$filteredCount rodoma",
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    containerColor = heroPillStyle.containerColor,
+                    contentColor = heroPillStyle.contentColor
                 )
                 if (filter != LocationFilter.All || searchQuery.isNotBlank()) {
                     SkautaiStatusPill(
                         label = activeScopeLabel(filter, searchQuery),
-                        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        containerColor = heroPillStyle.containerColor,
+                        contentColor = heroPillStyle.contentColor
                     )
                 }
             }

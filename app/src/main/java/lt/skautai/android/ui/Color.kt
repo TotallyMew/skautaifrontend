@@ -94,17 +94,19 @@ object ScoutSurfaces {
 }
 
 object ScoutGradients {
+    // Hero surfaces intentionally use the brand palette rather than raw Material roles.
     val LoginBackground = listOf(ScoutPalette.ForestMist, ScoutPalette.PaperDeep)
-    val LoginHero = listOf(Color(0xFF1F3A2A), Color(0xFF2A4E35))
-    val HomeHero = listOf(Color(0xFF1F3A2A), Color(0xFF274832))
-    val HeroTextMuted = Color(0xFFD6E5D3)
+    val LoginHero = listOf(ScoutPalette.Forest, ScoutPalette.Moss)
+    val HomeHero = listOf(ScoutPalette.Forest, Color(0xFF274832))
+    val HeroTextMuted = ScoutPalette.ForestMist
 }
 
 object ScoutStatusColors {
+    // Status colors are part of the custom Scout design language.
     val PendingContainer = ScoutPalette.GoldSoft
-    val OnPendingContainer = Color(0xFF4A3700)
+    val OnPendingContainer = ScoutPalette.GoldWarningText
     val OkContainer = ScoutPalette.Lichen
-    val OnOkContainer = Color(0xFF1E3A1F)
+    val OnOkContainer = ScoutPalette.MossDeep
     val WarnContainer = ScoutPalette.ClaySoft
     val OnWarnContainer = Color(0xFF5A2E13)
     val NeutralContainer = ScoutPalette.MossSoft
