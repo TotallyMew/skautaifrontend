@@ -39,6 +39,7 @@ import lt.skautai.android.ui.events.EventPurchasesScreen
 import lt.skautai.android.ui.events.EventReconciliationScreen
 import lt.skautai.android.ui.events.EventStaffScreen
 import lt.skautai.android.ui.events.EventUkvedysScreen
+import lt.skautai.android.ui.events.InventoryTemplateScreen
 import lt.skautai.android.ui.events.PastovykleLeaderScreen
 import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
@@ -428,9 +429,16 @@ fun AppNavGraph(
                     },
                     onCreateClick = {
                         navController.navigate(NavRoutes.EventAddEdit.createRoute(null))
+                    },
+                    onTemplatesClick = {
+                        navController.navigate(NavRoutes.InventoryTemplates.route)
                     }
                 )
             }
+        }
+
+        composable(NavRoutes.InventoryTemplates.route) {
+            InventoryTemplateScreen(onBack = { navController.popBackStack() })
         }
 
         composable(

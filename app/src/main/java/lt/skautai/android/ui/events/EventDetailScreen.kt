@@ -122,8 +122,12 @@ fun EventDetailScreen(
                     val readOnly = isEventReadOnlyStatus(state.event.status)
                     val myRoles = state.event.eventRoles
                         .let { eventRolesForUser(it, state.currentUserId) }
+                    val coLeaderPastovykleIds = state.event.eventRoles
+                        .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
+                        .mapNotNull { it.pastovykleId }
+                        .toSet()
                     val myPastovyklės = state.pastovykles
-                        .filter { it.responsibleUserId == state.currentUserId }
+                        .filter { it.responsibleUserId == state.currentUserId || it.id in coLeaderPastovykleIds }
                     val isPastovykleLeader = myPastovyklės.isNotEmpty()
                     val canManage = canManageEventSections(permissions, myRoles, readOnly)
                     val canStart = !readOnly && (canManage || "KOMENDANTAS" in myRoles)

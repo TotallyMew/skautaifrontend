@@ -186,8 +186,12 @@ fun EventMovementQrScreen(
                     val canManage = !readOnly &&
                         ("events.inventory.distribute:ALL" in permissions ||
                             myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") })
+                    val coLeaderPastovykleIds = state.event.eventRoles
+                        .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
+                        .mapNotNull { it.pastovykleId }
+                        .toSet()
                     val responsiblePastovykleIds = state.pastovykles
-                        .filter { it.responsibleUserId == state.currentUserId }
+                        .filter { it.responsibleUserId == state.currentUserId || it.id in coLeaderPastovykleIds }
                         .map { it.id }
                         .toSet()
                     val itemMatches = state.inventoryPlan.items.filter { it.itemId == resolvedItemId }

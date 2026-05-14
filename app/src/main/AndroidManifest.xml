@@ -4,6 +4,7 @@
 
     <application
         android:usesCleartextTraffic="${usesCleartextTraffic}"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:allowBackup="true"
         android:name=".SkautuInventoriusApp"
         android:dataExtractionRules="@xml/data_extraction_rules"

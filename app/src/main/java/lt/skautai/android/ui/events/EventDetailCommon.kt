@@ -829,8 +829,7 @@ fun eventTypeLabel(type: String): String = when (type) {
     "STOVYKLA" -> "Stovykla"
     "SUEIGA" -> "Sueiga"
     "RENGINYS" -> "Renginys"
-    else -> type.replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "").replace('_', ' ').lowercase()
-        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
+    else -> type.replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "").replace('_', ' ')
 }
 
 fun planItemSubtitle(item: EventInventoryItemDto): String {

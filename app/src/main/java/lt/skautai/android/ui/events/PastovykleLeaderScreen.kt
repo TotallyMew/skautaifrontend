@@ -18,6 +18,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,7 +37,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventInventoryAllocationDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
+import lt.skautai.android.data.remote.PastovykleMemberDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
@@ -90,13 +93,20 @@ fun PastovykleLeaderScreen(
 
                 is PastovykleLeaderUiState.Success -> {
                     val readOnly = isEventReadOnlyStatus(state.event.status)
-                    val myPastovyklės = state.pastovykles.filter { it.responsibleUserId == state.currentUserId }
+                    val coLeaderPastovykleIds = state.event.eventRoles
+                        .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
+                        .mapNotNull { it.pastovykleId }
+                        .toSet()
+                    val myPastovyklės = state.pastovykles.filter {
+                        it.responsibleUserId == state.currentUserId || it.id in coLeaderPastovykleIds
+                    }
                     var selectedPastovykleId by remember(myPastovyklės) {
                         mutableStateOf(myPastovyklės.firstOrNull()?.id)
                     }
                     val selectedPastovykle = myPastovyklės.firstOrNull { it.id == selectedPastovykleId }
                     val inventory = state.pastovykleInventoryById[selectedPastovykleId].orEmpty()
                     val requests = state.pastovykleRequestsById[selectedPastovykleId].orEmpty()
+                    val members = state.pastovykleMembersById[selectedPastovykleId].orEmpty()
                     val sharedItems = state.items.filter { it.custodianId == null }
                     val unitItems = state.items.filter { it.custodianId == state.activeOrgUnitId }
                     val pastovykleBucketIds = state.inventoryPlan?.buckets
@@ -176,7 +186,40 @@ fun PastovykleLeaderScreen(
                                     AllocationSummaryCard(allocations = allocations)
                                 }
                                 item {
-                                    PastovykleInventoryCard(inventory = inventory)
+                                    PastovykleMembersCard(
+                                        members = members,
+                                        candidateMembers = state.candidateMembers,
+                                        isWorking = state.isWorking || readOnly,
+                                        onAdd = { userId -> viewModel.addPastovykleMember(eventId, selectedPastovykle.id, userId) },
+                                        onRemove = { memberId -> viewModel.removePastovykleMember(eventId, selectedPastovykle.id, memberId) }
+                                    )
+                                }
+                                item {
+                                    IssueToMemberCard(
+                                        inventory = inventory,
+                                        members = members,
+                                        isWorking = state.isWorking || readOnly,
+                                        onIssue = { itemId, recipientUserId, quantity, notes ->
+                                            viewModel.issueToMember(
+                                                eventId,
+                                                selectedPastovykle.id,
+                                                itemId,
+                                                recipientUserId,
+                                                quantity,
+                                                notes
+                                            )
+                                        }
+                                    )
+                                }
+                                item {
+                                    PastovykleInventoryCard(
+                                        inventory = inventory,
+                                        members = members,
+                                        isWorking = state.isWorking || readOnly,
+                                        onReturn = { row ->
+                                            viewModel.markInventoryReturned(eventId, selectedPastovykle.id, row)
+                                        }
+                                    )
                                 }
                                 item {
                                     PastovykleRequestsCard(
@@ -321,7 +364,132 @@ private fun AllocationSummaryCard(allocations: List<EventInventoryAllocationDto>
 }
 
 @Composable
-private fun PastovykleInventoryCard(inventory: List<PastovykleInventoryDto>) {
+private fun PastovykleMembersCard(
+    members: List<PastovykleMemberDto>,
+    candidateMembers: List<MemberDto>,
+    isWorking: Boolean,
+    onAdd: (String) -> Unit,
+    onRemove: (String) -> Unit
+) {
+    val memberUserIds = members.map { it.userId }.toSet()
+    val addOptions = candidateMembers.filter { it.userId !in memberUserIds }
+    var selectedUserId by remember(addOptions) { mutableStateOf(addOptions.firstOrNull()?.userId) }
+
+    EventDetailSection(
+        title = "Vaikai",
+        subtitle = "Pastovyklės nariai, kuriems galima išduoti inventorių."
+    ) {
+        if (members.isEmpty()) {
+            EmptyStateText("Vaikų sąrašas dar tuščias.")
+        } else {
+            members.forEach { member ->
+                CompactInventoryRow(
+                    title = member.userName,
+                    subtitle = "Aktyvus narys",
+                    trailing = ""
+                )
+                OutlinedButton(
+                    onClick = { onRemove(member.id) },
+                    enabled = !isWorking,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Pašalinti")
+                }
+            }
+        }
+        if (addOptions.isNotEmpty()) {
+            DropdownField(
+                label = "Pridėti vaiką",
+                value = addOptions.firstOrNull { it.userId == selectedUserId }?.fullName() ?: "Pasirinkti",
+                options = addOptions.map { it.userId to it.fullName() },
+                onSelect = { selectedUserId = it }
+            )
+            EventPrimaryButton(
+                text = "Pridėti",
+                onClick = { selectedUserId?.let(onAdd) },
+                enabled = !isWorking && selectedUserId != null
+            )
+        }
+    }
+}
+
+@Composable
+private fun IssueToMemberCard(
+    inventory: List<PastovykleInventoryDto>,
+    members: List<PastovykleMemberDto>,
+    isWorking: Boolean,
+    onIssue: (String, String, String, String) -> Unit
+) {
+    val availableRows = inventory
+        .filter { it.recipientUserId == null && it.quantityAssigned > it.quantityReturned }
+        .distinctBy { it.itemId }
+    var selectedItemId by remember(availableRows) { mutableStateOf(availableRows.firstOrNull()?.itemId) }
+    var selectedMemberId by remember(members) { mutableStateOf(members.firstOrNull()?.userId) }
+    var quantity by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+
+    EventDetailSection(
+        title = "Išduoti vaikui",
+        subtitle = "Pasirink daiktą iš pastovyklės inventoriaus ir gavėją."
+    ) {
+        if (availableRows.isEmpty()) {
+            EmptyStateText("Nėra laisvo pastovyklės inventoriaus išdavimui.")
+            return@EventDetailSection
+        }
+        if (members.isEmpty()) {
+            EmptyStateText("Nėra narių, kuriems galima išduoti inventorių.")
+            return@EventDetailSection
+        }
+        DropdownField(
+            label = "Daiktas",
+            value = availableRows.firstOrNull { it.itemId == selectedItemId }?.itemName ?: "Pasirinkti",
+            options = availableRows.map { row ->
+                row.itemId to "${row.itemName} (${row.quantityAssigned - row.quantityReturned})"
+            },
+            onSelect = { selectedItemId = it }
+        )
+        DropdownField(
+            label = "Gavėjas",
+            value = members.firstOrNull { it.userId == selectedMemberId }?.userName ?: "Pasirinkti",
+            options = members.map { it.userId to it.userName },
+            onSelect = { selectedMemberId = it }
+        )
+        SkautaiTextField(
+            value = quantity,
+            onValueChange = { quantity = it.filter(Char::isDigit) },
+            label = "Kiekis",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        SkautaiTextField(
+            value = notes,
+            onValueChange = { notes = it },
+            label = "Pastabos",
+            modifier = Modifier.fillMaxWidth()
+        )
+        EventPrimaryButton(
+            text = "Išduoti",
+            onClick = {
+                val itemId = selectedItemId
+                val memberId = selectedMemberId
+                if (itemId != null && memberId != null) {
+                    onIssue(itemId, memberId, quantity, notes)
+                    quantity = ""
+                    notes = ""
+                }
+            },
+            enabled = !isWorking && selectedItemId != null && selectedMemberId != null
+        )
+    }
+}
+
+@Composable
+private fun PastovykleInventoryCard(
+    inventory: List<PastovykleInventoryDto>,
+    members: List<PastovykleMemberDto>,
+    isWorking: Boolean,
+    onReturn: (PastovykleInventoryDto) -> Unit
+) {
     EventDetailSection(
         title = "Mano pastovyklės inventorius",
         subtitle = "Faktiškai pastovyklei priskirti ir dar negrąžinti daiktai."
@@ -330,11 +498,25 @@ private fun PastovykleInventoryCard(inventory: List<PastovykleInventoryDto>) {
             EmptyStateText("Inventorius dar nepriskirtas.")
         } else {
             inventory.forEach { row ->
+                val recipientName = row.recipientUserId
+                    ?.let { recipientId -> members.firstOrNull { it.userId == recipientId }?.userName }
                 CompactInventoryRow(
                     title = row.itemName,
-                    subtitle = "Grąžinta ${row.quantityReturned} iš ${row.quantityAssigned}",
+                    subtitle = listOfNotNull(
+                        recipientName,
+                        "Grąžinta ${row.quantityReturned} iš ${row.quantityAssigned}"
+                    ).joinToString(" · "),
                     trailing = "${row.quantityAssigned - row.quantityReturned}"
                 )
+                if (row.recipientUserId != null && row.quantityReturned < row.quantityAssigned) {
+                    OutlinedButton(
+                        onClick = { onReturn(row) },
+                        enabled = !isWorking,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Žymėti grąžintą")
+                    }
+                }
             }
         }
     }

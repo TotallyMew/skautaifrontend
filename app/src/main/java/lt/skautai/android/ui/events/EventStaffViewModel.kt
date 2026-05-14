@@ -357,7 +357,10 @@ class EventStaffViewModel @Inject constructor(
 
         pastovykles.sortedBy { it.name.lowercase() }.forEach { pastovykle ->
             val linkedRole = event.eventRoles.firstOrNull { role ->
-                role.role == "PASTOVYKLES_GURU" && role.userId == pastovykle.responsibleUserId
+                role.role == "PASTOVYKLES_GURU" && role.userId == pastovykle.responsibleUserId && role.pastovykleId == null
+            }
+            val isCoLeader = event.eventRoles.any { role ->
+                role.role == "PASTOVYKLES_GURU" && role.userId == currentUserId && role.pastovykleId == pastovykle.id
             }
             val assignedUser = members.firstOrNull { it.userId == pastovykle.responsibleUserId }
             slots += EventStaffSlotUiModel(
@@ -370,7 +373,7 @@ class EventStaffViewModel @Inject constructor(
                 assignedUserId = pastovykle.responsibleUserId ?: linkedRole?.userId,
                 assignedUserName = assignedUser?.fullName() ?: linkedRole?.userName,
                 linkedRoleId = linkedRole?.id,
-                opensPastovykleScreen = pastovykle.responsibleUserId == currentUserId
+                opensPastovykleScreen = pastovykle.responsibleUserId == currentUserId || isCoLeader
             )
         }
 

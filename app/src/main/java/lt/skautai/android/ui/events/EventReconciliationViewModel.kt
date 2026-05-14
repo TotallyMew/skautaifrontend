@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventPurchaseReconciliationCandidateDto
 import lt.skautai.android.data.remote.EventReconciliationDto
 import lt.skautai.android.data.remote.ReconcileEventPurchaseLineRequestDto
 import lt.skautai.android.data.remote.ReconcileEventPurchasesRequestDto
@@ -23,6 +24,8 @@ sealed interface EventReconciliationUiState {
         val event: EventDto,
         val reconciliation: EventReconciliationDto,
         val isWorking: Boolean = false,
+        val candidateLoadingPurchaseItemId: String? = null,
+        val purchaseCandidates: Map<String, List<EventPurchaseReconciliationCandidateDto>> = emptyMap(),
         val error: String? = null
     ) : EventReconciliationUiState
 }
@@ -109,6 +112,29 @@ class EventReconciliationViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure {
                     _uiState.value = current.copy(isWorking = false, error = it.message ?: "Nepavyko suvesti pirkimo.")
+                }
+        }
+    }
+
+    fun loadPurchaseCandidates(eventId: String, purchaseItemId: String) {
+        val current = _uiState.value as? EventReconciliationUiState.Success ?: return
+        if (current.purchaseCandidates.containsKey(purchaseItemId)) return
+        viewModelScope.launch {
+            _uiState.value = current.copy(candidateLoadingPurchaseItemId = purchaseItemId, error = null)
+            eventRepository.getPurchaseReconciliationCandidates(eventId, purchaseItemId)
+                .onSuccess { response ->
+                    val latest = _uiState.value as? EventReconciliationUiState.Success ?: return@onSuccess
+                    _uiState.value = latest.copy(
+                        candidateLoadingPurchaseItemId = null,
+                        purchaseCandidates = latest.purchaseCandidates + (purchaseItemId to response.candidates)
+                    )
+                }
+                .onFailure {
+                    val latest = _uiState.value as? EventReconciliationUiState.Success ?: current
+                    _uiState.value = latest.copy(
+                        candidateLoadingPurchaseItemId = null,
+                        error = it.message ?: "Nepavyko gauti tinkamu daiktu."
+                    )
                 }
         }
     }

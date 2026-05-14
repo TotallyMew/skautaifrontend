@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -54,6 +55,7 @@ import lt.skautai.android.ui.common.eventStatusTone
 fun EventListScreen(
     onEventClick: (String) -> Unit,
     onCreateClick: () -> Unit,
+    onTemplatesClick: () -> Unit,
     viewModel: EventListViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -87,6 +89,9 @@ fun EventListScreen(
                         activeFilter = state.activeFilter,
                         onFilterSelected = { viewModel.setTypeFilter(it) }
                     )
+                    if (canCreate) {
+                        EventTemplatesEntry(onClick = onTemplatesClick)
+                    }
 
                     if (state.events.isEmpty()) {
                         SkautaiEmptyState(
@@ -133,6 +138,44 @@ fun EventListScreen(
             state = pullRefreshState,
             modifier = Modifier.align(Alignment.TopCenter)
         )
+    }
+}
+
+@Composable
+private fun EventTemplatesEntry(onClick: () -> Unit) {
+    SkautaiCard(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        onClick = onClick,
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Inventory2, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Inventoriaus šablonai",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "Sukurti ir redaguoti renginių inventoriaus šablonus",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

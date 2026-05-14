@@ -164,6 +164,15 @@ fun EventCreateScreen(
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+
+                if (!uiState.isEditMode) {
+                    EventTemplateDropdown(
+                        templates = uiState.templates,
+                        selectedTemplateId = uiState.selectedTemplateId,
+                        isLoading = uiState.isTemplateLoading,
+                        onTemplateSelected = viewModel::onTemplateChange
+                    )
+                }
             }
 
             EventFormSection(
@@ -190,6 +199,58 @@ fun EventCreateScreen(
                 Box(modifier = Modifier.fillMaxWidth()) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp))
                 }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EventTemplateDropdown(
+    templates: List<lt.skautai.android.data.remote.InventoryTemplateDto>,
+    selectedTemplateId: String?,
+    isLoading: Boolean,
+    onTemplateSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = templates.firstOrNull { it.id == selectedTemplateId }?.name
+        ?: if (isLoading) "Kraunami šablonai..." else "Be šablono"
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (!isLoading) expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedLabel,
+            onValueChange = {},
+            readOnly = true,
+            enabled = !isLoading,
+            label = { Text("Šablonas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            colors = eventFormFieldColors()
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            DropdownMenuItem(
+                text = { Text("Be šablono") },
+                onClick = {
+                    onTemplateSelected(null)
+                    expanded = false
+                }
+            )
+            templates.forEach { template ->
+                DropdownMenuItem(
+                    text = { Text("${template.name} (${template.items.sumOf { it.quantity }})") },
+                    onClick = {
+                        onTemplateSelected(template.id)
+                        expanded = false
+                    }
+                )
             }
         }
     }
@@ -271,8 +332,7 @@ private fun EventTypeDropdown(
             value = customType,
             onValueChange = {
                 customType = it
-                val normalized = it.toEventOptionCode(maxLength = 20)
-                if (normalized.isNotBlank()) onTypeSelected(normalized)
+                onTypeSelected(it.trim().take(100).ifBlank { "STOVYKLA" })
             },
             label = "Kitas tipas",
             modifier = Modifier
@@ -282,13 +342,6 @@ private fun EventTypeDropdown(
         )
     }
 }
-
-private fun String.toEventOptionCode(maxLength: Int): String =
-    ("CUSTOM_" + toEventCustomInput())
-        .uppercase()
-        .replace(Regex("[^A-Z0-9]+"), "_")
-        .trim('_')
-        .take(maxLength)
 
 private fun String.toEventCustomInput(): String =
     trim()

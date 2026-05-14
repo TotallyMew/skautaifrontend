@@ -1,12 +1,16 @@
 package lt.skautai.android.ui.events
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -19,9 +23,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -54,6 +59,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.ui.common.SkautaiCard
@@ -226,16 +232,31 @@ fun EventPastovyklėsScreen(
                                 } else {
                                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                         state.pastovykles.forEach { pastovykle ->
+                                            val coLeaders = state.event.eventRoles
+                                                .filter { it.role == "PASTOVYKLES_GURU" && it.pastovykleId == pastovykle.id }
                                             PastovykleRow(
                                                 pastovykle = pastovykle,
                                                 leaderName = state.members.firstOrNull { it.userId == pastovykle.responsibleUserId }?.fullName(),
+                                                coLeaders = coLeaders,
+                                                coLeaderCandidates = eligiblePastovykleLeaderMembers(
+                                                    members = state.members,
+                                                    event = state.event,
+                                                    pastovykles = state.pastovykles,
+                                                    pastovykle = pastovykle,
+                                                    ageGroup = pastovykle.ageGroup
+                                                ).filter { member ->
+                                                    member.userId != pastovykle.responsibleUserId &&
+                                                        coLeaders.none { it.userId == member.userId }
+                                                },
                                                 canManage = canManage,
                                                 isWorking = state.isWorking,
                                                 onEdit = {
                                                     editingPastovykle = pastovykle
                                                     showEditor = true
                                                 },
-                                                onDelete = { deletingPastovykle = pastovykle }
+                                                onDelete = { deletingPastovykle = pastovykle },
+                                                onAddCoLeader = { userId -> viewModel.addCoLeader(eventId, pastovykle.id, userId) },
+                                                onRemoveCoLeader = { roleId -> viewModel.removeCoLeader(eventId, pastovykle.id, roleId) }
                                             )
                                         }
                                     }
@@ -269,110 +290,200 @@ private fun eligibleStaffMembers(members: List<MemberDto>): List<MemberDto> {
 private fun PastovykleRow(
     pastovykle: PastovykleDto,
     leaderName: String?,
+    coLeaders: List<EventRoleDto>,
+    coLeaderCandidates: List<MemberDto>,
     canManage: Boolean,
     isWorking: Boolean,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onAddCoLeader: (String) -> Unit,
+    onRemoveCoLeader: (String) -> Unit
 ) {
     val palette = pastovykleAgeGroupPalette(pastovykle.ageGroup)
+    var expanded by remember(pastovykle.id) { mutableStateOf(false) }
+    var selectedCoLeaderId by remember(pastovykle.id, coLeaderCandidates) { mutableStateOf("") }
+    val selectedCoLeaderName = coLeaderCandidates.firstOrNull { it.userId == selectedCoLeaderId }?.fullName()
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .then(
-                if (canManage && !isWorking) Modifier.clickable(onClick = onEdit) else Modifier
-            ),
+            .animateContentSize(),
         colors = CardDefaults.cardColors(containerColor = palette.cardTone),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(14.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(52.dp),
-                shape = CircleShape,
-                color = palette.iconTone
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Groups, contentDescription = null, tint = palette.accent)
+                Surface(
+                    modifier = Modifier.size(52.dp),
+                    shape = CircleShape,
+                    color = palette.iconTone
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Groups, contentDescription = null, tint = palette.accent)
+                    }
                 }
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
                         text = pastovykle.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Text(
-                    text = leaderName ?: "Vadovas nepriskirtas",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                pastovykle.notes?.takeIf { it.isNotBlank() }?.let {
-                    Text(
-                        text = it,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    SkautaiStatusPill(
-                        label = pastovykleAgeGroupLabel(pastovykle.ageGroup),
-                        containerColor = palette.iconTone,
-                        contentColor = palette.accent
+                    Text(
+                        text = leaderName ?: "Vadovas nepriskirtas",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
-                }
-            }
-            if (canManage) {
-                Row(
-                    modifier = Modifier.widthIn(min = 88.dp),
-                    horizontalArrangement = Arrangement.End,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(
-                        onClick = onEdit,
-                        enabled = !isWorking,
-                        modifier = Modifier.size(48.dp)
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.Edit, contentDescription = "Keisti", tint = palette.accent)
+                        SkautaiStatusPill(
+                            label = pastovykleAgeGroupLabel(pastovykle.ageGroup),
+                            containerColor = palette.iconTone,
+                            contentColor = palette.accent
+                        )
+                        if (coLeaders.isEmpty()) {
+                            if (canManage) {
+                                SkautaiStatusPill(
+                                    label = "Be bendravadovio",
+                                    tone = SkautaiStatusTone.Warning
+                                )
+                            }
+                        } else {
+                            SkautaiStatusPill(
+                                label = "${coLeaders.size} bendravad.",
+                                tone = SkautaiStatusTone.Neutral
+                            )
+                        }
                     }
-                    IconButton(
-                        onClick = onDelete,
-                        enabled = !isWorking,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Ištrinti",
-                            tint = MaterialTheme.colorScheme.error
+                }
+                Icon(
+                    imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (expanded) "Suskleisti" else "Išskleisti",
+                    tint = palette.accent
+                )
+            }
+
+            AnimatedVisibility(visible = expanded) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    if (coLeaders.isNotEmpty() || canManage) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Text(
+                                text = "Bendravadoviai",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (coLeaders.isEmpty()) {
+                                Text(
+                                    text = "Dar nepriskirta",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            } else {
+                                coLeaders.forEach { leader ->
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = leader.userName ?: "Bendravadovis",
+                                            modifier = Modifier.weight(1f),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        if (canManage) {
+                                            TextButton(
+                                                enabled = !isWorking,
+                                                onClick = { onRemoveCoLeader(leader.id) }
+                                            ) {
+                                                Text("Pašalinti")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            if (canManage) {
+                                if (coLeaderCandidates.isNotEmpty()) {
+                                    DropdownField(
+                                        label = "Pridėti bendravadovį",
+                                        value = selectedCoLeaderName ?: "Pasirinkti bendravadovį",
+                                        options = coLeaderCandidates.map { it.userId to it.fullName() },
+                                        onSelect = { selectedCoLeaderId = it }
+                                    )
+                                    TextButton(
+                                        enabled = !isWorking && selectedCoLeaderId.isNotBlank(),
+                                        onClick = {
+                                            onAddCoLeader(selectedCoLeaderId)
+                                            selectedCoLeaderId = ""
+                                        }
+                                    ) {
+                                        Text("Pridėti bendravadovį")
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Šiai pastovyklei daugiau tinkamų bendravadovių nėra.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    pastovykle.notes?.takeIf { it.isNotBlank() }?.let {
+                        Text(
+                            text = it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 3,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
+                    if (canManage) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TextButton(
+                                onClick = onEdit,
+                                enabled = !isWorking
+                            ) {
+                                Icon(Icons.Default.Edit, contentDescription = null)
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text("Keisti")
+                            }
+                            TextButton(
+                                onClick = onDelete,
+                                enabled = !isWorking
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null)
+                                Spacer(modifier = Modifier.size(6.dp))
+                                Text("Ištrinti")
+                            }
+                        }
+                    }
                 }
-            } else {
-                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = palette.accent)
             }
         }
     }
@@ -527,7 +638,7 @@ private fun eligiblePastovykleLeaderMembers(
     ageGroup: String?
 ): List<MemberDto> {
     val currentLeaderRoleId = event.eventRoles.firstOrNull {
-        it.role == "PASTOVYKLES_GURU" && it.userId == pastovykle?.responsibleUserId
+        it.role == "PASTOVYKLES_GURU" && it.userId == pastovykle?.responsibleUserId && it.pastovykleId == null
     }?.id
     val currentSlot = EventStaffSlotUiModel(
         id = pastovykle?.id ?: "new_pastovykle",

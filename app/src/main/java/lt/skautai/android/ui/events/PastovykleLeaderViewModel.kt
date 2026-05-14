@@ -12,14 +12,19 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.AddPastovykleMemberRequestDto
+import lt.skautai.android.data.remote.AssignPastovykleInventoryRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
+import lt.skautai.android.data.remote.PastovykleMemberDto
+import lt.skautai.android.data.remote.UpdatePastovykleInventoryRequestDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.util.TokenManager
@@ -34,7 +39,9 @@ sealed interface PastovykleLeaderUiState {
         val inventoryPlan: EventInventoryPlanDto? = null,
         val pastovykleInventoryById: Map<String, List<PastovykleInventoryDto>> = emptyMap(),
         val pastovykleRequestsById: Map<String, List<EventInventoryRequestDto>> = emptyMap(),
+        val pastovykleMembersById: Map<String, List<PastovykleMemberDto>> = emptyMap(),
         val items: List<ItemDto> = emptyList(),
+        val candidateMembers: List<MemberDto> = emptyList(),
         val isWorking: Boolean = false,
         val error: String? = null
     ) : PastovykleLeaderUiState
@@ -69,7 +76,9 @@ class PastovykleLeaderViewModel @Inject constructor(
                         inventoryPlan = current?.inventoryPlan,
                         pastovykleInventoryById = current?.pastovykleInventoryById.orEmpty(),
                         pastovykleRequestsById = current?.pastovykleRequestsById.orEmpty(),
+                        pastovykleMembersById = current?.pastovykleMembersById.orEmpty(),
                         items = current?.items.orEmpty(),
+                        candidateMembers = current?.candidateMembers.orEmpty(),
                         isWorking = false,
                         error = current?.error
                     )
@@ -93,11 +102,15 @@ class PastovykleLeaderViewModel @Inject constructor(
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first()
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
+            val candidateMembers = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
             val inventoryByPastovykle = pastovykles.associate { p ->
                 p.id to eventRepository.getPastovykleInventory(eventId, p.id).getOrNull()?.inventory.orEmpty()
             }
             val requestsByPastovykle = pastovykles.associate { p ->
                 p.id to eventRepository.getPastovykleRequests(eventId, p.id).getOrNull()?.requests.orEmpty()
+            }
+            val membersByPastovykle = pastovykles.associate { p ->
+                p.id to eventRepository.getPastovykleMembers(eventId, p.id).getOrNull()?.members.orEmpty()
             }
             val items = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
             val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return@launch
@@ -108,7 +121,9 @@ class PastovykleLeaderViewModel @Inject constructor(
                 inventoryPlan = inventoryPlan,
                 pastovykleInventoryById = inventoryByPastovykle,
                 pastovykleRequestsById = requestsByPastovykle,
-                items = items
+                pastovykleMembersById = membersByPastovykle,
+                items = items,
+                candidateMembers = candidateMembers
             )
         }
     }
@@ -190,6 +205,93 @@ class PastovykleLeaderViewModel @Inject constructor(
                 .onFailure { error ->
                     (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko atnaujinti pastovyklės poreikio.")
+                    }
+                }
+        }
+    }
+
+    fun addPastovykleMember(eventId: String, pastovykleId: String, userId: String) {
+        val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return
+        if (userId.isBlank()) {
+            _uiState.value = current.copy(error = "Pasirinkite narį.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.addPastovykleMember(eventId, pastovykleId, AddPastovykleMemberRequestDto(userId))
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pridėti nario.")
+                    }
+                }
+        }
+    }
+
+    fun removePastovykleMember(eventId: String, pastovykleId: String, memberId: String) {
+        val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.removePastovykleMember(eventId, pastovykleId, memberId)
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti nario.")
+                    }
+                }
+        }
+    }
+
+    fun issueToMember(
+        eventId: String,
+        pastovykleId: String,
+        itemId: String,
+        recipientUserId: String,
+        quantityText: String,
+        notes: String
+    ) {
+        val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return
+        val quantity = quantityText.toIntOrNull()
+        if (itemId.isBlank() || recipientUserId.isBlank() || quantity == null || quantity <= 0) {
+            _uiState.value = current.copy(error = "Pasirinkite daiktą, gavėją ir teigiamą kiekį.")
+            return
+        }
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.assignPastovykleInventory(
+                eventId,
+                pastovykleId,
+                AssignPastovykleInventoryRequestDto(
+                    itemId = itemId,
+                    quantity = quantity,
+                    recipientUserId = recipientUserId,
+                    recipientType = "MEMBER",
+                    notes = notes.ifBlank { null }
+                )
+            )
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išduoti inventoriaus.")
+                    }
+                }
+        }
+    }
+
+    fun markInventoryReturned(eventId: String, pastovykleId: String, inventory: PastovykleInventoryDto) {
+        val current = _uiState.value as? PastovykleLeaderUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.updatePastovykleInventory(
+                eventId,
+                pastovykleId,
+                inventory.id,
+                UpdatePastovykleInventoryRequestDto(quantityReturned = inventory.quantityAssigned)
+            )
+                .onSuccess { refreshAfterSuccessfulMutation(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? PastovykleLeaderUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pažymėti grąžinimo.")
                     }
                 }
         }

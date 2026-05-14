@@ -571,7 +571,7 @@ fun UkvedysCard(
             isDanger = true,
             onConfirm = {
                 pendingRequestRejection = null
-                onRejectRequest(request.pastovykleId, request.id)
+                request.pastovykleId?.let { onRejectRequest(it, request.id) }
             },
             onDismiss = { pendingRequestRejection = null }
         )
@@ -727,7 +727,7 @@ fun UkvedysCard(
                 } else {
                     allRequests.forEach { request ->
                         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("${request.pastovykleName}: ${request.itemName} x${request.quantity}", fontWeight = FontWeight.SemiBold)
+                            Text("${request.pastovykleName ?: "Programa"}: ${request.itemName} x${request.quantity}", fontWeight = FontWeight.SemiBold)
                             Text(request.status, color = MaterialTheme.colorScheme.primary)
                             if (canManage && request.status in listOf("PENDING", "APPROVED")) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -868,7 +868,7 @@ fun UkvedysTabsCard(
         allRequests.filter {
             query.isBlank() ||
                 it.itemName.contains(query, ignoreCase = true) ||
-                it.pastovykleName.contains(query, ignoreCase = true) ||
+                it.pastovykleName.orEmpty().contains(query, ignoreCase = true) ||
                 it.requestedByName.orEmpty().contains(query, ignoreCase = true) ||
                 requestStatusLabel(it.status).contains(query, ignoreCase = true)
         }
@@ -1230,7 +1230,7 @@ private fun RequestsLazyList(
             isDanger = true,
             onConfirm = {
                 pendingRequestRejection = null
-                onRejectRequest(request.pastovykleId, request.id)
+                request.pastovykleId?.let { onRejectRequest(it, request.id) }
             },
             onDismiss = { pendingRequestRejection = null }
         )

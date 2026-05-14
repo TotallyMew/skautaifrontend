@@ -369,8 +369,7 @@ private fun ContextStep(
             value = customCategory,
             onValueChange = {
                 customCategory = it
-                val normalized = it.toInventoryOptionCode(maxLength = 30)
-                if (normalized.isNotBlank()) viewModel.onCategoryChange(normalized)
+                viewModel.onCategoryChange(it.trim().take(30).ifBlank { "CAMPING" })
             },
             label = "Kita kategorija",
             modifier = Modifier.fillMaxWidth(),
@@ -905,8 +904,7 @@ private fun ConditionSelector(
             value = customCondition,
             onValueChange = {
                 customCondition = it
-                val normalized = it.toInventoryOptionCode(maxLength = 30)
-                if (normalized.isNotBlank()) onSelected(normalized)
+                onSelected(it.trim().take(30).ifBlank { "GOOD" })
             },
             label = "Kita būklė",
             modifier = Modifier.fillMaxWidth(),
@@ -1063,16 +1061,8 @@ private fun inventoryCategoryOptions(): List<Pair<String, String>> = listOf(
     "PERSONAL_LOANS" to "Asmeninis skolinimas"
 )
 
-private fun String.toInventoryOptionCode(maxLength: Int): String =
-    ("CUSTOM_" + toInventoryCustomInput())
-        .uppercase()
-        .replace(Regex("[^A-Z0-9]+"), "_")
-        .trim('_')
-        .take(maxLength)
-
 private fun String.toInventoryCustomInput(): String =
     trim()
-        .replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "")
         .replace('_', ' ')
 
 private fun String.toInventoryDisplayLabel(): String =

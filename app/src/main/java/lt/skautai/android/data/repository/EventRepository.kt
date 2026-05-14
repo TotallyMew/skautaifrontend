@@ -40,12 +40,17 @@ import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryRequestRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
+import lt.skautai.android.data.remote.CreateInventoryTemplateRequestDto
 import lt.skautai.android.data.remote.AttachEventPurchaseInvoiceRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleRequestDto
+import lt.skautai.android.data.remote.AddPastovykleMemberRequestDto
+import lt.skautai.android.data.remote.AssignPastovykleLeaderRequestDto
 import lt.skautai.android.data.remote.AssignPastovykleInventoryRequestDto
 import lt.skautai.android.data.remote.AssignUnitInventoryToPastovykleRequestDto
 import lt.skautai.android.data.remote.ApplyInventoryTemplateRequestDto
+import lt.skautai.android.data.remote.AppliedInventoryTemplateDto
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventRoleDto
@@ -67,11 +72,14 @@ import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.EventPurchaseItemDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.EventPurchaseListDto
+import lt.skautai.android.data.remote.EventPurchaseReconciliationCandidateListDto
 import lt.skautai.android.data.remote.EventReconciliationDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
 import lt.skautai.android.data.remote.PastovykleInventoryListDto
 import lt.skautai.android.data.remote.PastovykleListDto
+import lt.skautai.android.data.remote.PastovykleMemberDto
+import lt.skautai.android.data.remote.PastovykleMemberListDto
 import lt.skautai.android.data.remote.ReconcileEventPurchasesRequestDto
 import lt.skautai.android.data.remote.ReconcileEventReturnsRequestDto
 import lt.skautai.android.data.remote.FulfillPastovykleInventoryRequestRequestDto
@@ -81,6 +89,7 @@ import lt.skautai.android.data.remote.UpdateEventInventoryAllocationRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryBucketRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
+import lt.skautai.android.data.remote.UpdateInventoryTemplateRequestDto
 import lt.skautai.android.data.remote.UpdatePastovykleInventoryRequestDto
 import lt.skautai.android.data.remote.UpdatePastovykleRequestDto
 import lt.skautai.android.data.sync.EventRoleRemovalPayload
@@ -379,6 +388,7 @@ class EventRepository @Inject constructor(
                 userName = null,
                 role = request.role,
                 targetGroup = request.targetGroup,
+                pastovykleId = request.pastovykleId,
                 assignedByUserId = tokenManager.userId.first(),
                 assignedAt = Instant.now().toString()
             )
@@ -617,6 +627,48 @@ class EventRepository @Inject constructor(
         }
     }
 
+    suspend fun createInventoryTemplate(request: CreateInventoryTemplateRequestDto): Result<InventoryTemplateDto> {
+        return try {
+            val response = eventApiService.createInventoryTemplate("Bearer ${token()}", tuntasId(), request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida kuriant sablona")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun updateInventoryTemplate(
+        templateId: String,
+        request: UpdateInventoryTemplateRequestDto
+    ): Result<InventoryTemplateDto> {
+        return try {
+            val response = eventApiService.updateInventoryTemplate("Bearer ${token()}", tuntasId(), templateId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant sablona")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun deleteInventoryTemplate(templateId: String): Result<Unit> {
+        return try {
+            val response = eventApiService.deleteInventoryTemplate("Bearer ${token()}", tuntasId(), templateId)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida trinant sablona")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
     suspend fun applyInventoryTemplate(
         eventId: String,
         template: InventoryTemplateDto
@@ -632,6 +684,28 @@ class EventRepository @Inject constructor(
                 val created = response.body()!!
                 mergeCachedInventoryItems(eventId, created.items)
                 Result.success(created)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida pritaikant šabloną")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun applyInventoryTemplateWithReservation(
+        eventId: String,
+        templateId: String
+    ): Result<AppliedInventoryTemplateDto> {
+        return try {
+            val response = eventApiService.applyInventoryTemplateWithReservation(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                ApplyInventoryTemplateRequestDto(templateId)
+            )
+            if (response.isSuccessful) {
+                refreshEvent(eventId)
+                Result.success(response.body()!!)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida pritaikant šabloną")))
             }
@@ -988,6 +1062,27 @@ class EventRepository @Inject constructor(
         }
     }
 
+    suspend fun getPurchaseReconciliationCandidates(
+        eventId: String,
+        purchaseItemId: String
+    ): Result<EventPurchaseReconciliationCandidateListDto> {
+        return try {
+            val response = eventApiService.getPurchaseReconciliationCandidates(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                purchaseItemId
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: EventPurchaseReconciliationCandidateListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti tinkamu daiktu.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
     suspend fun completeEvent(eventId: String): Result<EventDto> {
         return try {
             val response = eventApiService.completeEvent("Bearer ${token()}", tuntasId(), eventId)
@@ -1171,6 +1266,84 @@ class EventRepository @Inject constructor(
         }
     }
 
+    suspend fun assignPastovykleLeader(eventId: String, pastovykleId: String, userId: String): Result<EventRoleDto> {
+        return try {
+            val response = eventApiService.assignPastovykleLeader(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                pastovykleId,
+                AssignPastovykleLeaderRequestDto(userId)
+            )
+            if (response.isSuccessful) {
+                val role = response.body() ?: return Result.failure(Exception("Tuščias serverio atsakymas"))
+                refreshEvent(eventId)
+                Result.success(role)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida pridedant bendravadovį")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun removePastovykleLeader(eventId: String, pastovykleId: String, roleId: String): Result<Unit> {
+        return try {
+            val response = eventApiService.removePastovykleLeader("Bearer ${token()}", tuntasId(), eventId, pastovykleId, roleId)
+            if (response.isSuccessful) {
+                refreshEvent(eventId)
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida šalinant bendravadovį")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getPastovykleMembers(eventId: String, pastovykleId: String): Result<PastovykleMemberListDto> {
+        return try {
+            val response = eventApiService.getPastovykleMembers("Bearer ${token()}", tuntasId(), eventId, pastovykleId)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: PastovykleMemberListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant pastovyklės narius")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun addPastovykleMember(
+        eventId: String,
+        pastovykleId: String,
+        request: AddPastovykleMemberRequestDto
+    ): Result<PastovykleMemberDto> {
+        return try {
+            val response = eventApiService.addPastovykleMember("Bearer ${token()}", tuntasId(), eventId, pastovykleId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida pridedant pastovyklės narį")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun removePastovykleMember(eventId: String, pastovykleId: String, memberId: String): Result<Unit> {
+        return try {
+            val response = eventApiService.removePastovykleMember("Bearer ${token()}", tuntasId(), eventId, pastovykleId, memberId)
+            if (response.isSuccessful) {
+                Result.success(Unit)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida šalinant pastovyklės narį")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
     suspend fun getPastovykleInventory(eventId: String, pastovykleId: String): Result<PastovykleInventoryListDto> {
         return try {
             val response = eventApiService.getPastovykleInventory("Bearer ${token()}", tuntasId(), eventId, pastovykleId)
@@ -1324,6 +1497,35 @@ class EventRepository @Inject constructor(
             upsertCachedPastovykleRequest(eventId, pastovykleId, row)
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, row.id, PendingOperationType.EVENT_CREATE_PASTOVYKLE_REQUEST, EventPastovykleRequestCreatePayload(eventId, pastovykleId, request))
             Result.success(row)
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getEventInventoryRequests(eventId: String): Result<EventInventoryRequestListDto> {
+        return try {
+            val response = eventApiService.getEventInventoryRequests("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: EventInventoryRequestListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant renginio poreikius")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun createEventInventoryRequest(
+        eventId: String,
+        request: CreateEventInventoryRequestRequestDto
+    ): Result<EventInventoryRequestDto> {
+        return try {
+            val response = eventApiService.createEventInventoryRequest("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida kuriant renginio poreiki")))
+            }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }

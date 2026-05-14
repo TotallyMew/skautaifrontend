@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateEventRequestDto
+import lt.skautai.android.data.remote.InventoryTemplateDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
@@ -40,7 +41,11 @@ data class EventCreateUiState(
     val notes: String = "",
     val selectedAudienceId: String? = null,
     val selectedAudienceLabel: String = "Bendras renginys",
-    val audienceOptions: List<EventAudienceOption> = emptyList()
+    val audienceOptions: List<EventAudienceOption> = emptyList(),
+    val templates: List<InventoryTemplateDto> = emptyList(),
+    val selectedTemplateId: String? = null,
+    val isTemplateLoading: Boolean = false,
+    val templateApplySummary: String? = null
 )
 
 @HiltViewModel
@@ -60,10 +65,14 @@ class EventCreateViewModel @Inject constructor(
     private var observeJob: Job? = null
 
     fun onNameChange(value: String) { _uiState.value = _uiState.value.copy(name = value) }
-    fun onTypeChange(value: String) { _uiState.value = _uiState.value.copy(type = value) }
+    fun onTypeChange(value: String) {
+        _uiState.value = _uiState.value.copy(type = value, selectedTemplateId = null, templates = emptyList())
+        loadTemplates(value)
+    }
     fun onStartDateChange(value: String) { _uiState.value = _uiState.value.copy(startDate = value) }
     fun onEndDateChange(value: String) { _uiState.value = _uiState.value.copy(endDate = value) }
     fun onNotesChange(value: String) { _uiState.value = _uiState.value.copy(notes = value) }
+    fun onTemplateChange(value: String?) { _uiState.value = _uiState.value.copy(selectedTemplateId = value) }
 
     fun onAudienceChange(value: String?) {
         _uiState.value = _uiState.value.copy(
@@ -80,6 +89,7 @@ class EventCreateViewModel @Inject constructor(
         )
         _uiState.value = nextState
         loadAudienceOptions()
+        if (eventId == null) loadTemplates(nextState.type)
 
         if (eventId == null) return
 
@@ -149,7 +159,7 @@ class EventCreateViewModel @Inject constructor(
                 eventRepository.createEvent(
                     CreateEventRequestDto(
                         name = state.name.trim(),
-                        type = state.type,
+                        type = state.type.trim(),
                         startDate = state.startDate,
                         endDate = state.endDate,
                         organizationalUnitId = state.selectedAudienceId,
@@ -158,7 +168,25 @@ class EventCreateViewModel @Inject constructor(
                 )
             }
             result.onSuccess {
-                _uiState.value = _uiState.value.copy(isSaving = false, isSuccess = true)
+                if (!state.isEditMode && state.selectedTemplateId != null) {
+                    eventRepository.applyInventoryTemplateWithReservation(it.id, state.selectedTemplateId)
+                        .onSuccess { applied ->
+                            val summary = "Rezervuota: ${applied.reservedTotal}, į pirkimų sąrašą: ${applied.toPurchaseTotal}"
+                            _uiState.value = _uiState.value.copy(
+                                isSaving = false,
+                                isSuccess = true,
+                                templateApplySummary = summary
+                            )
+                        }
+                        .onFailure { error ->
+                            _uiState.value = _uiState.value.copy(
+                                isSaving = false,
+                                error = "Renginys sukurtas, bet šablono pritaikyti nepavyko: ${error.message ?: "nežinoma klaida"}"
+                            )
+                        }
+                } else {
+                    _uiState.value = _uiState.value.copy(isSaving = false, isSuccess = true)
+                }
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
@@ -169,6 +197,28 @@ class EventCreateViewModel @Inject constructor(
                     }
                 )
             }
+        }
+    }
+
+    private fun loadTemplates(eventType: String = _uiState.value.type) {
+        if (_uiState.value.isEditMode) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isTemplateLoading = true)
+            eventRepository.getInventoryTemplates(eventType)
+                .onSuccess { response ->
+                    _uiState.value = _uiState.value.copy(
+                        isTemplateLoading = false,
+                        templates = response.templates,
+                        selectedTemplateId = _uiState.value.selectedTemplateId
+                            ?.takeIf { selected -> response.templates.any { it.id == selected } }
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isTemplateLoading = false,
+                        error = error.message ?: "Nepavyko gauti šablonų."
+                    )
+                }
         }
     }
 

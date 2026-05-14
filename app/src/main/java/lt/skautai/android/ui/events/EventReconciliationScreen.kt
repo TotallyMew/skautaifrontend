@@ -14,7 +14,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuAnchorType
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -40,6 +44,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.data.remote.EventPurchaseReconciliationCandidateDto
 import lt.skautai.android.data.remote.EventReconciliationPurchaseLineDto
 import lt.skautai.android.data.remote.EventReconciliationReturnLineDto
 import lt.skautai.android.ui.common.SkautaiCard
@@ -119,6 +124,9 @@ fun EventReconciliationScreen(
                                 rows = reconciliation.unresolvedPurchases,
                                 isWorking = current.isWorking || current.event.status == "COMPLETED",
                                 onDecision = { row, decision ->
+                                    if (decision == "INCREASE_EXISTING_ITEM") {
+                                        viewModel.loadPurchaseCandidates(eventId, row.purchaseItemId)
+                                    }
                                     pendingPurchaseDecision = row to decision
                                 }
                             )
@@ -142,18 +150,21 @@ fun EventReconciliationScreen(
     }
 
     pendingPurchaseDecision?.let { (row, decision) ->
+        val current = state as? EventReconciliationUiState.Success
         ReconcilePurchaseQuantityDialog(
             row = row,
             decision = decision,
+            candidates = current?.purchaseCandidates?.get(row.purchaseItemId).orEmpty(),
+            candidatesLoading = current?.candidateLoadingPurchaseItemId == row.purchaseItemId,
             onDismiss = { pendingPurchaseDecision = null },
-            onConfirm = { quantity ->
+            onConfirm = { quantity, existingItemId ->
                 pendingPurchaseDecision = null
                 viewModel.reconcilePurchase(
                     eventId = eventId,
                     purchaseItemId = row.purchaseItemId,
                     decision = decision,
                     quantity = quantity,
-                    existingItemId = if (decision == "INCREASE_EXISTING_ITEM") row.itemId else null
+                    existingItemId = if (decision == "INCREASE_EXISTING_ITEM") existingItemId else null
                 )
             }
         )
@@ -237,10 +248,15 @@ private fun ReconciliationPurchaseSection(
 private fun ReconcilePurchaseQuantityDialog(
     row: EventReconciliationPurchaseLineDto,
     decision: String,
+    candidates: List<EventPurchaseReconciliationCandidateDto>,
+    candidatesLoading: Boolean,
     onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
+    onConfirm: (Int, String?) -> Unit
 ) {
     var quantityText by remember(row.purchaseItemId, decision) { mutableStateOf(row.purchasedQuantity.toString()) }
+    var selectedCandidateId by remember(row.purchaseItemId, candidates) {
+        mutableStateOf(candidates.firstOrNull { it.recommended }?.itemId ?: candidates.firstOrNull()?.itemId ?: row.itemId)
+    }
     var error by remember { mutableStateOf<String?>(null) }
     val decisionLabel = when (decision) {
         "INCREASE_EXISTING_ITEM" -> "Papildyti"
@@ -257,6 +273,17 @@ private fun ReconcilePurchaseQuantityDialog(
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(row.itemName, fontWeight = FontWeight.SemiBold)
                 Text("Likęs kiekis: ${row.purchasedQuantity} vnt.", style = MaterialTheme.typography.bodySmall)
+                if (decision == "INCREASE_EXISTING_ITEM") {
+                    CandidateDropdown(
+                        candidates = candidates,
+                        selectedCandidateId = selectedCandidateId,
+                        loading = candidatesLoading,
+                        onSelected = {
+                            selectedCandidateId = it
+                            error = null
+                        }
+                    )
+                }
                 OutlinedTextField(
                     value = quantityText,
                     onValueChange = {
@@ -278,7 +305,8 @@ private fun ReconcilePurchaseQuantityDialog(
                 when {
                     quantity == null || quantity < 1 -> error = "Kiekis turi būti bent 1"
                     quantity > row.purchasedQuantity -> error = "Negali viršyti likusio kiekio"
-                    else -> onConfirm(quantity)
+                    decision == "INCREASE_EXISTING_ITEM" && selectedCandidateId == null -> error = "Pasirinkite daikta"
+                    else -> onConfirm(quantity, selectedCandidateId)
                 }
             }) { Text("Patvirtinti") }
         },
@@ -288,23 +316,97 @@ private fun ReconcilePurchaseQuantityDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CandidateDropdown(
+    candidates: List<EventPurchaseReconciliationCandidateDto>,
+    selectedCandidateId: String?,
+    loading: Boolean,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selected = candidates.firstOrNull { it.itemId == selectedCandidateId }
+
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { if (!loading && candidates.isNotEmpty()) expanded = it }
+    ) {
+        OutlinedTextField(
+            value = when {
+                loading -> "Kraunama..."
+                selected != null -> selected.name
+                candidates.isEmpty() -> "Tinkamu daiktu nerasta"
+                else -> "Pasirinkite daikta"
+            },
+            onValueChange = {},
+            readOnly = true,
+            enabled = !loading && candidates.isNotEmpty(),
+            label = { Text("Papildomas daiktas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            candidates.forEach { candidate ->
+                DropdownMenuItem(
+                    text = {
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = candidate.name + if (candidate.recommended) " · rekomenduojama" else "",
+                                fontWeight = if (candidate.recommended) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                            Text(
+                                text = listOfNotNull(
+                                    "${candidate.quantity} vnt.",
+                                    candidate.custodianName
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    onClick = {
+                        onSelected(candidate.itemId)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun DecisionButtons(
     enabled: Boolean,
     decisions: List<Pair<String, String>>,
     onDecision: (String) -> Unit
 ) {
-    Row(
+    Column(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        decisions.forEach { (decision, label) ->
-            OutlinedButton(
-                onClick = { onDecision(decision) },
-                enabled = enabled,
-                modifier = Modifier.weight(1f)
+        decisions.chunked(2).forEach { row ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(label)
+                row.forEach { (decision, label) ->
+                    OutlinedButton(
+                        onClick = { onDecision(decision) },
+                        enabled = enabled,
+                        modifier = Modifier.weight(1f),
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 8.dp)
+                    ) {
+                        Text(label, maxLines = 1)
+                    }
+                }
+                if (row.size == 1) {
+                    Box(modifier = Modifier.weight(1f))
+                }
             }
         }
     }

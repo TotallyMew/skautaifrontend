@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Forest
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Inventory2
@@ -40,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +57,9 @@ import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiTextField
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +94,9 @@ fun EventMovementCard(
     val activeMovements = scopedCustody.count { it.status == "OPEN" }
     val peopleCustody = scopedCustody.filter { it.status == "OPEN" && it.holderUserId != null }
     val campCustody = scopedCustody.filter { it.status == "OPEN" && it.holderUserId == null && it.pastovykleId != null }
+    var peopleCollapsed by rememberSaveable { mutableStateOf(true) }
+    var campCollapsed by rememberSaveable { mutableStateOf(true) }
+    var historyCollapsed by rememberSaveable { mutableStateOf(true) }
 
     SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
         Column(
@@ -138,7 +147,6 @@ fun EventMovementCard(
 
             EventMovementPickerCard(
                 inventoryPlanItems = plannedItems,
-                inventoryItems = inventoryItems,
                 isWorking = isWorking,
                 onCreateMovement = onCreateMovement
             )
@@ -161,6 +169,8 @@ fun EventMovementCard(
                 emptyTitle = "Niekas dar nepasiėmė daiktų",
                 emptyMessage = "Kai inventorius bus išduotas žmonėms, jis atsiras čia.",
                 isWorking = isWorking,
+                collapsed = peopleCollapsed,
+                onToggleCollapsed = { peopleCollapsed = !peopleCollapsed },
                 onReturn = { row ->
                     onCreateMovement(
                         if (row.pastovykleId != null) "RETURN_TO_PASTOVYKLE" else "RETURN_TO_EVENT_STORAGE",
@@ -181,6 +191,8 @@ fun EventMovementCard(
                 emptyTitle = "Pastovyklėms dar niekas nepriskirta",
                 emptyMessage = "Priskirtas inventorius čia bus matomas iš karto.",
                 isWorking = isWorking,
+                collapsed = campCollapsed,
+                onToggleCollapsed = { campCollapsed = !campCollapsed },
                 onReturn = { row ->
                     onCreateMovement(
                         "RETURN_TO_EVENT_STORAGE",
@@ -196,7 +208,9 @@ fun EventMovementCard(
             HistorySection(
                 movements = scopedMovements,
                 selectedItemName = selectedItemName,
-                totalMovementCount = movements.size
+                totalMovementCount = movements.size,
+                collapsed = historyCollapsed,
+                onToggleCollapsed = { historyCollapsed = !historyCollapsed }
             )
         }
     }
@@ -217,14 +231,14 @@ private data class MovementPickerItem(
 @Composable
 private fun EventMovementPickerCard(
     inventoryPlanItems: List<EventInventoryItemDto>,
-    inventoryItems: List<ItemDto>,
     isWorking: Boolean,
     onCreateMovement: (String, String, String, String?, String?, String?, String) -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
     var selectedQuantities by remember { mutableStateOf<Map<String, Int>>(emptyMap()) }
-    val pickerItems = remember(inventoryPlanItems, inventoryItems) {
-        val planned = inventoryPlanItems
+    var collapsed by rememberSaveable { mutableStateOf(true) }
+    val pickerItems = remember(inventoryPlanItems) {
+        inventoryPlanItems
             .filter { it.availableQuantity > 0 }
             .map {
                 MovementPickerItem(
@@ -234,18 +248,6 @@ private fun EventMovementPickerCard(
                     description = it.bucketName
                 )
             }
-        val plannedSourceItemIds = inventoryPlanItems.mapNotNull { it.itemId }.toSet()
-        val sourceItems = inventoryItems
-            .filter { it.quantity > 0 && it.id !in plannedSourceItemIds }
-            .map {
-                MovementPickerItem(
-                    id = it.id,
-                    name = it.name,
-                    availableQuantity = it.quantity,
-                    description = it.custodianName ?: it.temporaryStorageLabel
-                )
-            }
-        (planned + sourceItems)
             .distinctBy { it.id }
             .sortedBy { it.name.lowercase() }
     }
@@ -257,7 +259,12 @@ private fun EventMovementPickerCard(
         }
     }
 
-    EventListSection(title = "Pasirinkti daiktą", subtitle = "${pickerItems.size} galimi") {
+    CollapsibleMovementSection(
+        title = "Pasirinkti daiktą",
+        subtitle = "${pickerItems.size} galimi",
+        collapsed = collapsed,
+        onToggleCollapsed = { collapsed = !collapsed }
+    ) {
         SkautaiTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
@@ -540,9 +547,16 @@ private fun CustodySection(
     emptyTitle: String,
     emptyMessage: String,
     isWorking: Boolean,
+    collapsed: Boolean,
+    onToggleCollapsed: () -> Unit,
     onReturn: (EventInventoryCustodyDto) -> Unit
 ) {
-    EventListSection(title = title, subtitle = subtitle) {
+    CollapsibleMovementSection(
+        title = title,
+        subtitle = subtitle,
+        collapsed = collapsed,
+        onToggleCollapsed = onToggleCollapsed
+    ) {
         if (custody.isEmpty()) {
             CompactMovementEmptyState(
                 title = emptyTitle,
@@ -593,7 +607,9 @@ private fun CustodySection(
 private fun HistorySection(
     movements: List<EventInventoryMovementDto>,
     selectedItemName: String?,
-    totalMovementCount: Int
+    totalMovementCount: Int,
+    collapsed: Boolean,
+    onToggleCollapsed: () -> Unit
 ) {
     var query by remember { mutableStateOf("") }
     val normalizedQuery = query.trim()
@@ -612,7 +628,12 @@ private fun HistorySection(
         else -> "${movements.size} įrašai"
     }
 
-    EventListSection(title = "Istorija", subtitle = subtitle) {
+    CollapsibleMovementSection(
+        title = "Istorija",
+        subtitle = subtitle,
+        collapsed = collapsed,
+        onToggleCollapsed = onToggleCollapsed
+    ) {
         if (movements.isEmpty()) {
             CompactMovementEmptyState(
                 title = if (selectedItemName == null) "Judėjimo istorija tuščia" else "Šis daiktas dar nejudėjo",
@@ -639,13 +660,62 @@ private fun HistorySection(
                     message = "Pabandyk kitą pavadinimą, žmogų arba pastovyklę.",
                     icon = Icons.Default.History
                 )
-                return@EventListSection
             }
             visibleMovements.forEachIndexed { index, movement ->
                 MovementHistoryRow(movement)
                 if (index != visibleMovements.lastIndex) {
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CollapsibleMovementSection(
+    title: String,
+    subtitle: String,
+    collapsed: Boolean,
+    onToggleCollapsed: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 0.dp
+    ) {
+        Column(Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        title,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
+                    )
+                    Text(
+                        subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1
+                    )
+                }
+                TextButton(onClick = onToggleCollapsed, contentPadding = PaddingValues(horizontal = 8.dp)) {
+                    Icon(
+                        imageVector = if (collapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Text(if (collapsed) "Rodyti" else "Slėpti")
+                }
+            }
+            if (!collapsed) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(top = 8.dp, bottom = 8.dp),
+                    color = MaterialTheme.colorScheme.outlineVariant
+                )
+                content()
             }
         }
     }
@@ -707,6 +777,7 @@ private fun MovementHistoryRow(movement: EventInventoryMovementDto) {
                     text = listOfNotNull(
                         route.ifBlank { null },
                         "Kiekis ${movement.quantity}",
+                        formatMovementTimestamp(movement.createdAt),
                         movement.performedByUserName?.let { "Atliko $it" }
                     ).joinToString(" • "),
                     style = MaterialTheme.typography.bodySmall,
@@ -716,6 +787,13 @@ private fun MovementHistoryRow(movement: EventInventoryMovementDto) {
         }
     }
 }
+
+private fun formatMovementTimestamp(value: String): String =
+    runCatching {
+        Instant.parse(value)
+            .atZone(ZoneId.systemDefault())
+            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+    }.getOrElse { value.take(16) }
 
 private fun movementLabel(type: String): String = when (type) {
     "PASTOVYKLE_REQUEST" -> "Prašymas"

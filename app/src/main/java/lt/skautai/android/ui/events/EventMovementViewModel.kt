@@ -88,21 +88,7 @@ class EventMovementViewModel @Inject constructor(
                     }
                     return@launch
                 }
-            val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
-            val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
-            val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
-            val inventoryItems = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
-            val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody.orEmpty()
-            val movements = eventRepository.getInventoryMovements(eventId).getOrNull()?.movements.orEmpty()
-            val current = _uiState.value as? EventMovementUiState.Success ?: return@launch
-            _uiState.value = current.copy(
-                inventoryPlan = inventoryPlan,
-                pastovykles = pastovykles,
-                members = members,
-                inventoryItems = inventoryItems,
-                custody = custody,
-                movements = movements
-            )
+            refreshMovementSnapshot(eventId)
         }
     }
 
@@ -118,7 +104,7 @@ class EventMovementViewModel @Inject constructor(
                 eventId,
                 CreatePastovykleRequestDto(name = name.trim(), responsibleUserId = responsibleUserId, notes = notes.ifBlank { null })
             )
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshMovementSnapshot(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventMovementUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko sukurti pastovyklės.")
@@ -158,7 +144,7 @@ class EventMovementViewModel @Inject constructor(
                     notes = notes.ifBlank { null }
                 )
             )
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshMovementSnapshot(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventMovementUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko užregistruoti judėjimo.")
@@ -169,5 +155,25 @@ class EventMovementViewModel @Inject constructor(
 
     fun clearError() {
         (_uiState.value as? EventMovementUiState.Success)?.let { _uiState.value = it.copy(error = null) }
+    }
+    private suspend fun refreshMovementSnapshot(eventId: String) {
+        val current = _uiState.value as? EventMovementUiState.Success ?: return
+        val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull() ?: current.inventoryPlan
+        val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles ?: current.pastovykles
+        val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members ?: current.members
+        val inventoryItems = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty().ifEmpty { current.inventoryItems }
+        val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody ?: current.custody
+        val movements = eventRepository.getInventoryMovements(eventId).getOrNull()?.movements ?: current.movements
+        (_uiState.value as? EventMovementUiState.Success)?.let {
+            _uiState.value = it.copy(
+                inventoryPlan = inventoryPlan,
+                pastovykles = pastovykles,
+                members = members,
+                inventoryItems = inventoryItems,
+                custody = custody,
+                movements = movements,
+                isWorking = false
+            )
+        }
     }
 }

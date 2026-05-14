@@ -1,4 +1,4 @@
-package lt.skautai.android.ui.events
+﻿package lt.skautai.android.ui.events
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -99,7 +99,7 @@ class EventPastovyklėsViewModel @Inject constructor(
         val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
-            _uiState.value = current.copy(error = "Įveskite pastovyklės pavadinimą.")
+            _uiState.value = current.copy(error = "Ä®veskite pastovyklÄ—s pavadinimÄ….")
             return
         }
 
@@ -111,12 +111,12 @@ class EventPastovyklėsViewModel @Inject constructor(
                 return
             }
             val currentLeaderRoleId = current.event.eventRoles.firstOrNull {
-                it.role == "PASTOVYKLES_GURU" && it.userId == previous?.responsibleUserId
+                it.role == "PASTOVYKLES_GURU" && it.userId == previous?.responsibleUserId && it.pastovykleId == null
             }?.id
             val currentSlot = EventStaffSlotUiModel(
                 id = pastovykleId ?: "new_pastovykle",
                 title = cleanName,
-                subtitle = "Pastovyklės pagrindinis vadovas",
+                subtitle = "PastovyklÄ—s pagrindinis vadovas",
                 role = "PASTOVYKLES_GURU",
                 pastovykleId = pastovykleId,
                 pastovykleAgeGroup = ageGroup,
@@ -125,16 +125,16 @@ class EventPastovyklėsViewModel @Inject constructor(
             )
             activeStaffRoleForMember(responsibleUserId, current.event, excludingSlot = currentSlot)?.let { occupiedRole ->
                 _uiState.value = current.copy(
-                    error = "${member.fullName()} jau turi štabo pareigą \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
+                    error = "${member.fullName()} jau turi Å¡tabo pareigÄ… \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnÄ—s pareigos."
                 )
                 return
             }
             if (!memberEligibleForPastovykleAgeGroup(member, ageGroup)) {
                 _uiState.value = current.copy(
                     error = when (normalizePastovykleAgeGroupCode(ageGroup)) {
-                        "VYR_SKAUTAI" -> "Šiai pastovyklei galima priskirti tik vyr. skautą."
-                        "VYR_SKAUTES" -> "Šiai pastovyklei galima priskirti tik vyr. skautę."
-                        else -> "Šis narys netinka pasirinktai pastovyklės amžiaus grupei."
+                        "VYR_SKAUTAI" -> "Å iai pastovyklei galima priskirti tik vyr. skautÄ…."
+                        "VYR_SKAUTES" -> "Å iai pastovyklei galima priskirti tik vyr. skautÄ™."
+                        else -> "Å is narys netinka pasirinktai pastovyklÄ—s amÅ¾iaus grupei."
                     }
                 )
                 return
@@ -178,7 +178,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išsaugoti pastovyklės.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko iÅ¡saugoti pastovyklÄ—s.")
                     }
                 }
         }
@@ -195,7 +195,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti pastovyklės.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko iÅ¡trinti pastovyklÄ—s.")
                     }
                 }
         }
@@ -217,7 +217,7 @@ class EventPastovyklėsViewModel @Inject constructor(
         if (!savedResponsibleUserId.isNullOrBlank()) {
             val event = (_uiState.value as? EventPastovyklėsUiState.Success)?.event
             val alreadyAssigned = event?.eventRoles.orEmpty().any {
-                it.role == "PASTOVYKLES_GURU" && it.userId == savedResponsibleUserId
+                it.role == "PASTOVYKLES_GURU" && it.userId == savedResponsibleUserId && it.pastovykleId == null
             }
             if (!alreadyAssigned) {
                 eventRepository.assignEventRole(
@@ -237,7 +237,36 @@ class EventPastovyklėsViewModel @Inject constructor(
         if (stillLeadsAnotherPastovykle) return
         val event = state.event
         event.eventRoles
-            .filter { it.role == "PASTOVYKLES_GURU" && it.userId == userId }
+            .filter { it.role == "PASTOVYKLES_GURU" && it.userId == userId && it.pastovykleId == null }
             .forEach { role: EventRoleDto -> eventRepository.removeEventRole(eventId, role.id) }
+    }
+
+    fun addCoLeader(eventId: String, pastovykleId: String, userId: String) {
+        val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
+        if (userId.isBlank()) return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.assignPastovykleLeader(eventId, pastovykleId, userId)
+                .onSuccess { load(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko prideti bendravadovio.")
+                    }
+                }
+        }
+    }
+
+    fun removeCoLeader(eventId: String, pastovykleId: String, roleId: String) {
+        val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.removePastovykleLeader(eventId, pastovykleId, roleId)
+                .onSuccess { load(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti bendravadovio.")
+                    }
+                }
+        }
     }
 }

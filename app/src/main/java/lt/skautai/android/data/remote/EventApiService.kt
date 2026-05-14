@@ -150,6 +150,14 @@ interface EventApiService {
         @Body request: ApplyInventoryTemplateRequestDto
     ): Response<EventInventoryItemListDto>
 
+    @POST("api/events/{id}/apply-template-with-reservation")
+    suspend fun applyInventoryTemplateWithReservation(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: ApplyInventoryTemplateRequestDto
+    ): Response<AppliedInventoryTemplateDto>
+
     @PUT("api/events/{id}/inventory-items/{inventoryItemId}")
     suspend fun updateInventoryItem(
         @Header("Authorization") token: String,
@@ -272,6 +280,14 @@ interface EventApiService {
         @Body request: ReconcileEventPurchasesRequestDto
     ): Response<EventReconciliationDto>
 
+    @GET("api/events/{id}/reconciliation/purchases/{purchaseItemId}/candidates")
+    suspend fun getPurchaseReconciliationCandidates(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("purchaseItemId") purchaseItemId: String
+    ): Response<EventPurchaseReconciliationCandidateListDto>
+
     @POST("api/events/{id}/complete")
     suspend fun completeEvent(
         @Header("Authorization") token: String,
@@ -317,6 +333,50 @@ interface EventApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Path("id") id: String,
         @Path("pid") pastovykleId: String
+    ): Response<Unit>
+
+    @POST("api/events/{id}/pastovykles/{pid}/leaders")
+    suspend fun assignPastovykleLeader(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("pid") pastovykleId: String,
+        @Body request: AssignPastovykleLeaderRequestDto
+    ): Response<EventRoleDto>
+
+    @DELETE("api/events/{id}/pastovykles/{pid}/leaders/{roleId}")
+    suspend fun removePastovykleLeader(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("pid") pastovykleId: String,
+        @Path("roleId") roleId: String
+    ): Response<Unit>
+
+    @GET("api/events/{id}/pastovykles/{pid}/members")
+    suspend fun getPastovykleMembers(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("pid") pastovykleId: String
+    ): Response<PastovykleMemberListDto>
+
+    @POST("api/events/{id}/pastovykles/{pid}/members")
+    suspend fun addPastovykleMember(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("pid") pastovykleId: String,
+        @Body request: AddPastovykleMemberRequestDto
+    ): Response<PastovykleMemberDto>
+
+    @DELETE("api/events/{id}/pastovykles/{pid}/members/{memberId}")
+    suspend fun removePastovykleMember(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("pid") pastovykleId: String,
+        @Path("memberId") memberId: String
     ): Response<Unit>
 
     @GET("api/events/{id}/pastovykles/{pid}/inventory")
@@ -370,6 +430,21 @@ interface EventApiService {
         @Path("id") id: String,
         @Path("pid") pastovykleId: String,
         @Body request: CreatePastovykleInventoryRequestRequestDto
+    ): Response<EventInventoryRequestDto>
+
+    @GET("api/events/{id}/inventory-requests")
+    suspend fun getEventInventoryRequests(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventInventoryRequestListDto>
+
+    @POST("api/events/{id}/inventory-requests")
+    suspend fun createEventInventoryRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: CreateEventInventoryRequestRequestDto
     ): Response<EventInventoryRequestDto>
 
     @POST("api/events/{id}/pastovykles/{pid}/requests/{requestId}/approve")

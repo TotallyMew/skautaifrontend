@@ -121,6 +121,7 @@ sealed class NavRoutes(val route: String) {
 
     // Events
     object EventList : NavRoutes("event_list")
+    object InventoryTemplates : NavRoutes("inventory_templates")
     object EventDetail : NavRoutes("event_detail/{eventId}") {
         fun createRoute(eventId: String) = "event_detail/$eventId"
     }
@@ -192,6 +193,7 @@ sealed class NavRoutes(val route: String) {
             LocationAddEdit.route.substringBefore("?") -> "Lokacijos forma"
             TuntasSelect.route -> "Tunto pasirinkimas"
             EventList.route -> "Renginiai"
+            InventoryTemplates.route -> "Inventoriaus sablonai"
             EventDetail.route -> "Renginio informacija"
             EventAddEdit.route.substringBefore("?") -> "Renginio forma"
             EventNeeds.route -> "Renginio poreikiai"

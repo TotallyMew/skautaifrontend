@@ -561,10 +561,7 @@ object InventoryCsv {
             "uniforms", "uniformos", "aprangos", "apranga" -> "UNIFORMS"
             "books", "knygos", "literatura" -> "BOOKS"
             "personal loans", "personalloans", "asmeniniai", "skolinami", "asmeniniai skolinimai" -> "PERSONAL_LOANS"
-            else -> {
-                val code = value.toCustomOptionCode(maxLength = 30)
-                if (code.isBlank()) "CAMPING" else "CUSTOM_$code"
-            }
+            else -> value.take(30)
         }
     }
 
@@ -575,10 +572,7 @@ object InventoryCsv {
             "good", "gera", "geras", "tvarkinga", "tvarkingas", "veikia" -> "GOOD"
             "damaged", "sugadinta", "sugadintas", "pazeista", "pazeistas", "remontuotina", "blogesne" -> "DAMAGED"
             "written off", "writtenoff", "nurasyta", "nurasytas", "netinkama", "netinkamas" -> "WRITTEN_OFF"
-            else -> {
-                val code = trim().toCustomOptionCode(maxLength = 30)
-                if (code.isBlank()) "GOOD" else "CUSTOM_$code"
-            }
+            else -> trim().take(30)
         }
     }
 
