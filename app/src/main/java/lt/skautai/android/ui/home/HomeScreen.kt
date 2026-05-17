@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Inbox
@@ -51,6 +52,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
@@ -75,6 +77,9 @@ fun HomeScreen(
     val canCreateItems = permissions.canCreateItems()
     val canApproveInventory = permissions.canManageSharedInventory()
     val canManageLocations = permissions.canManageLocations()
+    val hasPendingApprovals = canApproveInventory && uiState.sharedPendingApprovalCount > 0
+    val hasAssignedReservations = uiState.assignedReservationCount > 0
+    val hasAssignedRequisitions = uiState.assignedRequisitionCount > 0
 
     if (uiState.isLoading && uiState.availableUnits.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -82,11 +87,6 @@ fun HomeScreen(
         }
         return
     }
-
-    val hasPendingApprovals = canApproveInventory && uiState.sharedPendingApprovalCount > 0
-    val hasAssignedReservations = uiState.assignedReservationCount > 0
-    val hasAssignedRequisitions = uiState.assignedRequisitionCount > 0
-    val hasAnyAction = hasPendingApprovals || hasAssignedReservations || hasAssignedRequisitions
 
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
@@ -132,7 +132,38 @@ fun HomeScreen(
             }
         }
 
-        if (hasAnyAction) {
+        item {
+            SkautaiSectionHeader(
+                title = "Mano uÅ¾duotys",
+                subtitle = "KÄ… verta padaryti pirmiausia pagal tavo atsakomybes."
+            )
+        }
+        item {
+            if (uiState.tasks.isEmpty()) {
+                SkautaiCard(tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
+                    SkautaiEmptyState(
+                        title = "Å iuo metu viskas sutvarkyta",
+                        subtitle = "Kai atsiras tvirtinimÅ³, grÄ…Å¾inimÅ³ ar renginiÅ³ logistikos darbÅ³, jie atsiras Äia.",
+                        icon = Icons.Default.Flag
+                    )
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    uiState.tasks.forEach { task ->
+                        ActionTile(
+                            title = task.title,
+                            count = task.count,
+                            subtitle = task.subtitle,
+                            icon = task.icon(),
+                            tone = MaterialTheme.colorScheme.surfaceBright,
+                            badgeTone = task.badgeTone(),
+                            onClick = { navController.navigate(task.route) }
+                        )
+                    }
+                }
+            }
+        }
+        if (false) {
             item {
                 SkautaiSectionHeader(
                     title = "Reikalauja dėmesio",
@@ -286,6 +317,20 @@ fun HomeScreen(
             }
         }
     }
+}
+
+private fun HomeTaskUiModel.icon(): ImageVector = when (kind) {
+    HomeTaskKind.APPROVAL -> Icons.Default.PendingActions
+    HomeTaskKind.TRACKING -> Icons.Default.EventAvailable
+    HomeTaskKind.RETURN -> Icons.Default.Inventory2
+    HomeTaskKind.EVENT -> Icons.Default.EventNote
+}
+
+private fun HomeTaskUiModel.badgeTone(): SkautaiStatusTone = when (kind) {
+    HomeTaskKind.APPROVAL -> SkautaiStatusTone.Warning
+    HomeTaskKind.TRACKING -> SkautaiStatusTone.Info
+    HomeTaskKind.RETURN -> SkautaiStatusTone.Warning
+    HomeTaskKind.EVENT -> SkautaiStatusTone.Neutral
 }
 
 @Composable

@@ -117,6 +117,12 @@ import lt.skautai.android.util.hasPermissionAll
 import lt.skautai.android.util.toPrintableQrItemOrNull
 import java.time.LocalDate
 
+private val BulkConditionOptions = listOf(
+    "GOOD" to "Gera",
+    "DAMAGED" to "Vidutinė",
+    "WRITTEN_OFF" to "Bloga"
+)
+
 private val KnownInventoryCategories = listOf(
     "CAMPING",
     "TOOLS",
@@ -153,6 +159,7 @@ fun InventoryListScreen(
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val selectionMode by viewModel.selectionMode.collectAsStateWithLifecycle()
+    val selectionPurpose by viewModel.selectionPurpose.collectAsStateWithLifecycle()
     val selectedItemIds by viewModel.selectedItemIds.collectAsStateWithLifecycle()
     val actionMessage by viewModel.actionMessage.collectAsStateWithLifecycle()
     val selectedTypes by viewModel.selectedTypes.collectAsStateWithLifecycle()
@@ -211,6 +218,14 @@ fun InventoryListScreen(
             .filter { it.id in selectedItemIds }
             .mapNotNull { it.toPrintableQrItemOrNull() }
     }
+    val selectedBulkItems = remember(filteredVisibleItems, selectedItemIds, selectionPurpose) {
+        if (selectionPurpose != InventorySelectionPurpose.BULK_EDIT) {
+            emptyList()
+        } else {
+            filteredVisibleItems.filter { it.id in selectedItemIds && viewModel.canBulkManage(it) }
+        }
+    }
+    var showBulkActionDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(actionMessage) {
         actionMessage?.let {
@@ -226,6 +241,18 @@ fun InventoryListScreen(
             onHeaderRowSelected = viewModel::updateInventoryImportHeaderRow,
             onImport = viewModel::executeInventoryImport,
             onDismiss = viewModel::cancelInventoryImport
+        )
+    }
+
+    if (showBulkActionDialog && selectionPurpose == InventorySelectionPurpose.BULK_EDIT) {
+        BulkInventoryActionDialog(
+            selectedCount = selectedBulkItems.size,
+            locations = locations,
+            onDismiss = { showBulkActionDialog = false },
+            onApply = { action ->
+                showBulkActionDialog = false
+                viewModel.applyBulkAction(action)
+            }
         )
     }
 
@@ -250,25 +277,36 @@ fun InventoryListScreen(
             )
 
             if (selectionMode) {
-                QrSelectionBar(
-                    selectedCount = selectedPrintableItems.size,
-                    onGeneratePdf = {
-                        if (selectedPrintableItems.isEmpty()) {
-                            viewModel.onPdfShareFailed("Pasirink bent vieną daiktą QR PDF generavimui.")
-                        } else {
-                            runCatching {
-                                QrPdfShareLauncher.share(context, selectedPrintableItems)
-                            }.onSuccess {
-                                viewModel.onPdfShared()
-                            }.onFailure {
-                                viewModel.onPdfShareFailed(
-                                    it.message ?: "Nepavyko sugeneruoti QR PDF"
-                                )
-                            }
-                        }
-                    },
-                    onCancel = viewModel::exitSelectionMode
-                )
+                when (selectionPurpose) {
+                    InventorySelectionPurpose.BULK_EDIT -> {
+                        BulkSelectionBar(
+                            selectedCount = selectedBulkItems.size,
+                            onApply = { showBulkActionDialog = true },
+                            onCancel = viewModel::exitSelectionMode
+                        )
+                    }
+                    else -> {
+                        QrSelectionBar(
+                            selectedCount = selectedPrintableItems.size,
+                            onGeneratePdf = {
+                                if (selectedPrintableItems.isEmpty()) {
+                                    viewModel.onPdfShareFailed("Pasirink bent vieną daiktą QR PDF generavimui.")
+                                } else {
+                                    runCatching {
+                                        QrPdfShareLauncher.share(context, selectedPrintableItems)
+                                    }.onSuccess {
+                                        viewModel.onPdfShared()
+                                    }.onFailure {
+                                        viewModel.onPdfShareFailed(
+                                            it.message ?: "Nepavyko sugeneruoti QR PDF"
+                                        )
+                                    }
+                                }
+                            },
+                            onCancel = viewModel::exitSelectionMode
+                        )
+                    }
+                }
             }
 
             if (canReviewAdditions && pendingItems.isNotEmpty()) {
@@ -300,6 +338,7 @@ fun InventoryListScreen(
                 canImportCsv = canImportCsv,
                 canGenerateQrPdf = canGenerateQrPdf,
                 selectionMode = selectionMode,
+                selectionPurpose = selectionPurpose,
                 selectedItemIds = selectedItemIds,
                 onExportCsv = {
                     pendingExportCsv = viewModel.inventoryExportCsv(filteredVisibleItems)
@@ -316,6 +355,7 @@ fun InventoryListScreen(
                     )
                 },
                 onStartQrSelection = viewModel::enterSelectionMode,
+                onStartBulkSelection = viewModel::enterBulkSelectionMode,
                 viewModel = viewModel,
                 navController = navController
             )
@@ -768,10 +808,12 @@ private fun InventoryBody(
     canImportCsv: Boolean,
     canGenerateQrPdf: Boolean,
     selectionMode: Boolean,
+    selectionPurpose: InventorySelectionPurpose?,
     selectedItemIds: Set<String>,
     onExportCsv: () -> Unit,
     onImportCsv: () -> Unit,
     onStartQrSelection: () -> Unit,
+    onStartBulkSelection: () -> Unit,
     viewModel: InventoryListViewModel,
     navController: NavController
 ) {
@@ -862,10 +904,25 @@ private fun InventoryBody(
                 canImportCsv = canImportCsv,
                 canGenerateQrPdf = canGenerateQrPdf,
                 selectionMode = selectionMode,
+                selectionPurpose = selectionPurpose,
                 selectedItemIds = selectedItemIds,
                 onExportCsv = onExportCsv,
                 onImportCsv = onImportCsv,
                 onStartQrSelection = onStartQrSelection,
+                onStartAudit = {
+                    navController.navigate(
+                        NavRoutes.InventoryAudit.createRoute(
+                            type = viewModel.openedType,
+                            custodianId = openedCustodianId,
+                            sharedOnly = viewModel.openedSharedOnly,
+                            personalOwner = if (openedPersonalOwnerOnly) "me" else null
+                        )
+                    )
+                },
+                onOpenAuditHistory = {
+                    navController.navigate(NavRoutes.InventoryAuditHistory.route)
+                },
+                onStartBulkSelection = onStartBulkSelection,
                 typeFilters = typeFilters,
                 categoryFilters = categoryFilters,
                 onClearFilters = viewModel::clearFilters,
@@ -876,7 +933,8 @@ private fun InventoryBody(
                 onLocationSelected = viewModel::onLocationSelected,
                 onStatusSelected = viewModel::onStatusSelected,
                 onOpenItem = { itemId -> navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId)) },
-                onToggleItemSelection = viewModel::toggleSelectedItem
+                onToggleItemSelection = viewModel::toggleSelectedItem,
+                canBulkManage = viewModel::canBulkManage
             )
         }
     }
@@ -900,10 +958,14 @@ private fun InventoryCatalogContent(
     canImportCsv: Boolean,
     canGenerateQrPdf: Boolean,
     selectionMode: Boolean,
+    selectionPurpose: InventorySelectionPurpose?,
     selectedItemIds: Set<String>,
     onExportCsv: () -> Unit,
     onImportCsv: () -> Unit,
     onStartQrSelection: () -> Unit,
+    onStartAudit: () -> Unit,
+    onOpenAuditHistory: () -> Unit,
+    onStartBulkSelection: () -> Unit,
     typeFilters: List<Pair<String, Pair<String, Int>>>,
     categoryFilters: List<Pair<String, Pair<String, Int>>>,
     onClearFilters: () -> Unit,
@@ -914,7 +976,8 @@ private fun InventoryCatalogContent(
     onLocationSelected: (String) -> Unit,
     onStatusSelected: (String) -> Unit,
     onOpenItem: (String) -> Unit,
-    onToggleItemSelection: (String, Boolean) -> Unit
+    onToggleItemSelection: (String, Boolean) -> Unit,
+    canBulkManage: (ItemDto) -> Boolean
 ) {
     val groups = remember(filteredItems) { filteredItems.toInventoryGroups() }
     var filtersExpanded by remember { mutableStateOf(false) }
@@ -923,7 +986,8 @@ private fun InventoryCatalogContent(
         (if (assignedOnly) 1 else 0) +
         (if (selectedStatus != "ACTIVE") 1 else 0)
     val assignedCount = allItems.count { it.isAssignedToPerson() }
-    val canShowTools = canExportCsv || canImportCsv || canGenerateQrPdf
+    val hasBulkEditableItems = filteredItems.any(canBulkManage)
+    val canShowTools = canExportCsv || canImportCsv || canGenerateQrPdf || hasBulkEditableItems || allItems.isNotEmpty()
     val hasPrintableItems = filteredItems.any { it.toPrintableQrItemOrNull() != null }
 
     LazyColumn(
@@ -938,10 +1002,14 @@ private fun InventoryCatalogContent(
                     canImportCsv = canImportCsv,
                     canGenerateQrPdf = canGenerateQrPdf,
                     canGenerateQrPdfNow = hasPrintableItems,
+                    canBulkEdit = hasBulkEditableItems,
                     onExpandedChange = { toolsExpanded = it },
                     onExportCsv = onExportCsv,
                     onImportCsv = onImportCsv,
-                    onStartQrSelection = onStartQrSelection
+                    onStartQrSelection = onStartQrSelection,
+                    onStartAudit = onStartAudit,
+                    onOpenAuditHistory = onOpenAuditHistory,
+                    onStartBulkSelection = onStartBulkSelection
                 )
             }
         }
@@ -1100,7 +1168,10 @@ private fun InventoryCatalogContent(
                     InventoryGroupHeader(title = group.title, count = group.items.size)
                 }
                 items(group.items, key = { it.id }) { item ->
-                    val isSelectable = item.toPrintableQrItemOrNull() != null
+                    val isSelectable = when (selectionPurpose) {
+                        InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
+                        else -> item.toPrintableQrItemOrNull() != null
+                    }
                     InventoryDenseRow(
                         item = item,
                         selectionMode = selectionMode,
@@ -1123,12 +1194,16 @@ private fun InventoryToolsCard(
     canImportCsv: Boolean,
     canGenerateQrPdf: Boolean,
     canGenerateQrPdfNow: Boolean,
+    canBulkEdit: Boolean,
     onExpandedChange: (Boolean) -> Unit,
     onExportCsv: () -> Unit,
     onImportCsv: () -> Unit,
-    onStartQrSelection: () -> Unit
+    onStartQrSelection: () -> Unit,
+    onStartAudit: () -> Unit,
+    onOpenAuditHistory: () -> Unit,
+    onStartBulkSelection: () -> Unit
 ) {
-    val availableCount = listOf(canExportCsv, canImportCsv, canGenerateQrPdf).count { it }
+    val availableCount = listOf(canExportCsv, canImportCsv, canGenerateQrPdf, canBulkEdit, true, true).count { it }
     SkautaiCard(
         modifier = Modifier
             .fillMaxWidth()
@@ -1149,7 +1224,7 @@ private fun InventoryToolsCard(
                 Column(modifier = Modifier.weight(1f)) {
                     SkautaiSectionHeader(
                         title = "Įrankiai",
-                        subtitle = "$availableCount veiksmai: eksportas, importas ir QR"
+                        subtitle = "$availableCount veiksmai: eksportas, importas, QR, inventorizacija, istorija ir masinis tvarkymas"
                     )
                 }
                 IconButton(onClick = { onExpandedChange(!expanded) }) {
@@ -1211,6 +1286,47 @@ private fun InventoryToolsCard(
                                 modifier = Modifier.padding(end = 8.dp)
                             )
                             Text("Generuoti QR PDF", maxLines = 1)
+                        }
+                    }
+                    FilledTonalButton(
+                        onClick = onStartAudit,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.HealthAndSafety,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Inventorizacija", maxLines = 1)
+                    }
+                    OutlinedButton(
+                        onClick = onOpenAuditHistory,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.MenuBook,
+                            contentDescription = null,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        Text("Inventorizaciju istorija", maxLines = 1)
+                    }
+                    if (canBulkEdit) {
+                        FilledTonalButton(
+                            onClick = onStartBulkSelection,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Build,
+                                contentDescription = null,
+                                modifier = Modifier.padding(end = 8.dp)
+                            )
+                            Text("Masiniai veiksmai", maxLines = 1)
                         }
                     }
                 }
@@ -1424,6 +1540,176 @@ private fun QrSelectionBar(
             }
         }
     }
+}
+
+@Composable
+private fun BulkSelectionBar(
+    selectedCount: Int,
+    onApply: () -> Unit,
+    onCancel: () -> Unit
+) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Identity)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Pasirinkta masiškai redaguoti: $selectedCount",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onApply,
+                    enabled = selectedCount > 0,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Taikyti veiksmą")
+                }
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Atšaukti")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun BulkInventoryActionDialog(
+    selectedCount: Int,
+    locations: List<LocationDto>,
+    onDismiss: () -> Unit,
+    onApply: (InventoryBulkAction) -> Unit
+) {
+    var selectedCondition by remember { mutableStateOf<String?>(null) }
+    var expandedLocations by remember { mutableStateOf(false) }
+    var selectedLocationId by remember { mutableStateOf<String?>(null) }
+    var clearLocation by remember { mutableStateOf(false) }
+    var deactivate by remember { mutableStateOf(false) }
+    val selectedLocationLabel = locations.firstOrNull { it.id == selectedLocationId }?.fullPath ?: "Nepasirinkta"
+    val action = remember(selectedCondition, selectedLocationId, clearLocation, deactivate) {
+        InventoryBulkAction(
+            condition = selectedCondition,
+            locationId = selectedLocationId,
+            clearLocation = clearLocation,
+            deactivate = deactivate
+        )
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Masiniai veiksmai") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    text = "Bus atnaujinta $selectedCount pažymėtų daiktų.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Būklė", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            SkautaiChip(
+                                label = "Nekeisti",
+                                selected = selectedCondition == null,
+                                onClick = { selectedCondition = null }
+                            )
+                        }
+                        items(BulkConditionOptions, key = { it.first }) { (value, label) ->
+                            SkautaiChip(
+                                label = label,
+                                selected = selectedCondition == value,
+                                onClick = { selectedCondition = value }
+                            )
+                        }
+                    }
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Lokacija", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Box {
+                        OutlinedButton(
+                            onClick = { expandedLocations = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(selectedLocationLabel, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        }
+                        DropdownMenu(
+                            expanded = expandedLocations,
+                            onDismissRequest = { expandedLocations = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Nekeisti lokacijos") },
+                                onClick = {
+                                    selectedLocationId = null
+                                    clearLocation = false
+                                    expandedLocations = false
+                                }
+                            )
+                            locations.forEach { location ->
+                                DropdownMenuItem(
+                                    text = { Text(location.fullPath) },
+                                    onClick = {
+                                        selectedLocationId = location.id
+                                        clearLocation = false
+                                        expandedLocations = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = clearLocation,
+                            onCheckedChange = { checked ->
+                                clearLocation = checked
+                                if (checked) {
+                                    selectedLocationId = null
+                                }
+                            }
+                        )
+                        Text("Išvalyti esamą lokaciją", style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Checkbox(
+                        checked = deactivate,
+                        onCheckedChange = { deactivate = it }
+                    )
+                    Text("Pažymėti kaip neaktyvius", style = MaterialTheme.typography.bodyMedium)
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onApply(action) },
+                enabled = !action.isEmpty() && selectedCount > 0
+            ) {
+                Text("Taikyti")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Atšaukti")
+            }
+        }
+    )
 }
 
 @Composable

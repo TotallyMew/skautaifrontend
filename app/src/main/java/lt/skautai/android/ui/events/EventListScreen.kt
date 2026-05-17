@@ -292,7 +292,7 @@ fun EventCard(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    SkautaiStatusPill(label = eventTypeLabel(event.type), tone = SkautaiStatusTone.Info)
+                    SkautaiStatusPill(label = eventTypeLabel(event), tone = SkautaiStatusTone.Info)
                     event.inventorySummary?.let { summary ->
                         SkautaiStatusPill(
                             label = "${summary.totalAvailableQuantity}/${summary.totalPlannedQuantity} aprupinta",

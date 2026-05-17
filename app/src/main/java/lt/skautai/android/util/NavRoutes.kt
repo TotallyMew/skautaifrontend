@@ -43,6 +43,32 @@ sealed class NavRoutes(val route: String) {
         fun createRoute(itemId: String) = "inventory_detail/$itemId"
     }
     object InventoryQrScanner : NavRoutes("inventory_qr_scanner")
+    object InventoryAudit : NavRoutes("inventory_audit?type={type}&category={category}&custodianId={custodianId}&sharedOnly={sharedOnly}&personalOwner={personalOwner}") {
+        fun createRoute(
+            type: String? = null,
+            category: String? = null,
+            custodianId: String? = null,
+            sharedOnly: Boolean? = null,
+            personalOwner: String? = null
+        ): String {
+            val params = buildList {
+                if (type != null) add("type=$type")
+                if (category != null) add("category=$category")
+                if (custodianId != null) add("custodianId=$custodianId")
+                if (sharedOnly != null) add("sharedOnly=$sharedOnly")
+                if (personalOwner != null) add("personalOwner=$personalOwner")
+            }
+            return if (params.isEmpty()) {
+                "inventory_audit"
+            } else {
+                "inventory_audit?${params.joinToString("&")}"
+            }
+        }
+    }
+    object InventoryAuditHistory : NavRoutes("inventory_audit_history")
+    object InventoryAuditSession : NavRoutes("inventory_audit_session/{sessionId}") {
+        fun createRoute(sessionId: String) = "inventory_audit_session/$sessionId"
+    }
     object InventoryAddEdit : NavRoutes("inventory_add_edit?itemId={itemId}&mode={mode}&custodianId={custodianId}") {
         fun createRoute(itemId: String? = null, mode: String? = null, custodianId: String? = null): String {
             val params = buildList {
@@ -168,6 +194,9 @@ sealed class NavRoutes(val route: String) {
             InventoryList.route.substringBefore("?") -> "Inventorius"
             InventoryDetail.route -> "Daikto informacija"
             InventoryQrScanner.route -> "QR skenavimas"
+            InventoryAudit.route.substringBefore("?") -> "Inventorizacija"
+            InventoryAuditHistory.route -> "Inventorizaciju istorija"
+            InventoryAuditSession.route -> "Inventorizacijos ataskaita"
             InventoryAddEdit.route.substringBefore("?") -> "Inventoriaus forma"
             ReservationList.route.substringBefore("?") -> "Rezervacijos"
             ReservationCreate.route -> "Nauja rezervacija"

@@ -47,11 +47,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventPurchaseReconciliationCandidateDto
 import lt.skautai.android.data.remote.EventReconciliationPurchaseLineDto
 import lt.skautai.android.data.remote.EventReconciliationReturnLineDto
+import lt.skautai.android.ui.common.ItemCheckResult
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.buildItemCheckSummary
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -91,6 +93,12 @@ fun EventReconciliationScreen(
                 )
                 is EventReconciliationUiState.Success -> {
                     val reconciliation = current.reconciliation
+                    val checkSummary = remember(reconciliation) {
+                        buildItemCheckSummary(
+                            total = reconciliation.openReturns.size + reconciliation.returnedToEventStorage.size,
+                            results = reconciliation.returnedToEventStorage.map { it.toItemCheckResult() }
+                        )
+                    }
                     LazyColumn(
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -104,6 +112,13 @@ fun EventReconciliationScreen(
                                     "Pirkimai" to reconciliation.unresolvedPurchases.size.toString(),
                                     "Būsena" to if (reconciliation.canComplete) "Paruošta" else "Tikrinama"
                                 )
+                            )
+                        }
+
+                        item {
+                            ReconciliationCheckSummaryCard(
+                                summary = checkSummary,
+                                openReturnCount = reconciliation.openReturns.sumOf { it.remainingQuantity }
                             )
                         }
 
@@ -472,6 +487,54 @@ private fun ReconciliationLine(title: String, subtitle: String, trailing: String
         }
         SkautaiStatusPill(label = trailing, tone = SkautaiStatusTone.Warning)
     }
+}
+
+@Composable
+private fun ReconciliationCheckSummaryCard(
+    summary: lt.skautai.android.ui.common.ItemCheckSummary,
+    openReturnCount: Int
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Bendra patikra", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                text = "${summary.total - summary.unchecked}/${summary.total} eil. jau suvestos, dar laukia: ${summary.unchecked}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (summary.found > 0) {
+                    SkautaiStatusPill(label = "Grizo: ${summary.found}", tone = SkautaiStatusTone.Success)
+                }
+                if (summary.damaged > 0) {
+                    SkautaiStatusPill(label = "Sugadinta: ${summary.damaged}", tone = SkautaiStatusTone.Info)
+                }
+                if (summary.missing > 0) {
+                    SkautaiStatusPill(label = "Dingo: ${summary.missing}", tone = SkautaiStatusTone.Danger)
+                }
+                if (summary.consumed > 0) {
+                    SkautaiStatusPill(label = "Sunaudota: ${summary.consumed}", tone = SkautaiStatusTone.Neutral)
+                }
+                if (summary.unchecked > 0 || openReturnCount > 0) {
+                    SkautaiStatusPill(label = "Laukia: ${summary.unchecked}", tone = SkautaiStatusTone.Warning)
+                }
+            }
+        }
+    }
+}
+
+private fun EventReconciliationReturnLineDto.toItemCheckResult(): ItemCheckResult? = when (returnDecision) {
+    "RETURNED" -> ItemCheckResult.FOUND
+    "DAMAGED" -> ItemCheckResult.DAMAGED
+    "MISSING" -> ItemCheckResult.MISSING
+    "CONSUMED" -> ItemCheckResult.CONSUMED
+    else -> null
 }
 
 private fun returnDecisionLabel(value: String): String = when (value) {

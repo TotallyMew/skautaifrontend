@@ -282,7 +282,7 @@ fun EventDetailHero(
     event: EventDto,
     modifier: Modifier = Modifier,
     expanded: Boolean = false,
-    subtitle: String = "${eventTypeLabel(event.type)} · ${event.startDate.take(10)} - ${event.endDate.take(10)}",
+    subtitle: String = "${eventTypeLabel(event)} · ${event.startDate.take(10)} - ${event.endDate.take(10)}",
     metrics: List<Pair<String, String>> = event.inventorySummary?.toHeroMetrics().orEmpty(),
     content: (@Composable () -> Unit)? = null
 ) {
@@ -298,7 +298,7 @@ fun EventDetailHero(
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             EventStatusPill(status = event.status)
-            SkautaiStatusPill(label = eventTypeLabel(event.type), tone = SkautaiStatusTone.Info)
+            SkautaiStatusPill(label = eventTypeLabel(event), tone = SkautaiStatusTone.Info)
         }
         content?.invoke()
     }
@@ -825,12 +825,17 @@ fun EventInfoRow(label: String, value: String) {
 
 fun MemberDto.fullName(): String = "$name $surname".trim()
 
-fun eventTypeLabel(type: String): String = when (type) {
+fun eventTypeLabel(type: String, customTypeLabel: String? = null): String {
+    customTypeLabel?.trim()?.takeIf { it.isNotBlank() }?.let { return it }
+    return when (type) {
     "STOVYKLA" -> "Stovykla"
     "SUEIGA" -> "Sueiga"
     "RENGINYS" -> "Renginys"
     else -> type.replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "").replace('_', ' ')
+    }
 }
+
+fun eventTypeLabel(event: EventDto): String = eventTypeLabel(event.type, event.customTypeLabel)
 
 fun planItemSubtitle(item: EventInventoryItemDto): String {
     val parts = mutableListOf<String>()

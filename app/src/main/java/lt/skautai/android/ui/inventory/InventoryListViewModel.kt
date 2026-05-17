@@ -27,6 +27,7 @@ import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
 import lt.skautai.android.util.canReviewItemAdditions
 import lt.skautai.android.util.canSubmitItemAddition
+import lt.skautai.android.util.hasPermissionOwnUnit
 import javax.inject.Inject
 
 sealed interface InventoryListUiState {
@@ -39,11 +40,49 @@ sealed interface InventoryListUiState {
     object Empty : InventoryListUiState
 }
 
+enum class InventorySelectionPurpose {
+    QR_PDF,
+    BULK_EDIT
+}
+
+data class InventoryBulkAction(
+    val condition: String? = null,
+    val locationId: String? = null,
+    val clearLocation: Boolean = false,
+    val deactivate: Boolean = false
+) {
+    fun isEmpty(): Boolean =
+        condition == null && locationId == null && !clearLocation && !deactivate
+}
+
 private fun ItemDto.effectiveInventoryType(): String =
     if (origin == "TRANSFERRED_FROM_TUNTAS" && custodianId != null) "COLLECTIVE" else type
 
 private fun ItemDto.isAssignedToPerson(): Boolean =
     effectiveInventoryType() == "ASSIGNED" || responsibleUserId != null
+
+internal fun canManageInventoryItem(
+    item: ItemDto,
+    permissions: Set<String>,
+    leadershipUnitIds: List<String>,
+    activeOrgUnitId: String?
+): Boolean = when {
+    item.origin == "TRANSFERRED_FROM_TUNTAS" && item.custodianId != null -> permissions.canManageSharedInventory()
+    item.custodianId == null -> permissions.canManageAllItems()
+    permissions.canManageAllItems() -> true
+    else -> permissions.hasPermissionOwnUnit("items.update") &&
+        (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
+}
+
+internal fun buildBulkUpdateRequest(action: InventoryBulkAction): UpdateItemRequestDto? {
+    if (action.isEmpty()) return null
+    return UpdateItemRequestDto(
+        condition = action.condition,
+        locationId = if (action.clearLocation) null else action.locationId,
+        status = if (action.deactivate) "INACTIVE" else null,
+        clearLocationId = action.clearLocation
+    )
+}
 
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
@@ -64,6 +103,9 @@ class InventoryListViewModel @Inject constructor(
 
     private val _selectionMode = MutableStateFlow(false)
     val selectionMode: StateFlow<Boolean> = _selectionMode.asStateFlow()
+
+    private val _selectionPurpose = MutableStateFlow<InventorySelectionPurpose?>(null)
+    val selectionPurpose: StateFlow<InventorySelectionPurpose?> = _selectionPurpose.asStateFlow()
 
     private val _selectedItemIds = MutableStateFlow<Set<String>>(emptySet())
     val selectedItemIds: StateFlow<Set<String>> = _selectedItemIds.asStateFlow()
@@ -94,11 +136,19 @@ class InventoryListViewModel @Inject constructor(
     private val initialSharedOnly = savedStateHandle.get<Boolean>("sharedOnly") ?: false
     private val initialPersonalOwner = savedStateHandle.get<String?>("personalOwner")
     private val personalOwnerOnly = initialPersonalOwner == "me"
+    val openedType: String? = initialType
     val openedCustodianId: String? = initialCustodianId
+    val openedSharedOnly: Boolean = initialSharedOnly
     val openedPersonalOwnerOnly: Boolean = personalOwnerOnly
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
+    val activeOrgUnitId: StateFlow<String?> = tokenManager.activeOrgUnitId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    val leadershipUnitIds: StateFlow<List<String>> = tokenManager.leadershipUnitIds
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val locations: StateFlow<List<LocationDto>> = locationRepository.observeLocations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -317,7 +367,18 @@ class InventoryListViewModel @Inject constructor(
     }
 
     fun enterSelectionMode() {
+        enterQrSelectionMode()
+    }
+
+    fun enterQrSelectionMode() {
         _selectionMode.value = true
+        _selectionPurpose.value = InventorySelectionPurpose.QR_PDF
+        _selectedItemIds.value = emptySet()
+    }
+
+    fun enterBulkSelectionMode() {
+        _selectionMode.value = true
+        _selectionPurpose.value = InventorySelectionPurpose.BULK_EDIT
         _selectedItemIds.value = emptySet()
     }
 
@@ -338,6 +399,45 @@ class InventoryListViewModel @Inject constructor(
 
     fun onPdfShared() {
         clearSelection()
+    }
+
+    fun canBulkManage(item: ItemDto): Boolean =
+        canManageInventoryItem(
+            item = item,
+            permissions = permissions.value,
+            leadershipUnitIds = leadershipUnitIds.value,
+            activeOrgUnitId = activeOrgUnitId.value
+        ) && item.status != "PENDING_APPROVAL"
+
+    fun applyBulkAction(action: InventoryBulkAction) {
+        val request = buildBulkUpdateRequest(action)
+        if (request == null) {
+            _actionMessage.value = "Pasirink bent vieną masinį veiksmą."
+            return
+        }
+        viewModelScope.launch {
+            val current = _uiState.value as? InventoryListUiState.Success ?: return@launch
+            val selectedItems = current.items.filter { it.id in _selectedItemIds.value && canBulkManage(it) }
+            if (selectedItems.isEmpty()) {
+                _actionMessage.value = "Pasirink bent vieną redaguojamą daiktą."
+                return@launch
+            }
+            var successCount = 0
+            var failedCount = 0
+            selectedItems.forEach { item ->
+                itemRepository.updateItem(item.id, request)
+                    .onSuccess { successCount += 1 }
+                    .onFailure { failedCount += 1 }
+            }
+            clearSelection()
+            if (successCount > 0) {
+                loadItems()
+            }
+            _actionMessage.value = buildString {
+                append("Masiškai atnaujinta: $successCount")
+                if (failedCount > 0) append(". Nepavyko: $failedCount.")
+            }
+        }
     }
 
     fun onPdfShareFailed(message: String) {
@@ -510,6 +610,7 @@ class InventoryListViewModel @Inject constructor(
 
     private fun clearSelection() {
         _selectionMode.value = false
+        _selectionPurpose.value = null
         _selectedItemIds.value = emptySet()
     }
 

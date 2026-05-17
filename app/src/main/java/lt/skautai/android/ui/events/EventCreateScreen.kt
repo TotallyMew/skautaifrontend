@@ -126,7 +126,9 @@ fun EventCreateScreen(
 
                 EventTypeDropdown(
                     selectedType = uiState.type,
+                    customTypeLabel = uiState.customTypeLabel,
                     onTypeSelected = viewModel::onTypeChange,
+                    onCustomTypeLabelChange = viewModel::onCustomTypeLabelChange,
                     enabled = !uiState.isEditMode
                 )
 
@@ -270,7 +272,7 @@ private fun EventCreateHero(uiState: EventCreateUiState) {
         subtitle = subtitle,
         foresty = true,
         metrics = listOf(
-            "Tipas" to eventTypeLabel(uiState.type),
+            "Tipas" to eventTypeLabel(uiState.type, uiState.customTypeLabel.ifBlank { null }),
             "Pradžia" to uiState.startDate.ifBlank { "--" },
             "Pabaiga" to uiState.endDate.ifBlank { "--" }
         )
@@ -281,7 +283,9 @@ private fun EventCreateHero(uiState: EventCreateUiState) {
 @Composable
 private fun EventTypeDropdown(
     selectedType: String,
+    customTypeLabel: String,
     onTypeSelected: (String) -> Unit,
+    onCustomTypeLabelChange: (String) -> Unit,
     enabled: Boolean
 ) {
     val types = listOf(
@@ -290,10 +294,7 @@ private fun EventTypeDropdown(
         "RENGINYS" to "Renginys"
     )
     var expanded by remember { mutableStateOf(false) }
-    var customType by remember(selectedType) {
-        mutableStateOf(if (types.none { it.first == selectedType }) selectedType.toEventCustomInput() else "")
-    }
-    val selectedLabel = types.find { it.first == selectedType }?.second ?: selectedType.toEventDisplayLabel()
+    val selectedLabel = eventTypeLabel(selectedType, customTypeLabel.ifBlank { null })
 
     ExposedDropdownMenuBox(
         expanded = expanded,
@@ -329,12 +330,9 @@ private fun EventTypeDropdown(
 
     if (enabled) {
         SkautaiTextField(
-            value = customType,
-            onValueChange = {
-                customType = it
-                onTypeSelected(it.trim().take(100).ifBlank { "STOVYKLA" })
-            },
-            label = "Kitas tipas",
+            value = customTypeLabel,
+            onValueChange = onCustomTypeLabelChange,
+            label = "Pasirinktinis tipo pavadinimas",
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
@@ -342,16 +340,6 @@ private fun EventTypeDropdown(
         )
     }
 }
-
-private fun String.toEventCustomInput(): String =
-    trim()
-        .replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "")
-        .replace('_', ' ')
-
-private fun String.toEventDisplayLabel(): String =
-    toEventCustomInput()
-        .lowercase()
-        .replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

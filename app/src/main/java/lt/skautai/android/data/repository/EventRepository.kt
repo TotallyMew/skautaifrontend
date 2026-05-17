@@ -256,6 +256,7 @@ class EventRepository @Inject constructor(
                 tuntasId = currentTuntasId,
                 name = request.name,
                 type = request.type,
+                customTypeLabel = request.customTypeLabel,
                 startDate = request.startDate,
                 endDate = request.endDate,
                 locationId = null,
@@ -297,6 +298,12 @@ class EventRepository @Inject constructor(
                 ?: return Result.failure(Exception("Renginys nerastas"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
+                type = request.type ?: cached.type,
+                customTypeLabel = when {
+                    request.customTypeLabel != null -> request.customTypeLabel
+                    request.type != null -> null
+                    else -> cached.customTypeLabel
+                },
                 status = request.status ?: cached.status,
                 notes = request.notes ?: cached.notes
             )
@@ -1762,6 +1769,7 @@ class EventRepository @Inject constructor(
     private fun EventDto.toCreateRequest(): CreateEventRequestDto = CreateEventRequestDto(
         name = name,
         type = type,
+        customTypeLabel = customTypeLabel,
         startDate = startDate,
         endDate = endDate,
         organizationalUnitId = organizationalUnitId,

@@ -43,6 +43,9 @@ import lt.skautai.android.ui.events.InventoryTemplateScreen
 import lt.skautai.android.ui.events.PastovykleLeaderScreen
 import lt.skautai.android.ui.home.HomeScreen
 import lt.skautai.android.ui.inventory.InventoryAddEditScreen
+import lt.skautai.android.ui.inventory.InventoryAuditScreen
+import lt.skautai.android.ui.inventory.InventoryAuditHistoryScreen
+import lt.skautai.android.ui.inventory.InventoryAuditSessionScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
 import lt.skautai.android.ui.inventory.InventoryQrScannerScreen
@@ -463,6 +466,89 @@ fun AppNavGraph(
                         navController.navigate(NavRoutes.InventoryDetail.createRoute(scannedItemId)) {
                             popUpTo(NavRoutes.InventoryQrScanner.route) { inclusive = true }
                         }
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = NavRoutes.InventoryAudit.route,
+            arguments = listOf(
+                navArgument("type") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                },
+                navArgument("category") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                },
+                navArgument("custodianId") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                },
+                navArgument("sharedOnly") {
+                    type = NavType.BoolType
+                    defaultValue = false
+                },
+                navArgument("personalOwner") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                }
+            )
+        ) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                InventoryAuditScreen()
+            }
+        }
+
+        composable(NavRoutes.InventoryAuditHistory.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                InventoryAuditHistoryScreen(
+                    onOpenSession = { sessionId ->
+                        navController.navigate(NavRoutes.InventoryAuditSession.createRoute(sessionId))
+                    }
+                )
+            }
+        }
+
+        composable(
+            route = NavRoutes.InventoryAuditSession.route,
+            arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+        ) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                InventoryAuditSessionScreen(
+                    onContinueSession = { session ->
+                        navController.navigate(
+                            NavRoutes.InventoryAudit.createRoute(
+                                type = session.scopeType,
+                                category = session.scopeCategory,
+                                custodianId = session.scopeCustodianId,
+                                sharedOnly = session.scopeSharedOnly,
+                                personalOwner = if (session.scopePersonalOwnerUserId != null) "me" else null
+                            )
+                        )
                     }
                 )
             }

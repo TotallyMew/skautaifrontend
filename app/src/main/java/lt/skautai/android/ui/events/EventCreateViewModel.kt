@@ -36,6 +36,7 @@ data class EventCreateUiState(
     val error: String? = null,
     val name: String = "",
     val type: String = "STOVYKLA",
+    val customTypeLabel: String = "",
     val startDate: String = "",
     val endDate: String = "",
     val notes: String = "",
@@ -68,6 +69,9 @@ class EventCreateViewModel @Inject constructor(
     fun onTypeChange(value: String) {
         _uiState.value = _uiState.value.copy(type = value, selectedTemplateId = null, templates = emptyList())
         loadTemplates(value)
+    }
+    fun onCustomTypeLabelChange(value: String) {
+        _uiState.value = _uiState.value.copy(customTypeLabel = value.take(100))
     }
     fun onStartDateChange(value: String) { _uiState.value = _uiState.value.copy(startDate = value) }
     fun onEndDateChange(value: String) { _uiState.value = _uiState.value.copy(endDate = value) }
@@ -103,6 +107,7 @@ class EventCreateViewModel @Inject constructor(
                         isLoading = false,
                         name = event.name,
                         type = event.type,
+                        customTypeLabel = event.customTypeLabel.orEmpty(),
                         startDate = event.startDate,
                         endDate = event.endDate,
                         notes = event.notes.orEmpty(),
@@ -152,6 +157,8 @@ class EventCreateViewModel @Inject constructor(
                     state.eventId,
                     UpdateEventRequestDto(
                         name = state.name.trim(),
+                        type = state.type.trim(),
+                        customTypeLabel = state.customTypeLabel.trim().ifBlank { null },
                         notes = state.notes.ifBlank { null }
                     )
                 )
@@ -160,6 +167,7 @@ class EventCreateViewModel @Inject constructor(
                     CreateEventRequestDto(
                         name = state.name.trim(),
                         type = state.type.trim(),
+                        customTypeLabel = state.customTypeLabel.trim().ifBlank { null },
                         startDate = state.startDate,
                         endDate = state.endDate,
                         organizationalUnitId = state.selectedAudienceId,

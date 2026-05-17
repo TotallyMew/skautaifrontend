@@ -65,6 +65,42 @@ interface ItemApiService {
         @Path("tokenValue") tokenValue: String
     ): Response<ItemQrResolveResponseDto>
 
+    @POST("api/items/audit-sessions")
+    suspend fun createStorageAuditSession(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Body request: CreateStorageAuditSessionRequestDto
+    ): Response<StorageAuditSessionDto>
+
+    @GET("api/items/audit-sessions")
+    suspend fun listStorageAuditSessions(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("status") status: String? = null
+    ): Response<StorageAuditSessionListResponseDto>
+
+    @GET("api/items/audit-sessions/{sessionId}")
+    suspend fun getStorageAuditSession(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("sessionId") sessionId: String
+    ): Response<StorageAuditSessionDto>
+
+    @POST("api/items/audit-sessions/{sessionId}/checks")
+    suspend fun upsertStorageAuditChecks(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("sessionId") sessionId: String,
+        @Body request: UpsertStorageAuditChecksRequestDto
+    ): Response<StorageAuditSessionDto>
+
+    @POST("api/items/audit-sessions/{sessionId}/complete")
+    suspend fun completeStorageAuditSession(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("sessionId") sessionId: String
+    ): Response<StorageAuditSessionDto>
+
     @DELETE("api/items/{itemId}")
     suspend fun deleteItem(
         @Header("Authorization") token: String,

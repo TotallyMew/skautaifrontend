@@ -18,6 +18,7 @@ data class EventDto(
     @SerializedName("tuntasId") val tuntasId: String,
     @SerializedName("name") val name: String,
     @SerializedName("type") val type: String,
+    @SerializedName("customTypeLabel") val customTypeLabel: String? = null,
     @SerializedName("startDate") val startDate: String,
     @SerializedName("endDate") val endDate: String,
     @SerializedName("locationId") val locationId: String?,
@@ -38,6 +39,7 @@ data class EventListDto(
 data class CreateEventRequestDto(
     @SerializedName("name") val name: String,
     @SerializedName("type") val type: String,
+    @SerializedName("customTypeLabel") val customTypeLabel: String? = null,
     @SerializedName("startDate") val startDate: String,
     @SerializedName("endDate") val endDate: String,
     @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null,
@@ -46,6 +48,8 @@ data class CreateEventRequestDto(
 
 data class UpdateEventRequestDto(
     @SerializedName("name") val name: String? = null,
+    @SerializedName("type") val type: String? = null,
+    @SerializedName("customTypeLabel") val customTypeLabel: String? = null,
     @SerializedName("status") val status: String? = null,
     @SerializedName("notes") val notes: String? = null
 )

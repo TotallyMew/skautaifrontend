@@ -9,6 +9,7 @@ data class EventEntity(
     val tuntasId: String,
     val name: String,
     val type: String,
+    val customTypeLabel: String?,
     val startDate: String,
     val endDate: String,
     val locationId: String?,

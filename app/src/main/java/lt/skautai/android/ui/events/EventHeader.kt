@@ -34,7 +34,7 @@ fun EventHeader(
     EventDetailHero(
         event = event,
         expanded = true,
-        subtitle = "${eventTypeLabel(event.type)} - ${event.startDate.take(10)} iki ${event.endDate.take(10)}"
+        subtitle = "${eventTypeLabel(event)} - ${event.startDate.take(10)} iki ${event.endDate.take(10)}"
     ) {
         event.notes?.takeIf { it.isNotBlank() }?.let {
             Text(

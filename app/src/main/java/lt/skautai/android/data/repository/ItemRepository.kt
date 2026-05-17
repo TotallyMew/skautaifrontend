@@ -19,8 +19,10 @@ import lt.skautai.android.data.local.mapper.toEntity
 import lt.skautai.android.data.local.mapper.toItemDtos
 import lt.skautai.android.data.local.mapper.toItemEntities
 import lt.skautai.android.data.remote.CreateItemRequestDto
+import lt.skautai.android.data.remote.CreateStorageAuditSessionRequestDto
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.ItemAssignmentDto
+import lt.skautai.android.data.remote.StorageAuditSessionDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ItemHistoryDto
@@ -29,6 +31,8 @@ import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
 import lt.skautai.android.data.remote.RestockItemRequestDto
 import lt.skautai.android.data.remote.ReviewItemAdditionRequestDto
 import lt.skautai.android.data.remote.TransferItemToUnitRequestDto
+import lt.skautai.android.data.remote.UpsertStorageAuditCheckRequestDto
+import lt.skautai.android.data.remote.UpsertStorageAuditChecksRequestDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
@@ -183,6 +187,121 @@ class ItemRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
+    }
+
+    suspend fun createStorageAuditSession(
+        custodianId: String? = null,
+        type: String? = null,
+        category: String? = null,
+        sharedOnly: Boolean = false,
+        personalOwnerUserId: String? = null
+    ): Result<StorageAuditSessionDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.createStorageAuditSession(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            request = CreateStorageAuditSessionRequestDto(
+                custodianId = custodianId,
+                type = type,
+                category = category,
+                sharedOnly = sharedOnly,
+                personalOwnerUserId = personalOwnerUserId
+            )
+        )
+        if (response.isSuccessful) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko sukurti inventorizacijos sesijos")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun listStorageAuditSessions(
+        status: String? = null
+    ): Result<List<StorageAuditSessionDto>> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.listStorageAuditSessions(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            status = status
+        )
+        if (response.isSuccessful) {
+            Result.success(response.body()?.sessions.orEmpty())
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko gauti inventorizaciju istorijos")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun getStorageAuditSession(
+        sessionId: String
+    ): Result<StorageAuditSessionDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getStorageAuditSession(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            sessionId = sessionId
+        )
+        if (response.isSuccessful) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko gauti inventorizacijos sesijos")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun upsertStorageAuditChecks(
+        sessionId: String,
+        checks: List<UpsertStorageAuditCheckRequestDto>
+    ): Result<StorageAuditSessionDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.upsertStorageAuditChecks(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            sessionId = sessionId,
+            request = UpsertStorageAuditChecksRequestDto(checks)
+        )
+        if (response.isSuccessful) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko issaugoti inventorizacijos rezultatu")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun completeStorageAuditSession(sessionId: String): Result<StorageAuditSessionDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.completeStorageAuditSession(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            sessionId = sessionId
+        )
+        if (response.isSuccessful) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko uzbaigti inventorizacijos")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
     }
 
     suspend fun getItemAssignments(itemId: String): Result<List<ItemAssignmentDto>> = try {
