@@ -17,7 +17,14 @@ data class ItemCheckSummary(
     val misplaced: Int,
     val damaged: Int,
     val consumed: Int,
-    val unchecked: Int
+    val unchecked: Int,
+    val matched: Int = 0,
+    val decreased: Int = 0,
+    val increased: Int = 0,
+    val expectedQuantityTotal: Int = 0,
+    val actualQuantityTotal: Int = 0,
+    val shortageQuantityTotal: Int = 0,
+    val overageQuantityTotal: Int = 0
 )
 
 fun buildItemCheckSummary(

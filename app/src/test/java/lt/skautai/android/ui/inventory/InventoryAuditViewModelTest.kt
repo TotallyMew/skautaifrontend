@@ -20,10 +20,10 @@ class InventoryAuditViewModelTest {
         val summary = buildInventoryAuditSummary(
             items = items,
             results = mapOf(
-                "1" to ItemCheckResult.FOUND,
-                "2" to ItemCheckResult.MISSING,
-                "3" to ItemCheckResult.MISPLACED,
-                "4" to ItemCheckResult.DAMAGED
+                "1" to AuditEntryDraft(ItemCheckResult.FOUND, actualQuantity = 1),
+                "2" to AuditEntryDraft(ItemCheckResult.MISSING, actualQuantity = 0),
+                "3" to AuditEntryDraft(ItemCheckResult.MISPLACED, actualQuantity = 1),
+                "4" to AuditEntryDraft(ItemCheckResult.DAMAGED, actualQuantity = 1)
             )
         )
 
@@ -45,14 +45,14 @@ class InventoryAuditViewModelTest {
 
         val updated = applyMissingToUnchecked(
             items = items,
-            results = mapOf("1" to ItemCheckResult.FOUND)
+            results = mapOf("1" to AuditEntryDraft(ItemCheckResult.FOUND, actualQuantity = 1))
         )
 
         assertEquals(
             mapOf(
-                "1" to ItemCheckResult.FOUND,
-                "2" to ItemCheckResult.MISSING,
-                "3" to ItemCheckResult.MISSING
+                "1" to AuditEntryDraft(ItemCheckResult.FOUND, actualQuantity = 1),
+                "2" to AuditEntryDraft(ItemCheckResult.MISSING, actualQuantity = 0),
+                "3" to AuditEntryDraft(ItemCheckResult.MISSING, actualQuantity = 0)
             ),
             updated
         )

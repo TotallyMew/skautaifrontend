@@ -11,12 +11,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.MemberDto
+import lt.skautai.android.data.remote.MyTaskDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.ReservationDto
-import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
+import lt.skautai.android.data.repository.MyTaskRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.RequisitionRepository
@@ -29,24 +31,6 @@ import lt.skautai.android.util.canReviewItemAdditions
 import lt.skautai.android.util.canReviewTopLevelRequisitions
 import lt.skautai.android.util.canSubmitItemAddition
 import lt.skautai.android.util.hasPermission
-import lt.skautai.android.util.NavRoutes
-
-data class HomeTaskUiModel(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    val count: Int? = null,
-    val route: String,
-    val kind: HomeTaskKind,
-    val priority: Int
-)
-
-enum class HomeTaskKind {
-    APPROVAL,
-    TRACKING,
-    RETURN,
-    EVENT
-}
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -66,7 +50,8 @@ data class HomeUiState(
     val assignedReservationCount: Int = 0,
     val trackedReservationCount: Int = 0,
     val activeReservations: List<ReservationDto> = emptyList(),
-    val tasks: List<HomeTaskUiModel> = emptyList(),
+    val tasks: List<MyTaskDto> = emptyList(),
+    val taskTotalCount: Int = 0,
     val error: String? = null
 )
 
@@ -78,6 +63,7 @@ class HomeViewModel @Inject constructor(
     private val requisitionRepository: RequisitionRepository,
     private val eventRepository: EventRepository,
     private val memberRepository: MemberRepository,
+    private val myTaskRepository: MyTaskRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val userRepository: UserRepository,
     private val tokenManager: TokenManager
@@ -152,6 +138,7 @@ class HomeViewModel @Inject constructor(
             val sharedRequestsResult = requestRepository.getRequests()
             val requisitionsResult = requisitionRepository.getRequests()
             val eventsResult = eventRepository.getEvents()
+            val taskFeedResult = myTaskRepository.getMyTasks()
 
             val items = itemsResult.getOrDefault(emptyList())
             val pendingItems = pendingItemsResult.getOrDefault(emptyList())
@@ -208,36 +195,11 @@ class HomeViewModel @Inject constructor(
                             reservation.items.any { it.remainingToReturn > 0 }
                         )
             }
-            val myPendingReturns = userId?.let { currentUserId ->
-                allReservations.count { reservation ->
-                    reservation.reservedByUserId == currentUserId &&
-                        reservation.status in listOf("APPROVED", "ACTIVE") &&
-                        reservation.items.any { it.remainingToReturn > 0 }
-                }
-            } ?: 0
-            val sharedPickupReviews = sharedRequests.count { request ->
-                request.requestedByUserId != userId &&
-                    request.topLevelStatus == "PENDING" &&
-                    permissions.canManageSharedInventory()
-            }
-            val eventsNeedingLogistics = events.filter { event ->
-                event.status in listOf("PLANNING", "ACTIVE") &&
-                    event.inventorySummary?.let { summary ->
-                        summary.totalShortageQuantity > 0 || summary.itemsNeedingPurchase > 0
-                    } == true
-            }
             val sharedItems = items.filter { it.custodianId == null && it.type != "INDIVIDUAL" }
             val personalItems = items.filter { it.type == "INDIVIDUAL" && it.createdByUserId == userId }
             val sharedPendingApprovalCount = pendingItems.count { it.custodianId == null && it.type != "INDIVIDUAL" }
-            val homeTasks = buildHomeTasks(
-                sharedPendingApprovalCount = sharedPendingApprovalCount,
-                assignedReservationCount = assignedReservations,
-                trackedReservationCount = trackedReservations,
-                myPendingReturnCount = myPendingReturns,
-                assignedRequisitionCount = assignedRequisitions,
-                sharedPickupReviewCount = sharedPickupReviews,
-                eventsNeedingLogistics = eventsNeedingLogistics
-            )
+            val taskFeed = taskFeedResult.getOrNull()
+            val homeTasks = taskFeed?.tasks?.take(3).orEmpty()
 
             _uiState.value = HomeUiState(
                 isLoading = false,
@@ -258,6 +220,7 @@ class HomeViewModel @Inject constructor(
                 trackedReservationCount = trackedReservations,
                 activeReservations = activeReservations.take(5),
                 tasks = homeTasks,
+                taskTotalCount = taskFeed?.total ?: homeTasks.size,
                 error = listOf(
                     unitsResult.exceptionOrNull(),
                     itemsResult.exceptionOrNull(),
@@ -265,7 +228,8 @@ class HomeViewModel @Inject constructor(
                     reservationsResult.exceptionOrNull(),
                     sharedRequestsResult.exceptionOrNull(),
                     requisitionsResult.exceptionOrNull(),
-                    eventsResult.exceptionOrNull()
+                    eventsResult.exceptionOrNull(),
+                    taskFeedResult.exceptionOrNull()
                 ).mapNotNull { it?.message }
                     .distinct()
                     .takeIf { it.isNotEmpty() }
@@ -280,134 +244,6 @@ class HomeViewModel @Inject constructor(
             refresh(force = true)
         }
     }
-}
-
-private fun buildHomeTasks(
-    sharedPendingApprovalCount: Int,
-    assignedReservationCount: Int,
-    trackedReservationCount: Int,
-    myPendingReturnCount: Int,
-    assignedRequisitionCount: Int,
-    sharedPickupReviewCount: Int,
-    eventsNeedingLogistics: List<lt.skautai.android.data.remote.EventDto>
-): List<HomeTaskUiModel> {
-    val tasks = buildList {
-        if (sharedPendingApprovalCount > 0) {
-            add(
-                HomeTaskUiModel(
-                    id = "inventory-approvals",
-                    title = "Patvirtink naujus daiktus",
-                    subtitle = "Laukia bendro inventoriaus įrašų peržiūra.",
-                    count = sharedPendingApprovalCount,
-                    route = NavRoutes.InventoryList.createRoute(),
-                    kind = HomeTaskKind.APPROVAL,
-                    priority = 10
-                )
-            )
-        }
-        if (assignedReservationCount > 0) {
-            add(
-                HomeTaskUiModel(
-                    id = "reservation-approvals",
-                    title = "Peržiūrėk rezervacijas",
-                    subtitle = "Rezervacijos laukia tavo sprendimo.",
-                    count = assignedReservationCount,
-                    route = NavRoutes.ReservationList.createRoute(mode = "assigned"),
-                    kind = HomeTaskKind.APPROVAL,
-                    priority = 20
-                )
-            )
-        }
-        if (myPendingReturnCount > 0) {
-            add(
-                HomeTaskUiModel(
-                    id = "my-returns",
-                    title = "Grąžink paimtus daiktus",
-                    subtitle = "Tavo rezervacijose dar liko negrąžintų kiekių.",
-                    count = myPendingReturnCount,
-                    route = NavRoutes.ReservationList.createRoute(mode = "my_active"),
-                    kind = HomeTaskKind.RETURN,
-                    priority = 30
-                )
-            )
-        }
-        if (trackedReservationCount > 0) {
-            add(
-                HomeTaskUiModel(
-                    id = "tracked-reservations",
-                    title = "Užbaik išdavimą ir grąžinimą",
-                    subtitle = "Sekamose rezervacijose dar yra neišduotų ar nepriimtų kiekių.",
-                    count = trackedReservationCount,
-                    route = NavRoutes.ReservationList.createRoute(mode = "tracked"),
-                    kind = HomeTaskKind.TRACKING,
-                    priority = 40
-                )
-            )
-        }
-        if (assignedRequisitionCount > 0) {
-            add(
-                HomeTaskUiModel(
-                    id = "requisition-approvals",
-                    title = "Atsakyk į pirkimo prašymus",
-                    subtitle = "Vienetų prašymai laukia tavo peržiūros.",
-                    count = assignedRequisitionCount,
-                    route = NavRoutes.RequestList.createRoute(mode = "assigned"),
-                    kind = HomeTaskKind.APPROVAL,
-                    priority = 50
-                )
-            )
-        }
-        if (sharedPickupReviewCount > 0) {
-            add(
-                HomeTaskUiModel(
-                    id = "shared-pickup-approvals",
-                    title = "Peržiūrėk paėmimo prašymus",
-                    subtitle = "Vienetai laukia sprendimo dėl bendro inventoriaus paėmimo.",
-                    count = sharedPickupReviewCount,
-                    route = NavRoutes.SharedRequestList.route,
-                    kind = HomeTaskKind.APPROVAL,
-                    priority = 60
-                )
-            )
-        }
-        if (eventsNeedingLogistics.isNotEmpty()) {
-            val totalShortage = eventsNeedingLogistics.sumOf { it.inventorySummary?.totalShortageQuantity ?: 0 }
-            val totalPurchases = eventsNeedingLogistics.sumOf { it.inventorySummary?.itemsNeedingPurchase ?: 0 }
-            val singleEvent = eventsNeedingLogistics.singleOrNull()
-            add(
-                HomeTaskUiModel(
-                    id = "event-logistics",
-                    title = if (singleEvent != null) {
-                        "Sutvarkyk renginio logistiką"
-                    } else {
-                        "Peržiūrėk renginių logistiką"
-                    },
-                    subtitle = buildString {
-                        append(
-                            if (singleEvent != null) {
-                                singleEvent.name
-                            } else {
-                                "${eventsNeedingLogistics.size} renginiai turi neužbaigtų logistinių darbų"
-                            }
-                        )
-                        if (totalShortage > 0 || totalPurchases > 0) {
-                            append(". ")
-                            append("Trūksta $totalShortage vnt.")
-                            if (totalPurchases > 0) {
-                                append(", pirkimų eilučių: $totalPurchases")
-                            }
-                            append(".")
-                        }
-                    },
-                    count = eventsNeedingLogistics.size,
-                    route = singleEvent?.let { NavRoutes.EventPlan.createRoute(it.id) } ?: NavRoutes.EventList.route,
-                    kind = HomeTaskKind.EVENT,
-                    priority = 70
-                )
-            )
-        }
-    }
-    return tasks.sortedBy { it.priority }.take(6)
 }
 
 private fun ReservationDto.canBeManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =

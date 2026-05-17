@@ -23,6 +23,7 @@ import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 import javax.inject.Singleton
 import lt.skautai.android.data.remote.MemberApiService
+import lt.skautai.android.data.remote.MyTaskApiService
 import lt.skautai.android.data.remote.RoleApiService
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.RequestApiService
@@ -32,6 +33,7 @@ import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.SuperAdminApiService
 import lt.skautai.android.data.repository.MemberRepository
+import lt.skautai.android.data.repository.MyTaskRepository
 import lt.skautai.android.data.repository.RoleRepository
 import lt.skautai.android.data.repository.InvitationRepository
 import lt.skautai.android.data.repository.RequestRepository
@@ -132,6 +134,15 @@ object RepositoryModule {
         pendingOperationRepository: PendingOperationRepository
     ): ReservationRepository {
         return ReservationRepository(reservationApiService, tokenManager, reservationDao, pendingOperationRepository)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMyTaskRepository(
+        myTaskApiService: MyTaskApiService,
+        tokenManager: TokenManager
+    ): MyTaskRepository {
+        return MyTaskRepository(myTaskApiService, tokenManager)
     }
 
     @Provides

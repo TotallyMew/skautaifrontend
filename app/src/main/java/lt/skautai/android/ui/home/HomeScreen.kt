@@ -16,22 +16,18 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Assignment
-import androidx.compose.material.icons.filled.EventAvailable
-import androidx.compose.material.icons.filled.EventNote
 import androidx.compose.material.icons.filled.Flag
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Inbox
-import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -39,9 +35,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -54,16 +50,15 @@ import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiSectionHeader
-import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.skautaiSurfaceTone
+import lt.skautai.android.ui.tasks.MyTaskPreviewList
 import lt.skautai.android.util.LithuanianNameVocativeFormatter
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.canCreateItems
 import lt.skautai.android.util.canManageLocations
-import lt.skautai.android.util.canManageSharedInventory
 
 @Composable
 fun HomeScreen(
@@ -75,11 +70,7 @@ fun HomeScreen(
     val userName by viewModel.userName.collectAsStateWithLifecycle()
     val lifecycleOwner = LocalLifecycleOwner.current
     val canCreateItems = permissions.canCreateItems()
-    val canApproveInventory = permissions.canManageSharedInventory()
     val canManageLocations = permissions.canManageLocations()
-    val hasPendingApprovals = canApproveInventory && uiState.sharedPendingApprovalCount > 0
-    val hasAssignedReservations = uiState.assignedReservationCount > 0
-    val hasAssignedRequisitions = uiState.assignedRequisitionCount > 0
 
     if (uiState.isLoading && uiState.availableUnits.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -94,11 +85,6 @@ fun HomeScreen(
         }
     }
 
-    @Composable
-    fun item(content: @Composable () -> Unit) {
-        content()
-    }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -109,267 +95,195 @@ fun HomeScreen(
         OverviewCard(
             uiState = uiState,
             userName = LithuanianNameVocativeFormatter.firstNameVocative(userName),
+            onOpenTasks = { navController.navigate(NavRoutes.MyTasks.route) },
             onManageTuntai = { navController.navigate(NavRoutes.TuntasSelect.route) }
         )
 
         if (uiState.availableUnits.size > 1) {
-            item {
-                SkautaiSectionHeader(
-                    title = "Aktyvus vienetas",
-                    subtitle = "Perjunk kontekstą tarp vienetų, kuriems priklausai."
-                )
-            }
-            item {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(uiState.availableUnits, key = { it.id }) { unit ->
-                        UnitChip(
-                            unit = unit,
-                            selected = uiState.activeUnitId == unit.id,
-                            onClick = { viewModel.selectActiveUnit(unit.id) }
-                        )
-                    }
-                }
-            }
-        }
-
-        item {
             SkautaiSectionHeader(
-                title = "Mano uÅ¾duotys",
-                subtitle = "KÄ… verta padaryti pirmiausia pagal tavo atsakomybes."
+                title = "Aktyvus vienetas",
+                subtitle = "Perjunk kontekstą tarp vienetų, kuriems priklausai."
             )
-        }
-        item {
-            if (uiState.tasks.isEmpty()) {
-                SkautaiCard(tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
-                    SkautaiEmptyState(
-                        title = "Å iuo metu viskas sutvarkyta",
-                        subtitle = "Kai atsiras tvirtinimÅ³, grÄ…Å¾inimÅ³ ar renginiÅ³ logistikos darbÅ³, jie atsiras Äia.",
-                        icon = Icons.Default.Flag
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(uiState.availableUnits, key = { it.id }) { unit ->
+                    UnitChip(
+                        unit = unit,
+                        selected = uiState.activeUnitId == unit.id,
+                        onClick = { viewModel.selectActiveUnit(unit.id) }
                     )
                 }
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    uiState.tasks.forEach { task ->
-                        ActionTile(
-                            title = task.title,
-                            count = task.count,
-                            subtitle = task.subtitle,
-                            icon = task.icon(),
-                            tone = MaterialTheme.colorScheme.surfaceBright,
-                            badgeTone = task.badgeTone(),
-                            onClick = { navController.navigate(task.route) }
-                        )
-                    }
-                }
             }
         }
-        if (false) {
-            item {
-                SkautaiSectionHeader(
-                    title = "Reikalauja dėmesio",
-                    subtitle = "Svarbiausi veiksmai, kuriuos verta atlikti pirmiausia."
+
+        SkautaiSectionHeader(
+            title = "Mano užduotys",
+            subtitle = "Trumpa svarbiausių veiksmų peržiūra.",
+            actionLabel = "Žiūrėti visas",
+            onAction = { navController.navigate(NavRoutes.MyTasks.route) }
+        )
+        if (uiState.tasks.isEmpty()) {
+            SkautaiCard(tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
+                SkautaiEmptyState(
+                    title = "Šiuo metu viskas sutvarkyta",
+                    subtitle = "Pilnas darbo centras atsivers, kai atsiras naujų veiksmų.",
+                    icon = Icons.Default.Flag
                 )
             }
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (hasPendingApprovals) {
-                        ActionTile(
-                            title = "Laukia tavo patvirtinimo",
-                            count = uiState.sharedPendingApprovalCount,
-                            subtitle = "Inventoriaus įrašų patvirtinimas",
-                            icon = Icons.Default.PendingActions,
-                            tone = MaterialTheme.colorScheme.surfaceBright,
-                            badgeTone = SkautaiStatusTone.Warning,
-                            onClick = { navController.navigate(NavRoutes.InventoryList.createRoute()) }
-                        )
-                    }
-                    if (hasAssignedReservations) {
-                        ActionTile(
-                            title = "Rezervacijos, laukiančios sprendimo",
-                            count = uiState.assignedReservationCount,
-                            subtitle = "Patvirtink arba atmesk",
-                            icon = Icons.Default.EventAvailable,
-                            tone = MaterialTheme.colorScheme.surfaceBright,
-                            badgeTone = SkautaiStatusTone.Warning,
-                            onClick = { navController.navigate(NavRoutes.ReservationList.createRoute(mode = "assigned")) }
-                        )
-                    }
-                    if (hasAssignedRequisitions) {
-                        ActionTile(
-                            title = "Prašymai, laukiantys sprendimo",
-                            count = uiState.assignedRequisitionCount,
-                            subtitle = "Pirkimo ir papildymo prašymai",
-                            icon = Icons.Default.Assignment,
-                            tone = MaterialTheme.colorScheme.surfaceBright,
-                            badgeTone = SkautaiStatusTone.Warning,
-                            onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "assigned")) }
-                        )
-                    }
-                }
+        } else {
+            MyTaskPreviewList(
+                tasks = uiState.tasks,
+                onTaskClick = { navController.navigate(it.routeTarget) }
+            )
+        }
+
+        SkautaiSectionHeader(
+            title = "Inventorius",
+            subtitle = "Greita prieiga prie tunto, vieneto ir asmeninio inventoriaus."
+        )
+
+        InventoryScopeColumn(
+            activeUnitId = uiState.activeUnitId,
+            activeUnitName = uiState.activeUnitName,
+            activeUnitItemCount = uiState.activeUnitItemCount,
+            sharedInventoryCount = uiState.sharedInventoryCount,
+            personalLendingCount = uiState.personalLendingCount,
+            canCreateItems = canCreateItems,
+            onOpenUnit = {
+                navController.navigate(NavRoutes.InventoryList.createRoute(custodianId = uiState.activeUnitId))
+            },
+            onOpenShared = {
+                navController.navigate(NavRoutes.InventoryList.createRoute(sharedOnly = true))
+            },
+            onOpenPersonal = {
+                navController.navigate(NavRoutes.InventoryList.createRoute(type = "INDIVIDUAL", personalOwner = "me"))
+            },
+            onAddToUnit = {
+                navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
+            },
+            onAddToShared = {
+                navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
+            },
+            onAddPersonal = {
+                navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "PERSONAL"))
             }
-        }
-
-        item {
-            SkautaiSectionHeader(
-                title = "Inventorius",
-                subtitle = "Greita prieiga prie tunto, vieneto ir asmeninio inventoriaus."
-            )
-        }
-
-        item {
-            InventoryScopeColumn(
-                activeUnitId = uiState.activeUnitId,
-                activeUnitName = uiState.activeUnitName,
-                activeUnitItemCount = uiState.activeUnitItemCount,
-                sharedInventoryCount = uiState.sharedInventoryCount,
-                personalLendingCount = uiState.personalLendingCount,
-                canCreateItems = canCreateItems,
-                onOpenUnit = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute(custodianId = uiState.activeUnitId))
-                },
-                onOpenShared = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute(sharedOnly = true))
-                },
-                onOpenPersonal = {
-                    navController.navigate(NavRoutes.InventoryList.createRoute(type = "INDIVIDUAL", personalOwner = "me"))
-                },
-                onAddToUnit = {
-                    navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "UNIT_OWN"))
-                },
-                onAddToShared = {
-                    navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "SHARED"))
-                },
-                onAddPersonal = {
-                    navController.navigate(NavRoutes.InventoryAddEdit.createRoute(mode = "PERSONAL"))
-                }
-            )
-        }
+        )
 
         if (canManageLocations) {
-            item {
-                SkautaiSectionHeader(
-                    title = "Lokacijos",
-                    subtitle = "Greita prieiga prie lokacijų katalogo ir sublokacijų."
-                )
-            }
-
-            item {
-                ActionTile(
-                    title = "Atidaryti lokacijas",
-                    count = null,
-                    subtitle = "Peržiūrėk lokacijų katalogą ir kurk naujas sublokacijas.",
-                    icon = Icons.Default.Place,
-                    tone = MaterialTheme.colorScheme.surfaceBright,
-                    badgeTone = SkautaiStatusTone.Neutral,
-                    onClick = { navController.navigate(NavRoutes.LocationList.route) }
-                )
-            }
-        }
-
-        item {
             SkautaiSectionHeader(
-                title = "Rezervacijos",
-                subtitle = "Sek savo aktyvias rezervacijas ir greitai pereik prie sąrašų.",
-                actionLabel = "Visos",
-                onAction = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
+                title = "Lokacijos",
+                subtitle = "Greita prieiga prie lokacijų katalogo ir sublokacijų."
+            )
+
+            ActionTile(
+                title = "Atidaryti lokacijas",
+                count = null,
+                subtitle = "Peržiūrėk lokacijų katalogą ir kurk naujas sublokacijas.",
+                icon = Icons.Default.Place,
+                tone = MaterialTheme.colorScheme.surfaceBright,
+                badgeTone = SkautaiStatusTone.Neutral,
+                onClick = { navController.navigate(NavRoutes.LocationList.route) }
             )
         }
 
-        item {
+        SkautaiSectionHeader(
+            title = "Rezervacijos",
+            subtitle = "Sek savo aktyvias rezervacijas ir greitai pereik prie sąrašų.",
+            actionLabel = "Visos",
+            onAction = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
+        )
+
+        ActionTile(
+            title = "Mano rezervacijos",
+            count = uiState.myReservationCount,
+            subtitle = "Tavo aktyvios rezervacijos",
+            icon = Icons.Default.Assignment,
+            tone = MaterialTheme.colorScheme.surfaceBright,
+            badgeTone = SkautaiStatusTone.Info,
+            onClick = { navController.navigate(NavRoutes.ReservationList.createRoute(mode = "my_active")) }
+        )
+
+        SkautaiSectionHeader(
+            title = "Prašymai",
+            subtitle = "Pirkimo, papildymo ir paėmimo užklausos vienoje vietoje."
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             ActionTile(
-                title = "Mano rezervacijos",
-                count = uiState.myReservationCount,
-                subtitle = "Tavo aktyvios rezervacijos",
-                icon = Icons.Default.EventAvailable,
+                title = "Mano pirkimo prašymai",
+                count = uiState.myRequisitionCount,
+                subtitle = "Kuriuos pats pateikei",
+                icon = Icons.Default.Assignment,
                 tone = MaterialTheme.colorScheme.surfaceBright,
                 badgeTone = SkautaiStatusTone.Info,
-                onClick = { navController.navigate(NavRoutes.ReservationList.createRoute(mode = "my_active")) }
+                onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active")) }
             )
-        }
-
-        item {
-            SkautaiSectionHeader(
-                title = "Prašymai",
-                subtitle = "Pirkimo, papildymo ir paėmimo užklausos vienoje vietoje."
+            ActionTile(
+                title = "Paėmimo prašymai",
+                count = null,
+                subtitle = "Paimti esamus daiktus iš bendro tunto inventoriaus",
+                icon = Icons.Default.Inbox,
+                tone = MaterialTheme.colorScheme.surfaceBright,
+                badgeTone = SkautaiStatusTone.Info,
+                onClick = { navController.navigate(NavRoutes.SharedRequestList.route) }
             )
-        }
-
-        item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ActionTile(
-                    title = "Mano pirkimo prašymai",
-                    count = uiState.myRequisitionCount,
-                    subtitle = "Kuriuos pats pateikei",
-                    icon = Icons.Default.Assignment,
-                    tone = MaterialTheme.colorScheme.surfaceBright,
-                    badgeTone = SkautaiStatusTone.Info,
-                    onClick = { navController.navigate(NavRoutes.RequestList.createRoute(mode = "my_active")) }
-                )
-                ActionTile(
-                    title = "Paėmimo prašymai",
-                    count = null,
-                    subtitle = "Paimti esamus daiktus iš bendro tunto inventoriaus",
-                    icon = Icons.Default.Inbox,
-                    tone = MaterialTheme.colorScheme.surfaceBright,
-                    badgeTone = SkautaiStatusTone.Info,
-                    onClick = { navController.navigate(NavRoutes.SharedRequestList.route) }
-                )
-            }
         }
     }
-}
-
-private fun HomeTaskUiModel.icon(): ImageVector = when (kind) {
-    HomeTaskKind.APPROVAL -> Icons.Default.PendingActions
-    HomeTaskKind.TRACKING -> Icons.Default.EventAvailable
-    HomeTaskKind.RETURN -> Icons.Default.Inventory2
-    HomeTaskKind.EVENT -> Icons.Default.EventNote
-}
-
-private fun HomeTaskUiModel.badgeTone(): SkautaiStatusTone = when (kind) {
-    HomeTaskKind.APPROVAL -> SkautaiStatusTone.Warning
-    HomeTaskKind.TRACKING -> SkautaiStatusTone.Info
-    HomeTaskKind.RETURN -> SkautaiStatusTone.Warning
-    HomeTaskKind.EVENT -> SkautaiStatusTone.Neutral
 }
 
 @Composable
 private fun OverviewCard(
     uiState: HomeUiState,
     userName: String,
+    onOpenTasks: () -> Unit,
     onManageTuntai: () -> Unit
 ) {
-    val actionCount = uiState.sharedPendingApprovalCount +
-        uiState.assignedReservationCount +
-        uiState.assignedRequisitionCount
     SkautaiSummaryCard(
         eyebrow = "Pagrindinė apžvalga",
         title = "Labas, $userName",
-        subtitle = "Svarbiausi inventoriaus, rezervacijų ir prašymų srautai vienoje vietoje.",
+        subtitle = "Home lieka trumpa santrauka, o visas veiksmų centras yra mano užduotyse.",
         metrics = listOf(
-            "Veiksmai" to actionCount.toString(),
+            "Veiksmai" to uiState.taskTotalCount.toString(),
             "Vieneto daiktai" to uiState.activeUnitItemCount.toString(),
             "Bendri daiktai" to uiState.sharedInventoryCount.toString()
         ),
         foresty = true,
         modifier = Modifier.fillMaxWidth()
     ) {
-        FilledTonalButton(
-            onClick = onManageTuntai,
-            colors = ButtonDefaults.filledTonalButtonColors(
-                containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
-        ) {
-            Icon(
-                imageVector = Icons.Default.SwapHoriz,
-                contentDescription = null,
-                modifier = Modifier.padding(end = 8.dp)
-            )
-            Text(
-                text = "Keisti tuntą",
-                fontWeight = FontWeight.SemiBold
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            FilledTonalButton(
+                onClick = onOpenTasks,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.onPrimary,
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Assignment,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text(
+                    text = "Atidaryti mano užduotis",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            FilledTonalButton(
+                onClick = onManageTuntai,
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            ) {
+                Icon(
+                    imageVector = Icons.Default.SwapHoriz,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text(
+                    text = "Keisti tuntą",
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
@@ -434,7 +348,7 @@ private fun ActionTile(
             }
             Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 if (count != null) {
-                    SkautaiStatusPill(label = "$count", tone = badgeTone)
+                    lt.skautai.android.ui.common.SkautaiStatusPill(label = "$count", tone = badgeTone)
                 }
                 Icon(
                     imageVector = Icons.Default.KeyboardArrowRight,

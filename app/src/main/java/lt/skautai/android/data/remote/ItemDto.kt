@@ -147,6 +147,10 @@ data class ItemCheckDto(
     val qrToken: String? = null,
     val result: String,
     val quantity: Int,
+    val expectedQuantity: Int = quantity,
+    val actualQuantity: Int = quantity,
+    val quantityDifference: Int = 0,
+    val quantityChangeDirection: String = "MATCHED",
     val actualLocationId: String? = null,
     val actualLocationPath: String? = null,
     val actualLocationNote: String? = null,
@@ -166,7 +170,14 @@ data class ItemCheckSummaryDto(
     val misplaced: Int,
     val damaged: Int,
     val consumed: Int,
-    val returned: Int
+    val returned: Int,
+    val matched: Int = 0,
+    val decreased: Int = 0,
+    val increased: Int = 0,
+    val expectedQuantityTotal: Int = 0,
+    val actualQuantityTotal: Int = 0,
+    val shortageQuantityTotal: Int = 0,
+    val overageQuantityTotal: Int = 0
 )
 
 data class StorageAuditSessionDto(
@@ -209,6 +220,7 @@ data class CreateStorageAuditSessionRequestDto(
 data class UpsertStorageAuditCheckRequestDto(
     val itemId: String,
     val result: String,
+    val actualQuantity: Int? = null,
     val actualLocationId: String? = null,
     val actualLocationNote: String? = null,
     val notes: String? = null

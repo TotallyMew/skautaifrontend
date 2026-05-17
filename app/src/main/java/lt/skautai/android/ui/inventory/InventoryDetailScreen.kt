@@ -1172,7 +1172,10 @@ private fun ItemHistoryCard(entries: List<ItemHistoryDto>) {
 }
 
 private fun itemHistoryLabel(entry: ItemHistoryDto): String {
-    val quantity = entry.quantityChange?.let { " ($it vnt.)" }.orEmpty()
+    val quantity = entry.quantityChange?.let {
+        val prefix = if (it > 0) "+" else ""
+        " ($prefix$it vnt.)"
+    }.orEmpty()
     return when (entry.eventType) {
         "CREATED" -> "Sukurtas įrašas$quantity"
         "PURCHASED_NEW" -> "Nupirkta ir sukurta inventoriuje$quantity"
@@ -1191,6 +1194,13 @@ private fun itemHistoryLabel(entry: ItemHistoryDto): String {
         "EVENT_RECONCILE_DAMAGED" -> "Pažymėta sugadinta po renginio$quantity"
         "EVENT_RECONCILE_MISSING" -> "Pažymėta dingusi po renginio$quantity"
         "EVENT_RECONCILE_CONSUMED" -> "Sunaudota renginyje$quantity"
+        "QUANTITY_ADJUSTED" -> "Pakoreguotas kiekis$quantity"
+        "AUDIT_MATCHED" -> "Inventorizacija sutapo$quantity"
+        "AUDIT_SHORTAGE" -> "Inventorizacijoje rasta maziau$quantity"
+        "AUDIT_OVERAGE" -> "Inventorizacijoje rasta daugiau$quantity"
+        "AUDIT_MISSING" -> "Inventorizacijoje pazymeta kaip nerasta$quantity"
+        "AUDIT_MISPLACED" -> "Inventorizacijoje pazymeta ne vietoje$quantity"
+        "AUDIT_DAMAGED" -> "Inventorizacijoje pazymeta sugadinta$quantity"
         "DEACTIVATED" -> "Deaktyvuotas įrašas"
         else -> entry.eventType + quantity
     }

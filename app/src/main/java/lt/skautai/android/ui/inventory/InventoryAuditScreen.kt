@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.HelpOutline
@@ -30,6 +31,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,12 +40,14 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
@@ -69,6 +73,7 @@ import lt.skautai.android.util.QrPayload
 
 @Composable
 fun InventoryAuditScreen(
+    onAuditCompleted: (String) -> Unit,
     viewModel: InventoryAuditViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
@@ -77,6 +82,7 @@ fun InventoryAuditScreen(
     val showUncheckedOnly by viewModel.showUncheckedOnly.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val isResolving by viewModel.isResolving.collectAsStateWithLifecycle()
+    val isCompleting by viewModel.isCompleting.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var selectedItem by remember { mutableStateOf<ItemDto?>(null) }
@@ -178,6 +184,7 @@ fun InventoryAuditScreen(
                             summary = summary,
                             isRefreshing = isRefreshing,
                             isResolving = isResolving,
+                            isCompleting = isCompleting,
                             showUncheckedOnly = showUncheckedOnly,
                             onRefresh = viewModel::loadItems,
                             onScan = {
@@ -192,7 +199,10 @@ fun InventoryAuditScreen(
                                 }
                             },
                             onToggleUncheckedOnly = viewModel::toggleUncheckedOnly,
-                            onMarkUncheckedMissing = viewModel::markUncheckedAsMissing
+                            onMarkUncheckedMissing = viewModel::markUncheckedAsMissing,
+                            onComplete = {
+                                viewModel.completeAudit(onAuditCompleted)
+                            }
                         )
                     }
 
@@ -214,7 +224,7 @@ fun InventoryAuditScreen(
                         items(visibleItems, key = { it.id }) { item ->
                             AuditItemCard(
                                 item = item,
-                                result = auditResults[item.id],
+                                draft = auditResults[item.id],
                                 onClick = { selectedItem = item }
                             )
                         }
@@ -227,10 +237,10 @@ fun InventoryAuditScreen(
     selectedItem?.let { item ->
         AuditResultDialog(
             item = item,
-            currentResult = auditResults[item.id],
+            currentDraft = auditResults[item.id],
             onDismiss = { selectedItem = null },
-            onSelect = { result ->
-                viewModel.markItem(item.id, result)
+            onSelect = { draft ->
+                viewModel.saveItemEntry(item, draft)
                 selectedItem = null
             }
         )
@@ -242,11 +252,13 @@ private fun AuditSummaryCard(
     summary: ItemCheckSummary,
     isRefreshing: Boolean,
     isResolving: Boolean,
+    isCompleting: Boolean,
     showUncheckedOnly: Boolean,
     onRefresh: () -> Unit,
     onScan: () -> Unit,
     onToggleUncheckedOnly: () -> Unit,
-    onMarkUncheckedMissing: () -> Unit
+    onMarkUncheckedMissing: () -> Unit,
+    onComplete: () -> Unit
 ) {
     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -264,9 +276,15 @@ private fun AuditSummaryCard(
             ) {
                 SummaryChip("Rasta", summary.found, SkautaiStatusTone.Success)
                 SummaryChip("Nerasta", summary.missing, SkautaiStatusTone.Danger)
-                SummaryChip("Ne vietoje", summary.misplaced, SkautaiStatusTone.Warning)
-                SummaryChip("Sugadinta", summary.damaged, SkautaiStatusTone.Info)
+                SummaryChip("Sumazejo", summary.decreased, SkautaiStatusTone.Warning)
+                SummaryChip("Padaugejo", summary.increased, SkautaiStatusTone.Info)
             }
+
+            Text(
+                text = "Laukta ${summary.expectedQuantityTotal} vnt., rasta ${summary.actualQuantityTotal} vnt., truksta ${summary.shortageQuantityTotal} vnt., perteklius ${summary.overageQuantityTotal} vnt.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -311,6 +329,14 @@ private fun AuditSummaryCard(
                     }
                 }
             }
+
+            Button(
+                onClick = onComplete,
+                enabled = !isCompleting,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(if (isCompleting) "Uzbaigiama..." else "Uzbaigti inventorizacija")
+            }
         }
     }
 }
@@ -328,7 +354,7 @@ private fun SummaryChip(
 @Composable
 private fun AuditItemCard(
     item: ItemDto,
-    result: ItemCheckResult?,
+    draft: AuditEntryDraft?,
     onClick: () -> Unit
 ) {
     SkautaiCard(
@@ -360,7 +386,7 @@ private fun AuditItemCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                ItemCheckResultPill(result = result)
+                ItemCheckResultPill(result = draft?.result)
             }
 
             Row(
@@ -388,6 +414,28 @@ private fun AuditItemCard(
                 )
             }
 
+            draft?.let {
+                val difference = it.actualQuantity - item.quantity
+                val quantityLabel = buildString {
+                    append("Kiekis: ")
+                    append(it.actualQuantity)
+                    append(" / ")
+                    append(item.quantity)
+                    append(" vnt.")
+                    if (difference != 0) {
+                        append(" (")
+                        if (difference > 0) append("+")
+                        append(difference)
+                        append(")")
+                    }
+                }
+                SkautaiChip(
+                    label = quantityLabel,
+                    selected = false,
+                    onClick = onClick
+                )
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -399,7 +447,7 @@ private fun AuditItemCard(
                     onClick = onClick
                 )
                 Text(
-                    text = "Spausk zymeti",
+                    text = if (draft == null) "Spausk zymeti" else "Spausk koreguoti",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )
@@ -411,10 +459,16 @@ private fun AuditItemCard(
 @Composable
 private fun AuditResultDialog(
     item: ItemDto,
-    currentResult: ItemCheckResult?,
+    currentDraft: AuditEntryDraft?,
     onDismiss: () -> Unit,
-    onSelect: (ItemCheckResult?) -> Unit
+    onSelect: (AuditEntryDraft?) -> Unit
 ) {
+    val initialDraft = currentDraft ?: defaultDraft(item, ItemCheckResult.FOUND)
+    var selectedResult by rememberSaveable(item.id, currentDraft?.result) { mutableStateOf(initialDraft.result) }
+    var quantityText by rememberSaveable(item.id, currentDraft?.actualQuantity) { mutableStateOf(initialDraft.actualQuantity.toString()) }
+    var actualLocationNote by rememberSaveable(item.id, currentDraft?.actualLocationNote) { mutableStateOf(initialDraft.actualLocationNote) }
+    var notes by rememberSaveable(item.id, currentDraft?.notes) { mutableStateOf(initialDraft.notes) }
+
     val options = listOf(
         AuditOption(ItemCheckResult.FOUND, "Rasta", Icons.Default.CheckCircle),
         AuditOption(ItemCheckResult.MISSING, "Nerasta", Icons.Default.HelpOutline),
@@ -426,16 +480,21 @@ private fun AuditResultDialog(
         onDismissRequest = onDismiss,
         title = { Text(item.name) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(
-                    text = "Pasirink inventorizacijos rezultata.",
+                    text = "Lauktas kiekis: ${item.quantity} vnt.",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 options.forEach { option ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onSelect(option.result) }
+                            .clickable {
+                                selectedResult = option.result
+                                if (option.result == ItemCheckResult.MISSING) {
+                                    quantityText = "0"
+                                }
+                            }
                             .padding(vertical = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
@@ -443,7 +502,7 @@ private fun AuditResultDialog(
                         Icon(
                             imageVector = option.icon,
                             contentDescription = null,
-                            tint = if (currentResult == option.result) {
+                            tint = if (selectedResult == option.result) {
                                 MaterialTheme.colorScheme.primary
                             } else {
                                 MaterialTheme.colorScheme.onSurfaceVariant
@@ -452,16 +511,64 @@ private fun AuditResultDialog(
                         Text(option.label, style = MaterialTheme.typography.bodyLarge)
                     }
                 }
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = { quantityText = it.filter(Char::isDigit) },
+                    label = { Text("Faktinis kiekis") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = actualLocationNote,
+                    onValueChange = { actualLocationNote = it },
+                    label = { Text("Kur radai (jei ne vietoje)") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = { Text("Pastabos") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSelect(null) }) {
-                Text("Isvalyti zyma")
+            TextButton(
+                onClick = {
+                    val actualQuantity = quantityText.toIntOrNull()
+                    if (actualQuantity == null) {
+                        onSelect(
+                            AuditEntryDraft(
+                                result = selectedResult,
+                                actualQuantity = defaultDraft(item, selectedResult).actualQuantity,
+                                actualLocationNote = actualLocationNote,
+                                notes = notes
+                            )
+                        )
+                    } else {
+                        onSelect(
+                            AuditEntryDraft(
+                                result = selectedResult,
+                                actualQuantity = actualQuantity,
+                                actualLocationNote = actualLocationNote,
+                                notes = notes
+                            )
+                        )
+                    }
+                }
+            ) {
+                Text("Issaugoti")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Uzdaryti")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { onSelect(null) }) {
+                    Text("Isvalyti zyma")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Uzdaryti")
+                }
             }
         }
     )

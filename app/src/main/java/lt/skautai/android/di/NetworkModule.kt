@@ -13,6 +13,7 @@ import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.MemberApiService
+import lt.skautai.android.data.remote.MyTaskApiService
 import lt.skautai.android.data.remote.OrganizationalUnitApiService
 import lt.skautai.android.data.remote.RequestApiService
 import lt.skautai.android.data.remote.RequisitionApiService
@@ -150,6 +151,12 @@ object NetworkModule {
     @Singleton
     fun provideReservationApiService(retrofit: Retrofit): ReservationApiService {
         return retrofit.create(ReservationApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMyTaskApiService(retrofit: Retrofit): MyTaskApiService {
+        return retrofit.create(MyTaskApiService::class.java)
     }
 
     @Provides

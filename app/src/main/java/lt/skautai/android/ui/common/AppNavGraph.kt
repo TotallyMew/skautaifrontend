@@ -69,6 +69,7 @@ import lt.skautai.android.ui.reservations.ReservationListScreen
 import lt.skautai.android.ui.reservations.ReservationMovementScreen
 import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.ui.superadmin.SuperAdminLoginScreen
+import lt.skautai.android.ui.tasks.MyTasksScreen
 import lt.skautai.android.ui.tuntas.TuntasSelectScreen
 import lt.skautai.android.ui.units.UnitCreateScreen
 import lt.skautai.android.ui.units.UnitDetailScreen
@@ -177,6 +178,18 @@ fun AppNavGraph(
                 onLogout = onLogout
             ) {
                 ProfileScreen()
+            }
+        }
+
+        composable(NavRoutes.MyTasks.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                showBackNavigation = true,
+                onNavigateBack = { navController.popBackStack() }
+            ) {
+                MyTasksScreen(navController = navController)
             }
         }
 
@@ -507,7 +520,11 @@ fun AppNavGraph(
                 showBackNavigation = true,
                 onNavigateBack = { navController.popBackStack() }
             ) {
-                InventoryAuditScreen()
+                InventoryAuditScreen(
+                    onAuditCompleted = { sessionId ->
+                        navController.navigate(NavRoutes.InventoryAuditSession.createRoute(sessionId))
+                    }
+                )
             }
         }
 

@@ -5,18 +5,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.ItemCheckDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.UpsertStorageAuditCheckRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.ui.common.ItemCheckResult
 import lt.skautai.android.ui.common.ItemCheckSummary
-import lt.skautai.android.ui.common.buildItemCheckSummary
 import lt.skautai.android.util.TokenManager
 
 sealed interface InventoryAuditUiState {
@@ -26,22 +27,90 @@ sealed interface InventoryAuditUiState {
     object Empty : InventoryAuditUiState
 }
 
+data class AuditEntryDraft(
+    val result: ItemCheckResult,
+    val actualQuantity: Int,
+    val actualLocationNote: String = "",
+    val notes: String = ""
+)
+
 internal fun buildInventoryAuditSummary(
     items: List<ItemDto>,
-    results: Map<String, ItemCheckResult>
-): ItemCheckSummary = buildItemCheckSummary(
-    total = items.size,
-    results = items.map { results[it.id] }
-)
+    results: Map<String, AuditEntryDraft>
+): ItemCheckSummary {
+    var found = 0
+    var missing = 0
+    var misplaced = 0
+    var damaged = 0
+    var consumed = 0
+    var matched = 0
+    var decreased = 0
+    var increased = 0
+    var expectedQuantityTotal = 0
+    var actualQuantityTotal = 0
+    var shortageQuantityTotal = 0
+    var overageQuantityTotal = 0
+
+    items.forEach { item ->
+        val draft = results[item.id]
+        if (draft != null) {
+            when (draft.result) {
+                ItemCheckResult.FOUND -> found += 1
+                ItemCheckResult.MISSING -> missing += 1
+                ItemCheckResult.MISPLACED -> misplaced += 1
+                ItemCheckResult.DAMAGED -> damaged += 1
+                ItemCheckResult.CONSUMED -> consumed += 1
+            }
+            expectedQuantityTotal += item.quantity
+            actualQuantityTotal += draft.actualQuantity
+            when {
+                draft.actualQuantity < item.quantity -> {
+                    decreased += 1
+                    shortageQuantityTotal += item.quantity - draft.actualQuantity
+                }
+
+                draft.actualQuantity > item.quantity -> {
+                    increased += 1
+                    overageQuantityTotal += draft.actualQuantity - item.quantity
+                }
+
+                else -> matched += 1
+            }
+        }
+    }
+
+    return ItemCheckSummary(
+        total = items.size,
+        found = found,
+        missing = missing,
+        misplaced = misplaced,
+        damaged = damaged,
+        consumed = consumed,
+        unchecked = (items.size - results.size).coerceAtLeast(0),
+        matched = matched,
+        decreased = decreased,
+        increased = increased,
+        expectedQuantityTotal = expectedQuantityTotal,
+        actualQuantityTotal = actualQuantityTotal,
+        shortageQuantityTotal = shortageQuantityTotal,
+        overageQuantityTotal = overageQuantityTotal
+    )
+}
 
 internal fun applyMissingToUnchecked(
     items: List<ItemDto>,
-    results: Map<String, ItemCheckResult>
-): Map<String, ItemCheckResult> {
+    results: Map<String, AuditEntryDraft>
+): Map<String, AuditEntryDraft> {
     if (items.isEmpty()) return results
     val next = results.toMutableMap()
     items.forEach { item ->
-        next.putIfAbsent(item.id, ItemCheckResult.MISSING)
+        next.putIfAbsent(
+            item.id,
+            AuditEntryDraft(
+                result = ItemCheckResult.MISSING,
+                actualQuantity = 0
+            )
+        )
     }
     return next
 }
@@ -63,8 +132,8 @@ class InventoryAuditViewModel @Inject constructor(
     private val _uiState = MutableStateFlow<InventoryAuditUiState>(InventoryAuditUiState.Loading)
     val uiState: StateFlow<InventoryAuditUiState> = _uiState.asStateFlow()
 
-    private val _auditResults = MutableStateFlow<Map<String, ItemCheckResult>>(emptyMap())
-    val auditResults: StateFlow<Map<String, ItemCheckResult>> = _auditResults.asStateFlow()
+    private val _auditResults = MutableStateFlow<Map<String, AuditEntryDraft>>(emptyMap())
+    val auditResults: StateFlow<Map<String, AuditEntryDraft>> = _auditResults.asStateFlow()
 
     private val _showUncheckedOnly = MutableStateFlow(false)
     val showUncheckedOnly: StateFlow<Boolean> = _showUncheckedOnly.asStateFlow()
@@ -74,6 +143,9 @@ class InventoryAuditViewModel @Inject constructor(
 
     private val _isResolving = MutableStateFlow(false)
     val isResolving: StateFlow<Boolean> = _isResolving.asStateFlow()
+
+    private val _isCompleting = MutableStateFlow(false)
+    val isCompleting: StateFlow<Boolean> = _isCompleting.asStateFlow()
 
     private val _message = MutableStateFlow<String?>(null)
     val message: StateFlow<String?> = _message.asStateFlow()
@@ -85,11 +157,7 @@ class InventoryAuditViewModel @Inject constructor(
 
     private fun observeItems() {
         viewModelScope.launch {
-            val currentUserId = if (personalOwnerOnly) {
-                tokenManager.userId.first()
-            } else {
-                null
-            }
+            val currentUserId = if (personalOwnerOnly) tokenManager.userId.first() else null
             itemRepository.observeItems(
                 custodianId = initialCustodianId,
                 type = initialType,
@@ -116,11 +184,7 @@ class InventoryAuditViewModel @Inject constructor(
             if (_uiState.value !is InventoryAuditUiState.Success) {
                 _uiState.value = InventoryAuditUiState.Loading
             }
-            val currentUserId = if (personalOwnerOnly) {
-                tokenManager.userId.first()
-            } else {
-                null
-            }
+            val currentUserId = if (personalOwnerOnly) tokenManager.userId.first() else null
             itemRepository.refreshItems(
                 custodianId = initialCustodianId,
                 type = initialType,
@@ -145,16 +209,16 @@ class InventoryAuditViewModel @Inject constructor(
         _showUncheckedOnly.value = !_showUncheckedOnly.value
     }
 
-    fun markItem(itemId: String, result: ItemCheckResult?) {
+    fun saveItemEntry(item: ItemDto, draft: AuditEntryDraft?) {
         _auditResults.value = _auditResults.value.toMutableMap().also { map ->
-            if (result == null) {
-                map.remove(itemId)
+            if (draft == null) {
+                map.remove(item.id)
             } else {
-                map[itemId] = result
+                map[item.id] = draft
             }
         }
-        if (result != null) {
-            syncChecks(listOf(itemId to result))
+        if (draft != null) {
+            syncChecks(listOf(item.id to draft))
         }
     }
 
@@ -164,10 +228,10 @@ class InventoryAuditViewModel @Inject constructor(
         _auditResults.value = applyMissingToUnchecked(items, _auditResults.value)
         syncChecks(
             items.mapNotNull { item ->
-                _auditResults.value[item.id]?.let { result -> item.id to result }
+                _auditResults.value[item.id]?.let { draft -> item.id to draft }
             }
         )
-        _message.value = "Neinventorizuoti daiktai pažymėti kaip nerasti."
+        _message.value = "Neinventorizuoti daiktai pazymeti kaip nerasti."
     }
 
     fun resolveToken(token: String) {
@@ -179,16 +243,33 @@ class InventoryAuditViewModel @Inject constructor(
                     val items = (uiState.value as? InventoryAuditUiState.Success)?.items.orEmpty()
                     val item = items.firstOrNull { it.id == itemId }
                     if (item == null) {
-                        _message.value = "Nuskenuotas daiktas nepatenka į šią inventorizaciją."
+                        _message.value = "Nuskenuotas daiktas nepatenka i sia inventorizacija."
                     } else {
-                        markItem(item.id, ItemCheckResult.FOUND)
-                        _message.value = "Pažymėta kaip rasta: ${item.name}"
+                        saveItemEntry(item, defaultDraft(item, ItemCheckResult.FOUND))
+                        _message.value = "Pazymeta kaip rasta: ${item.name}"
                     }
                 }
                 .onFailure {
-                    _message.value = it.message ?: "Nepavyko atpažinti QR kodo"
+                    _message.value = it.message ?: "Nepavyko atpazinti QR kodo"
                 }
             _isResolving.value = false
+        }
+    }
+
+    fun completeAudit(onCompleted: (String) -> Unit) {
+        val currentSessionId = sessionId ?: return
+        if (_isCompleting.value) return
+        viewModelScope.launch {
+            _isCompleting.value = true
+            itemRepository.completeStorageAuditSession(currentSessionId)
+                .onSuccess {
+                    _message.value = "Inventorizacija uzbaigta."
+                    onCompleted(currentSessionId)
+                }
+                .onFailure {
+                    _message.value = it.message ?: "Nepavyko uzbaigti inventorizacijos"
+                }
+            _isCompleting.value = false
         }
     }
 
@@ -215,8 +296,7 @@ class InventoryAuditViewModel @Inject constructor(
                     _auditResults.update { existing ->
                         existing + session.checks.mapNotNull { check ->
                             val itemId = check.itemId ?: return@mapNotNull null
-                            val result = check.result.toItemCheckResult() ?: return@mapNotNull null
-                            itemId to result
+                            check.toDraft()?.let { draft -> itemId to draft }
                         }
                     }
                 }
@@ -224,20 +304,41 @@ class InventoryAuditViewModel @Inject constructor(
         }
     }
 
-    private fun syncChecks(entries: List<Pair<String, ItemCheckResult>>) {
+    private fun syncChecks(entries: List<Pair<String, AuditEntryDraft>>) {
         val currentSessionId = sessionId ?: return
         viewModelScope.launch {
             itemRepository.upsertStorageAuditChecks(
                 sessionId = currentSessionId,
-                checks = entries.map { (itemId, result) ->
+                checks = entries.map { (itemId, draft) ->
                     UpsertStorageAuditCheckRequestDto(
                         itemId = itemId,
-                        result = result.name
+                        result = draft.result.name,
+                        actualQuantity = draft.actualQuantity,
+                        actualLocationNote = draft.actualLocationNote.ifBlank { null },
+                        notes = draft.notes.ifBlank { null }
                     )
                 }
             )
         }
     }
+}
+
+internal fun defaultDraft(item: ItemDto, result: ItemCheckResult): AuditEntryDraft = AuditEntryDraft(
+    result = result,
+    actualQuantity = when (result) {
+        ItemCheckResult.MISSING -> 0
+        else -> item.quantity
+    }
+)
+
+private fun ItemCheckDto.toDraft(): AuditEntryDraft? {
+    val parsedResult = result.toItemCheckResult() ?: return null
+    return AuditEntryDraft(
+        result = parsedResult,
+        actualQuantity = actualQuantity,
+        actualLocationNote = actualLocationNote.orEmpty(),
+        notes = notes.orEmpty()
+    )
 }
 
 private fun String.toItemCheckResult(): ItemCheckResult? = runCatching {
