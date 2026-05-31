@@ -38,7 +38,8 @@ class OrganizationalUnitRepository @Inject constructor(
     private val tokenManager: TokenManager,
     private val organizationalUnitDao: OrganizationalUnitDao,
     private val memberDao: MemberDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -59,6 +60,7 @@ class OrganizationalUnitRepository @Inject constructor(
     }
 
     suspend fun refreshUnits(type: String? = null): Result<Unit> {
+        val queryKey = "type=${type.orEmpty()}"
         return try {
             val currentTuntasId = tuntasId()
             val response = orgUnitApiService.getUnits("Bearer ${token()}", currentTuntasId, type)
@@ -66,6 +68,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 val units = response.body()?.units.orEmpty()
                 organizationalUnitDao.deleteForQuery(currentTuntasId, type)
                 organizationalUnitDao.upsertAll(units.toOrganizationalUnitEntities())
+                refreshCoordinator.recordAttempt(UNITS_RESOURCE, queryKey, success = true)
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida gaunant vienetus")))
@@ -76,7 +79,9 @@ class OrganizationalUnitRepository @Inject constructor(
     }
 
     suspend fun getUnits(type: String? = null): Result<List<OrganizationalUnitDto>> {
-        val refreshResult = refreshUnits(type)
+        val queryKey = "type=${type.orEmpty()}"
+        val shouldRefresh = refreshCoordinator.shouldRefresh(UNITS_RESOURCE, queryKey, CacheTtl.REFERENCE)
+        val refreshResult = if (shouldRefresh) refreshUnits(type) else Result.success(Unit)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedUnits = currentTuntasId
             ?.let { organizationalUnitDao.getUnits(it, type).toOrganizationalUnitDtos() }
@@ -387,5 +392,8 @@ class OrganizationalUnitRepository @Inject constructor(
         val updatedAssignments = cachedMember.unitAssignments.orEmpty()
             .filterNot { it.organizationalUnitId == unitId }
         memberDao.upsert(cachedMember.copy(unitAssignments = updatedAssignments).toEntity(currentTuntasId))
+    }
+    companion object {
+        private const val UNITS_RESOURCE = "organizational_units"
     }
 }

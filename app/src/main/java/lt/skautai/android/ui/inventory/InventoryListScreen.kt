@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -68,6 +70,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +83,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import lt.skautai.android.data.remote.InventoryKitDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.RemoteImage
@@ -119,9 +123,17 @@ import java.time.LocalDate
 
 private val BulkConditionOptions = listOf(
     "GOOD" to "Gera",
-    "DAMAGED" to "Vidutinė",
-    "WRITTEN_OFF" to "Bloga"
+    "DAMAGED" to "Sugadinta",
+    "MISSING" to "Pamesta",
+    "UNDER_REPAIR" to "Taisoma",
+    "NEEDS_INSPECTION" to "Reikia patikrinti",
+    "WRITTEN_OFF" to "Nurašyta"
 )
+
+private enum class InventoryCatalogViewMode {
+    List,
+    Gallery
+}
 
 private val KnownInventoryCategories = listOf(
     "CAMPING",
@@ -888,10 +900,12 @@ private fun InventoryBody(
             }
         }
 
-            InventoryCatalogContent(
-                allItems = state.items,
-                filteredItems = filtered,
-                selectedTypes = selectedTypes,
+                InventoryCatalogContent(
+                    allItems = state.items,
+                    filteredItems = filtered,
+                    kits = state.kits,
+                    searchQuery = searchQuery,
+                    selectedTypes = selectedTypes,
                 selectedCategories = selectedCategories,
                 selectedLocationIds = selectedLocationIds,
                 selectedStatus = selectedStatus,
@@ -945,6 +959,8 @@ private fun InventoryBody(
 private fun InventoryCatalogContent(
     allItems: List<ItemDto>,
     filteredItems: List<ItemDto>,
+    kits: List<InventoryKitDto>,
+    searchQuery: String,
     selectedTypes: Set<String>,
     selectedCategories: Set<String>,
     selectedLocationIds: Set<String>,
@@ -980,8 +996,28 @@ private fun InventoryCatalogContent(
     canBulkManage: (ItemDto) -> Boolean
 ) {
     val groups = remember(filteredItems) { filteredItems.toInventoryGroups() }
+    val activeKits = remember(kits) { kits.filter { it.status == "ACTIVE" } }
+    val itemById = remember(allItems) { allItems.associateBy { it.id } }
+    val filteredItemIds = remember(filteredItems) { filteredItems.map { it.id }.toSet() }
+    val kitItemIds = remember(activeKits) { activeKits.flatMap { kit -> kit.items.map { it.itemId } }.toSet() }
+    val visibleKitGroups = remember(activeKits, itemById, filteredItemIds, searchQuery) {
+        activeKits.mapNotNull { kit ->
+            val queryMatchesKit = searchQuery.isNotBlank() &&
+                (kit.name.contains(searchQuery, ignoreCase = true) ||
+                    kit.description?.contains(searchQuery, ignoreCase = true) == true)
+            val children = kit.items.mapNotNull { kitItem -> itemById[kitItem.itemId] }
+                .filter { item -> queryMatchesKit || item.id in filteredItemIds }
+            if (children.isEmpty()) null else kit to children
+        }
+    }
+    val unassignedItems = remember(filteredItems, kitItemIds) {
+        filteredItems.filter { it.id !in kitItemIds }
+    }
+    val unassignedGroups = remember(unassignedItems) { unassignedItems.toInventoryGroups() }
+    var expandedKitIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var filtersExpanded by remember { mutableStateOf(false) }
     var toolsExpanded by remember { mutableStateOf(false) }
+    var viewMode by rememberSaveable { mutableStateOf(InventoryCatalogViewMode.List) }
     val activeFilterCount = selectedTypes.size + selectedCategories.size + selectedLocationIds.size +
         (if (assignedOnly) 1 else 0) +
         (if (selectedStatus != "ACTIVE") 1 else 0)
@@ -1015,6 +1051,10 @@ private fun InventoryCatalogContent(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                InventoryViewModeToggle(
+                    viewMode = viewMode,
+                    onViewModeChange = { viewMode = it }
+                )
                 SkautaiCard(
                     modifier = Modifier.fillMaxWidth(),
                     tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
@@ -1163,24 +1203,263 @@ private fun InventoryCatalogContent(
                 )
             }
         } else {
-            groups.forEach { group ->
-                stickyHeader(key = "header_${group.title}") {
-                    InventoryGroupHeader(title = group.title, count = group.items.size)
-                }
-                items(group.items, key = { it.id }) { item ->
-                    val isSelectable = when (selectionPurpose) {
-                        InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
-                        else -> item.toPrintableQrItemOrNull() != null
+            if (viewMode == InventoryCatalogViewMode.List) {
+                if (visibleKitGroups.isNotEmpty() && selectedStatus == "ACTIVE") {
+                    stickyHeader(key = "header_kits") {
+                        InventoryGroupHeader(title = "Komplektai", count = visibleKitGroups.size)
                     }
-                    InventoryDenseRow(
-                        item = item,
-                        selectionMode = selectionMode,
-                        isSelected = item.id in selectedItemIds,
-                        isSelectable = isSelectable,
-                        onOpen = { onOpenItem(item.id) },
-                        onToggleSelection = { onToggleItemSelection(item.id, isSelectable) }
+                    visibleKitGroups.forEach { (kit, kitItems) ->
+                        item(key = "kit_${kit.id}") {
+                            val expanded = searchQuery.isNotBlank() || kit.id in expandedKitIds
+                            InventoryKitGroupCard(
+                                kit = kit,
+                                items = kitItems,
+                                expanded = expanded,
+                                onToggleExpanded = {
+                                    expandedKitIds = if (expanded) {
+                                        expandedKitIds - kit.id
+                                    } else {
+                                        expandedKitIds + kit.id
+                                    }
+                                }
+                            )
+                        }
+                        if (searchQuery.isNotBlank() || kit.id in expandedKitIds) {
+                            items(kitItems, key = { "kit_${kit.id}_${it.id}" }) { item ->
+                                val isSelectable = when (selectionPurpose) {
+                                    InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
+                                    else -> item.toPrintableQrItemOrNull() != null
+                                }
+                                InventoryDenseRow(
+                                    item = item,
+                                    selectionMode = selectionMode,
+                                    isSelected = item.id in selectedItemIds,
+                                    isSelectable = isSelectable,
+                                    onOpen = { onOpenItem(item.id) },
+                                    onToggleSelection = { onToggleItemSelection(item.id, isSelectable) }
+                                )
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                    }
+                }
+                val listGroups = if (selectedStatus == "ACTIVE") unassignedGroups else groups
+                if (listGroups.isNotEmpty() && selectedStatus == "ACTIVE") {
+                    stickyHeader(key = "header_unassigned") {
+                        InventoryGroupHeader(title = "Nepriskirti daiktai", count = unassignedItems.size)
+                    }
+                }
+                listGroups.forEach { group ->
+                    stickyHeader(key = "header_${group.title}") {
+                        InventoryGroupHeader(title = group.title, count = group.items.size)
+                    }
+                    items(group.items, key = { it.id }) { item ->
+                        val isSelectable = when (selectionPurpose) {
+                            InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
+                            else -> item.toPrintableQrItemOrNull() != null
+                        }
+                        InventoryDenseRow(
+                            item = item,
+                            selectionMode = selectionMode,
+                            isSelected = item.id in selectedItemIds,
+                            isSelectable = isSelectable,
+                            onOpen = { onOpenItem(item.id) },
+                            onToggleSelection = { onToggleItemSelection(item.id, isSelectable) }
+                        )
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    }
+                }
+            } else {
+                groups.forEach { group ->
+                    stickyHeader(key = "header_gallery_${group.title}") {
+                        InventoryGroupHeader(title = group.title, count = group.items.size)
+                    }
+                    items(group.items.chunked(2), key = { row -> row.joinToString("|") { it.id } }) { rowItems ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            rowItems.forEach { item ->
+                                val isSelectable = when (selectionPurpose) {
+                                    InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
+                                    else -> item.toPrintableQrItemOrNull() != null
+                                }
+                                InventoryGalleryCard(
+                                    item = item,
+                                    selectionMode = selectionMode,
+                                    isSelected = item.id in selectedItemIds,
+                                    isSelectable = isSelectable,
+                                    onOpen = { onOpenItem(item.id) },
+                                    onToggleSelection = { onToggleItemSelection(item.id, isSelectable) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (rowItems.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InventoryKitGroupCard(
+    kit: InventoryKitDto,
+    items: List<ItemDto>,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onToggleExpanded),
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Folder,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = kit.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = listOfNotNull(
+                        kit.locationPath ?: kit.locationName ?: kit.temporaryStorageLabel,
+                        kit.custodianName,
+                        "${items.sumOf { it.quantity }} vnt."
+                    ).joinToString(" · "),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            SkautaiStatusPill(label = "${items.size}", tone = SkautaiStatusTone.Info)
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (expanded) "Sutraukti" else "Išskleisti",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun InventoryViewModeToggle(
+    viewMode: InventoryCatalogViewMode,
+    onViewModeChange: (InventoryCatalogViewMode) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
+    ) {
+        item {
+            SkautaiChip(
+                label = "Sąrašas",
+                selected = viewMode == InventoryCatalogViewMode.List,
+                onClick = { onViewModeChange(InventoryCatalogViewMode.List) }
+            )
+        }
+        item {
+            SkautaiChip(
+                label = "Galerija",
+                selected = viewMode == InventoryCatalogViewMode.Gallery,
+                onClick = { onViewModeChange(InventoryCatalogViewMode.Gallery) }
+            )
+        }
+    }
+}
+
+@Composable
+private fun InventoryGalleryCard(
+    item: ItemDto,
+    selectionMode: Boolean,
+    isSelected: Boolean,
+    isSelectable: Boolean,
+    onOpen: () -> Unit,
+    onToggleSelection: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    SkautaiCard(
+        modifier = modifier.clickable {
+            if (selectionMode && isSelectable) onToggleSelection() else onOpen()
+        },
+        tonal = if (isSelected) MaterialTheme.colorScheme.primaryContainer else skautaiSurfaceTone(SkautaiSurfaceRole.Default),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            val photoUrl = item.photoUrl?.takeIf { it.isNotBlank() }
+            if (photoUrl != null) {
+                RemoteImage(
+                    imageUrl = photoUrl,
+                    contentDescription = item.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.05f)
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.05f)
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = categoryIcon(item.category),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(42.dp)
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                }
+            }
+
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
+                shape = CircleShape
+            ) {
+                Text(
+                    text = item.quantity.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp)
+                )
+            }
+
+            if (selectionMode) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                    shape = CircleShape,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(8.dp)
+                ) {
+                    Checkbox(
+                        checked = isSelected,
+                        enabled = isSelectable,
+                        onCheckedChange = { if (isSelectable) onToggleSelection() }
+                    )
                 }
             }
         }
@@ -1839,7 +2118,8 @@ private fun conditionDotColor(condition: String): Color = when (condition) {
 
 private fun conditionTone(condition: String): SkautaiStatusTone = when (condition) {
     "GOOD" -> SkautaiStatusTone.Success
-    "DAMAGED" -> SkautaiStatusTone.Warning
+    "DAMAGED", "UNDER_REPAIR", "NEEDS_INSPECTION" -> SkautaiStatusTone.Warning
+    "MISSING" -> SkautaiStatusTone.Danger
     "WRITTEN_OFF" -> SkautaiStatusTone.Danger
     else -> SkautaiStatusTone.Neutral
 }

@@ -94,9 +94,27 @@ data class EventInventoryItemDto(
     @SerializedName("sourceTemporaryStorageLabel") val sourceTemporaryStorageLabel: String? = null,
     @SerializedName("sourceResponsibleUserName") val sourceResponsibleUserName: String? = null,
     @SerializedName("sourcePickupSummary") val sourcePickupSummary: String? = null,
+    @SerializedName("sources") val sources: List<EventInventorySourceDto> = emptyList(),
     @SerializedName("responsibleUserId") val responsibleUserId: String?,
     @SerializedName("responsibleUserName") val responsibleUserName: String?,
     @SerializedName("createdByUserId") val createdByUserId: String?,
+    @SerializedName("createdAt") val createdAt: String
+)
+
+data class EventInventorySourceDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemId") val itemId: String? = null,
+    @SerializedName("reservationGroupId") val reservationGroupId: String? = null,
+    @SerializedName("plannedQuantity") val plannedQuantity: Int,
+    @SerializedName("reservedQuantity") val reservedQuantity: Int,
+    @SerializedName("pickupCustodianName") val pickupCustodianName: String? = null,
+    @SerializedName("pickupLocationPath") val pickupLocationPath: String? = null,
+    @SerializedName("pickupTemporaryStorageLabel") val pickupTemporaryStorageLabel: String? = null,
+    @SerializedName("pickupResponsibleUserName") val pickupResponsibleUserName: String? = null,
+    @SerializedName("pickupSummary") val pickupSummary: String? = null,
+    @SerializedName("sourceStatus") val sourceStatus: String,
+    @SerializedName("notes") val notes: String? = null,
     @SerializedName("createdAt") val createdAt: String
 )
 
@@ -219,8 +237,28 @@ data class AppliedTemplatePurchaseItemDto(
 data class AppliedInventoryTemplateDto(
     @SerializedName("reserved") val reserved: List<AppliedTemplateReservedItemDto> = emptyList(),
     @SerializedName("toPurchase") val toPurchase: List<AppliedTemplatePurchaseItemDto> = emptyList(),
+    @SerializedName("sources") val sources: List<AppliedTemplateSourceDto> = emptyList(),
+    @SerializedName("shortages") val shortages: List<AppliedTemplateShortageDto> = emptyList(),
     @SerializedName("reservedTotal") val reservedTotal: Int,
     @SerializedName("toPurchaseTotal") val toPurchaseTotal: Int
+)
+
+data class AppliedTemplateSourceDto(
+    @SerializedName("templateItemName") val templateItemName: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("sourceId") val sourceId: String,
+    @SerializedName("itemId") val itemId: String? = null,
+    @SerializedName("itemName") val itemName: String? = null,
+    @SerializedName("reservedQuantity") val reservedQuantity: Int,
+    @SerializedName("plannedQuantity") val plannedQuantity: Int,
+    @SerializedName("pickupSummary") val pickupSummary: String? = null,
+    @SerializedName("sourceStatus") val sourceStatus: String
+)
+
+data class AppliedTemplateShortageDto(
+    @SerializedName("templateItemName") val templateItemName: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("shortageQuantity") val shortageQuantity: Int
 )
 
 data class UpdateEventInventoryItemRequestDto(
@@ -229,6 +267,18 @@ data class UpdateEventInventoryItemRequestDto(
     @SerializedName("bucketId") val bucketId: String? = null,
     @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
     @SerializedName("notes") val notes: String? = null
+)
+
+data class CreateEventInventorySourceRequestDto(
+    @SerializedName("itemId") val itemId: String? = null,
+    @SerializedName("plannedQuantity") val plannedQuantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdateEventInventorySourceRequestDto(
+    @SerializedName("plannedQuantity") val plannedQuantity: Int? = null,
+    @SerializedName("notes") val notes: String? = null,
+    @SerializedName("sourceStatus") val sourceStatus: String? = null
 )
 
 data class AssignEventRoleRequestDto(
@@ -322,6 +372,8 @@ data class EventReconciliationReturnLineDto(
     @SerializedName("quantity") val quantity: Int,
     @SerializedName("returnedQuantity") val returnedQuantity: Int,
     @SerializedName("remainingQuantity") val remainingQuantity: Int,
+    @SerializedName("reconciledQuantity") val reconciledQuantity: Int = returnedQuantity,
+    @SerializedName("pendingQuantity") val pendingQuantity: Int = remainingQuantity,
     @SerializedName("status") val status: String,
     @SerializedName("isReturned") val isReturned: Boolean = false,
     @SerializedName("currentHolderSummary") val currentHolderSummary: String? = null,
@@ -329,7 +381,22 @@ data class EventReconciliationReturnLineDto(
     @SerializedName("returnDecision") val returnDecision: String? = null,
     @SerializedName("returnedToSummary") val returnedToSummary: String? = null,
     @SerializedName("returnCondition") val returnCondition: String? = null,
+    @SerializedName("auditLog") val auditLog: List<EventReconciliationAuditDto> = emptyList(),
     @SerializedName("notes") val notes: String?
+)
+
+data class EventReconciliationAuditDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("expectedQuantity") val expectedQuantity: Int,
+    @SerializedName("actualQuantity") val actualQuantity: Int,
+    @SerializedName("result") val result: String,
+    @SerializedName("actualLocationId") val actualLocationId: String? = null,
+    @SerializedName("actualLocationNote") val actualLocationNote: String? = null,
+    @SerializedName("conditionAtCheck") val conditionAtCheck: String? = null,
+    @SerializedName("checkedByUserId") val checkedByUserId: String,
+    @SerializedName("checkedAt") val checkedAt: String,
+    @SerializedName("notes") val notes: String? = null
 )
 
 data class EventReconciliationPurchaseLineDto(
@@ -371,6 +438,9 @@ data class ReconcileEventReturnLineRequestDto(
     @SerializedName("custodyId") val custodyId: String,
     @SerializedName("decision") val decision: String,
     @SerializedName("quantity") val quantity: Int,
+    @SerializedName("returnToMode") val returnToMode: String? = null,
+    @SerializedName("returnLocationId") val returnLocationId: String? = null,
+    @SerializedName("returnLocationNote") val returnLocationNote: String? = null,
     @SerializedName("notes") val notes: String? = null
 )
 

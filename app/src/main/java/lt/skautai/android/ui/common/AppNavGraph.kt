@@ -27,6 +27,7 @@ import lt.skautai.android.MainViewModel
 import lt.skautai.android.ui.auth.LoginScreen
 import lt.skautai.android.ui.auth.RegisterInviteScreen
 import lt.skautai.android.ui.auth.RegisterScreen
+import lt.skautai.android.ui.calendar.CalendarScreen
 import lt.skautai.android.ui.events.EventCreateScreen
 import lt.skautai.android.ui.events.EventDetailScreen
 import lt.skautai.android.ui.events.EventListScreen
@@ -47,6 +48,7 @@ import lt.skautai.android.ui.inventory.InventoryAuditScreen
 import lt.skautai.android.ui.inventory.InventoryAuditHistoryScreen
 import lt.skautai.android.ui.inventory.InventoryAuditSessionScreen
 import lt.skautai.android.ui.inventory.InventoryDetailScreen
+import lt.skautai.android.ui.inventory.InventoryKitScreen
 import lt.skautai.android.ui.inventory.InventoryListScreen
 import lt.skautai.android.ui.inventory.InventoryQrScannerScreen
 import lt.skautai.android.ui.locations.LocationAddEditScreen
@@ -280,6 +282,37 @@ fun AppNavGraph(
                           backStackEntry.savedStateHandle["refreshReservations"] = false
                       }
                   )
+            }
+        }
+
+        composable(NavRoutes.Calendar.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout
+            ) {
+                CalendarScreen(
+                    onReservationClick = { id ->
+                        navController.navigate(NavRoutes.ReservationDetail.createRoute(id))
+                    },
+                    onEventClick = { eventId ->
+                        navController.navigate(NavRoutes.EventDetail.createRoute(eventId))
+                    }
+                )
+            }
+        }
+
+        composable(NavRoutes.InventoryKits.route) {
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout
+            ) {
+                InventoryKitScreen(
+                    onItemClick = { itemId ->
+                        navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId))
+                    }
+                )
             }
         }
 
@@ -685,7 +718,18 @@ fun AppNavGraph(
             val userId = it.arguments?.getString("userId")!!
             MemberDetailScreen(
                 userId = userId,
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onUnitClick = { unitId ->
+                    navController.navigate(NavRoutes.UnitDetail.createRoute(unitId))
+                },
+                onInventoryClick = { memberUserId ->
+                    navController.navigate(
+                        NavRoutes.InventoryList.createRoute(
+                            type = "INDIVIDUAL",
+                            personalOwner = memberUserId
+                        )
+                    )
+                }
             )
         }
 
@@ -715,7 +759,10 @@ fun AppNavGraph(
             UnitDetailScreen(
                 unitId = unitId,
                 onBack = { navController.popBackStack() },
-                onEditClick = { id -> navController.navigate(NavRoutes.UnitEdit.createRoute(id)) }
+                onEditClick = { id -> navController.navigate(NavRoutes.UnitEdit.createRoute(id)) },
+                onMemberClick = { userId ->
+                    navController.navigate(NavRoutes.MemberDetail.createRoute(userId))
+                }
             )
         }
 

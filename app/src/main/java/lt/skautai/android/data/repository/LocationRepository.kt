@@ -36,7 +36,8 @@ class LocationRepository @Inject constructor(
     private val locationApiService: LocationApiService,
     private val tokenManager: TokenManager,
     private val locationDao: LocationDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
 
     private suspend fun token() = tokenManager.token.first()
@@ -61,6 +62,7 @@ class LocationRepository @Inject constructor(
                 val locations = response.body()?.locations.orEmpty()
                 locationDao.upsertAll(locations.toLocationEntities())
                 locationDao.deleteStaleForTuntas(currentTuntasId, locations.map { it.id })
+                refreshCoordinator.recordAttempt(LOCATIONS_RESOURCE, success = true)
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti lokacijų.")))
@@ -70,8 +72,13 @@ class LocationRepository @Inject constructor(
         }
     }
 
-    suspend fun getLocations(): Result<List<LocationDto>> {
-        val refreshResult = refreshLocations()
+    suspend fun getLocations(forceRefresh: Boolean = false): Result<List<LocationDto>> {
+        val shouldRefresh = refreshCoordinator.shouldRefresh(
+            resource = LOCATIONS_RESOURCE,
+            ttl = CacheTtl.REFERENCE,
+            force = forceRefresh
+        )
+        val refreshResult = if (shouldRefresh) refreshLocations() else Result.success(Unit)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedLocations = currentTuntasId
             ?.let { locationDao.getLocations(it).toLocationDtos() }
@@ -102,6 +109,13 @@ class LocationRepository @Inject constructor(
             cached?.let { Result.success(it) } ?: Result.failure(e.userFacingException())
         }
     }
+
+    suspend fun getCachedLocations(): List<LocationDto> {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return emptyList()
+        return locationDao.getLocations(currentTuntasId).toLocationDtos()
+    }
+
+    suspend fun getFreshLocations(): Result<List<LocationDto>> = getLocations(forceRefresh = true)
 
     suspend fun createLocation(request: CreateLocationRequestDto): Result<LocationDto> {
         return try {
@@ -224,5 +238,9 @@ class LocationRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
+    }
+
+    companion object {
+        private const val LOCATIONS_RESOURCE = "locations"
     }
 }

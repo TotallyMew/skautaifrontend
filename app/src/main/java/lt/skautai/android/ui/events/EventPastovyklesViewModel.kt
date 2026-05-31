@@ -99,7 +99,7 @@ class EventPastovyklėsViewModel @Inject constructor(
         val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
-            _uiState.value = current.copy(error = "Ä®veskite pastovyklÄ—s pavadinimÄ….")
+            _uiState.value = current.copy(error = "Įveskite pastovyklės pavadinimą.")
             return
         }
 
@@ -116,7 +116,7 @@ class EventPastovyklėsViewModel @Inject constructor(
             val currentSlot = EventStaffSlotUiModel(
                 id = pastovykleId ?: "new_pastovykle",
                 title = cleanName,
-                subtitle = "PastovyklÄ—s pagrindinis vadovas",
+                subtitle = "Pastovyklės pagrindinis vadovas",
                 role = "PASTOVYKLES_GURU",
                 pastovykleId = pastovykleId,
                 pastovykleAgeGroup = ageGroup,
@@ -125,16 +125,16 @@ class EventPastovyklėsViewModel @Inject constructor(
             )
             activeStaffRoleForMember(responsibleUserId, current.event, excludingSlot = currentSlot)?.let { occupiedRole ->
                 _uiState.value = current.copy(
-                    error = "${member.fullName()} jau turi Å¡tabo pareigÄ… \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnÄ—s pareigos."
+                    error = "${member.fullName()} jau turi štabo pareigą \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
                 )
                 return
             }
             if (!memberEligibleForPastovykleAgeGroup(member, ageGroup)) {
                 _uiState.value = current.copy(
                     error = when (normalizePastovykleAgeGroupCode(ageGroup)) {
-                        "VYR_SKAUTAI" -> "Å iai pastovyklei galima priskirti tik vyr. skautÄ…."
-                        "VYR_SKAUTES" -> "Å iai pastovyklei galima priskirti tik vyr. skautÄ™."
-                        else -> "Å is narys netinka pasirinktai pastovyklÄ—s amÅ¾iaus grupei."
+                        "VYR_SKAUTAI" -> "Šiai pastovyklei galima priskirti tik vyr. skautą."
+                        "VYR_SKAUTES" -> "Šiai pastovyklei galima priskirti tik vyr. skautę."
+                        else -> "Šis narys netinka pasirinktai pastovyklės amžiaus grupei."
                     }
                 )
                 return
@@ -178,7 +178,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko iÅ¡saugoti pastovyklÄ—s.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išsaugoti pastovyklės.")
                     }
                 }
         }
@@ -195,7 +195,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko iÅ¡trinti pastovyklÄ—s.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti pastovyklės.")
                     }
                 }
         }

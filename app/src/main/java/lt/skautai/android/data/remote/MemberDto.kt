@@ -70,6 +70,43 @@ data class TransferTuntininkasRequestDto(
     @SerializedName("successorUserId") val successorUserId: String
 )
 
+data class CreateLeadershipChangeRequestDto(
+    @SerializedName("reason") val reason: String? = null
+)
+
+data class ReviewLeadershipChangeRequestDto(
+    @SerializedName("action") val action: String,
+    @SerializedName("successorUserId") val successorUserId: String? = null,
+    @SerializedName("reviewNote") val reviewNote: String? = null
+)
+
+data class LeadershipChangeRequestDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("tuntasId") val tuntasId: String,
+    @SerializedName("requesterUserId") val requesterUserId: String,
+    @SerializedName("requesterName") val requesterName: String,
+    @SerializedName("roleAssignmentId") val roleAssignmentId: String,
+    @SerializedName("roleId") val roleId: String,
+    @SerializedName("roleName") val roleName: String,
+    @SerializedName("organizationalUnitId") val organizationalUnitId: String,
+    @SerializedName("organizationalUnitName") val organizationalUnitName: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("reason") val reason: String?,
+    @SerializedName("reviewedByUserId") val reviewedByUserId: String?,
+    @SerializedName("successorUserId") val successorUserId: String?,
+    @SerializedName("successorName") val successorName: String?,
+    @SerializedName("reviewNote") val reviewNote: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("updatedAt") val updatedAt: String,
+    @SerializedName("reviewedAt") val reviewedAt: String?,
+    @SerializedName("resolvedAssignmentId") val resolvedAssignmentId: String?
+)
+
+data class LeadershipChangeRequestListDto(
+    @SerializedName("requests") val requests: List<LeadershipChangeRequestDto>,
+    @SerializedName("total") val total: Int
+)
+
 data class AssignRankRequestDto(
     @SerializedName("roleId") val roleId: String
 )

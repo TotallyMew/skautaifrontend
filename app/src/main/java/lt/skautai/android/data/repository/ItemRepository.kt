@@ -34,6 +34,7 @@ import lt.skautai.android.data.remote.TransferItemToUnitRequestDto
 import lt.skautai.android.data.remote.UpsertStorageAuditCheckRequestDto
 import lt.skautai.android.data.remote.UpsertStorageAuditChecksRequestDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
+import lt.skautai.android.data.remote.WriteOffItemRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
@@ -45,7 +46,8 @@ class ItemRepository @Inject constructor(
     private val itemApiService: ItemApiService,
     private val tokenManager: TokenManager,
     private val itemDao: ItemDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeItems(
@@ -85,11 +87,13 @@ class ItemRepository @Inject constructor(
         sharedOnly: Boolean = false,
         createdByUserId: String? = null
     ): Result<Unit> {
+        val queryKey = itemQueryKey(custodianId, status, type, category, sharedOnly, createdByUserId)
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val updatedAfter = refreshCoordinator.lastSuccessfulRefreshInstant(ITEMS_RESOURCE, queryKey)
             val response = itemApiService.getItems(
                 token = "Bearer $token",
                 tuntasId = tuntasId,
@@ -97,17 +101,25 @@ class ItemRepository @Inject constructor(
                 type = type,
                 category = category,
                 status = status,
-                sharedOnly = sharedOnly
+                sharedOnly = sharedOnly,
+                createdByUserId = createdByUserId,
+                updatedAfter = updatedAfter
             )
             if (response.isSuccessful) {
                 val items = response.body()?.items.orEmpty().map { it.withSafeCollections() }
-                itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
+                if (updatedAfter == null) {
+                    itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
+                }
                 itemDao.upsertAll(items.toItemEntities())
+                refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = true)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant inventoriu")))
+                val error = response.errorMessage("Klaida gaunant inventoriu")
+                refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = error)
+                Result.failure(Exception(error))
             }
         } catch (e: Exception) {
+            refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = e.message)
             Result.failure(e.userFacingException())
         }
     }
@@ -125,14 +137,18 @@ class ItemRepository @Inject constructor(
             )
             if (response.isSuccessful) {
                 itemDao.upsert(response.body()!!.withSafeCollections().toEntity())
+                refreshCoordinator.recordAttempt(ITEM_RESOURCE, itemId, success = true)
                 Result.success(Unit)
             } else {
                 if (response.code() == 404) {
                     itemDao.deleteItem(itemId, tuntasId)
                 }
-                Result.failure(Exception(response.errorMessage("Klaida gaunant daikta")))
+                val error = response.errorMessage("Klaida gaunant daikta")
+                refreshCoordinator.recordAttempt(ITEM_RESOURCE, itemId, success = false, error = error)
+                Result.failure(Exception(error))
             }
         } catch (e: Exception) {
+            refreshCoordinator.recordAttempt(ITEM_RESOURCE, itemId, success = false, error = e.message)
             Result.failure(e.userFacingException())
         }
     }
@@ -143,9 +159,21 @@ class ItemRepository @Inject constructor(
         category: String? = null,
         status: String? = "ACTIVE",
         sharedOnly: Boolean = false,
-        createdByUserId: String? = null
+        createdByUserId: String? = null,
+        forceRefresh: Boolean = false
     ): Result<List<ItemDto>> {
-        val refreshResult = refreshItems(custodianId, status, type, category, sharedOnly, createdByUserId)
+        val queryKey = itemQueryKey(custodianId, status, type, category, sharedOnly, createdByUserId)
+        val shouldRefresh = refreshCoordinator.shouldRefresh(
+            resource = ITEMS_RESOURCE,
+            queryKey = queryKey,
+            ttl = CacheTtl.LIST,
+            force = forceRefresh
+        )
+        val refreshResult = if (shouldRefresh) {
+            refreshItems(custodianId, status, type, category, sharedOnly, createdByUserId)
+        } else {
+            Result.success(Unit)
+        }
         val tuntasId = tokenManager.activeTuntasId.first()
         val cachedItems = tuntasId
             ?.let { itemDao.getItems(it, custodianId, sharedOnly, createdByUserId, status, type, category).toItemDtos() }
@@ -157,8 +185,34 @@ class ItemRepository @Inject constructor(
         }
     }
 
+    suspend fun getCachedItems(
+        custodianId: String? = null,
+        type: String? = null,
+        category: String? = null,
+        status: String? = "ACTIVE",
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null
+    ): List<ItemDto> {
+        val tuntasId = tokenManager.activeTuntasId.first() ?: return emptyList()
+        return itemDao.getItems(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category).toItemDtos()
+    }
+
+    suspend fun getFreshItems(
+        custodianId: String? = null,
+        type: String? = null,
+        category: String? = null,
+        status: String? = "ACTIVE",
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null
+    ): Result<List<ItemDto>> = getItems(custodianId, type, category, status, sharedOnly, createdByUserId, forceRefresh = true)
+
     suspend fun getItem(itemId: String): Result<ItemDto> {
-        val refreshResult = refreshItem(itemId)
+        val shouldRefresh = refreshCoordinator.shouldRefresh(
+            resource = ITEM_RESOURCE,
+            queryKey = itemId,
+            ttl = CacheTtl.DETAIL
+        )
+        val refreshResult = if (shouldRefresh) refreshItem(itemId) else Result.success(Unit)
         val tuntasId = tokenManager.activeTuntasId.first()
         val cachedItem = tuntasId?.let { itemDao.getItem(itemId, it)?.toDto() }
         return if (cachedItem != null) {
@@ -573,6 +627,40 @@ class ItemRepository @Inject constructor(
         }
     }
 
+    suspend fun getCachedItem(itemId: String): ItemDto? {
+        val tuntasId = tokenManager.activeTuntasId.first() ?: return null
+        return itemDao.getItem(itemId, tuntasId)?.toDto()
+    }
+
+    suspend fun getFreshItem(itemId: String): Result<ItemDto> {
+        refreshItem(itemId)
+        return getItem(itemId)
+    }
+
+    suspend fun writeOffItem(itemId: String, reason: String): Result<ItemDto> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = itemApiService.writeOffItem(
+                token = "Bearer $token",
+                tuntasId = tuntasId,
+                itemId = itemId,
+                request = WriteOffItemRequestDto(reason = reason)
+            )
+            if (response.isSuccessful) {
+                val item = response.body()!!.withSafeCollections()
+                itemDao.upsert(item.toEntity())
+                Result.success(item)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida nurašant daiktą")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
     suspend fun transferItemToUnit(
         itemId: String,
         request: TransferItemToUnitRequestDto
@@ -701,4 +789,25 @@ class ItemRepository @Inject constructor(
         quantityBreakdown = quantityBreakdown.orEmpty(),
         customFields = customFields.orEmpty()
     )
+
+    private fun itemQueryKey(
+        custodianId: String?,
+        status: String?,
+        type: String?,
+        category: String?,
+        sharedOnly: Boolean,
+        createdByUserId: String?
+    ): String = listOf(
+        "custodian=${custodianId.orEmpty()}",
+        "status=${status.orEmpty()}",
+        "type=${type.orEmpty()}",
+        "category=${category.orEmpty()}",
+        "shared=$sharedOnly",
+        "createdBy=${createdByUserId.orEmpty()}"
+    ).joinToString("|")
+
+    companion object {
+        private const val ITEMS_RESOURCE = "items"
+        private const val ITEM_RESOURCE = "item"
+    }
 }

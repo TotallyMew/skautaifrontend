@@ -3,12 +3,14 @@ package lt.skautai.android.ui.tasks
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
 import androidx.compose.material.icons.filled.EventAvailable
@@ -22,6 +24,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +43,8 @@ import androidx.navigation.NavController
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
+import lt.skautai.android.data.remote.LeadershipChangeRequestDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MyTaskDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
@@ -103,10 +108,91 @@ fun MyTasksScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
+                state.actionError?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+                LeadershipChangeReviewSection(
+                    requests = state.leadershipChangeRequests,
+                    members = state.members,
+                    isSaving = state.isSaving,
+                    onApprove = viewModel::approveLeadershipChange,
+                    onReject = viewModel::rejectLeadershipChange
+                )
                 TaskBucketSection("URGENT", "Skubu", "Vėluojantys ar blokuojantys darbai.", state.tasks, navController)
                 TaskBucketSection("TODAY", "Šiandien", "Veiksmai, kuriuos verta užbaigti šiandien.", state.tasks, navController)
                 TaskBucketSection("NEXT", "Toliau", "Artimiausi sprendimai ir peržiūros.", state.tasks, navController)
                 TaskBucketSection("WATCH", "Stebėti", "Atviri srautai, kuriuos verta sekti.", state.tasks, navController)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LeadershipChangeReviewSection(
+    requests: List<LeadershipChangeRequestDto>,
+    members: List<MemberDto>,
+    isSaving: Boolean,
+    onApprove: (String, String) -> Unit,
+    onReject: (String) -> Unit
+) {
+    if (requests.isEmpty()) return
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SkautaiSectionHeader(
+            title = "Vadovu pasikeitimai",
+            subtitle = "Pasirink pakeiteja is to vieneto nariu saraso"
+        )
+        requests.forEach { request ->
+            val candidates = members.filter { member ->
+                member.userId != request.requesterUserId &&
+                    member.unitAssignments.orEmpty().any { it.organizationalUnitId == request.organizationalUnitId }
+            }
+            SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "${request.requesterName} nori atsistatydinti",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "${request.organizationalUnitName} · ${request.roleName}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    request.reason?.takeIf { it.isNotBlank() }?.let {
+                        Text(text = it, style = MaterialTheme.typography.bodySmall)
+                    }
+                    if (candidates.isEmpty()) {
+                        Text(
+                            text = "Siame vienete nera kito nario, kuri galima paskirti. Pirmiausia pakviesk arba perkelk nari i vieneta.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            candidates.forEach { candidate ->
+                                Button(
+                                    onClick = { onApprove(request.id, candidate.userId) },
+                                    enabled = !isSaving,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("Paskirti ${candidate.name} ${candidate.surname}")
+                                }
+                            }
+                        }
+                    }
+                    Row(horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                        TextButton(onClick = { onReject(request.id) }, enabled = !isSaving) {
+                            Text("Atmesti")
+                        }
+                    }
+                }
             }
         }
     }

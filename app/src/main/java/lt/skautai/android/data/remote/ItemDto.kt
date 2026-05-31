@@ -18,6 +18,8 @@ data class ItemDto(
     val locationPath: String?,
     val temporaryStorageLabel: String?,
     val sourceSharedItemId: String?,
+    val kitId: String? = null,
+    val kitName: String? = null,
     val quantityBreakdown: List<ItemDistributionDto> = emptyList(),
     val totalQuantityAcrossCustodians: Int = quantity,
     val responsibleUserId: String?,
@@ -274,6 +276,10 @@ data class UpdateItemRequestDto(
     val clearLocationId: Boolean = false,
     val clearSourceSharedItemId: Boolean = false,
     val clearResponsibleUserId: Boolean = false
+)
+
+data class WriteOffItemRequestDto(
+    val reason: String
 )
 
 data class TransferItemToUnitRequestDto(

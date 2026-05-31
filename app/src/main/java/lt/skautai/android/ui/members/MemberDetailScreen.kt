@@ -1,34 +1,49 @@
-package lt.skautai.android.ui.members
+﻿package lt.skautai.android.ui.members
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Groups
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.*
+import lt.skautai.android.ui.common.MetadataRow
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
 fun MemberDetailScreen(
     userId: String,
     onBack: () -> Unit,
+    onUnitClick: (String) -> Unit = {},
+    onInventoryClick: (String) -> Unit = {},
     viewModel: MemberDetailViewModel = hiltViewModel()
 ) {
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
@@ -139,7 +154,11 @@ fun MemberDetailScreen(
                 }
                 append(".")
             },
-            confirmText = if (isTuntininkasRoleName(role.roleName)) "Perleisti pareigas" else "Atsistatydinti",
+            confirmText = when {
+                isTuntininkasRoleName(role.roleName) -> "Perleisti pareigas"
+                isPrincipalUnitLeaderRoleName(role.roleName) -> "Pateikti prasyma"
+                else -> "Atsistatydinti"
+            },
             dismissText = "Atšaukti",
             isDanger = true,
             enabled = !uiState.isSaving,
@@ -147,6 +166,8 @@ fun MemberDetailScreen(
                 pendingStepDownRole = null
                 if (isTuntininkasRoleName(role.roleName)) {
                     viewModel.openTransferTuntininkasDialog(userId, role.id)
+                } else if (isPrincipalUnitLeaderRoleName(role.roleName)) {
+                    viewModel.requestLeadershipResignation(role.id)
                 } else {
                     viewModel.stepDownLeadershipRole(userId, role.id)
                 }
@@ -231,7 +252,17 @@ fun MemberDetailScreen(
                     isCurrentUser = currentUserId == userId,
                     canManageRoles = "roles.assign" in permissions,
                     canMoveMember = "unit.members.manage:ALL" in permissions,
+                    activeReservationsCount = uiState.activeReservationsCount,
+                    activeRequestsCount = uiState.activeRequestsCount,
                     onMoveMember = viewModel::openMoveMemberDialog,
+                    onUnitClick = onUnitClick,
+                    onInventoryClick = { onInventoryClick(userId) },
+                    onCall = { phone ->
+                        context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone")))
+                    },
+                    onEmail = { email ->
+                        context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$email")))
+                    },
                     onAssignRole = viewModel::openAssignRoleDialog,
                     onEditRole = viewModel::openEditRoleDialog,
                     onStepDownRole = { role -> pendingStepDownRole = role },
@@ -251,7 +282,13 @@ private fun MemberDetailContent(
     isCurrentUser: Boolean,
     canManageRoles: Boolean,
     canMoveMember: Boolean,
+    activeReservationsCount: Int,
+    activeRequestsCount: Int,
     onMoveMember: () -> Unit,
+    onUnitClick: (String) -> Unit,
+    onInventoryClick: () -> Unit,
+    onCall: (String) -> Unit,
+    onEmail: (String) -> Unit,
     onAssignRole: () -> Unit,
     onEditRole: (MemberLeadershipRoleDto) -> Unit,
     onStepDownRole: (MemberLeadershipRoleDto) -> Unit,
@@ -266,48 +303,35 @@ private fun MemberDetailContent(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "${member.name} ${member.surname}",
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
+        MemberProfileCard(
+            member = member,
+            onCall = onCall,
+            onEmail = onEmail,
+            onInventoryClick = onInventoryClick,
+            activeReservationsCount = activeReservationsCount,
+            activeRequestsCount = activeRequestsCount
         )
 
-        MemberInfoSection(member = member)
+        MemberActivitySummarySection(
+            activeReservationsCount = activeReservationsCount,
+            activeRequestsCount = activeRequestsCount
+        )
 
-        if (canMoveMember) {
-            Button(
-                onClick = onMoveMember,
-                enabled = !isSaving,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Icon(
-                    imageVector = Icons.Default.SwapHoriz,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text("Perkelti į kitą vienetą")
-            }
-        }
-
-        MemberUnitsSection(assignments = member.unitAssignments.orEmpty())
-
-        MemberRolesSection(
+        MemberOrganizationCard(
+            assignments = member.unitAssignments.orEmpty(),
             roles = member.leadershipRoles,
+            ranks = member.ranks,
+            history = member.leadershipRoleHistory,
+            canMoveMember = canMoveMember,
             isSaving = isSaving,
             isCurrentUser = isCurrentUser,
             canManageRoles = canManageRoles,
+            onMoveMember = onMoveMember,
+            onUnitClick = onUnitClick,
             onAssignRole = onAssignRole,
             onEditRole = onEditRole,
             onStepDownRole = onStepDownRole,
-            onRemoveRole = onRemoveRole
-        )
-
-        MemberLeadershipHistorySection(history = member.leadershipRoleHistory)
-
-        MemberRanksSection(
-            ranks = member.ranks,
-            isSaving = isSaving,
-            canManageRoles = canManageRoles,
+            onRemoveRole = onRemoveRole,
             onAssignRank = onAssignRank,
             onRemoveRank = onRemoveRank
         )
@@ -315,156 +339,275 @@ private fun MemberDetailContent(
 }
 
 @Composable
-private fun MemberUnitsSection(assignments: List<MemberUnitAssignmentDto>) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Vienetai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            HorizontalDivider()
-            if (assignments.isEmpty()) {
-                Text(
-                    "Aktyvių vienetų nėra",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
+private fun MemberProfileCard(
+    member: MemberDto,
+    onCall: (String) -> Unit,
+    onEmail: (String) -> Unit,
+    onInventoryClick: () -> Unit,
+    activeReservationsCount: Int,
+    activeRequestsCount: Int
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "${member.name} ${member.surname}",
+                style = MaterialTheme.typography.headlineSmall,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = member.primaryMemberSubtitle(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                CompactMemberMetric("Vienetai", member.unitAssignments.orEmpty().size.toString(), Modifier.weight(1f))
+                CompactMemberMetric(
+                    "Pareigos",
+                    member.leadershipRoles.count { it.termStatus == "ACTIVE" }.toString(),
+                    Modifier.weight(1f)
                 )
-            } else {
-                assignments.forEach { assignment ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = assignment.organizationalUnitName,
-                            style = MaterialTheme.typography.bodyMedium,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = when (assignment.assignmentType) {
-                                "MEMBER" -> "Narys"
-                                "VADOVO_PADEJEJAS" -> "Vadovo padėjėjas"
-                                else -> assignment.assignmentType
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    if (assignment != assignments.last()) HorizontalDivider()
-                }
+                CompactMemberMetric("Aktyvu", (activeReservationsCount + activeRequestsCount).toString(), Modifier.weight(1f))
             }
-        }
-    }
-}
-
-@Composable
-private fun MemberInfoSection(member: MemberDto) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Informacija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            HorizontalDivider()
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            MetadataRow("Prisijungė", member.joinedAt.take(10))
             if (member.email.isNotBlank()) {
-                MemberInfoRow("El. paštas", member.email)
+                DetailListRow(
+                    icon = Icons.Default.Email,
+                    title = "El. paštas",
+                    subtitle = member.email,
+                    onClick = { onEmail(member.email) }
+                )
             }
-            member.phone?.let { MemberInfoRow("Telefonas", it) }
-            MemberInfoRow("Prisijungė", member.joinedAt.take(10))
+            member.phone?.let {
+                DetailListRow(
+                    icon = Icons.Default.Phone,
+                    title = "Telefonas",
+                    subtitle = it,
+                    onClick = { onCall(it) }
+                )
+            }
+            OutlinedButton(
+                onClick = onInventoryClick,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Inventory2, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                Text("Rodyti nario inventorių")
+            }
         }
     }
 }
 
 @Composable
-private fun MemberRolesSection(
+private fun CompactMemberMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun MemberOrganizationCard(
+    assignments: List<MemberUnitAssignmentDto>,
     roles: List<MemberLeadershipRoleDto>,
+    ranks: List<MemberRankDto>,
+    history: List<MemberLeadershipRoleDto>,
+    canMoveMember: Boolean,
     isSaving: Boolean,
     isCurrentUser: Boolean,
     canManageRoles: Boolean,
+    onMoveMember: () -> Unit,
+    onUnitClick: (String) -> Unit,
     onAssignRole: () -> Unit,
+    onEditRole: (MemberLeadershipRoleDto) -> Unit,
+    onStepDownRole: (MemberLeadershipRoleDto) -> Unit,
+    onRemoveRole: (MemberLeadershipRoleDto) -> Unit,
+    onAssignRank: () -> Unit,
+    onRemoveRank: (MemberRankDto) -> Unit
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Organizacija", style = MaterialTheme.typography.titleLarge)
+
+            SkautaiSectionHeader(
+                title = "Vienetai",
+                subtitle = "${assignments.size} aktyvūs priskyrimai",
+                actionLabel = if (canMoveMember) "Perkelti" else null,
+                actionIcon = Icons.Default.SwapHoriz,
+                onAction = if (canMoveMember && !isSaving) onMoveMember else null
+            )
+            if (assignments.isEmpty()) {
+                DetailEmptyRow(Icons.Default.Groups, "Aktyvių vienetų nėra")
+            } else {
+                assignments.forEach { assignment ->
+                    DetailListRow(
+                        icon = Icons.Default.Groups,
+                        title = assignment.organizationalUnitName,
+                        subtitle = assignmentTypeLabel(assignment.assignmentType),
+                        trailing = assignment.joinedAt.take(10),
+                        onClick = { onUnitClick(assignment.organizationalUnitId) }
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+
+            SkautaiSectionHeader(
+                title = "Pareigos",
+                subtitle = "${roles.count { it.termStatus == "ACTIVE" }} aktyvios",
+                actionLabel = if (canManageRoles) "Pridėti" else null,
+                actionIcon = Icons.Default.Add,
+                onAction = if (canManageRoles && !isSaving) onAssignRole else null
+            )
+            if (roles.isEmpty()) {
+                DetailEmptyRow(Icons.Default.Groups, "Pareigų nėra")
+            } else {
+                roles.forEach { role ->
+                    MemberRoleRow(
+                        role = role,
+                        isSaving = isSaving,
+                        isCurrentUser = isCurrentUser,
+                        canManageRoles = canManageRoles,
+                        onEditRole = onEditRole,
+                        onStepDownRole = onStepDownRole,
+                        onRemoveRole = onRemoveRole
+                    )
+                }
+            }
+
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+
+            SkautaiSectionHeader(
+                title = "Laipsniai",
+                subtitle = "${ranks.size} priskirti",
+                actionLabel = if (canManageRoles) "Pridėti" else null,
+                actionIcon = Icons.Default.Add,
+                onAction = if (canManageRoles && !isSaving) onAssignRank else null
+            )
+            if (ranks.isEmpty()) {
+                DetailEmptyRow(Icons.Default.Groups, "Laipsnių nėra")
+            } else {
+                ranks.forEach { rank ->
+                    MemberRankRow(
+                        rank = rank,
+                        isSaving = isSaving,
+                        canManageRoles = canManageRoles,
+                        onRemoveRank = onRemoveRank
+                    )
+                }
+            }
+
+            if (history.isNotEmpty()) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                SkautaiSectionHeader(
+                    title = "Pareigų istorija",
+                    subtitle = "${history.size} įrašai"
+                )
+                history.forEach { role -> MemberHistoryRow(role) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemberActivitySummarySection(
+    activeReservationsCount: Int,
+    activeRequestsCount: Int
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SkautaiSectionHeader(
+                title = "Aktyvumas",
+                subtitle = "Rezervacijos ir prašymai, susieti su nariu"
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                ActivityMetric("Rezervacijos", activeReservationsCount.toString(), Modifier.weight(1f))
+                ActivityMetric("Prašymai", activeRequestsCount.toString(), Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun ActivityMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+            Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun MemberRoleRow(
+    role: MemberLeadershipRoleDto,
+    isSaving: Boolean,
+    isCurrentUser: Boolean,
+    canManageRoles: Boolean,
     onEditRole: (MemberLeadershipRoleDto) -> Unit,
     onStepDownRole: (MemberLeadershipRoleDto) -> Unit,
     onRemoveRole: (MemberLeadershipRoleDto) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                role.organizationalUnitName?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                Text(
+                    text = termStatusLabel(role.termStatus),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (role.termStatus == "ACTIVE") MaterialTheme.colorScheme.primary
+                    else MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                modifier = Modifier.widthIn(min = 88.dp),
+                horizontalArrangement = Arrangement.End,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Pareigos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (canManageRoles) {
-                    TextButton(onClick = onAssignRole, enabled = !isSaving) { Text("+ Pridėti") }
-                }
-            }
-            HorizontalDivider()
-            if (roles.isEmpty()) {
-                Text("Pareigų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium)
-            } else {
-                roles.forEach { role ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium,
-                                fontWeight = FontWeight.Medium)
-                            role.organizationalUnitName?.let {
-                                Text(it, style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(
-                                text = termStatusLabel(role.termStatus),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = if (role.termStatus == "ACTIVE") MaterialTheme.colorScheme.primary
-                                        else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (isCurrentUser && role.termStatus == "ACTIVE") {
-                                TextButton(onClick = { onStepDownRole(role) }, enabled = !isSaving) {
-                                    Text(if (isTuntininkasRoleName(role.roleName)) "Perleisti" else "Atsistatydinti")
-                                }
-                            }
-                            if (canManageRoles) {
-                                IconButton(onClick = { onEditRole(role) }, enabled = !isSaving) {
-                                    Icon(Icons.Default.Edit, contentDescription = "Redaguoti pareigas")
-                                }
-                                IconButton(onClick = { onRemoveRole(role) }, enabled = !isSaving) {
-                                    Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas",
-                                        tint = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                    }
-                    if (role != roles.last()) HorizontalDivider()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto>) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Pareigų istorija", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            HorizontalDivider()
-            if (history.isEmpty()) {
-                Text(
-                    "Buvusių pareigų nėra",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                history.forEach { role ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                        role.organizationalUnitName?.let {
-                            Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        val endedAt = role.leftAt?.take(10)
+                if (isCurrentUser && role.termStatus == "ACTIVE") {
+                    TextButton(onClick = { onStepDownRole(role) }, enabled = !isSaving) {
                         Text(
-                            text = listOfNotNull(role.termStatus, endedAt).joinToString(" - "),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            when {
+                                isTuntininkasRoleName(role.roleName) -> "Perleisti"
+                                isPrincipalUnitLeaderRoleName(role.roleName) -> "Prašyti atsistatydinti"
+                                else -> "Atsistatydinti"
+                            }
                         )
                     }
-                    if (role != history.last()) HorizontalDivider()
+                }
+                if (canManageRoles) {
+                    IconButton(onClick = { onEditRole(role) }, enabled = !isSaving, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Default.Edit, contentDescription = "Redaguoti pareigas")
+                    }
+                    IconButton(onClick = { onRemoveRole(role) }, enabled = !isSaving, modifier = Modifier.size(40.dp)) {
+                        Icon(Icons.Default.Delete, contentDescription = "Šalinti pareigas", tint = MaterialTheme.colorScheme.error)
+                    }
                 }
             }
         }
@@ -472,47 +615,50 @@ private fun MemberLeadershipHistorySection(history: List<MemberLeadershipRoleDto
 }
 
 @Composable
-private fun MemberRanksSection(
-    ranks: List<MemberRankDto>,
+private fun MemberRankRow(
+    rank: MemberRankDto,
     isSaving: Boolean,
     canManageRoles: Boolean,
-    onAssignRank: () -> Unit,
     onRemoveRank: (MemberRankDto) -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth(), elevation = CardDefaults.cardElevation(2.dp)) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Laipsniai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                if (canManageRoles) {
-                    TextButton(onClick = onAssignRank, enabled = !isSaving) { Text("+ Pridėti") }
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(displayRoleName(rank.roleName), style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            if (canManageRoles) {
+                IconButton(onClick = { onRemoveRank(rank) }, enabled = !isSaving, modifier = Modifier.size(40.dp)) {
+                    Icon(Icons.Default.Delete, contentDescription = "Šalinti laipsnį", tint = MaterialTheme.colorScheme.error)
                 }
             }
-            HorizontalDivider()
-            if (ranks.isEmpty()) {
-                Text("Laipsnių nėra", color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    style = MaterialTheme.typography.bodyMedium)
-            } else {
-                ranks.forEach { rank ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(displayRoleName(rank.roleName), style = MaterialTheme.typography.bodyMedium)
-                        if (canManageRoles) {
-                            IconButton(onClick = { onRemoveRank(rank) }, enabled = !isSaving) {
-                                Icon(Icons.Default.Delete, contentDescription = "Šalinti laipsnį",
-                                    tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
-                    }
-                    if (rank != ranks.last()) HorizontalDivider()
-                }
+        }
+    }
+}
+
+@Composable
+private fun MemberHistoryRow(role: MemberLeadershipRoleDto) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            role.organizationalUnitName?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            val endedAt = role.leftAt?.take(10)
+            Text(
+                text = listOfNotNull(role.termStatus, endedAt).joinToString(" - "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -797,15 +943,6 @@ private fun EditRoleDialog(
     )
 }
 
-@Composable
-private fun MemberInfoRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(label, style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TransferTuntininkasDialog(
@@ -864,7 +1001,95 @@ private fun TransferTuntininkasDialog(
     )
 }
 
+
+@Composable
+private fun DetailListRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String,
+    trailing: String? = null,
+    onClick: (() -> Unit)? = null
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                modifier = Modifier.size(42.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            trailing?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DetailEmptyRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    text: String
+) {
+    DetailListRow(
+        icon = icon,
+        title = text,
+        subtitle = "Įrašų šiame skyriuje nėra"
+    )
+}
+
+private fun MemberDto.primaryMemberSubtitle(): String {
+    val activeRole = leadershipRoles.firstOrNull { it.termStatus == "ACTIVE" }?.roleName?.let(::displayRoleName)
+    val unit = unitAssignments.orEmpty().firstOrNull()?.organizationalUnitName
+    return listOfNotNull(activeRole, unit, email.takeIf { it.isNotBlank() }).joinToString(" · ")
+        .ifBlank { "Nario informacija" }
+}
+
+private fun assignmentTypeLabel(type: String): String = when (type) {
+    "MEMBER" -> "Narys"
+    "VADOVO_PADEJEJAS" -> "Vadovo padėjėjas"
+    else -> type
+}
+
 private fun isTuntininkasRoleName(roleName: String): Boolean = roleName == "Tuntininkas"
+
+private fun isPrincipalUnitLeaderRoleName(roleName: String): Boolean = roleName in setOf(
+    "Draugininkas",
+    "Gildijos pirmininkas",
+    "Vyr. skautu draugoves draugininkas",
+    "Vyr. skautu burelio pirmininkas",
+    "Vyr. skauciu draugoves draugininkas",
+    "Vyr. skauciu burelio pirmininkas"
+)
 
 private fun termStatusLabel(status: String): String = when (status) {
     "ACTIVE" -> "Aktyvus"
@@ -872,3 +1097,5 @@ private fun termStatusLabel(status: String): String = when (status) {
     "RESIGNED" -> "Atsistatydinta"
     else -> status
 }
+
+

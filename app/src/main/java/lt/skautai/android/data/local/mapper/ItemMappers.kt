@@ -29,6 +29,8 @@ fun ItemDto.toEntity(): ItemEntity = ItemEntity(
     locationPath = locationPath,
     temporaryStorageLabel = temporaryStorageLabel,
     sourceSharedItemId = sourceSharedItemId,
+    kitId = kitId,
+    kitName = kitName,
     quantityBreakdownJson = gson.toJson(quantityBreakdown.orEmpty()),
     totalQuantityAcrossCustodians = totalQuantityAcrossCustodians,
     responsibleUserId = responsibleUserId,
@@ -68,6 +70,8 @@ fun ItemEntity.toDto(): ItemDto = ItemDto(
     locationPath = locationPath,
     temporaryStorageLabel = temporaryStorageLabel,
     sourceSharedItemId = sourceSharedItemId,
+    kitId = kitId,
+    kitName = kitName,
     quantityBreakdown = runCatching {
         gson.fromJson<List<ItemDistributionDto>>(quantityBreakdownJson, quantityBreakdownType)
     }.getOrNull().orEmpty(),

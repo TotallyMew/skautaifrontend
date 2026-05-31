@@ -18,6 +18,7 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
+import lt.skautai.android.data.repository.MobileRepository
 import lt.skautai.android.data.repository.MyTaskRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
@@ -63,6 +64,7 @@ class HomeViewModel @Inject constructor(
     private val requisitionRepository: RequisitionRepository,
     private val eventRepository: EventRepository,
     private val memberRepository: MemberRepository,
+    private val mobileRepository: MobileRepository,
     private val myTaskRepository: MyTaskRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val userRepository: UserRepository,
@@ -89,6 +91,45 @@ class HomeViewModel @Inject constructor(
                 isLoading = !hasLoadedData,
                 error = null
             )
+
+            mobileRepository.getHomeSummary(forceRefresh = force)
+                .onSuccess { summary ->
+                    if (summary.activeUnitId != tokenManager.activeOrgUnitId.first()) {
+                        tokenManager.setActiveOrgUnit(summary.activeUnitId)
+                    }
+                    _uiState.value = HomeUiState(
+                        isLoading = false,
+                        activeUnitId = summary.activeUnitId,
+                        activeUnitName = summary.activeUnitName,
+                        availableUnits = summary.availableUnits,
+                        activeUnitItemCount = summary.activeUnitItemCount,
+                        activeUnitFromSharedCount = summary.activeUnitFromSharedCount,
+                        sharedInventoryCount = summary.sharedInventoryCount,
+                        sharedPendingApprovalCount = summary.sharedPendingApprovalCount,
+                        personalLendingCount = summary.personalLendingCount,
+                        requisitionCount = summary.requisitionCount,
+                        myRequisitionCount = summary.myRequisitionCount,
+                        assignedRequisitionCount = summary.assignedRequisitionCount,
+                        sharedRequestCount = summary.sharedRequestCount,
+                        myReservationCount = summary.myReservationCount,
+                        assignedReservationCount = summary.assignedReservationCount,
+                        trackedReservationCount = summary.trackedReservationCount,
+                        activeReservations = summary.activeReservations,
+                        tasks = summary.tasks,
+                        taskTotalCount = summary.taskTotalCount,
+                        error = null
+                    )
+                    return@launch
+                }
+                .onFailure { error ->
+                    if (!hasLoadedData) {
+                        _uiState.value = _uiState.value.copy(
+                            isLoading = false,
+                            error = error.message ?: "Nepavyko gauti pradžios suvestinės"
+                        )
+                    }
+                    return@launch
+                }
 
             val userId = tokenManager.userId.first()
             val activeTuntasId = tokenManager.activeTuntasId.first()

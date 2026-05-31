@@ -22,6 +22,8 @@ data class ItemEntity(
     val locationPath: String?,
     val temporaryStorageLabel: String?,
     val sourceSharedItemId: String?,
+    val kitId: String?,
+    val kitName: String?,
     val quantityBreakdownJson: String,
     val totalQuantityAcrossCustodians: Int,
     val responsibleUserId: String?,

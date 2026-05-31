@@ -1072,8 +1072,11 @@ private fun String.toInventoryDisplayLabel(): String =
 
 private fun conditionOptions(): List<Pair<String, String>> = listOf(
     "GOOD" to "Gera",
-    "DAMAGED" to "Vidutinė",
-    "WRITTEN_OFF" to "Bloga"
+    "DAMAGED" to "Sugadinta",
+    "MISSING" to "Pamesta",
+    "UNDER_REPAIR" to "Taisoma",
+    "NEEDS_INSPECTION" to "Reikia patikrinti",
+    "WRITTEN_OFF" to "Nurašyta"
 )
 
 private fun createTitle(mode: String): String = when (mode) {

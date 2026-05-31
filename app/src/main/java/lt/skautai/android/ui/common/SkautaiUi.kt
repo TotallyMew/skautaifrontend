@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -825,6 +826,7 @@ fun SkautaiSectionHeader(
     title: String,
     subtitle: String? = null,
     actionLabel: String? = null,
+    actionIcon: ImageVector? = null,
     onAction: (() -> Unit)? = null
 ) {
     Row(
@@ -843,14 +845,23 @@ fun SkautaiSectionHeader(
             }
         }
         if (actionLabel != null && onAction != null) {
-            Text(
-                text = actionLabel,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.primary,
+            TextButton(
+                onClick = onAction,
                 modifier = Modifier
-                    .padding(start = 12.dp, top = 2.dp)
-                    .clickable(onClick = onAction)
-            )
+                    .padding(start = 12.dp)
+                    .height(36.dp),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                actionIcon?.let {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                }
+                Text(text = actionLabel, style = MaterialTheme.typography.labelLarge)
+            }
         }
     }
 }
@@ -940,8 +951,8 @@ fun itemStatusTone(status: String): SkautaiStatusTone = when (status) {
 
 fun itemConditionTone(condition: String): SkautaiStatusTone = when (condition) {
     "GOOD" -> SkautaiStatusTone.Success
-    "DAMAGED" -> SkautaiStatusTone.Warning
-    "WRITTEN_OFF" -> SkautaiStatusTone.Danger
+    "DAMAGED", "UNDER_REPAIR", "NEEDS_INSPECTION" -> SkautaiStatusTone.Warning
+    "MISSING", "WRITTEN_OFF" -> SkautaiStatusTone.Danger
     else -> SkautaiStatusTone.Neutral
 }
 
@@ -979,8 +990,11 @@ fun itemStatusLabel(status: String): String = when (status) {
 
 fun itemConditionLabel(condition: String): String = when (condition) {
     "GOOD" -> "Gera"
-    "DAMAGED" -> "Vidutinė"
-    "WRITTEN_OFF" -> "Bloga"
+    "MISSING" -> "Pamesta"
+    "UNDER_REPAIR" -> "Taisoma"
+    "NEEDS_INSPECTION" -> "Reikia patikrinti"
+    "DAMAGED" -> "Sugadinta"
+    "WRITTEN_OFF" -> "Nurašyta"
     else -> customCodeLabel(condition)
 }
 

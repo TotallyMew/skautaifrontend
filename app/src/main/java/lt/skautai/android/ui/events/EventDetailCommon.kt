@@ -574,8 +574,8 @@ fun EventInventoryListRow(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .padding(horizontal = 2.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.Top,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             leading?.invoke()
@@ -587,11 +587,11 @@ fun EventInventoryListRow(
                     item.name,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    planItemSubtitle(item),
+                    planItemCompactSubtitle(item),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -618,10 +618,10 @@ fun EventInventoryListRow(
 
 @Composable
 private fun EventQuantitySummary(item: EventInventoryItemDto) {
-    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(
             text = "Aprūpinta ${item.availableQuantity}/${item.plannedQuantity}",
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.labelLarge,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
         )
@@ -836,6 +836,15 @@ fun eventTypeLabel(type: String, customTypeLabel: String? = null): String {
 }
 
 fun eventTypeLabel(event: EventDto): String = eventTypeLabel(event.type, event.customTypeLabel)
+
+fun planItemCompactSubtitle(item: EventInventoryItemDto): String {
+    return buildList {
+        item.bucketName?.takeIf { it.isNotBlank() }?.let { add("Paskirtis: $it") }
+        if (item.reservationGroupId != null) add("Rezervuota")
+        item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { add("Atsakingas: $it") }
+        item.sourcePickupSummary?.takeIf { it.isNotBlank() }?.let { add("Pasiimti is: $it") }
+    }.joinToString(" / ").ifBlank { "Paskirtis neparinkta" }
+}
 
 fun planItemSubtitle(item: EventInventoryItemDto): String {
     val parts = mutableListOf<String>()

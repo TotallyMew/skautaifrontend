@@ -35,7 +35,8 @@ class RequestRepository @Inject constructor(
     private val requestApiService: RequestApiService,
     private val tokenManager: TokenManager,
     private val bendrasRequestDao: BendrasRequestDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -72,6 +73,7 @@ class RequestRepository @Inject constructor(
                 val entities = requests.toBendrasRequestEntities()
                 bendrasRequestDao.deleteForTuntas(currentTuntasId)
                 bendrasRequestDao.upsertAll(entities)
+                refreshCoordinator.recordAttempt(REQUESTS_RESOURCE, success = true)
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymus")))
@@ -97,7 +99,9 @@ class RequestRepository @Inject constructor(
     }
 
     suspend fun getRequests(): Result<BendrasRequestListDto> {
-        refreshRequests()
+        if (refreshCoordinator.shouldRefresh(REQUESTS_RESOURCE, ttl = CacheTtl.LIST)) {
+            refreshRequests()
+        }
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedRequests = currentTuntasId
             ?.let { bendrasRequestDao.getRequests(it).toBendrasRequestDtos() }
@@ -244,5 +248,8 @@ class RequestRepository @Inject constructor(
             )
             Result.success(updated)
         } catch (e: Exception) { Result.failure(e.userFacingException()) }
+    }
+    companion object {
+        private const val REQUESTS_RESOURCE = "bendras_requests"
     }
 }

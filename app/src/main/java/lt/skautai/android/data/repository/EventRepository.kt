@@ -129,7 +129,8 @@ class EventRepository @Inject constructor(
     private val eventApiService: EventApiService,
     private val tokenManager: TokenManager,
     private val eventDao: EventDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception(SESSION_EXPIRED_MESSAGE)
@@ -160,13 +161,18 @@ class EventRepository @Inject constructor(
     }
 
     suspend fun refreshEvents(type: String? = null, status: String? = null): Result<Unit> {
+        val queryKey = eventQueryKey(type, status)
         return try {
             val currentTuntasId = tuntasId()
-            val response = eventApiService.getEvents("Bearer ${token()}", currentTuntasId, type, status)
+            val updatedAfter = refreshCoordinator.lastSuccessfulRefreshInstant(EVENTS_RESOURCE, queryKey)
+            val response = eventApiService.getEvents("Bearer ${token()}", currentTuntasId, type, status, updatedAfter)
             if (response.isSuccessful) {
                 val events = response.body()?.events.orEmpty()
-                eventDao.deleteForQuery(currentTuntasId, type, status)
+                if (updatedAfter == null) {
+                    eventDao.deleteForQuery(currentTuntasId, type, status)
+                }
                 eventDao.upsertAll(events.toEventEntities())
+                refreshCoordinator.recordAttempt(EVENTS_RESOURCE, queryKey, success = true)
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti renginių.")))
@@ -183,6 +189,7 @@ class EventRepository @Inject constructor(
             val response = eventApiService.getEvent("Bearer ${token()}", currentTuntasId, id)
             if (response.isSuccessful) {
                 eventDao.upsert(response.body()!!.toEntity())
+                refreshCoordinator.recordAttempt(EVENT_RESOURCE, id, success = true)
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti renginio.")))
@@ -193,7 +200,13 @@ class EventRepository @Inject constructor(
     }
 
     suspend fun getEvents(type: String? = null, status: String? = null): Result<EventListDto> {
-        val refreshResult = refreshEvents(type, status)
+        val queryKey = eventQueryKey(type, status)
+        val shouldRefresh = refreshCoordinator.shouldRefresh(
+            resource = EVENTS_RESOURCE,
+            queryKey = queryKey,
+            ttl = CacheTtl.LIST
+        )
+        val refreshResult = if (shouldRefresh) refreshEvents(type, status) else Result.success(Unit)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedEvents = currentTuntasId
             ?.let { eventDao.getEvents(it, type, status).toEventDtos() }
@@ -215,7 +228,8 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception("Renginys nerastas"))
             }
         }
-        val refreshResult = refreshEvent(id)
+        val shouldRefresh = refreshCoordinator.shouldRefresh(EVENT_RESOURCE, id, CacheTtl.DETAIL)
+        val refreshResult = if (shouldRefresh) refreshEvent(id) else Result.success(Unit)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedEvent = currentTuntasId?.let { eventDao.getEvent(id, it)?.toDto() }
         return if (cachedEvent != null) {
@@ -619,6 +633,19 @@ class EventRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
+    }
+
+    suspend fun getCachedEvents(type: String? = null, status: String? = null): EventListDto {
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val cachedEvents = currentTuntasId
+            ?.let { eventDao.getEvents(it, type, status).toEventDtos() }
+            .orEmpty()
+        return EventListDto(cachedEvents, cachedEvents.size)
+    }
+
+    suspend fun getFreshEvents(type: String? = null, status: String? = null): Result<EventListDto> {
+        refreshEvents(type, status)
+        return getEvents(type, status)
     }
 
     suspend fun getInventoryTemplates(eventType: String? = null): Result<InventoryTemplateListDto> {
@@ -2110,4 +2137,12 @@ class EventRepository @Inject constructor(
         if (request.movementType == "CHECKOUT_TO_PERSON") request.toUserId else null
 
     private suspend fun currentToUserName(request: CreateEventInventoryMovementRequestDto): String? = null
+
+    private fun eventQueryKey(type: String?, status: String?): String =
+        "type=${type.orEmpty()}|status=${status.orEmpty()}"
+
+    companion object {
+        private const val EVENTS_RESOURCE = "events"
+        private const val EVENT_RESOURCE = "event"
+    }
 }

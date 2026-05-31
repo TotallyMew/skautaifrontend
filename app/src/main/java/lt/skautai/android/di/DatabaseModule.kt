@@ -12,6 +12,7 @@ import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import lt.skautai.android.data.local.AppDatabase
 import lt.skautai.android.data.local.dao.BendrasRequestDao
+import lt.skautai.android.data.local.dao.CacheMetadataDao
 import lt.skautai.android.data.local.dao.EventDao
 import lt.skautai.android.data.local.dao.ItemDao
 import lt.skautai.android.data.local.dao.LocationDao
@@ -143,6 +144,21 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `events` ADD COLUMN `customTypeLabel` TEXT")
             }
         }
+        val migration13To14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `kitId` TEXT")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `kitName` TEXT")
+            }
+        }
+        val migration14To15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS `cache_metadata` (`tuntasId` TEXT NOT NULL, `resource` TEXT NOT NULL, `queryKey` TEXT NOT NULL, `lastSuccessfulRefreshAt` INTEGER, `lastAttemptAt` INTEGER NOT NULL, `lastError` TEXT, PRIMARY KEY(`tuntasId`, `resource`, `queryKey`))
+                    """.trimIndent()
+                )
+            }
+        }
 
         return Room.databaseBuilder(
             context,
@@ -161,7 +177,9 @@ object DatabaseModule {
                 migration9To10,
                 migration10To11,
                 migration11To12,
-                migration12To13
+                migration12To13,
+                migration13To14,
+                migration14To15
             )
             // The local Room store is used for offline/cache state. If a device already has
             // a newer dev schema, wiping only on downgrade is safer than crashing on launch.
@@ -198,4 +216,8 @@ object DatabaseModule {
     @Provides
     fun providePendingOperationDao(database: AppDatabase): PendingOperationDao =
         database.pendingOperationDao()
+
+    @Provides
+    fun provideCacheMetadataDao(database: AppDatabase): CacheMetadataDao =
+        database.cacheMetadataDao()
 }

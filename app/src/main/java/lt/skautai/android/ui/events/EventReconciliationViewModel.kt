@@ -67,7 +67,15 @@ class EventReconciliationViewModel @Inject constructor(
         }
     }
 
-    fun reconcileReturn(eventId: String, custodyId: String, decision: String, quantity: Int) {
+    fun reconcileReturn(
+        eventId: String,
+        custodyId: String,
+        decision: String,
+        quantity: Int,
+        returnToMode: String? = null,
+        returnLocationNote: String? = null,
+        notes: String? = null
+    ) {
         val current = _uiState.value as? EventReconciliationUiState.Success ?: return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
@@ -76,7 +84,10 @@ class EventReconciliationViewModel @Inject constructor(
                     ReconcileEventReturnLineRequestDto(
                         custodyId = custodyId,
                         decision = decision,
-                        quantity = quantity
+                        quantity = quantity,
+                        returnToMode = returnToMode,
+                        returnLocationNote = returnLocationNote,
+                        notes = notes
                     )
                 )
             )

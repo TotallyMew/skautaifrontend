@@ -1,21 +1,24 @@
-package lt.skautai.android.ui.profile
+﻿package lt.skautai.android.ui.profile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,7 +33,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiTextField
 
 @Composable
@@ -95,19 +100,12 @@ fun ProfileScreen(
                         email = uiState.email
                     )
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
+                    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                "Pagrindiniai duomenys",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            SkautaiSectionHeader(title = "Pagrindiniai duomenys")
                             HorizontalDivider()
                             SkautaiTextField(
                                 value = uiState.name,
@@ -148,19 +146,12 @@ fun ProfileScreen(
                         }
                     }
 
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                    ) {
+                    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Text(
-                                "Slaptažodis",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            SkautaiSectionHeader(title = "Slaptažodis")
                             HorizontalDivider()
                             SkautaiTextField(
                                 value = uiState.currentPassword,
@@ -189,15 +180,15 @@ fun ProfileScreen(
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                                 modifier = Modifier.fillMaxWidth()
                             )
-                            SkautaiPrimaryButton(
-                                text = if (uiState.isSavingPassword) "Keičiama..." else "Keisti slaptažodį",
+                            OutlinedButton(
                                 onClick = viewModel::changePassword,
                                 enabled = !uiState.isSavingPassword,
                                 modifier = Modifier.fillMaxWidth()
-                            )
+                            ) {
+                                Text(if (uiState.isSavingPassword) "Keičiama..." else "Keisti slaptažodį")
+                            }
                         }
                     }
-
                     ProfileMetaRow("Sukurta", uiState.profile?.createdAt?.take(10).orEmpty())
                     ProfileMetaRow("Atnaujinta", uiState.profile?.updatedAt?.take(10).orEmpty())
                 }
@@ -214,23 +205,45 @@ private fun ProfileHeader(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Row(
+            modifier = Modifier.padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = listOf(name, surname).filter { it.isNotBlank() }.joinToString(" "),
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = email,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
-            )
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Text(
+                        text = listOf(name, surname)
+                            .mapNotNull { it.firstOrNull()?.uppercaseChar()?.toString() }
+                            .joinToString("")
+                            .take(2)
+                            .ifBlank { "P" },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = listOf(name, surname).filter { it.isNotBlank() }.joinToString(" "),
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+                Text(
+                    text = email,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                )
+            }
         }
     }
 }

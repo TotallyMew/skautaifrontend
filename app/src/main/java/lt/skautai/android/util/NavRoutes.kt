@@ -12,6 +12,7 @@ sealed class NavRoutes(val route: String) {
     object RegisterInvite : NavRoutes("register_invite")
     object Home : NavRoutes("home")
     object MyTasks : NavRoutes("my_tasks")
+    object Calendar : NavRoutes("calendar")
 
     object InviteCreate : NavRoutes("invite_create")
     object InviteAccept : NavRoutes("invite_accept")
@@ -43,6 +44,7 @@ sealed class NavRoutes(val route: String) {
     object InventoryDetail : NavRoutes("inventory_detail/{itemId}") {
         fun createRoute(itemId: String) = "inventory_detail/$itemId"
     }
+    object InventoryKits : NavRoutes("inventory_kits")
     object InventoryQrScanner : NavRoutes("inventory_qr_scanner")
     object InventoryAudit : NavRoutes("inventory_audit?type={type}&category={category}&custodianId={custodianId}&sharedOnly={sharedOnly}&personalOwner={personalOwner}") {
         fun createRoute(
@@ -193,7 +195,9 @@ sealed class NavRoutes(val route: String) {
         fun titleFor(currentRoute: String?): String = when (currentRoute?.substringBefore("?")) {
             Home.route -> "Pradžia"
             MyTasks.route -> "Mano užduotys"
+            Calendar.route -> "Kalendorius"
             InventoryList.route.substringBefore("?") -> "Inventorius"
+            InventoryKits.route -> "Komplektai"
             InventoryDetail.route -> "Daikto informacija"
             InventoryQrScanner.route -> "QR skenavimas"
             InventoryAudit.route.substringBefore("?") -> "Inventorizacija"

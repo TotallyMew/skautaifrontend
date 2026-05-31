@@ -240,7 +240,7 @@ private fun OverviewCard(
     SkautaiSummaryCard(
         eyebrow = "Pagrindinė apžvalga",
         title = "Labas, $userName",
-        subtitle = "Home lieka trumpa santrauka, o visas veiksmų centras yra mano užduotyse.",
+        subtitle = "Inventoriaus ir užuočių suvestinė",
         metrics = listOf(
             "Veiksmai" to uiState.taskTotalCount.toString(),
             "Vieneto daiktai" to uiState.activeUnitItemCount.toString(),

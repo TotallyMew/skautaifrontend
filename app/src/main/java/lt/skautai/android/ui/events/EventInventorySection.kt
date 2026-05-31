@@ -47,6 +47,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryAllocationDto
 import lt.skautai.android.data.remote.EventInventoryBucketDto
@@ -1471,20 +1473,39 @@ fun EditNeedDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Redaguoti plano eilute") },
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Redaguoti plano eilute", fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 280.dp)
+                    .heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 SkautaiTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = "Daiktas",
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
                 SkautaiTextField(
                     value = quantity,
                     onValueChange = { quantity = it.filter(Char::isDigit) },
                     label = "Kiekis",
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
                 )
                 DropdownField(
                     label = "Paskirtis",
@@ -1504,6 +1525,22 @@ fun EditNeedDialog(
                     label = "Pastabos",
                     modifier = Modifier.fillMaxWidth()
                 )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isWorking
+                    ) {
+                        Text("Atšaukti")
+                    }
+                    Button(
+                        onClick = { onSave(name, quantity, bucketId, responsibleUserId, notes) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isWorking
+                    ) {
+                        Text(if (isWorking) "Saugoma..." else "Išsaugoti")
+                    }
+                }
             }
         },
         confirmButton = {
@@ -1517,4 +1554,213 @@ fun EditNeedDialog(
             }
         }
     )
+}
+
+@Composable
+fun EditNeedDialogModern(
+    item: EventInventoryItemDto,
+    buckets: List<EventInventoryBucketDto>,
+    members: List<MemberDto>,
+    isWorking: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String?, String?, String) -> Unit
+) {
+    var name by remember(item.id) { mutableStateOf(item.name) }
+    var quantity by remember(item.id) { mutableStateOf(item.plannedQuantity.toString()) }
+    var bucketId by remember(item.id) { mutableStateOf(item.bucketId) }
+    var responsibleUserId by remember(item.id) { mutableStateOf(item.responsibleUserId) }
+    var notes by remember(item.id) { mutableStateOf(item.notes.orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Redaguoti plano eilute", fontWeight = FontWeight.SemiBold)
+                Text(
+                    text = item.name,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        },
+        text = {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .widthIn(min = 280.dp)
+                    .heightIn(max = 520.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                SkautaiTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "Daiktas",
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                SkautaiTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it.filter(Char::isDigit) },
+                    label = "Kiekis",
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                DropdownField(
+                    label = "Paskirtis",
+                    value = buckets.firstOrNull { it.id == bucketId }?.name ?: "Pasirinkti",
+                    options = buckets.map { it.id to it.name },
+                    onSelect = { bucketId = it }
+                )
+                DropdownField(
+                    label = "Atsakingas",
+                    value = members.firstOrNull { it.userId == responsibleUserId }?.fullName() ?: "Nepasirinkta",
+                    options = members.map { it.userId to it.fullName() },
+                    onSelect = { responsibleUserId = it }
+                )
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isWorking
+                    ) {
+                        Text("Atšaukti")
+                    }
+                    Button(
+                        onClick = { onSave(name, quantity, bucketId, responsibleUserId, notes) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isWorking
+                    ) {
+                        Text(if (isWorking) "Saugoma..." else "Išsaugoti")
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {}
+    )
+}
+
+@Composable
+fun EditNeedDialogPolished(
+    item: EventInventoryItemDto,
+    buckets: List<EventInventoryBucketDto>,
+    members: List<MemberDto>,
+    isWorking: Boolean,
+    onDismiss: () -> Unit,
+    onSave: (String, String, String?, String?, String) -> Unit
+) {
+    var name by remember(item.id) { mutableStateOf(item.name) }
+    var quantity by remember(item.id) { mutableStateOf(item.plannedQuantity.toString()) }
+    var bucketId by remember(item.id) { mutableStateOf(item.bucketId) }
+    var responsibleUserId by remember(item.id) { mutableStateOf(item.responsibleUserId) }
+    var notes by remember(item.id) { mutableStateOf(item.notes.orEmpty()) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            shape = RoundedCornerShape(28.dp),
+            color = MaterialTheme.colorScheme.surfaceBright
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Redaguoti plano eilutę",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Atnaujink kiekį, paskirtį ir atsakingą narį.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                SkautaiCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonal = MaterialTheme.colorScheme.surfaceContainerLow
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Redaguojamas daiktas",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = item.name,
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+                SkautaiTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = "Daiktas",
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                SkautaiTextField(
+                    value = quantity,
+                    onValueChange = { quantity = it.filter(Char::isDigit) },
+                    label = "Kiekis",
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                DropdownField(
+                    label = "Paskirtis",
+                    value = buckets.firstOrNull { it.id == bucketId }?.name ?: "Pasirinkti",
+                    options = buckets.map { it.id to it.name },
+                    onSelect = { bucketId = it }
+                )
+                DropdownField(
+                    label = "Atsakingas",
+                    value = members.firstOrNull { it.userId == responsibleUserId }?.fullName() ?: "Nepasirinkta",
+                    options = members.map { it.userId to it.fullName() },
+                    onSelect = { responsibleUserId = it }
+                )
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isWorking
+                    ) {
+                        Text("Atšaukti")
+                    }
+                    Button(
+                        onClick = { onSave(name, quantity, bucketId, responsibleUserId, notes) },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isWorking
+                    ) {
+                        Text(if (isWorking) "Saugoma..." else "Išsaugoti")
+                    }
+                }
+            }
+        }
+    }
 }

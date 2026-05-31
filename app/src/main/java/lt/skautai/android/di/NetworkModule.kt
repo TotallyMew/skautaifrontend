@@ -10,9 +10,11 @@ import lt.skautai.android.BuildConfig
 import lt.skautai.android.data.remote.AuthApiService
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.InvitationApiService
+import lt.skautai.android.data.remote.InventoryKitApiService
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.MemberApiService
+import lt.skautai.android.data.remote.MobileApiService
 import lt.skautai.android.data.remote.MyTaskApiService
 import lt.skautai.android.data.remote.OrganizationalUnitApiService
 import lt.skautai.android.data.remote.RequestApiService
@@ -125,6 +127,12 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideInventoryKitApiService(retrofit: Retrofit): InventoryKitApiService {
+        return retrofit.create(InventoryKitApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun provideOrganizationalUnitApiService(retrofit: Retrofit): OrganizationalUnitApiService {
         return retrofit.create(OrganizationalUnitApiService::class.java)
     }
@@ -157,6 +165,12 @@ object NetworkModule {
     @Singleton
     fun provideMyTaskApiService(retrofit: Retrofit): MyTaskApiService {
         return retrofit.create(MyTaskApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideMobileApiService(retrofit: Retrofit): MobileApiService {
+        return retrofit.create(MobileApiService::class.java)
     }
 
     @Provides

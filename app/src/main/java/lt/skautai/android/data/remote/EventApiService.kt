@@ -10,7 +10,8 @@ interface EventApiService {
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String,
         @Query("type") type: String? = null,
-        @Query("status") status: String? = null
+        @Query("status") status: String? = null,
+        @Query("updatedAfter") updatedAfter: String? = null
     ): Response<EventListDto>
 
     @GET("api/events/{id}")
@@ -173,6 +174,32 @@ interface EventApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Path("id") id: String,
         @Path("inventoryItemId") inventoryItemId: String
+    ): Response<Unit>
+
+    @POST("api/events/{id}/inventory-items/{inventoryItemId}/sources")
+    suspend fun createInventorySource(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("inventoryItemId") inventoryItemId: String,
+        @Body request: CreateEventInventorySourceRequestDto
+    ): Response<EventInventorySourceDto>
+
+    @PUT("api/events/{id}/inventory-items/sources/{sourceId}")
+    suspend fun updateInventorySource(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("sourceId") sourceId: String,
+        @Body request: UpdateEventInventorySourceRequestDto
+    ): Response<EventInventorySourceDto>
+
+    @DELETE("api/events/{id}/inventory-items/sources/{sourceId}")
+    suspend fun deleteInventorySource(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("sourceId") sourceId: String
     ): Response<Unit>
 
     @POST("api/events/{id}/inventory-allocations")

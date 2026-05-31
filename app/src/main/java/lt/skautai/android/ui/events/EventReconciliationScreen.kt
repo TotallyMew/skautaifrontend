@@ -64,6 +64,7 @@ fun EventReconciliationScreen(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var pendingReturnDecision by remember { mutableStateOf<Pair<EventReconciliationReturnLineDto, String>?>(null) }
     var pendingPurchaseDecision by remember { mutableStateOf<Pair<EventReconciliationPurchaseLineDto, String>?>(null) }
 
     LaunchedEffect(eventId) { viewModel.load(eventId) }
@@ -128,7 +129,7 @@ fun EventReconciliationScreen(
                                 rows = reconciliation.openReturns,
                                 isWorking = current.isWorking || current.event.status == "COMPLETED",
                                 onDecision = { row, decision ->
-                                    viewModel.reconcileReturn(eventId, row.custodyId, decision, row.remainingQuantity)
+                                    pendingReturnDecision = row to decision
                                 }
                             )
                         }
@@ -187,6 +188,26 @@ fun EventReconciliationScreen(
                     decision = decision,
                     quantity = quantity,
                     existingItemId = if (decision == "INCREASE_EXISTING_ITEM") existingItemId else null
+                )
+            }
+        )
+    }
+
+    pendingReturnDecision?.let { (row, decision) ->
+        ReconcileReturnQuantityDialog(
+            row = row,
+            decision = decision,
+            onDismiss = { pendingReturnDecision = null },
+            onConfirm = { quantity, returnToMode, note ->
+                pendingReturnDecision = null
+                viewModel.reconcileReturn(
+                    eventId = eventId,
+                    custodyId = row.custodyId,
+                    decision = decision,
+                    quantity = quantity,
+                    returnToMode = returnToMode,
+                    returnLocationNote = note,
+                    notes = note
                 )
             }
         )
@@ -301,6 +322,96 @@ private fun ReconciliationPurchaseSection(
                     )
                     if (index != rows.lastIndex) HorizontalDivider()
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReconcileReturnQuantityDialog(
+    row: EventReconciliationReturnLineDto,
+    decision: String,
+    onDismiss: () -> Unit,
+    onConfirm: (Int, String?, String?) -> Unit
+) {
+    var quantityText by remember(row.custodyId, decision) { mutableStateOf(row.remainingQuantity.toString()) }
+    var returnToMode by remember(row.custodyId, decision) {
+        mutableStateOf(if (decision in listOf("RETURNED", "DAMAGED")) "ORIGINAL_SOURCE" else null)
+    }
+    var note by remember(row.custodyId, decision) { mutableStateOf("") }
+    val quantity = quantityText.toIntOrNull()
+    val destinationRequired = decision in listOf("RETURNED", "DAMAGED")
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(returnDecisionLabel(decision)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(row.itemName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+                Text("Likutis: ${row.remainingQuantity} vnt.", style = MaterialTheme.typography.bodySmall)
+                OutlinedTextField(
+                    value = quantityText,
+                    onValueChange = { quantityText = it.filter(Char::isDigit) },
+                    label = { Text("Kiekis") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (destinationRequired) {
+                    ReturnDestinationSelector(
+                        value = returnToMode ?: "ORIGINAL_SOURCE",
+                        onValueChange = { returnToMode = it }
+                    )
+                }
+                OutlinedTextField(
+                    value = note,
+                    onValueChange = { note = it },
+                    label = { Text("Pastaba / vieta") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                enabled = quantity != null && quantity in 1..row.remainingQuantity,
+                onClick = { onConfirm(quantity ?: 0, if (destinationRequired) returnToMode else null, note.takeIf { it.isNotBlank() }) }
+            ) {
+                Text("Suvesti")
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Atšaukti") } }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ReturnDestinationSelector(value: String, onValueChange: (String) -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    val options = listOf(
+        "ORIGINAL_SOURCE" to "I originalu saltini",
+        "EVENT_STORAGE" to "I renginio sandeli",
+        "OTHER_LOCATION" to "I kita vieta"
+    )
+    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
+        OutlinedTextField(
+            value = options.firstOrNull { it.first == value }?.second ?: value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Kur grizo") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth()
+        )
+        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            options.forEach { (mode, label) ->
+                DropdownMenuItem(
+                    text = { Text(label) },
+                    onClick = {
+                        onValueChange(mode)
+                        expanded = false
+                    }
+                )
             }
         }
     }

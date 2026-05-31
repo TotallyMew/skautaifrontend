@@ -178,6 +178,37 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    fun updateCondition(itemId: String, condition: String) {
+        viewModelScope.launch {
+            if (_deleted.value || _isUpdatingStatus.value) return@launch
+
+            _isUpdatingStatus.value = true
+            itemRepository.updateItem(itemId, UpdateItemRequestDto(condition = condition))
+                .onSuccess {
+                    loadItem(itemId)
+                }
+                .onFailure { error ->
+                    _actionError.value = error.message ?: "Nepavyko pakeisti būklės"
+                }
+            _isUpdatingStatus.value = false
+        }
+    }
+
+    fun writeOffItem(itemId: String, reason: String) {
+        viewModelScope.launch {
+            if (_deleted.value || _isUpdatingStatus.value) return@launch
+            _isUpdatingStatus.value = true
+            itemRepository.writeOffItem(itemId, reason)
+                .onSuccess {
+                    _deleted.value = true
+                }
+                .onFailure { error ->
+                    _actionError.value = error.message ?: "Nepavyko nurašyti daikto"
+                }
+            _isUpdatingStatus.value = false
+        }
+    }
+
     fun transferToUnit(itemId: String, targetUnitId: String, quantity: Int, notes: String?) {
         viewModelScope.launch {
             if (_isTransferring.value) return@launch

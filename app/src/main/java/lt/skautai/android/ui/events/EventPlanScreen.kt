@@ -14,6 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventInventoryItemDto
+import lt.skautai.android.data.remote.EventInventorySourceDto
 import lt.skautai.android.data.remote.InventoryTemplateDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
@@ -104,13 +107,13 @@ fun EventPlanScreen(
                     val pickupGroups = remember(planItems, searchQuery, selectedBucketId) {
                         planItems
                             .filter { item ->
-                                item.itemId != null &&
-                                    !item.sourcePickupSummary.isNullOrBlank() &&
+                                item.pickupSources().isNotEmpty() &&
                                     (selectedBucketId == null || item.bucketId == selectedBucketId) &&
                                     (searchQuery.isBlank() || item.name.contains(searchQuery, ignoreCase = true))
                             }
-                            .sortedWith(compareBy({ it.sourcePickupSummary ?: "" }, { it.name.lowercase() }))
-                            .groupBy { it.sourcePickupSummary ?: "Nenurodyta vieta" }
+                            .flatMap { item -> item.pickupSources().map { source -> PickupPlanLine(item, source) } }
+                            .sortedWith(compareBy({ it.source.pickupSummary ?: "" }, { it.item.name.lowercase() }))
+                            .groupBy { it.source.pickupSummary ?: "Nenurodyta vieta" }
                     }
                     val filteredGrouped = remember(planItems, searchQuery, selectedBucketId) {
                         planItems
@@ -133,7 +136,7 @@ fun EventPlanScreen(
                                 )
                             }
                         }
-                        EditNeedDialog(
+                        EditNeedDialogPolished(
                             item = item,
                             buckets = buckets,
                             members = state.members,
@@ -236,18 +239,28 @@ fun EventPlanScreen(
                                         EventInventoryListRow(
                                             item = item,
                                             bottom = if (canInventory && !readOnly) ({
-                                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                    TextButton(
+                                                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    IconButton(
                                                         onClick = {
                                                             viewModel.loadMembers()
                                                             editingItem = item
                                                         },
-                                                        contentPadding = PaddingValues(0.dp)
-                                                    ) { Text("Redaguoti") }
-                                                    TextButton(
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Edit,
+                                                            contentDescription = "Redaguoti"
+                                                        )
+                                                    }
+                                                    IconButton(
                                                         onClick = { deletingItem = item },
-                                                        contentPadding = PaddingValues(0.dp)
-                                                    ) { Text("Trinti") }
+                                                        modifier = Modifier.size(32.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Default.Delete,
+                                                            contentDescription = "Trinti"
+                                                        )
+                                                    }
                                                 }
                                             }) else null
                                         )
@@ -264,24 +277,56 @@ fun EventPlanScreen(
 
 @Composable
 private fun PickupPlanCard(
-    pickupGroups: Map<String, List<EventInventoryItemDto>>,
+    pickupGroups: Map<String, List<PickupPlanLine>>,
     totalItems: Int
 ) {
     EventDetailSection(
-        title = "Surinkimo sÄ…raÅ¡as ukvedÅ¾iui",
-        subtitle = "$totalItems eil. iÅ¡ ${pickupGroups.size} vietÅ³"
+        title = "Surinkimo sąrašas ukvedžiui",
+        subtitle = "$totalItems eil. iš ${pickupGroups.size} vietų"
     ) {
         pickupGroups.forEach { (pickupSource, items) ->
             EventListGroupHeader(title = pickupSource, count = items.size)
-            items.forEach { item ->
-                PickupPlanRow(item = item)
+            items.forEach { line ->
+                PickupPlanRow(line = line)
             }
         }
     }
 }
 
+private data class PickupPlanLine(
+    val item: EventInventoryItemDto,
+    val source: EventInventorySourceDto
+)
+
+private fun EventInventoryItemDto.pickupSources(): List<EventInventorySourceDto> {
+    val current = sources.filter { it.reservedQuantity > 0 && !it.pickupSummary.isNullOrBlank() }
+    if (current.isNotEmpty()) return current
+    return sourcePickupSummary?.takeIf { it.isNotBlank() && availableQuantity > 0 }?.let {
+        listOf(
+            EventInventorySourceDto(
+                id = "legacy-$id",
+                eventInventoryItemId = id,
+                itemId = itemId,
+                reservationGroupId = reservationGroupId,
+                plannedQuantity = plannedQuantity,
+                reservedQuantity = availableQuantity,
+                pickupCustodianName = sourceCustodianName,
+                pickupLocationPath = sourceLocationPath,
+                pickupTemporaryStorageLabel = sourceTemporaryStorageLabel,
+                pickupResponsibleUserName = sourceResponsibleUserName,
+                pickupSummary = it,
+                sourceStatus = "RESERVED",
+                notes = notes,
+                createdAt = createdAt
+            )
+        )
+    }.orEmpty()
+}
+
 @Composable
-private fun PickupPlanRow(item: EventInventoryItemDto) {
+private fun PickupPlanRow(line: PickupPlanLine) {
+    val item = line.item
+    val source = line.source
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -300,6 +345,8 @@ private fun PickupPlanRow(item: EventInventoryItemDto) {
             val details = buildList {
                 item.bucketName?.takeIf { it.isNotBlank() }?.let { add("Paskirtis: $it") }
                 item.responsibleUserName?.takeIf { it.isNotBlank() }?.let { add("Atsakingas: $it") }
+                source.pickupCustodianName?.takeIf { it.isNotBlank() }?.let { add("Savininkas: $it") }
+                source.pickupResponsibleUserName?.takeIf { it.isNotBlank() }?.let { add("Pas: $it") }
                 item.notes?.takeIf { it.isNotBlank() }?.let { add(it) }
             }
             if (details.isNotEmpty()) {
@@ -311,7 +358,7 @@ private fun PickupPlanRow(item: EventInventoryItemDto) {
             }
         }
         Text(
-            text = "${item.plannedQuantity} vnt.",
+            text = "${source.reservedQuantity} vnt.",
             style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
             color = androidx.compose.material3.MaterialTheme.colorScheme.primary
         )

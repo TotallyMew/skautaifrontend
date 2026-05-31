@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.InventoryKitDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
+import lt.skautai.android.data.repository.InventoryKitRepository
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.util.InventoryCsv
@@ -34,7 +36,8 @@ sealed interface InventoryListUiState {
     object Loading : InventoryListUiState
     data class Success(
         val items: List<ItemDto>,
-        val pendingItems: List<ItemDto> = emptyList()
+        val pendingItems: List<ItemDto> = emptyList(),
+        val kits: List<InventoryKitDto> = emptyList()
     ) : InventoryListUiState
     data class Error(val message: String) : InventoryListUiState
     object Empty : InventoryListUiState
@@ -67,7 +70,6 @@ internal fun canManageInventoryItem(
     leadershipUnitIds: List<String>,
     activeOrgUnitId: String?
 ): Boolean = when {
-    item.origin == "TRANSFERRED_FROM_TUNTAS" && item.custodianId != null -> permissions.canManageSharedInventory()
     item.custodianId == null -> permissions.canManageAllItems()
     permissions.canManageAllItems() -> true
     else -> permissions.hasPermissionOwnUnit("items.update") &&
@@ -87,6 +89,7 @@ internal fun buildBulkUpdateRequest(action: InventoryBulkAction): UpdateItemRequ
 @HiltViewModel
 class InventoryListViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
+    private val inventoryKitRepository: InventoryKitRepository,
     private val locationRepository: LocationRepository,
     private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
@@ -113,6 +116,8 @@ class InventoryListViewModel @Inject constructor(
     private val _actionMessage = MutableStateFlow<String?>(null)
     val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
 
+    private val _kits = MutableStateFlow<List<InventoryKitDto>>(emptyList())
+
     private val _importDraft = MutableStateFlow<InventoryImportDraft?>(null)
     val importDraft: StateFlow<InventoryImportDraft?> = _importDraft.asStateFlow()
 
@@ -135,7 +140,7 @@ class InventoryListViewModel @Inject constructor(
     private val initialType = savedStateHandle.get<String?>("type")
     private val initialSharedOnly = savedStateHandle.get<Boolean>("sharedOnly") ?: false
     private val initialPersonalOwner = savedStateHandle.get<String?>("personalOwner")
-    private val personalOwnerOnly = initialPersonalOwner == "me"
+    private val personalOwnerOnly = !initialPersonalOwner.isNullOrBlank()
     val openedType: String? = initialType
     val openedCustodianId: String? = initialCustodianId
     val openedSharedOnly: Boolean = initialSharedOnly
@@ -161,7 +166,7 @@ class InventoryListViewModel @Inject constructor(
     private fun observeCachedItems() {
         viewModelScope.launch {
             val currentUserId = tokenManager.userId.first()
-            val personalOwnerId = if (personalOwnerOnly) currentUserId else null
+            val personalOwnerId = personalOwnerFilterId(currentUserId)
             combine(
                 itemRepository.observeItems(
                     custodianId = initialCustodianId,
@@ -177,9 +182,11 @@ class InventoryListViewModel @Inject constructor(
                     createdByUserId = personalOwnerId
                 ),
                 itemRepository.observeItems(status = "PENDING_APPROVAL"),
-                selectedStatus,
-                permissions
-            ) { activeItems, inactiveItems, pendingItems, selectedStatus, permissions ->
+                combine(_kits, selectedStatus, permissions) { kits, status, userPermissions ->
+                    Triple(kits, status, userPermissions)
+                }
+            ) { activeItems, inactiveItems, pendingItems, meta ->
+                val (kits, selectedStatus, permissions) = meta
                 val visibleInactiveItems = if (permissions.canManageAllItems()) inactiveItems else emptyList()
                 val canSeePending = permissions.canReviewItemAdditions() || permissions.canSubmitItemAddition()
                 val visiblePendingItems = if (canSeePending) pendingItems else emptyList()
@@ -191,7 +198,7 @@ class InventoryListViewModel @Inject constructor(
                 if (visibleItems.isEmpty() && visiblePendingItems.isEmpty()) {
                     InventoryListUiState.Empty
                 } else {
-                    InventoryListUiState.Success(visibleItems, visiblePendingItems)
+                    InventoryListUiState.Success(visibleItems, visiblePendingItems, kits)
                 }
             }.collect { state ->
                 if (!_isRefreshing.value ||
@@ -212,7 +219,7 @@ class InventoryListViewModel @Inject constructor(
             }
             try {
                 val currentUserId = tokenManager.userId.first()
-                val personalOwnerId = if (personalOwnerOnly) currentUserId else null
+                val personalOwnerId = personalOwnerFilterId(currentUserId)
                 val itemsResult = itemRepository.refreshItems(
                     custodianId = initialCustodianId,
                     type = initialType,
@@ -236,6 +243,9 @@ class InventoryListViewModel @Inject constructor(
                     )
                 } else Result.success(Unit)
 
+                inventoryKitRepository.getKits()
+                    .onSuccess { _kits.value = it.kits }
+
                 val error = itemsResult.exceptionOrNull()
                     ?: pendingItemsResult.exceptionOrNull()
                     ?: inactiveItemsResult.exceptionOrNull()
@@ -251,6 +261,12 @@ class InventoryListViewModel @Inject constructor(
                 _isRefreshing.value = false
             }
         }
+    }
+
+    private fun personalOwnerFilterId(currentUserId: String?): String? = when {
+        initialPersonalOwner.isNullOrBlank() -> null
+        initialPersonalOwner == "me" -> currentUserId
+        else -> initialPersonalOwner
     }
 
     fun approveItem(itemId: String) {

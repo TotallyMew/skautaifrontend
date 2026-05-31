@@ -1,15 +1,19 @@
-package lt.skautai.android.ui.units
+﻿package lt.skautai.android.ui.units
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.PersonRemove
+import androidx.compose.material.icons.filled.Tag
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,10 +24,17 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberRankDto
+import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.UnitMembershipDto
+import lt.skautai.android.ui.common.MetadataRow
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.SkautaiSummaryCard
+import lt.skautai.android.ui.common.isUnitLeader
 import lt.skautai.android.ui.members.displayRoleName
 import lt.skautai.android.util.canManageUnits
 
@@ -33,6 +44,7 @@ fun UnitDetailScreen(
     unitId: String,
     onBack: () -> Unit,
     onEditClick: (String) -> Unit,
+    onMemberClick: (String) -> Unit = {},
     viewModel: UnitDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -141,13 +153,6 @@ fun UnitDetailScreen(
                 }
             )
         },
-        floatingActionButton = {
-            if (uiState.unit != null && canManageMembers) {
-                FloatingActionButton(onClick = viewModel::openAssignMemberDialog) {
-                    Icon(Icons.Default.PersonAdd, contentDescription = "Priskirti narį")
-                }
-            }
-        },
         snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         when {
@@ -172,55 +177,63 @@ fun UnitDetailScreen(
                 val unit = uiState.unit!!
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
-                            Column(
-                                modifier = Modifier.padding(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    "Informacija",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
-                                HorizontalDivider()
-                                DetailRow("Tipas", unitTypeLabel(unit.type))
-                                unit.acceptedRankName?.let { DetailRow("Priimamas laipsnis", it) }
-                                DetailRow("Sukurta", unit.createdAt.take(10))
-                            }
-                        }
+                        UnitProfileCard(
+                            unit = unit,
+                            memberCount = uiState.members.size,
+                            activeReservationsCount = uiState.activeReservationsCount,
+                            activeRequestsCount = uiState.activeRequestsCount
+                        )
+                    }
+
+                    val leaders = uiState.members.filter { membership ->
+                        isUnitLeader(membership, uiState.memberDetails[membership.userId])
+                    }
+                    val regularMembers = uiState.members.filterNot { membership ->
+                        isUnitLeader(membership, uiState.memberDetails[membership.userId])
                     }
 
                     item {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                "Nariai (${uiState.members.size})",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        }
+                        SkautaiSectionHeader(
+                            title = "Vadovai",
+                            subtitle = "${leaders.size} aktyvios vadovavimo narystės"
+                        )
                     }
-
-                    if (uiState.members.isEmpty()) {
-                        item {
-                            Text(
-                                "Narių nėra",
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
+                    if (leaders.isEmpty()) {
+                        item { EmptyMembersCard("Vadovų nėra") }
                     } else {
-                        items(uiState.members) { membership ->
+                        items(leaders, key = { "leader-${it.userId}" }) { membership ->
                             UnitMemberCard(
                                 membership = membership,
                                 member = uiState.memberDetails[membership.userId],
                                 canManageMembers = canManageMembers,
+                                onOpen = { onMemberClick(membership.userId) },
+                                onRemove = { memberPendingRemoval = membership },
+                                isRemoving = uiState.isSaving
+                            )
+                        }
+                    }
+
+                    item {
+                        SkautaiSectionHeader(
+                            title = "Nariai",
+                            subtitle = "${regularMembers.size} aktyvūs priskyrimai",
+                            actionLabel = if (canManageMembers) "Priskirti" else null,
+                            actionIcon = Icons.Default.Add,
+                            onAction = if (canManageMembers && !uiState.isSaving) viewModel::openAssignMemberDialog else null
+                        )
+                    }
+                    if (regularMembers.isEmpty()) {
+                        item { EmptyMembersCard("Narių nėra") }
+                    } else {
+                        items(regularMembers, key = { "member-${it.userId}" }) { membership ->
+                            UnitMemberCard(
+                                membership = membership,
+                                member = uiState.memberDetails[membership.userId],
+                                canManageMembers = canManageMembers,
+                                onOpen = { onMemberClick(membership.userId) },
                                 onRemove = { memberPendingRemoval = membership },
                                 isRemoving = uiState.isSaving
                             )
@@ -233,28 +246,180 @@ fun UnitDetailScreen(
 }
 
 @Composable
+private fun UnitProfileCard(
+    unit: OrganizationalUnitDto,
+    memberCount: Int,
+    activeReservationsCount: Int,
+    activeRequestsCount: Int
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(unit.name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text(
+            listOfNotNull(
+                unitTypeLabel(unit.type),
+                unit.subtype?.let(::subtypeLabel),
+                unit.acceptedRankName?.let { "Priima: $it" }
+            ).joinToString(" · "),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            CompactMetric("Nariai", memberCount.toString(), Modifier.weight(1f))
+            CompactMetric("Rez.", activeReservationsCount.toString(), Modifier.weight(1f))
+            CompactMetric("Praš.", activeRequestsCount.toString(), Modifier.weight(1f))
+        }
+        UnitMetadataCard(unit = unit)
+    }
+}
+
+@Composable
+private fun UnitMetadataCard(unit: OrganizationalUnitDto) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Metaduomenys", style = MaterialTheme.typography.titleLarge)
+            MetadataRow("Tipas", unitTypeLabel(unit.type))
+            unit.subtype?.let { MetadataRow("Struktūra", subtypeLabel(it)) }
+            unit.acceptedRankName?.let { MetadataRow("Priimamas laipsnis", it) }
+            MetadataRow("Inventorius", "${unit.itemCount} daiktai")
+            MetadataRow("Sukurta", unit.createdAt.take(10))
+        }
+    }
+}
+
+@Composable
+private fun CompactMetric(label: String, value: String, modifier: Modifier = Modifier) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
+            Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+            Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun UnitInfoCard(unit: lt.skautai.android.data.remote.OrganizationalUnitDto) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SkautaiSectionHeader(title = "Informacija")
+            UnitDetailListRow(
+                icon = Icons.Default.AccountTree,
+                title = "Tipas",
+                subtitle = unitTypeLabel(unit.type)
+            )
+            unit.subtype?.let {
+                UnitDetailListRow(
+                    icon = Icons.Default.AccountTree,
+                    title = "Struktūra",
+                    subtitle = subtypeLabel(it)
+                )
+            }
+            unit.acceptedRankName?.let {
+                UnitDetailListRow(
+                    icon = Icons.Default.PersonAdd,
+                    title = "Priimamas laipsnis",
+                    subtitle = it
+                )
+            }
+            UnitDetailListRow(
+                icon = Icons.Default.Inventory2,
+                title = "Inventorius",
+                subtitle = "${unit.itemCount} daiktai"
+            )
+            MetadataRow("Sukurta", unit.createdAt.take(10))
+        }
+    }
+}
+
+@Composable
+private fun UnitActivitySummaryCard(
+    activeReservationsCount: Int,
+    activeRequestsCount: Int
+) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceContainerLow) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SkautaiSectionHeader(
+                title = "Aktyvumas",
+                subtitle = "Vieneto rezervacijos ir prašymai"
+            )
+            MetadataRow("Aktyvios rezervacijos", activeReservationsCount.toString())
+            MetadataRow("Aktyvūs prašymai", activeRequestsCount.toString())
+        }
+    }
+}
+
+@Composable
+private fun EmptyMembersCard(text: String) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(18.dp)
+        )
+    }
+}
+
+@Composable
 private fun UnitMemberCard(
     membership: UnitMembershipDto,
     member: MemberDto?,
     canManageMembers: Boolean,
+    onOpen: () -> Unit,
     onRemove: () -> Unit,
     isRemoving: Boolean
 ) {
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onOpen,
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
         Row(
-            modifier = Modifier.padding(12.dp).fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.padding(14.dp).fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.weight(1f)) {
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Default.AccountTree,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(
                     "${membership.userName} ${membership.userSurname}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                SkautaiStatusPill(
+                    label = resolveUnitMemberRoleLabel(membership, member),
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text = resolveUnitMemberRoleLabel(membership, member),
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "Priskirtas ${membership.joinedAt.take(10)}",
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -267,6 +432,42 @@ private fun UnitMemberCard(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UnitDetailListRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    subtitle: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Surface(
+            modifier = Modifier.size(42.dp),
+            shape = MaterialTheme.shapes.medium,
+            color = MaterialTheme.colorScheme.primaryContainer
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
@@ -350,18 +551,6 @@ private fun AssignMemberDialog(
             TextButton(onClick = onDismiss) { Text("Atšaukti") }
         }
     )
-}
-
-@Composable
-private fun DetailRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-    }
 }
 
 private fun resolveUnitMemberRoleLabel(

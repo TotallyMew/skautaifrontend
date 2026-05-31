@@ -20,7 +20,9 @@ interface ItemApiService {
         @Query("type") type: String? = null,
         @Query("category") category: String? = null,
         @Query("status") status: String? = null,
-        @Query("sharedOnly") sharedOnly: Boolean = false
+        @Query("sharedOnly") sharedOnly: Boolean = false,
+        @Query("createdByUserId") createdByUserId: String? = null,
+        @Query("updatedAfter") updatedAfter: String? = null
     ): Response<ItemListResponseDto>
 
     @GET("api/items/{itemId}")
@@ -145,6 +147,14 @@ interface ItemApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Path("itemId") itemId: String,
         @Body request: RestockItemRequestDto
+    ): Response<ItemDto>
+
+    @POST("api/items/{itemId}/write-off")
+    suspend fun writeOffItem(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: WriteOffItemRequestDto
     ): Response<ItemDto>
 
     @POST("api/items/{itemId}/review")

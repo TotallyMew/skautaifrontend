@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.AccountTree
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Home
@@ -140,10 +141,26 @@ fun MainScaffold(
         )
         add(
             DrawerNavItem(
+                label = "Komplektai",
+                icon = Icons.Default.Inventory2,
+                selected = currentRoute == NavRoutes.InventoryKits.route,
+                onClick = { navController.navigate(NavRoutes.InventoryKits.route) }
+            )
+        )
+        add(
+            DrawerNavItem(
                 label = "Rezervacijos",
                 icon = Icons.Default.EventAvailable,
                 selected = currentRoute == NavRoutes.ReservationList.route,
                 onClick = { navController.navigate(NavRoutes.ReservationList.createRoute()) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Kalendorius",
+                icon = Icons.Default.CalendarMonth,
+                selected = currentRoute == NavRoutes.Calendar.route,
+                onClick = { navController.navigate(NavRoutes.Calendar.route) }
             )
         )
         add(

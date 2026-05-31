@@ -41,6 +41,7 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.LocationRepository
+import lt.skautai.android.data.repository.RefreshCoordinator
 import lt.skautai.android.data.repository.SuperAdminRepository
 import lt.skautai.android.data.sync.PendingOperationRepository
 
@@ -73,9 +74,10 @@ object RepositoryModule {
         itemApiService: ItemApiService,
         tokenManager: TokenManager,
         itemDao: ItemDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): ItemRepository {
-        return ItemRepository(itemApiService, tokenManager, itemDao, pendingOperationRepository)
+        return ItemRepository(itemApiService, tokenManager, itemDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides
@@ -85,14 +87,16 @@ object RepositoryModule {
         tokenManager: TokenManager,
         organizationalUnitDao: OrganizationalUnitDao,
         memberDao: MemberDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): OrganizationalUnitRepository {
         return OrganizationalUnitRepository(
             orgUnitApiService,
             tokenManager,
             organizationalUnitDao,
             memberDao,
-            pendingOperationRepository
+            pendingOperationRepository,
+            refreshCoordinator
         )
     }
 
@@ -102,9 +106,10 @@ object RepositoryModule {
         memberApiService: MemberApiService,
         tokenManager: TokenManager,
         memberDao: MemberDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): MemberRepository {
-        return MemberRepository(memberApiService, tokenManager, memberDao, pendingOperationRepository)
+        return MemberRepository(memberApiService, tokenManager, memberDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides
@@ -131,9 +136,10 @@ object RepositoryModule {
         reservationApiService: ReservationApiService,
         tokenManager: TokenManager,
         reservationDao: ReservationDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): ReservationRepository {
-        return ReservationRepository(reservationApiService, tokenManager, reservationDao, pendingOperationRepository)
+        return ReservationRepository(reservationApiService, tokenManager, reservationDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides
@@ -151,9 +157,10 @@ object RepositoryModule {
         requestApiService: RequestApiService,
         tokenManager: TokenManager,
         bendrasRequestDao: BendrasRequestDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): RequestRepository {
-        return RequestRepository(requestApiService, tokenManager, bendrasRequestDao, pendingOperationRepository)
+        return RequestRepository(requestApiService, tokenManager, bendrasRequestDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides
@@ -162,9 +169,10 @@ object RepositoryModule {
         requisitionApiService: RequisitionApiService,
         tokenManager: TokenManager,
         requisitionDao: RequisitionDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): RequisitionRepository {
-        return RequisitionRepository(requisitionApiService, tokenManager, requisitionDao, pendingOperationRepository)
+        return RequisitionRepository(requisitionApiService, tokenManager, requisitionDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides
@@ -173,9 +181,10 @@ object RepositoryModule {
         eventApiService: EventApiService,
         tokenManager: TokenManager,
         eventDao: EventDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): EventRepository {
-        return EventRepository(eventApiService, tokenManager, eventDao, pendingOperationRepository)
+        return EventRepository(eventApiService, tokenManager, eventDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides
@@ -184,9 +193,10 @@ object RepositoryModule {
         locationApiService: LocationApiService,
         tokenManager: TokenManager,
         locationDao: LocationDao,
-        pendingOperationRepository: PendingOperationRepository
+        pendingOperationRepository: PendingOperationRepository,
+        refreshCoordinator: RefreshCoordinator
     ): LocationRepository {
-        return LocationRepository(locationApiService, tokenManager, locationDao, pendingOperationRepository)
+        return LocationRepository(locationApiService, tokenManager, locationDao, pendingOperationRepository, refreshCoordinator)
     }
 
     @Provides

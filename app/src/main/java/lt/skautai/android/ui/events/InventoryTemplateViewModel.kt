@@ -134,6 +134,16 @@ class InventoryTemplateViewModel @Inject constructor(
         updateEditor { it.copy(items = it.items + InventoryTemplateEditorItem()) }
     }
 
+    fun upsertItemRow(index: Int?, item: InventoryTemplateEditorItem) {
+        updateEditor { editor ->
+            if (index == null) {
+                editor.copy(items = editor.items + item)
+            } else {
+                editor.copy(items = editor.items.mapIndexed { i, current -> if (i == index) item else current })
+            }
+        }
+    }
+
     fun removeItemRow(index: Int) {
         updateEditor { editor ->
             val next = editor.items.filterIndexed { i, _ -> i != index }

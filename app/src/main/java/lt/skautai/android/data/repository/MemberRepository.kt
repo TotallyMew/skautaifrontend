@@ -20,11 +20,15 @@ import lt.skautai.android.data.local.mapper.toMemberDtos
 import lt.skautai.android.data.local.mapper.toMemberEntities
 import lt.skautai.android.data.remote.AssignLeadershipRoleRequestDto
 import lt.skautai.android.data.remote.AssignRankRequestDto
+import lt.skautai.android.data.remote.CreateLeadershipChangeRequestDto
+import lt.skautai.android.data.remote.LeadershipChangeRequestDto
+import lt.skautai.android.data.remote.LeadershipChangeRequestListDto
 import lt.skautai.android.data.remote.MemberApiService
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MemberLeadershipRoleDto
 import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.MemberRankDto
+import lt.skautai.android.data.remote.ReviewLeadershipChangeRequestDto
 import lt.skautai.android.data.remote.TransferTuntininkasRequestDto
 import lt.skautai.android.data.remote.UpdateLeadershipRoleRequestDto
 import lt.skautai.android.data.sync.MemberAssignmentPayload
@@ -40,7 +44,8 @@ class MemberRepository @Inject constructor(
     private val memberApiService: MemberApiService,
     private val tokenManager: TokenManager,
     private val memberDao: MemberDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -101,7 +106,8 @@ class MemberRepository @Inject constructor(
     }
 
     suspend fun getMembers(): Result<MemberListDto> {
-        val refreshResult = refreshMembers()
+        val shouldRefresh = refreshCoordinator.shouldRefresh(MEMBERS_RESOURCE, ttl = CacheTtl.LIST)
+        val refreshResult = if (shouldRefresh) refreshMembers() else Result.success(Unit)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedMembers = currentTuntasId
             ?.let { memberDao.getMembers(it).toMemberDtos() }
@@ -114,7 +120,8 @@ class MemberRepository @Inject constructor(
     }
 
     suspend fun getMember(userId: String): Result<MemberDto> {
-        val refreshResult = refreshMember(userId)
+        val shouldRefresh = refreshCoordinator.shouldRefresh(MEMBER_RESOURCE, userId, CacheTtl.DETAIL)
+        val refreshResult = if (shouldRefresh) refreshMember(userId) else Result.success(Unit)
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedMember = currentTuntasId?.let { memberDao.getMember(userId, it)?.toDto() }
         return if (cachedMember != null) {
@@ -246,6 +253,65 @@ class MemberRepository @Inject constructor(
         }
     }
 
+    suspend fun createLeadershipResignationRequest(
+        assignmentId: String,
+        reason: String? = null
+    ): Result<LeadershipChangeRequestDto> {
+        return try {
+            val response = memberApiService.createLeadershipResignationRequest(
+                "Bearer ${token()}",
+                tuntasId(),
+                assignmentId,
+                CreateLeadershipChangeRequestDto(reason)
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida kuriant atsistatydinimo prasyma")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getLeadershipChangeRequests(status: String = "PENDING"): Result<LeadershipChangeRequestListDto> {
+        return try {
+            val response = memberApiService.getLeadershipChangeRequests("Bearer ${token()}", tuntasId(), status)
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: LeadershipChangeRequestListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant vadovu pasikeitimo prasymus")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun reviewLeadershipChangeRequest(
+        requestId: String,
+        action: String,
+        successorUserId: String? = null,
+        reviewNote: String? = null
+    ): Result<LeadershipChangeRequestDto> {
+        return try {
+            val response = memberApiService.reviewLeadershipChangeRequest(
+                "Bearer ${token()}",
+                tuntasId(),
+                requestId,
+                ReviewLeadershipChangeRequestDto(action, successorUserId, reviewNote)
+            )
+            if (response.isSuccessful) {
+                refreshMembers()
+                successorUserId?.let { refreshMember(it) }
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida perziurint vadovo pasikeitimo prasyma")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
     suspend fun transferTuntininkas(successorUserId: String): Result<Unit> {
         return try {
             val response = memberApiService.transferTuntininkas(
@@ -370,5 +436,9 @@ class MemberRepository @Inject constructor(
             .map { it.toDto() }
             .firstOrNull { member -> member.leadershipRoles.any { it.id == assignmentId } }
             ?.userId
+    }
+    companion object {
+        private const val MEMBERS_RESOURCE = "members"
+        private const val MEMBER_RESOURCE = "member"
     }
 }

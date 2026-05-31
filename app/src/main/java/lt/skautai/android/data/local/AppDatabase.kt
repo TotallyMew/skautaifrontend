@@ -3,6 +3,7 @@ package lt.skautai.android.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import lt.skautai.android.data.local.dao.BendrasRequestDao
+import lt.skautai.android.data.local.dao.CacheMetadataDao
 import lt.skautai.android.data.local.dao.EventDao
 import lt.skautai.android.data.local.dao.ItemDao
 import lt.skautai.android.data.local.dao.LocationDao
@@ -12,6 +13,7 @@ import lt.skautai.android.data.local.dao.PendingOperationDao
 import lt.skautai.android.data.local.dao.RequisitionDao
 import lt.skautai.android.data.local.dao.ReservationDao
 import lt.skautai.android.data.local.entity.BendrasRequestEntity
+import lt.skautai.android.data.local.entity.CacheMetadataEntity
 import lt.skautai.android.data.local.entity.EventEntity
 import lt.skautai.android.data.local.entity.ItemEntity
 import lt.skautai.android.data.local.entity.LocationEntity
@@ -31,9 +33,10 @@ import lt.skautai.android.data.local.entity.ReservationEntity
         BendrasRequestEntity::class,
         RequisitionEntity::class,
         EventEntity::class,
-        PendingOperationEntity::class
+        PendingOperationEntity::class,
+        CacheMetadataEntity::class
     ],
-    version = 13,
+    version = 15,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -46,4 +49,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun requisitionDao(): RequisitionDao
     abstract fun eventDao(): EventDao
     abstract fun pendingOperationDao(): PendingOperationDao
+    abstract fun cacheMetadataDao(): CacheMetadataDao
 }

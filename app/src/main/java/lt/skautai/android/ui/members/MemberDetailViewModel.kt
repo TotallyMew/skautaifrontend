@@ -13,9 +13,15 @@ import kotlinx.coroutines.flow.stateIn
 import lt.skautai.android.data.remote.*
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
+import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.data.repository.RequisitionRepository
+import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.RoleRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.ui.common.isScoutReadOnlyMember
+import lt.skautai.android.ui.common.isActiveRequestStatus
+import lt.skautai.android.ui.common.isActiveReservationStatus
+import lt.skautai.android.ui.common.isActiveSharedRequest
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
@@ -45,7 +51,9 @@ data class MemberDetailUiState(
     val editingAssignmentId: String? = null,
     val transferAssignmentId: String? = null,
     val selectedMoveUnitId: String = "",
-    val selectedRankRoleId: String = ""
+    val selectedRankRoleId: String = "",
+    val activeReservationsCount: Int = 0,
+    val activeRequestsCount: Int = 0
 )
 
 @HiltViewModel
@@ -53,6 +61,9 @@ class MemberDetailViewModel @Inject constructor(
     private val memberRepository: MemberRepository,
     private val roleRepository: RoleRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
+    private val reservationRepository: ReservationRepository,
+    private val requisitionRepository: RequisitionRepository,
+    private val requestRepository: RequestRepository,
     private val userRepository: UserRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
@@ -77,9 +88,30 @@ class MemberDetailViewModel @Inject constructor(
                 )
                 return@launch
             }
-            memberRepository.getMember(userId)
+            val memberResult = memberRepository.getMember(userId)
+            val reservationResult = reservationRepository.getReservations()
+            val requisitionResult = requisitionRepository.getRequests()
+            val sharedRequestResult = requestRepository.getRequests()
+            memberResult
                 .onSuccess { member ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, member = member)
+                    val activeReservations = reservationResult.getOrNull()
+                        ?.reservations
+                        .orEmpty()
+                        .count { it.reservedByUserId == userId && it.status.isActiveReservationStatus() }
+                    val activeRequisitions = requisitionResult.getOrNull()
+                        ?.requests
+                        .orEmpty()
+                        .count { it.createdByUserId == userId && it.status.isActiveRequestStatus() }
+                    val activeSharedRequests = sharedRequestResult.getOrNull()
+                        ?.requests
+                        .orEmpty()
+                        .count { it.requestedByUserId == userId && it.isActiveSharedRequest() }
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        member = member,
+                        activeReservationsCount = activeReservations,
+                        activeRequestsCount = activeRequisitions + activeSharedRequests
+                    )
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isLoading = false,
@@ -290,6 +322,25 @@ class MemberDetailViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         actionError = e.message ?: "Klaida atsistatydinant"
+                    )
+                }
+        }
+    }
+
+    fun requestLeadershipResignation(assignmentId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
+            memberRepository.createLeadershipResignationRequest(assignmentId)
+                .onSuccess {
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        actionError = "Atsistatydinimo prasymas pateiktas tuntininkui"
+                    )
+                }
+                .onFailure { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        actionError = e.message ?: "Klaida kuriant atsistatydinimo prasyma"
                     )
                 }
         }

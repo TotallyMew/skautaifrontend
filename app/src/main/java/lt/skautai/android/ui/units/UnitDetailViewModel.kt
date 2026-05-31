@@ -14,8 +14,14 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.*
 import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
+import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.data.repository.RequisitionRepository
+import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.ui.common.isScoutReadOnlyMember
+import lt.skautai.android.ui.common.isActiveRequestStatus
+import lt.skautai.android.ui.common.isActiveReservationStatus
+import lt.skautai.android.ui.common.isActiveSharedRequest
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
@@ -36,13 +42,18 @@ data class UnitDetailUiState(
     val selectedAssignmentType: String = "MEMBER",
     val isSaving: Boolean = false,
     val actionError: String? = null,
-    val isDone: Boolean = false
+    val isDone: Boolean = false,
+    val activeReservationsCount: Int = 0,
+    val activeRequestsCount: Int = 0
 )
 
 @HiltViewModel
 class UnitDetailViewModel @Inject constructor(
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val memberRepository: MemberRepository,
+    private val reservationRepository: ReservationRepository,
+    private val requisitionRepository: RequisitionRepository,
+    private val requestRepository: RequestRepository,
     private val userRepository: UserRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
@@ -69,10 +80,16 @@ class UnitDetailViewModel @Inject constructor(
             val unitDeferred = async { orgUnitRepository.getUnit(unitId) }
             val membersDeferred = async { orgUnitRepository.getUnitMembers(unitId) }
             val allMembersDeferred = async { memberRepository.getMembers() }
+            val reservationsDeferred = async { reservationRepository.getReservations() }
+            val requisitionsDeferred = async { requisitionRepository.getRequests() }
+            val sharedRequestsDeferred = async { requestRepository.getRequests() }
             val currentMemberDeferred = currentUserId?.let { async { memberRepository.getMember(it) } }
             val unitResult = unitDeferred.await()
             val membersResult = membersDeferred.await()
             val allMembersResult = allMembersDeferred.await()
+            val reservationsResult = reservationsDeferred.await()
+            val requisitionsResult = requisitionsDeferred.await()
+            val sharedRequestsResult = sharedRequestsDeferred.await()
             val currentMember = currentMemberDeferred?.await()?.getOrNull()
             val hasCurrentUserAssignment = currentMember?.unitAssignments.orEmpty()
                 .any { it.organizationalUnitId == unitId }
@@ -83,6 +100,18 @@ class UnitDetailViewModel @Inject constructor(
                 ?.members
                 ?.associateBy { it.userId }
                 .orEmpty()
+            val activeReservations = reservationsResult.getOrNull()
+                ?.reservations
+                .orEmpty()
+                .count { it.requestingUnitId == unitId && it.status.isActiveReservationStatus() }
+            val activeRequisitions = requisitionsResult.getOrNull()
+                ?.requests
+                .orEmpty()
+                .count { it.requestingUnitId == unitId && it.status.isActiveRequestStatus() }
+            val activeSharedRequests = sharedRequestsResult.getOrNull()
+                ?.requests
+                .orEmpty()
+                .count { it.requestingUnitId == unitId && it.isActiveSharedRequest() }
             unitResult
                 .onSuccess { unit ->
                     _uiState.value = _uiState.value.copy(
@@ -91,7 +120,9 @@ class UnitDetailViewModel @Inject constructor(
                         members = membersResult.getOrDefault(emptyList()),
                         memberDetails = memberDetails,
                         canCurrentUserManageThisUnit = canManageThisUnit,
-                        canCurrentUserLeaveThisUnit = hasCurrentUserAssignment && !hasCurrentUserLeadership
+                        canCurrentUserLeaveThisUnit = hasCurrentUserAssignment && !hasCurrentUserLeadership,
+                        activeReservationsCount = activeReservations,
+                        activeRequestsCount = activeRequisitions + activeSharedRequests
                     )
                 }
                 .onFailure { e ->

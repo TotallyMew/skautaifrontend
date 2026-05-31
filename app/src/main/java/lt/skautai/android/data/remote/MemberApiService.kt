@@ -50,6 +50,29 @@ interface MemberApiService {
         @Path("assignmentId") assignmentId: String
     ): Response<Void>
 
+    @POST("api/members/me/leadership-roles/{assignmentId}/resignation-request")
+    suspend fun createLeadershipResignationRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("assignmentId") assignmentId: String,
+        @Body request: CreateLeadershipChangeRequestDto
+    ): Response<LeadershipChangeRequestDto>
+
+    @GET("api/leadership-change-requests")
+    suspend fun getLeadershipChangeRequests(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("status") status: String = "PENDING"
+    ): Response<LeadershipChangeRequestListDto>
+
+    @POST("api/leadership-change-requests/{requestId}/review")
+    suspend fun reviewLeadershipChangeRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("requestId") requestId: String,
+        @Body request: ReviewLeadershipChangeRequestDto
+    ): Response<LeadershipChangeRequestDto>
+
     @POST("api/members/me/tuntininkas/transfer")
     suspend fun transferTuntininkas(
         @Header("Authorization") token: String,

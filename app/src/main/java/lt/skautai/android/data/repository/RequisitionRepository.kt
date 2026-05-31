@@ -38,7 +38,8 @@ class RequisitionRepository @Inject constructor(
     private val requisitionApiService: RequisitionApiService,
     private val tokenManager: TokenManager,
     private val requisitionDao: RequisitionDao,
-    private val pendingOperationRepository: PendingOperationRepository
+    private val pendingOperationRepository: PendingOperationRepository,
+    private val refreshCoordinator: RefreshCoordinator
 ) {
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
@@ -75,6 +76,7 @@ class RequisitionRepository @Inject constructor(
                 val entities = requests.toRequisitionEntities()
                 requisitionDao.deleteForTuntas(currentTuntasId)
                 requisitionDao.upsertAll(entities)
+                refreshCoordinator.recordAttempt(REQUESTS_RESOURCE, success = true)
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
@@ -100,7 +102,9 @@ class RequisitionRepository @Inject constructor(
     }
 
     suspend fun getRequests(): Result<RequisitionListDto> {
-        refreshRequests()
+        if (refreshCoordinator.shouldRefresh(REQUESTS_RESOURCE, ttl = CacheTtl.LIST)) {
+            refreshRequests()
+        }
         val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedRequests = currentTuntasId
             ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
@@ -311,5 +315,8 @@ class RequisitionRepository @Inject constructor(
             lastAction = "CANCELLED",
             updatedAt = now
         )
+    }
+    companion object {
+        private const val REQUESTS_RESOURCE = "requisitions"
     }
 }

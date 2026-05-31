@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.QrCode2
+import androidx.compose.material.icons.filled.ReportProblem
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -108,6 +109,7 @@ fun InventoryDetailScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showQrDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showWriteOffDialog by remember { mutableStateOf(false) }
     var showSharedRequestDialog by remember { mutableStateOf(false) }
     var showTransferDialog by remember { mutableStateOf(false) }
     var showReturnDialog by remember { mutableStateOf(false) }
@@ -117,6 +119,8 @@ fun InventoryDetailScreen(
     var rejectionReasonText by remember { mutableStateOf("") }
     var sharedRequestQuantity by remember { mutableStateOf("1") }
     var sharedRequestQuantityError by remember { mutableStateOf<String?>(null) }
+    var writeOffReason by remember { mutableStateOf("") }
+    var writeOffReasonError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(itemId) {
         viewModel.loadItem(itemId)
@@ -155,7 +159,6 @@ fun InventoryDetailScreen(
     val canShowQr = currentItem?.let { !it.id.startsWith("local-") && it.qrToken.isNotBlank() } ?: false
     val canEdit = currentItem?.let { item ->
         when {
-            isTransferredFromTuntas -> canManageShared
             item.custodianId == null -> permissions.canManageAllItems()
             permissions.canManageAllItems() -> true
             else -> permissions.hasPermissionOwnUnit("items.update") &&
@@ -163,7 +166,8 @@ fun InventoryDetailScreen(
         }
     } ?: false
     val canChangeStatus = canEdit
-    val canDelete = canEdit && currentItem?.status != "INACTIVE"
+    val canDelete = canEdit && currentItem?.status != "INACTIVE" &&
+        (!isTransferredFromTuntas || canManageShared)
     val canRestock = canEdit && currentItem?.status == "ACTIVE"
     val canDirectTransfer = currentItem?.let {
         canManageShared && it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 && it.type != "INDIVIDUAL"
@@ -262,10 +266,16 @@ fun InventoryDetailScreen(
                             showSharedRequestDialog = true
                         },
                         onStatusChange = { status -> viewModel.updateStatus(itemId, status) },
+                        onConditionChange = { condition -> viewModel.updateCondition(itemId, condition) },
                         onDirectTransfer = { showTransferDialog = true },
                         onReturnToShared = { showReturnDialog = true },
                         onRestock = { showRestockDialog = true },
                         onDelete = { showDeleteDialog = true },
+                        onWriteOff = {
+                            writeOffReason = ""
+                            writeOffReasonError = null
+                            showWriteOffDialog = true
+                        },
                         onShowQr = { showQrDialog = true },
                         onApprove = { showApproveDialog = true },
                         onReject = { showRejectDialog = true }
@@ -409,6 +419,50 @@ fun InventoryDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Atšaukti")
+                }
+            }
+        )
+    }
+
+    if (showWriteOffDialog && currentItem != null) {
+        AlertDialog(
+            onDismissRequest = { if (!isUpdatingStatus) showWriteOffDialog = false },
+            title = { Text("Nurašyti inventorių?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("Nurašytas daiktas dings iš aktyvaus sąrašo, bet liks istorijoje.")
+                    SkautaiTextField(
+                        value = writeOffReason,
+                        onValueChange = {
+                            writeOffReason = it
+                            writeOffReasonError = null
+                        },
+                        label = "Nurašymo priežastis",
+                        minLines = 2,
+                        isError = writeOffReasonError != null,
+                        supportingText = writeOffReasonError,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !isUpdatingStatus,
+                    onClick = {
+                        if (writeOffReason.isBlank()) {
+                            writeOffReasonError = "Priežastis privaloma"
+                        } else {
+                            showWriteOffDialog = false
+                            viewModel.writeOffItem(itemId, writeOffReason)
+                        }
+                    }
+                ) {
+                    Text("Nurašyti")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { if (!isUpdatingStatus) showWriteOffDialog = false }) {
                     Text("Atšaukti")
                 }
             }
@@ -732,10 +786,12 @@ private fun ItemDetailContent(
     isTransferring: Boolean,
     onRequestSharedItem: () -> Unit,
     onStatusChange: (String) -> Unit,
+    onConditionChange: (String) -> Unit,
     onDirectTransfer: () -> Unit,
     onReturnToShared: () -> Unit,
     onRestock: () -> Unit,
     onDelete: () -> Unit,
+    onWriteOff: () -> Unit,
     onShowQr: () -> Unit,
     onApprove: () -> Unit,
     onReject: () -> Unit
@@ -875,7 +931,15 @@ private fun ItemDetailContent(
                 MetadataRow("Kilmė", originDisplay)
                 MetadataRow("Saugotojas", item.custodianName ?: "Bendras sandėlis")
                 MetadataRow("Atsakingas", item.responsibleUserName ?: "Nepriskirtas")
-                MetadataRow("Vieta", item.locationPath ?: item.locationName ?: "Nenurodyta")
+                item.kitName?.let { MetadataRow("Komplekte", it) }
+                MetadataRow(
+                    "Vieta",
+                    if (item.kitName != null) {
+                        "${item.locationPath ?: item.locationName ?: "Nenurodyta"} (paveldima iš komplekto)"
+                    } else {
+                        item.locationPath ?: item.locationName ?: "Nenurodyta"
+                    }
+                )
                 item.purchaseDate?.let { MetadataRow("Pirkta", it.take(10)) }
                 item.purchasePrice?.let { MetadataRow("Kaina", String.format("%.2f EUR", it)) }
             }
@@ -1080,6 +1144,53 @@ private fun ItemDetailContent(
         }
 
         if (canChangeStatus) {
+            SkautaiCard(
+                modifier = Modifier.fillMaxWidth(),
+                tonal = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
+                Column(
+                    modifier = Modifier.padding(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Text(
+                        text = "Būklės valdymas",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Būklės pakeitimai įrašomi į daikto būklės istoriją.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    val conditionActions = listOf(
+                        "GOOD" to "Grąžinti į naudojimą",
+                        "DAMAGED" to "Sugadinta",
+                        "MISSING" to "Pamesta",
+                        "UNDER_REPAIR" to "Taisoma",
+                        "NEEDS_INSPECTION" to "Reikia patikrinti"
+                    )
+                    conditionActions.chunked(2).forEach { row ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            row.forEach { (condition, label) ->
+                                OutlinedButton(
+                                    onClick = { onConditionChange(condition) },
+                                    enabled = item.condition != condition && !isUpdatingStatus && !isCreatingSharedRequest,
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text(label)
+                                }
+                            }
+                            if (row.size == 1) {
+                                Box(modifier = Modifier.weight(1f))
+                            }
+                        }
+                    }
+                }
+            }
+
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -1102,6 +1213,18 @@ private fun ItemDetailContent(
         }
 
         if (canDelete) {
+            OutlinedButton(
+                onClick = onWriteOff,
+                enabled = !isUpdatingStatus && !isCreatingSharedRequest,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ReportProblem,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Nurašyti inventorių")
+            }
             OutlinedButton(
                 onClick = onDelete,
                 enabled = !isUpdatingStatus && !isCreatingSharedRequest,
