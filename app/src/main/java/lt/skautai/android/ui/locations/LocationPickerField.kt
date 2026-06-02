@@ -46,12 +46,10 @@ fun LocationPickerField(
 ) {
     val byId = remember(locations) { locations.associateBy { it.id } }
 
-    // Build chain [root … selectedItem] from the current selectedId
     val chain = remember(locations, selectedId) {
         buildAncestorChain(selectedId, byId)
     }
 
-    // Roots: pass the filter AND have no parent within the filtered set
     val filteredIds = remember(locations, filter) {
         locations.filter(filter).map { it.id }.toSet()
     }
@@ -66,7 +64,6 @@ fun LocationPickerField(
     var quickCreateVisibility by remember { mutableStateOf(LocationVisibility.PUBLIC.apiValue) }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        // Level 0 — root picker
         SingleLevelDropdown(
             label = label,
             candidates = roots,
@@ -95,7 +92,7 @@ fun LocationPickerField(
             } else null
         )
 
-        // Level 1+ — child pickers, one per ancestor in the chain
+
         chain.forEachIndexed { index, ancestor ->
             val children = locations
                 .filter { it.parentLocationId == ancestor.id }

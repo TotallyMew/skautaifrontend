@@ -181,8 +181,6 @@ object DatabaseModule {
                 migration13To14,
                 migration14To15
             )
-            // The local Room store is used for offline/cache state. If a device already has
-            // a newer dev schema, wiping only on downgrade is safer than crashing on launch.
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }

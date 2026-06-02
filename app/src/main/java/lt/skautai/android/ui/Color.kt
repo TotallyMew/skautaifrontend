@@ -30,7 +30,6 @@ object ScoutPalette {
     val InkFaint = Color(0xFF869188)
     val BlackScrim = Color(0xFF000000)
 
-    // Aliases kept for backward compatibility with existing screens
     val ForestDeep = ForestInk
     val MossMist = Color(0xFFE3ECE0)
     val MossDeep = Color(0xFF102016)
@@ -94,7 +93,6 @@ object ScoutSurfaces {
 }
 
 object ScoutGradients {
-    // Hero surfaces intentionally use the brand palette rather than raw Material roles.
     val LoginBackground = listOf(ScoutPalette.ForestMist, ScoutPalette.PaperDeep)
     val LoginHero = listOf(ScoutPalette.Forest, ScoutPalette.Moss)
     val HomeHero = listOf(ScoutPalette.Forest, Color(0xFF274832))
@@ -102,7 +100,6 @@ object ScoutGradients {
 }
 
 object ScoutStatusColors {
-    // Status colors are part of the custom Scout design language.
     val PendingContainer = ScoutPalette.GoldSoft
     val OnPendingContainer = ScoutPalette.GoldWarningText
     val OkContainer = ScoutPalette.Lichen

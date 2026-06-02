@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.InventoryKitDto
+import lt.skautai.android.data.remote.InventoryKitItemDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.SkautaiCard
@@ -75,7 +78,7 @@ fun InventoryKitScreen(
             }
         }
         is InventoryKitUiState.Error -> SkautaiErrorState(message = state.message, onRetry = viewModel::refresh)
-        is InventoryKitUiState.Success -> InventoryKitContent(
+        is InventoryKitUiState.Success -> InventoryKitContentV2(
             state = state,
             onSelectKit = viewModel::selectKit,
             onCreateKit = viewModel::createKit,
@@ -261,6 +264,223 @@ private fun InventoryKitHeader(kit: InventoryKitDto) {
 }
 
 @Composable
+private fun InventoryKitContentV2(
+    state: InventoryKitUiState.Success,
+    onSelectKit: (String) -> Unit,
+    onCreateKit: (String, String?, String?, String?, Map<String, Int>) -> Unit,
+    onClearActionError: () -> Unit,
+    onItemClick: (String) -> Unit
+) {
+    var isCreatingKit by remember { mutableStateOf(false) }
+    var createRequestStarted by remember { mutableStateOf(false) }
+
+    LaunchedEffect(state.isCreating, state.actionError) {
+        if (state.isCreating) {
+            createRequestStarted = true
+        } else if (createRequestStarted && state.actionError == null) {
+            createRequestStarted = false
+            isCreatingKit = false
+        }
+    }
+
+    if (isCreatingKit) {
+        CreateInventoryKitScreen(
+            availableItems = state.availableItems,
+            locations = state.locations,
+            isCreating = state.isCreating,
+            actionError = state.actionError,
+            onBack = {
+                if (!state.isCreating) {
+                    isCreatingKit = false
+                    onClearActionError()
+                }
+            },
+            onCreate = onCreateKit
+        )
+        return
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (state.kits.isEmpty()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                SkautaiEmptyState(
+                    title = "Komplektu nera",
+                    subtitle = "Komplektas yra daiktu rinkinys, pvz. zygio virtuve ar palapiniu rinkinys.",
+                    icon = Icons.Default.Inventory2
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 92.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(state.kits, key = { it.id }) { kit ->
+                    InventoryKitListCard(
+                        kit = kit,
+                        selected = kit.id == state.selectedKit?.id,
+                        onClick = { onSelectKit(kit.id) },
+                        onItemClick = onItemClick
+                    )
+                }
+            }
+        }
+
+        FloatingActionButton(
+            onClick = { isCreatingKit = true },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(20.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "Sukurti komplekta")
+        }
+    }
+}
+
+@Composable
+private fun InventoryKitListCard(
+    kit: InventoryKitDto,
+    selected: Boolean,
+    onClick: () -> Unit,
+    onItemClick: (String) -> Unit
+) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        tonal = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceBright
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = kit.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = kit.storageSummary(),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                SkautaiStatusPill(label = "${kit.items.size} daiktai", tone = SkautaiStatusTone.Info)
+            }
+
+            kit.description?.takeIf { it.isNotBlank() }?.let { description ->
+                Text(
+                    text = description,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = if (selected) 4 else 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            if (selected) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                if (kit.items.isEmpty()) {
+                    Text(
+                        text = "Komplektas tuscias",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                } else {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        kit.items.forEach { kitItem ->
+                            InventoryKitItemRow(
+                                item = kitItem,
+                                onClick = { onItemClick(kitItem.itemId) }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InventoryKitItemRow(
+    item: InventoryKitItemDto,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = item.itemName,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                SkautaiStatusPill(
+                    label = "${item.quantity}/${item.availableQuantity}",
+                    tone = if (item.availableQuantity >= item.quantity) SkautaiStatusTone.Success else SkautaiStatusTone.Warning
+                )
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SkautaiStatusPill(
+                    label = itemConditionLabel(item.itemCondition),
+                    tone = itemConditionTone(item.itemCondition)
+                )
+                SkautaiStatusPill(label = item.itemStatus, tone = SkautaiStatusTone.Neutral)
+            }
+            item.notes?.takeIf { it.isNotBlank() }?.let { notes ->
+                Text(
+                    text = notes,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+private fun InventoryKitDto.storageSummary(): String =
+    listOfNotNull(
+        locationPath ?: locationName ?: temporaryStorageLabel,
+        custodianName,
+        responsibleUserName
+    ).joinToString(" · ").ifBlank { "Lokacija nenurodyta" }
+
+@Composable
 private fun CreateInventoryKitScreen(
     availableItems: List<ItemDto>,
     locations: List<LocationDto>,
@@ -296,6 +516,7 @@ private fun CreateInventoryKitScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .statusBarsPadding()
                 .padding(horizontal = 8.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
