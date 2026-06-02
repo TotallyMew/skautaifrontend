@@ -287,14 +287,14 @@ fun MainScaffold(
                                 Text(
                                     text = userName ?: "",
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.Supporting)
                                 )
                             }
                             Text(
                                 text = activeTuntasName?.takeIf { it.isNotBlank() }
                                     ?: if (activeTuntasId != null) "Tuntas" else "Tuntas dar nepasirinktas",
                                 style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.Supporting)
                             )
                         }
                     }
@@ -628,7 +628,7 @@ private fun DrawerSection(
                 if (index != items.lastIndex) {
                     HorizontalDivider(
                         modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)
+                        color = skautaiDividerTone()
                     )
                 }
             }

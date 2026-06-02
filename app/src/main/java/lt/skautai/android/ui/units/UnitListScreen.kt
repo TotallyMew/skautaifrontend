@@ -1,7 +1,5 @@
 package lt.skautai.android.ui.units
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,7 +19,6 @@ import androidx.compose.material.icons.filled.AccountTree
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -152,13 +149,11 @@ fun UnitListScreen(
 private fun UnitCard(unit: OrganizationalUnitDto, onClick: (() -> Unit)?) {
     val palette = unit.palette()
 
-    androidx.compose.material3.Card(
+    SkautaiCard(
         modifier = Modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        colors = CardDefaults.cardColors(containerColor = palette.cardTone),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .fillMaxWidth(),
+        onClick = onClick,
+        tonal = palette.cardTone
     ) {
         Row(
             modifier = Modifier.padding(14.dp),

@@ -11,8 +11,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -36,7 +34,11 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiOverlayTone
+import lt.skautai.android.ui.common.skautaiSupportingTone
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 
 @Composable
 fun ProfileScreen(
@@ -203,10 +205,9 @@ private fun ProfileHeader(
     surname: String,
     email: String
 ) {
-    Card(
+    SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Identity)
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
@@ -216,7 +217,7 @@ private fun ProfileHeader(
             Surface(
                 modifier = Modifier.size(44.dp),
                 shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.72f)
+                color = skautaiOverlayTone(SkautaiSurfaceRole.Default)
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
@@ -241,7 +242,7 @@ private fun ProfileHeader(
                 Text(
                     text = email,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f)
+                    color = skautaiSupportingTone(SkautaiSurfaceRole.Identity)
                 )
             }
         }

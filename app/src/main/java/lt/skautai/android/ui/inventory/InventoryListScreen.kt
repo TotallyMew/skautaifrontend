@@ -74,7 +74,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -95,12 +94,15 @@ import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
+import lt.skautai.android.ui.common.skautaiConditionAccentTone
+import lt.skautai.android.ui.common.skautaiDividerTone
 import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrPdfShareLauncher
@@ -1435,7 +1437,7 @@ private fun InventoryGalleryCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(8.dp),
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.94f),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = SkautaiAlpha.SelectedOverlay),
                 shape = CircleShape
             ) {
                 Text(
@@ -1449,7 +1451,7 @@ private fun InventoryGalleryCard(
 
             if (selectionMode) {
                 Surface(
-                    color = MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                    color = MaterialTheme.colorScheme.surface.copy(alpha = SkautaiAlpha.StrongOverlay),
                     shape = CircleShape,
                     modifier = Modifier
                         .align(Alignment.TopStart)
@@ -1671,9 +1673,9 @@ private fun InventoryGroupHeader(title: String, count: Int) {
                 .fillMaxWidth()
                 .padding(top = 14.dp)
         ) {
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f))
+            HorizontalDivider(color = skautaiDividerTone())
             Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.78f),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = SkautaiAlpha.Supporting),
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
                 shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
@@ -1708,7 +1710,7 @@ private fun InventoryDenseRow(
 
     Surface(
         color = if (isSelected) {
-            MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.52f)
+            MaterialTheme.colorScheme.primaryContainer.copy(alpha = SkautaiAlpha.Divider)
         } else {
             MaterialTheme.colorScheme.background
         },
@@ -1750,7 +1752,7 @@ private fun InventoryDenseRow(
                 Text(
                     text = "${item.quantity} ${item.unitLabel()}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.78f),
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = SkautaiAlpha.Supporting),
                     fontWeight = FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -1759,7 +1761,7 @@ private fun InventoryDenseRow(
                     Text(
                         text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.9f),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -2091,7 +2093,7 @@ private fun InventoryRowVisual(item: ItemDto) {
                     .align(Alignment.BottomEnd)
                     .padding(4.dp)
                     .size(10.dp)
-                    .background(conditionDotColor(item.condition), CircleShape)
+                    .background(skautaiConditionAccentTone(item.condition), CircleShape)
             )
         }
     }
@@ -2106,14 +2108,6 @@ private fun categoryIcon(category: String): ImageVector = when (category) {
     "BOOKS" -> Icons.Default.MenuBook
     "PERSONAL_LOANS" -> Icons.Default.Support
     else -> Icons.Default.Inventory2
-}
-
-@Composable
-private fun conditionDotColor(condition: String): Color = when (condition) {
-    "GOOD" -> MaterialTheme.colorScheme.primary
-    "DAMAGED" -> MaterialTheme.colorScheme.tertiary
-    "WRITTEN_OFF" -> MaterialTheme.colorScheme.error
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
 }
 
 private fun conditionTone(condition: String): SkautaiStatusTone = when (condition) {

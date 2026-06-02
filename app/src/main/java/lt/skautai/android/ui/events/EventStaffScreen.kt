@@ -59,6 +59,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSelectableCard
@@ -395,7 +396,7 @@ private fun StaffSlotCard(
     val containerColor = when {
         isSelected -> MaterialTheme.colorScheme.primaryContainer
         !isAssigned -> MaterialTheme.colorScheme.surfaceBright
-        isPastovykleLeader -> pastovyklePalette?.cardTone ?: MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
+        isPastovykleLeader -> pastovyklePalette?.cardTone ?: MaterialTheme.colorScheme.secondaryContainer.copy(alpha = SkautaiAlpha.StatusSuccessSoft)
         else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
     val borderColor = when {

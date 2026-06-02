@@ -24,8 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -64,8 +62,11 @@ import java.util.Locale
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.ui.common.RemoteImage
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.ui.locations.LocationPickerField
 
 @OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
@@ -177,9 +178,9 @@ fun ReservationCreateScreen(
                 contentPadding = PaddingValues(top = 12.dp, bottom = 96.dp)
             ) {
                 item {
-                    Card(
+                    SkautaiCard(
                         modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Identity)
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
@@ -394,9 +395,9 @@ private fun ReservationCreateUiState.hasSelectedUnitInventory(): Boolean {
 
 @Composable
 private fun EmptyInventorySection(message: String) {
-    Card(
+    SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
     ) {
         Text(
             text = message,
@@ -417,7 +418,7 @@ private fun SelectedItemsSummary(
     val sharedItems = selectedItems.filter { itemsById[it.itemId]?.custodianId == null }
     val unitItems = selectedItems.filter { itemsById[it.itemId]?.custodianId != null }
 
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

@@ -72,6 +72,8 @@ enum class SkautaiSurfaceRole {
     Default,
     Muted,
     Identity,
+    Accent,
+    Strong,
     DenseList
 }
 
@@ -93,6 +95,27 @@ data class SkautaiSelectionStyle(
     val accentColor: Color
 )
 
+object SkautaiAlpha {
+    const val HeroSupporting = 0.86f
+    const val HeroEyebrow = 0.78f
+    const val Supporting = 0.78f
+    const val StrongSupporting = 0.82f
+    const val SubtleSupporting = 0.72f
+    const val Overlay = 0.72f
+    const val StrongOverlay = 0.88f
+    const val SelectedOverlay = 0.94f
+    const val HeroAction = 0.16f
+    const val IconTint = 0.14f
+    const val SubtleIconTint = 0.12f
+    const val StatusSoft = 0.32f
+    const val StatusSuccessSoft = 0.34f
+    const val StatusDangerSoft = 0.25f
+    const val Divider = 0.45f
+    const val StrongDivider = 0.65f
+    const val DisabledContainer = 0.38f
+    const val DisabledContent = 0.7f
+}
+
 @Composable
 fun skautaiSurfaceTone(role: SkautaiSurfaceRole): Color {
     val scheme = MaterialTheme.colorScheme
@@ -100,13 +123,45 @@ fun skautaiSurfaceTone(role: SkautaiSurfaceRole): Color {
         SkautaiSurfaceRole.Default -> scheme.surfaceBright
         SkautaiSurfaceRole.Muted -> scheme.surfaceContainerLow
         SkautaiSurfaceRole.Identity -> scheme.primaryContainer
+        SkautaiSurfaceRole.Accent -> scheme.secondaryContainer
+        SkautaiSurfaceRole.Strong -> scheme.surfaceContainerHighest
         SkautaiSurfaceRole.DenseList -> scheme.surfaceContainer
     }
 }
 
 @Composable
+fun skautaiContentTone(role: SkautaiSurfaceRole): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when (role) {
+        SkautaiSurfaceRole.Identity -> scheme.onPrimaryContainer
+        SkautaiSurfaceRole.Accent -> scheme.onSecondaryContainer
+        else -> scheme.onSurface
+    }
+}
+
+@Composable
+fun skautaiSupportingTone(role: SkautaiSurfaceRole = SkautaiSurfaceRole.Default): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when (role) {
+        SkautaiSurfaceRole.Identity -> scheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.Supporting)
+        SkautaiSurfaceRole.Accent -> scheme.onSecondaryContainer.copy(alpha = SkautaiAlpha.Supporting)
+        else -> scheme.onSurfaceVariant
+    }
+}
+
+@Composable
+fun skautaiDividerTone(strong: Boolean = false): Color =
+    MaterialTheme.colorScheme.outlineVariant.copy(
+        alpha = if (strong) SkautaiAlpha.StrongDivider else SkautaiAlpha.Divider
+    )
+
+@Composable
+fun skautaiOverlayTone(role: SkautaiSurfaceRole = SkautaiSurfaceRole.Default, strong: Boolean = false): Color =
+    skautaiSurfaceTone(role).copy(alpha = if (strong) SkautaiAlpha.StrongOverlay else SkautaiAlpha.Overlay)
+
+@Composable
 fun skautaiHeroPillStyle(): SkautaiPillStyle = SkautaiPillStyle(
-    containerColor = MaterialTheme.colorScheme.surfaceBright.copy(alpha = 0.72f),
+    containerColor = skautaiOverlayTone(SkautaiSurfaceRole.Default),
     contentColor = MaterialTheme.colorScheme.onPrimaryContainer
 )
 
@@ -120,7 +175,7 @@ fun skautaiSelectionStyle(
     selectedContainer: Color = MaterialTheme.colorScheme.primaryContainer,
     selectedBorder: Color = MaterialTheme.colorScheme.primary,
     selectedTitle: Color = MaterialTheme.colorScheme.onPrimaryContainer,
-    selectedSupporting: Color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+    selectedSupporting: Color = skautaiSupportingTone(SkautaiSurfaceRole.Identity),
     selectedAccent: Color = MaterialTheme.colorScheme.primary
 ): SkautaiSelectionStyle = if (selected) {
     SkautaiSelectionStyle(
@@ -177,6 +232,22 @@ fun skautaiStatusStyle(tone: SkautaiStatusTone): SkautaiStatusStyle {
         )
     }
 }
+
+@Composable
+fun skautaiStatusAccentTone(tone: SkautaiStatusTone): Color {
+    val scheme = MaterialTheme.colorScheme
+    return when (tone) {
+        SkautaiStatusTone.Success -> scheme.primary
+        SkautaiStatusTone.Warning -> scheme.tertiary
+        SkautaiStatusTone.Danger -> scheme.error
+        SkautaiStatusTone.Info -> scheme.secondary
+        SkautaiStatusTone.Neutral -> scheme.onSurfaceVariant
+    }
+}
+
+@Composable
+fun skautaiConditionAccentTone(condition: String): Color =
+    skautaiStatusAccentTone(itemConditionTone(condition))
 
 @Composable
 fun SkautaiCard(
@@ -403,8 +474,8 @@ fun SkautaiDangerButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = MaterialTheme.colorScheme.error,
             contentColor = MaterialTheme.colorScheme.onError,
-            disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.38f),
-            disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.7f)
+            disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = SkautaiAlpha.DisabledContainer),
+            disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = SkautaiAlpha.DisabledContent)
         )
     ) {
         leadingIcon?.let {
@@ -437,8 +508,8 @@ fun SkautaiConfirmDialog(
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error,
                         contentColor = MaterialTheme.colorScheme.onError,
-                        disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = 0.38f),
-                        disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = 0.7f)
+                        disabledContainerColor = MaterialTheme.colorScheme.error.copy(alpha = SkautaiAlpha.DisabledContainer),
+                        disabledContentColor = MaterialTheme.colorScheme.onError.copy(alpha = SkautaiAlpha.DisabledContent)
                     )
                 ) {
                     Text(confirmText)
@@ -756,8 +827,8 @@ fun SkautaiSummaryCard(
 ) {
     val isHero = variant == SummaryVariant.Hero
     val titleColor = if (isHero) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface
-    val subtitleColor = if (isHero) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f) else MaterialTheme.colorScheme.onSurfaceVariant
-    val eyebrowColor = if (isHero) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.78f) else MaterialTheme.colorScheme.primary
+    val subtitleColor = if (isHero) MaterialTheme.colorScheme.onPrimary.copy(alpha = SkautaiAlpha.HeroSupporting) else MaterialTheme.colorScheme.onSurfaceVariant
+    val eyebrowColor = if (isHero) MaterialTheme.colorScheme.onPrimary.copy(alpha = SkautaiAlpha.HeroEyebrow) else MaterialTheme.colorScheme.primary
     SkautaiCard(
         modifier = modifier,
         tonal = if (isHero) Color.Transparent else MaterialTheme.colorScheme.surfaceBright,
@@ -914,7 +985,7 @@ fun PreviewMetric(label: String, value: String) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.76f)
+            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = SkautaiAlpha.Supporting)
         )
         Text(
             text = value,

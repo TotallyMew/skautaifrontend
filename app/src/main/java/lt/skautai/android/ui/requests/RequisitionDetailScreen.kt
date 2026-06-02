@@ -16,7 +16,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -47,13 +46,16 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.remote.RequisitionItemDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiDangerButton
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
 import lt.skautai.android.ui.common.SkautaiSecondaryButton
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.canCreateItems
 import lt.skautai.android.util.canForwardUnitRequests
 import lt.skautai.android.util.canReviewTopLevelRequisitions
@@ -264,10 +266,9 @@ private fun RequisitionDetailContent(
             color = MaterialTheme.colorScheme.primary
         )
 
-        androidx.compose.material3.Card(
+        SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -291,10 +292,9 @@ private fun RequisitionDetailContent(
             }
         }
 
-        androidx.compose.material3.Card(
+        SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -319,10 +319,9 @@ private fun RequisitionDetailContent(
         }
 
         if (canUnitReview) {
-            androidx.compose.material3.Card(
+            SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -367,10 +366,9 @@ private fun RequisitionDetailContent(
         }
 
         if (canTopLevelReview) {
-            androidx.compose.material3.Card(
+            SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),

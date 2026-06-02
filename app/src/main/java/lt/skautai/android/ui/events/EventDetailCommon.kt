@@ -74,6 +74,7 @@ import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSummaryCard
@@ -196,7 +197,7 @@ fun EventTonalDateButton(
         ),
         border = androidx.compose.foundation.BorderStroke(
             1.dp,
-            if (enabled) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f)
+            if (enabled) MaterialTheme.colorScheme.outlineVariant else MaterialTheme.colorScheme.outline.copy(alpha = SkautaiAlpha.DisabledContainer)
         ),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 14.dp)
     ) {

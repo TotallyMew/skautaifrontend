@@ -59,6 +59,7 @@ import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiTextField
@@ -150,7 +151,7 @@ fun LocationAddEditScreen(
                                     "Lokacija bus kuriama po: $it"
                                 } ?: "Užpildykite pagrindinius duomenis, kad vieta būtų lengvai randama kataloge.",
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.StrongSupporting)
                             )
                         }
                     }

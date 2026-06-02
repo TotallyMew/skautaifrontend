@@ -60,7 +60,10 @@ import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiAlpha
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiStatusPill
+import lt.skautai.android.ui.common.skautaiOverlayTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -326,7 +329,7 @@ private fun LocationHeaderCard(location: LocationDto) {
                         Text(
                             text = it,
                             style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.78f),
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.Supporting),
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -338,7 +341,7 @@ private fun LocationHeaderCard(location: LocationDto) {
                     Text(
                         text = if (parentTrail == null) "Saknis" else "Pilnas kelias: ${location.fullPath}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.StrongSupporting)
                     )
                 }
                 Icon(
@@ -362,7 +365,7 @@ private fun LocationHeaderCard(location: LocationDto) {
 private fun HeaderPill(label: String) {
     SkautaiStatusPill(
         label = label,
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+        containerColor = skautaiOverlayTone(SkautaiSurfaceRole.Default),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     )
 }

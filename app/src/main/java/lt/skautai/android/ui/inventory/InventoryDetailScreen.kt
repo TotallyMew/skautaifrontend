@@ -68,6 +68,7 @@ import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.MetadataRow
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
@@ -76,6 +77,8 @@ import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.itemStatusLabel
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
+import lt.skautai.android.ui.common.skautaiOverlayTone
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrCodeBitmap
 import lt.skautai.android.util.QrPdfShareLauncher
@@ -833,7 +836,7 @@ private fun ItemDetailContent(
                                 "Vieta dar nenurodyta"
                             },
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.Supporting)
                         )
                     }
                     Icon(
@@ -858,7 +861,7 @@ private fun ItemDetailContent(
                         "Savo vieneto daiktas gali būti pilnai tvarkomas, jei naudotojas turi tam reikiamas teises."
                     },
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.StrongSupporting)
                 )
             }
         }
@@ -905,7 +908,7 @@ private fun ItemDetailContent(
                     Text(
                         text = "Kilmė",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.8f)
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = SkautaiAlpha.Supporting)
                     )
                     Text(
                         text = originDisplay,
@@ -1052,7 +1055,7 @@ private fun ItemDetailContent(
                         Text(
                             text = "Pateikė: ${item.submittedByUserName}",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.8f)
+                            color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = SkautaiAlpha.Supporting)
                         )
                     }
                 }
@@ -1093,7 +1096,7 @@ private fun ItemDetailContent(
                     Text(
                         text = "Jei daiktas jau yra bendrame tunto inventoriuje, kurk paėmimo prašymą, o ne pirkimo prašymą.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.82f)
+                        color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = SkautaiAlpha.StrongSupporting)
                     )
                     Button(
                         onClick = onRequestSharedItem,
@@ -1521,7 +1524,7 @@ private fun ItemConditionLogCard(entries: List<ItemConditionLogDto>) {
 private fun StatusPill(label: String) {
     SkautaiStatusPill(
         label = label,
-        containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.55f),
+        containerColor = skautaiOverlayTone(SkautaiSurfaceRole.Default),
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer
     )
 }

@@ -1,7 +1,5 @@
 package lt.skautai.android.ui.reservations
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,7 +22,6 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -46,7 +43,10 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.reservationStatusTone
+import lt.skautai.android.ui.common.skautaiSelectionStyle
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.ui.theme.ScoutStatusColors
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -240,13 +240,13 @@ private fun ReservationModeTile(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    androidx.compose.material3.Card(
-        modifier = modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLow
-        ),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    SkautaiCard(
+        modifier = modifier,
+        onClick = onClick,
+        tonal = skautaiSelectionStyle(
+            selected = selected,
+            selectedContainer = skautaiSurfaceTone(SkautaiSurfaceRole.Accent)
+        ).containerColor
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -264,13 +264,11 @@ fun ReservationCard(
     reservation: ReservationDto,
     onClick: () -> Unit
 ) {
-    androidx.compose.material3.Card(
+    SkautaiCard(
         modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+            .fillMaxWidth(),
+        onClick = onClick,
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.DenseList)
     ) {
         Column(
             modifier = Modifier.padding(14.dp),

@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.ui.common.SkautaiAlpha
 
 @Composable
 fun EventHeader(
@@ -40,7 +41,7 @@ fun EventHeader(
             Text(
                 text = it,
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.84f),
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = SkautaiAlpha.HeroSupporting),
                 maxLines = 3
             )
         }

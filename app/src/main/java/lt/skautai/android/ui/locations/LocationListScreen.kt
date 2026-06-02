@@ -73,8 +73,10 @@ import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.skautaiHeroPillStyle
+import lt.skautai.android.ui.common.skautaiDividerTone
 import lt.skautai.android.util.TokenManager
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -300,7 +302,7 @@ private fun LocationHeroCard(
                     Text(
                         text = "Peržvelk visą medį, filtruok pagal matomumą ir greičiau surask konkrečią šaką.",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.82f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = SkautaiAlpha.StrongSupporting)
                     )
                 }
                 Icon(
@@ -556,7 +558,7 @@ private fun TreeGuides(depth: Int) {
                         .width(2.dp)
                         .fillMaxHeight()
                         .clip(RoundedCornerShape(999.dp))
-                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+                        .background(skautaiDividerTone(strong = true))
                 )
             }
         }
@@ -565,7 +567,7 @@ private fun TreeGuides(depth: Int) {
                 .width(8.dp)
                 .height(2.dp)
                 .clip(RoundedCornerShape(999.dp))
-                .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f))
+                .background(skautaiDividerTone(strong = true))
         )
     }
 }

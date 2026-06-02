@@ -48,6 +48,7 @@ import java.util.Locale
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.eventStatusTone
@@ -226,7 +227,7 @@ private fun CalendarMonthGrid(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = SkautaiAlpha.SubtleSupporting),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f)
                 )
@@ -325,12 +326,12 @@ private fun CalendarWeekEventBlock(
         Text(
             text = block.entry.title,
             style = MaterialTheme.typography.labelSmall,
-            color = block.entry.blockTextColor(),
+            color = block.entry.blockContentTone(),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier
                 .weight(span.toFloat())
-                .background(block.entry.blockColor(), RoundedCornerShape(4.dp))
+                .background(block.entry.blockContainerTone(), RoundedCornerShape(4.dp))
                 .padding(horizontal = 5.dp, vertical = 2.dp)
         )
         if (trailing > 0) Spacer(modifier = Modifier.weight(trailing.toFloat()))
@@ -402,7 +403,7 @@ private data class WeekEventBlock(
 )
 
 @Composable
-private fun CalendarEntry.blockColor(): Color =
+private fun CalendarEntry.blockContainerTone(): Color =
     if (type == CalendarEntryType.Event) {
         MaterialTheme.colorScheme.primaryContainer
     } else {
@@ -410,7 +411,7 @@ private fun CalendarEntry.blockColor(): Color =
     }
 
 @Composable
-private fun CalendarEntry.blockTextColor(): Color =
+private fun CalendarEntry.blockContentTone(): Color =
     if (type == CalendarEntryType.Event) {
         MaterialTheme.colorScheme.onPrimaryContainer
     } else {

@@ -2,7 +2,6 @@ package lt.skautai.android.ui.events
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,8 +28,6 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
@@ -304,13 +301,11 @@ private fun PastovykleRow(
     var selectedCoLeaderId by remember(pastovykle.id, coLeaderCandidates) { mutableStateOf("") }
     val selectedCoLeaderName = coLeaderCandidates.firstOrNull { it.userId == selectedCoLeaderId }?.fullName()
 
-    Card(
+    SkautaiCard(
         modifier = Modifier
             .fillMaxWidth()
             .animateContentSize(),
-        colors = CardDefaults.cardColors(containerColor = palette.cardTone),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        tonal = palette.cardTone
     ) {
         Column(
             modifier = Modifier

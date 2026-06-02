@@ -18,8 +18,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -47,12 +45,15 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.BendrasRequestDto
 import lt.skautai.android.data.remote.BendrasRequestItemDto
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiDangerButton
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.hasPermission
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -263,10 +264,9 @@ private fun RequestDetailContent(
             RequestStatusChip(status = request.topLevelStatus)
         }
 
-        Card(
+        SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -284,10 +284,9 @@ private fun RequestDetailContent(
             }
         }
 
-        Card(
+        SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -405,11 +404,10 @@ private fun ReviewCard(
     title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-    ) {
+        SkautaiCard(
+            modifier = Modifier.fillMaxWidth(),
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
+        ) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

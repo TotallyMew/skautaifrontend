@@ -48,6 +48,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.navigation.NavController
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusTone
@@ -270,7 +271,7 @@ private fun OverviewCard(
             FilledTonalButton(
                 onClick = onManageTuntai,
                 colors = ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.16f),
+                    containerColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = SkautaiAlpha.HeroAction),
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
@@ -451,7 +452,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Surface(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = SkautaiAlpha.IconTint),
                 contentColor = MaterialTheme.colorScheme.primary,
                 shape = RoundedCornerShape(16.dp)
             ) {
@@ -492,7 +493,7 @@ private fun ScopeTileCard(tile: ScopeTile, modifier: Modifier = Modifier) {
                 if (tile.showAdd) {
                     Surface(
                         modifier = Modifier.size(48.dp),
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = SkautaiAlpha.SubtleIconTint),
                         contentColor = MaterialTheme.colorScheme.primary,
                         shape = RoundedCornerShape(8.dp),
                         onClick = tile.onAdd

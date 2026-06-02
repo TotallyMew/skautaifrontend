@@ -14,8 +14,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -51,7 +49,11 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiContentTone
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -108,22 +110,22 @@ fun RequisitionCreateScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                    modifier = Modifier.fillMaxWidth()
+                SkautaiCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Accent)
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
                             text = "Pirkimo arba papildymo prašymas",
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                            color = skautaiContentTone(SkautaiSurfaceRole.Accent)
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
                             text = "Aprašyk trūkstamą inventorių. Vieneto vadovas galės pats patvirtinti arba perduoti inventorininkui.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                            color = skautaiContentTone(SkautaiSurfaceRole.Accent)
                         )
                     }
                 }

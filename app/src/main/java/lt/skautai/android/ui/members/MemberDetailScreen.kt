@@ -33,7 +33,10 @@ import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSectionHeader
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiDividerTone
+import lt.skautai.android.ui.common.skautaiOverlayTone
 
 @Composable
 fun MemberDetailScreen(
@@ -371,7 +374,7 @@ private fun MemberProfileCard(
                 )
                 CompactMemberMetric("Aktyvu", (activeReservationsCount + activeRequestsCount).toString(), Modifier.weight(1f))
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            HorizontalDivider(color = skautaiDividerTone())
             MetadataRow("Prisijungė", member.joinedAt.take(10))
             if (member.email.isNotBlank()) {
                 DetailListRow(
@@ -461,7 +464,7 @@ private fun MemberOrganizationCard(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            HorizontalDivider(color = skautaiDividerTone())
 
             SkautaiSectionHeader(
                 title = "Pareigos",
@@ -486,7 +489,7 @@ private fun MemberOrganizationCard(
                 }
             }
 
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+            HorizontalDivider(color = skautaiDividerTone())
 
             SkautaiSectionHeader(
                 title = "Laipsniai",
@@ -509,7 +512,7 @@ private fun MemberOrganizationCard(
             }
 
             if (history.isNotEmpty()) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f))
+                HorizontalDivider(color = skautaiDividerTone())
                 SkautaiSectionHeader(
                     title = "Pareigų istorija",
                     subtitle = "${history.size} įrašai"
@@ -646,7 +649,7 @@ private fun MemberHistoryRow(role: MemberLeadershipRoleDto) {
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.55f)
+        color = skautaiOverlayTone(SkautaiSurfaceRole.Muted)
     ) {
         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(displayRoleName(role.roleName), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)

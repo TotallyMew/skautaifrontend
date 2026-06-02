@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.navigation.NavController
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
 import lt.skautai.android.ui.common.SkautaiSecondaryButton
 import lt.skautai.android.ui.common.SkautaiTertiaryButton
@@ -113,7 +114,7 @@ fun LoginScreen(
                         Text(
                             text = "Vienoje vietoje matysi bendrą tunto, vieneto ir savo siūlomą inventorių.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.86f)
+                            color = MaterialTheme.colorScheme.onPrimary.copy(alpha = SkautaiAlpha.HeroSupporting)
                         )
                     }
                 }

@@ -24,8 +24,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -61,7 +59,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.RemoteImage
+import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiContentTone
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -168,22 +170,22 @@ fun RequestCreateScreen(
                 contentPadding = PaddingValues(top = 12.dp, bottom = 104.dp)
             ) {
                 item {
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                        modifier = Modifier.fillMaxWidth()
+                    SkautaiCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Accent)
                     ) {
                         Column(modifier = Modifier.padding(12.dp)) {
                             Text(
                                 text = "Paėmimo iš tunto prašymas",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = skautaiContentTone(SkautaiSurfaceRole.Accent)
                             )
                             Spacer(Modifier.height(2.dp))
                             Text(
                                 text = "Pasirink daiktus kaip krepšelį: kiekiai kaupiami apačioje, prašymas pateikiamas vienu veiksmu.",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                color = skautaiContentTone(SkautaiSurfaceRole.Accent)
                             )
                         }
                     }
@@ -249,7 +251,7 @@ fun RequestCreateScreen(
 
                 if (filteredItems.isEmpty()) {
                     item {
-                        Card(modifier = Modifier.fillMaxWidth()) {
+                        SkautaiCard(modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 text = if (uiState.sharedItems.isEmpty()) {
                                     "Bendrame inventoriuje nėra aktyvių daiktų."
@@ -283,7 +285,7 @@ private fun RequestSelectedItemsSummary(
     allItems: List<ItemDto>
 ) {
     val itemsById = allItems.associateBy { it.id }
-    Card(modifier = Modifier.fillMaxWidth()) {
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)

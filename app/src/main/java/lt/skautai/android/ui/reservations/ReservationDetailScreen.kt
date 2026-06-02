@@ -17,8 +17,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -52,9 +50,13 @@ import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
+import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiDangerButton
 import lt.skautai.android.ui.common.SkautaiPrimaryButton
 import lt.skautai.android.ui.common.SkautaiSecondaryButton
+import lt.skautai.android.ui.common.SkautaiAlpha
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.ui.reservations.physicalStatus
 import java.time.Instant
 import java.time.LocalDate
@@ -299,10 +301,9 @@ private fun ReservationDetailContent(
         }
 
         if (reservation.status in listOf("APPROVED", "ACTIVE")) {
-            Card(
+            SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -345,10 +346,9 @@ private fun ReservationDetailContent(
             }
         }
 
-        Card(
+        SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -367,10 +367,9 @@ private fun ReservationDetailContent(
         }
 
         if (canReviewUnit || canReviewTopLevel || canCancel) {
-            Card(
+            SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
@@ -415,10 +414,9 @@ private fun ReservationDetailContent(
 
 @Composable
 private fun ReservationTimingCard(reservation: ReservationDto) {
-    Card(
+    SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -481,10 +479,9 @@ private fun TimeProposalCard(
         "%sT%02d:%02d:00Z".format(date, selectedHour, selectedMinute)
     }
 
-    Card(
+    SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -593,9 +590,9 @@ private fun TimeStepper(
     onIncrease: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Card(
+    SkautaiCard(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest)
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Strong)
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -626,10 +623,9 @@ private fun parseProposalDateTime(value: String?): Triple<LocalDate?, Int, Int> 
 
 @Composable
 private fun ReservationReviewCard(reservation: ReservationDto) {
-    Card(
+    SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -692,7 +688,7 @@ private fun ReservationItemRow(item: ReservationItemDto) {
                     color = if (remaining == 0) {
                         MaterialTheme.colorScheme.error
                     } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.78f)
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = SkautaiAlpha.Supporting)
                     }
                 )
             }

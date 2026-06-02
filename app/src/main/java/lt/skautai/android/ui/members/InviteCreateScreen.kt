@@ -17,7 +17,10 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
+import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.skautaiSurfaceTone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -332,11 +335,9 @@ private fun InviteSuccessContent(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Card(
+        SkautaiCard(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer
-            )
+            tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Identity)
         ) {
             Column(
                 modifier = Modifier.padding(24.dp),

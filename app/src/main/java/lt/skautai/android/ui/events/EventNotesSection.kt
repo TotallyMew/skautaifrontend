@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
@@ -211,9 +212,9 @@ fun purchaseStatusTone(status: String): SkautaiStatusTone = when (status) {
 @Composable
 private fun purchaseCardTone(status: String) = when (status) {
     "DRAFT" -> MaterialTheme.colorScheme.surfaceContainerLow
-    "PURCHASED" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.32f)
-    "ADDED_TO_INVENTORY" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.34f)
-    "CANCELLED" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f)
+    "PURCHASED" -> MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = SkautaiAlpha.StatusSoft)
+    "ADDED_TO_INVENTORY" -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = SkautaiAlpha.StatusSuccessSoft)
+    "CANCELLED" -> MaterialTheme.colorScheme.errorContainer.copy(alpha = SkautaiAlpha.StatusDangerSoft)
     else -> MaterialTheme.colorScheme.surfaceContainerLow
 }
 
