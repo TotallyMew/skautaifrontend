@@ -69,7 +69,7 @@ class SuperAdminRepository @Inject constructor(
     suspend fun getMembers(tuntasId: String): Result<MemberListDto> = runCatching {
         val response = superAdminApiService.getMembers("Bearer ${token()}", tuntasId)
         if (!response.isSuccessful) {
-            throw Exception(response.errorMessage("Klaida gaunant nariųs"))
+            throw Exception(response.errorMessage("Klaida gaunant narius"))
         }
         response.body() ?: MemberListDto(emptyList(), 0)
     }

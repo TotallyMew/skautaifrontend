@@ -70,7 +70,7 @@ class InventoryTemplateViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
-                        error = error.message ?: "Nepavyko gauti sablonu"
+                        error = error.message ?: "Nepavyko gauti šablonų"
                     )
                 }
         }
@@ -163,7 +163,7 @@ class InventoryTemplateViewModel @Inject constructor(
         val editor = _uiState.value.editor ?: return
         val name = editor.name.trim()
         if (name.isBlank()) {
-            _uiState.value = _uiState.value.copy(error = "Iveskite sablono pavadinima")
+            _uiState.value = _uiState.value.copy(error = "Įveskite šablono pavadinimą")
             return
         }
         val items = editor.items
@@ -208,14 +208,14 @@ class InventoryTemplateViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         editor = null,
-                        message = "Sablonas issaugotas"
+                        message = "Šablonas išsaugotas"
                     )
                     loadTemplates()
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        error = error.message ?: "Nepavyko issaugoti sablono"
+                        error = error.message ?: "Nepavyko išsaugoti šablono"
                     )
                 }
         }
@@ -230,7 +230,7 @@ class InventoryTemplateViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         deleteTarget = null,
-                        message = "Sablonas istrintas"
+                        message = "Šablonas ištrintas"
                     )
                     loadTemplates()
                 }
@@ -238,7 +238,7 @@ class InventoryTemplateViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
                         deleteTarget = null,
-                        error = error.message ?: "Nepavyko istrinti sablono"
+                        error = error.message ?: "Nepavyko ištrinti šablono"
                     )
                 }
         }

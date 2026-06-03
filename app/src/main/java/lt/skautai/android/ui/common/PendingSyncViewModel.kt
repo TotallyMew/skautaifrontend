@@ -125,7 +125,7 @@ private fun statusLabel(status: String): String = when (status) {
     "PENDING" -> "Laukia"
     "SYNCING" -> "Sinchronizuojama"
     "FAILED" -> "Nepavyko"
-    else -> status
+    else -> codeLabel(status)
 }
 
 private fun entityTypeLabel(type: String): String = when (type) {
@@ -137,7 +137,7 @@ private fun entityTypeLabel(type: String): String = when (type) {
     PendingEntityType.MEMBER -> "Narys"
     PendingEntityType.ORGANIZATIONAL_UNIT -> "Vienetas"
     PendingEntityType.EVENT -> "Renginys"
-    else -> type
+    else -> codeLabel(type)
 }
 
 private fun operationTypeLabel(type: String): String = when (type) {
@@ -208,5 +208,5 @@ private fun operationTypeLabel(type: String): String = when (type) {
     PendingOperationType.EVENT_COMPLETE_PURCHASE -> "Užbaigtas pirkimas"
     PendingOperationType.EVENT_ADD_PURCHASE_TO_INVENTORY -> "Pirkimas pridėtas į inventorių"
     PendingOperationType.EVENT_CREATE_INVENTORY_MOVEMENT -> "Registruotas renginio judėjimas"
-    else -> type
+    else -> codeLabel(type)
 }

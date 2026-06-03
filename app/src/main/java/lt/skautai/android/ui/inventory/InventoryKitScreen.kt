@@ -310,7 +310,7 @@ private fun InventoryKitContentV2(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 SkautaiEmptyState(
-                    title = "Komplektu nera",
+                    title = "Komplektų nėra",
                     subtitle = "Komplektas yra daiktu rinkinys, pvz. zygio virtuve ar palapiniu rinkinys.",
                     icon = Icons.Default.Inventory2
                 )

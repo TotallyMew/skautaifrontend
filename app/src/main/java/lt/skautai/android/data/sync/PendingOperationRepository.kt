@@ -305,7 +305,7 @@ class PendingOperationRepository @Inject constructor(
                     "mark_returned" -> reservationApiService.markReservationItemsReturned(auth, operation.tuntasId, operation.entityId, request)
                     else -> reservationApiService.issueReservationItems(auth, operation.tuntasId, operation.entityId, request)
                 }
-                reservationDao.upsert(requireSuccessful(response, "Klaida registruojant judejima").toEntity())
+                reservationDao.upsert(requireSuccessful(response, "Klaida registruojant judėjimą").toEntity())
             }
             PendingOperationType.BENDRAS_REQUEST_CREATE -> {
                 val request = gson.fromJson(operation.payloadJson, CreateBendrasRequestDto::class.java)
@@ -336,7 +336,7 @@ class PendingOperationRepository @Inject constructor(
                 requisitionDao.upsert(created.toEntity())
             }
             PendingOperationType.REQUISITION_CANCEL -> {
-                requireSuccessfulUnit(requisitionApiService.cancelRequest(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant prasyma")
+                requireSuccessfulUnit(requisitionApiService.cancelRequest(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant prašymą")
             }
             PendingOperationType.REQUISITION_REVIEW_UNIT -> {
                 val payload = gson.fromJson(operation.payloadJson, ReviewPayload::class.java)
@@ -372,7 +372,7 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.MEMBER_REMOVE_LEADERSHIP_ROLE -> {
                 val payload = gson.fromJson(operation.payloadJson, MemberAssignmentPayload::class.java)
-                requireSuccessfulEmpty(memberApiService.removeLeadershipRole(auth, operation.tuntasId, payload.userId, payload.assignmentId), "Klaida salinant pareigas")
+                requireSuccessfulEmpty(memberApiService.removeLeadershipRole(auth, operation.tuntasId, payload.userId, payload.assignmentId), "Klaida šalinant pareigas")
                 refreshMemberAfterSync(auth, operation.tuntasId, payload.userId)
             }
             PendingOperationType.MEMBER_STEP_DOWN_LEADERSHIP_ROLE -> {
@@ -391,32 +391,32 @@ class PendingOperationRepository @Inject constructor(
                 refreshMemberAfterSync(auth, operation.tuntasId, payload.userId)
             }
             PendingOperationType.MEMBER_REMOVE -> {
-                requireSuccessfulEmpty(memberApiService.removeMember(auth, operation.tuntasId, operation.entityId), "Klaida salinant nari")
+                requireSuccessfulEmpty(memberApiService.removeMember(auth, operation.tuntasId, operation.entityId), "Klaida šalinant narį")
                 memberDao.deleteMember(operation.entityId, operation.tuntasId)
             }
             PendingOperationType.UNIT_CREATE -> {
                 val request = gson.fromJson(operation.payloadJson, CreateOrganizationalUnitRequestDto::class.java)
-                val created = requireSuccessful(orgUnitApiService.createUnit(auth, operation.tuntasId, request), "Klaida kuriant vieneta")
+                val created = requireSuccessful(orgUnitApiService.createUnit(auth, operation.tuntasId, request), "Klaida kuriant vienetą")
                 organizationalUnitDao.deleteUnit(operation.entityId, operation.tuntasId)
                 organizationalUnitDao.upsert(created.toEntity())
             }
             PendingOperationType.UNIT_UPDATE -> {
                 val request = gson.fromJson(operation.payloadJson, UpdateOrganizationalUnitRequestDto::class.java)
-                val updated = requireSuccessful(orgUnitApiService.updateUnit(auth, operation.tuntasId, operation.entityId, request), "Klaida atnaujinant vieneta")
+                val updated = requireSuccessful(orgUnitApiService.updateUnit(auth, operation.tuntasId, operation.entityId, request), "Klaida atnaujinant vienetą")
                 organizationalUnitDao.upsert(updated.toEntity())
             }
             PendingOperationType.UNIT_DELETE -> {
-                requireSuccessfulEmpty(orgUnitApiService.deleteUnit(auth, operation.tuntasId, operation.entityId), "Klaida trinant vieneta")
+                requireSuccessfulEmpty(orgUnitApiService.deleteUnit(auth, operation.tuntasId, operation.entityId), "Klaida trinant vienetą")
                 organizationalUnitDao.deleteUnit(operation.entityId, operation.tuntasId)
             }
             PendingOperationType.UNIT_ASSIGN_MEMBER -> {
                 val request = gson.fromJson(operation.payloadJson, AssignUnitMemberRequestDto::class.java)
-                requireSuccessful(orgUnitApiService.assignUnitMember(auth, operation.tuntasId, operation.entityId, request), "Klaida priskiriant nari")
+                requireSuccessful(orgUnitApiService.assignUnitMember(auth, operation.tuntasId, operation.entityId, request), "Klaida priskiriant narį")
                 refreshMemberAfterSync(auth, operation.tuntasId, request.userId)
             }
             PendingOperationType.UNIT_REMOVE_MEMBER -> {
                 val payload = gson.fromJson(operation.payloadJson, UnitMemberPayload::class.java)
-                requireSuccessfulEmpty(orgUnitApiService.removeUnitMember(auth, operation.tuntasId, payload.unitId, payload.userId), "Klaida salinant nari")
+                requireSuccessfulEmpty(orgUnitApiService.removeUnitMember(auth, operation.tuntasId, payload.unitId, payload.userId), "Klaida šalinant narį")
                 refreshMemberAfterSync(auth, operation.tuntasId, payload.userId)
             }
             PendingOperationType.UNIT_LEAVE -> {
@@ -424,32 +424,32 @@ class PendingOperationRepository @Inject constructor(
             }
             PendingOperationType.UNIT_MOVE_MEMBER -> {
                 val payload = gson.fromJson(operation.payloadJson, UnitMemberPayload::class.java)
-                requireSuccessful(orgUnitApiService.moveUnitMember(auth, operation.tuntasId, payload.unitId, payload.userId), "Klaida perkeliant nari")
+                requireSuccessful(orgUnitApiService.moveUnitMember(auth, operation.tuntasId, payload.unitId, payload.userId), "Klaida perkeliant narį")
                 refreshMemberAfterSync(auth, operation.tuntasId, payload.userId)
             }
             PendingOperationType.EVENT_CREATE -> {
                 val request = gson.fromJson(operation.payloadJson, CreateEventRequestDto::class.java)
-                val created = requireSuccessful(eventApiService.createEvent(auth, operation.tuntasId, request), "Klaida kuriant rengini")
+                val created = requireSuccessful(eventApiService.createEvent(auth, operation.tuntasId, request), "Klaida kuriant renginį")
                 eventDao.deleteEvent(operation.entityId, operation.tuntasId)
                 eventDao.upsert(created.toEntity())
             }
             PendingOperationType.EVENT_UPDATE -> {
                 val request = gson.fromJson(operation.payloadJson, UpdateEventRequestDto::class.java)
-                val updated = requireSuccessful(eventApiService.updateEvent(auth, operation.tuntasId, operation.entityId, request), "Klaida atnaujinant rengini")
+                val updated = requireSuccessful(eventApiService.updateEvent(auth, operation.tuntasId, operation.entityId, request), "Klaida atnaujinant renginį")
                 eventDao.upsert(updated.toEntity())
             }
             PendingOperationType.EVENT_CANCEL -> {
-                requireSuccessfulUnit(eventApiService.cancelEvent(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant rengini")
+                requireSuccessfulUnit(eventApiService.cancelEvent(auth, operation.tuntasId, operation.entityId), "Klaida atsaukiant renginį")
                 eventDao.deleteEvent(operation.entityId, operation.tuntasId)
             }
             PendingOperationType.EVENT_ASSIGN_ROLE -> {
                 val request = gson.fromJson(operation.payloadJson, AssignEventRoleRequestDto::class.java)
-                requireSuccessful(eventApiService.assignEventRole(auth, operation.tuntasId, operation.entityId, request), "Klaida priskiriant renginio pareiga")
+                requireSuccessful(eventApiService.assignEventRole(auth, operation.tuntasId, operation.entityId, request), "Klaida priskiriant renginio pareigą")
                 refreshEventAfterSync(auth, operation.tuntasId, operation.entityId)
             }
             PendingOperationType.EVENT_REMOVE_ROLE -> {
                 val payload = gson.fromJson(operation.payloadJson, EventRoleRemovalPayload::class.java)
-                requireSuccessfulEmpty(eventApiService.removeEventRole(auth, operation.tuntasId, payload.eventId, payload.roleId), "Klaida salinant renginio pareiga")
+                requireSuccessfulEmpty(eventApiService.removeEventRole(auth, operation.tuntasId, payload.eventId, payload.roleId), "Klaida šalinant renginio pareigą")
                 refreshEventAfterSync(auth, operation.tuntasId, payload.eventId)
             }
             PendingOperationType.EVENT_CREATE_BUCKET -> {
@@ -567,7 +567,7 @@ class PendingOperationRepository @Inject constructor(
                         payload.requestId,
                         lt.skautai.android.data.remote.MarkPastovykleInventoryRequestSelfProvidedRequestDto(payload.notes)
                     ),
-                    "Klaida pazymint, kad pasirupinta patiems"
+                    "Klaida pažymint, kad pasirūpinta patiems"
                 )
                 refreshEventOfflineDetailsAfterSync(auth, operation.tuntasId, payload.eventId)
             }
@@ -639,7 +639,7 @@ class PendingOperationRepository @Inject constructor(
                 val payload = gson.fromJson(operation.payloadJson, EventInventoryMovementPayload::class.java)
                 requireSuccessful(
                     eventApiService.createInventoryMovement(auth, operation.tuntasId, payload.eventId, payload.request),
-                    "Klaida registruojant renginio judejima"
+                    "Klaida registruojant renginio judėjimą"
                 )
                 refreshInventoryMovementAfterSync(auth, operation.tuntasId, payload.eventId)
             }
@@ -647,12 +647,12 @@ class PendingOperationRepository @Inject constructor(
     }
 
     private suspend fun refreshMemberAfterSync(auth: String, tuntasId: String, userId: String) {
-        val member = requireSuccessful(memberApiService.getMember(auth, tuntasId, userId), "Klaida atnaujinant nari")
+        val member = requireSuccessful(memberApiService.getMember(auth, tuntasId, userId), "Klaida atnaujinant narį")
         memberDao.upsert(member.toEntity(tuntasId))
     }
 
     private suspend fun refreshEventAfterSync(auth: String, tuntasId: String, eventId: String) {
-        val event = requireSuccessful(eventApiService.getEvent(auth, tuntasId, eventId), "Klaida atnaujinant rengini")
+        val event = requireSuccessful(eventApiService.getEvent(auth, tuntasId, eventId), "Klaida atnaujinant renginį")
         eventDao.upsert(event.toEntity())
     }
 
@@ -693,7 +693,7 @@ class PendingOperationRepository @Inject constructor(
 
     private suspend fun refreshEventOfflineDetailsAfterSync(auth: String, tuntasId: String, eventId: String) {
         val current = eventDao.getEvent(eventId, tuntasId)
-        val eventResponse = requireSuccessful(eventApiService.getEvent(auth, tuntasId, eventId), "Klaida atnaujinant rengini")
+        val eventResponse = requireSuccessful(eventApiService.getEvent(auth, tuntasId, eventId), "Klaida atnaujinant renginį")
         val plan = requireSuccessful(
             eventApiService.getInventoryPlan(auth, tuntasId, eventId),
             "Klaida atnaujinant plana"
@@ -761,7 +761,7 @@ class PendingOperationRepository @Inject constructor(
         val displayName = uri.getQueryParameter("name") ?: File(absolutePath).name
         val mimeType = uri.getQueryParameter("mime") ?: "application/pdf"
         val stagedFile = File(absolutePath)
-        if (!stagedFile.exists()) throw Exception("Staged dokumentas nerastas")
+        if (!stagedFile.exists()) throw Exception("Paruoštas dokumentas nerastas")
         val requestBody = stagedFile.asRequestBody(mimeType.toMediaTypeOrNull())
         val filePart = MultipartBody.Part.createFormData("file", displayName, requestBody)
         val uploaded = requireSuccessful(uploadApiService.uploadDocument(auth, filePart), "Nepavyko ikelti dokumento")

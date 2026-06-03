@@ -334,13 +334,13 @@ class MemberDetailViewModel @Inject constructor(
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        actionError = "Atsistatydinimo prasymas pateiktas tuntininkui"
+                        actionError = "Atsistatydinimo prašymas pateiktas tuntininkui"
                     )
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
                         isSaving = false,
-                        actionError = e.message ?: "Klaida kuriant atsistatydinimo prasyma"
+                        actionError = e.message ?: "Klaida kuriant atsistatydinimo prašymą"
                     )
                 }
         }

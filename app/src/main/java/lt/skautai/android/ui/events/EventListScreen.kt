@@ -42,6 +42,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
@@ -359,7 +360,8 @@ fun EventStatusChip(status: String) {
         "WRAP_UP" -> "Suvedimas"
         "COMPLETED" -> "Įvykdytas"
         "CANCELLED" -> "Atšauktas"
-        else -> status
+        else -> codeLabel(status)
     }
     SkautaiStatusPill(label = label, tone = eventStatusTone(status))
 }
+

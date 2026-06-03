@@ -142,8 +142,8 @@ private fun LeadershipChangeReviewSection(
     if (requests.isEmpty()) return
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         SkautaiSectionHeader(
-            title = "Vadovu pasikeitimai",
-            subtitle = "Pasirink pakeiteja is to vieneto nariu saraso"
+            title = "Vadovų pasikeitimai",
+            subtitle = "Pasirink pakeitėją iš to vieneto narių sąrašo"
         )
         requests.forEach { request ->
             val candidates = members.filter { member ->
@@ -170,7 +170,7 @@ private fun LeadershipChangeReviewSection(
                     }
                     if (candidates.isEmpty()) {
                         Text(
-                            text = "Siame vienete nera kito nario, kuri galima paskirti. Pirmiausia pakviesk arba perkelk nari i vieneta.",
+                            text = "Šiame vienete nėra kito nario, kurį galima paskirti. Pirmiausia pakviesk arba perkelk narį į vienetą.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error
                         )

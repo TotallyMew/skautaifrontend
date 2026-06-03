@@ -131,7 +131,7 @@ class RequisitionDetailViewModel @Inject constructor(
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
-                        error = it.message ?: "Klaida atsaukiant prasyma"
+                        error = it.message ?: "Klaida atsaukiant prašymą"
                     )
                 }
         }

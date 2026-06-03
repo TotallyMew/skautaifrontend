@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.inventory
+package lt.skautai.android.ui.inventory
 
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -1593,7 +1593,7 @@ private fun InventoryToolsCard(
                             contentDescription = null,
                             modifier = Modifier.padding(end = 8.dp)
                         )
-                        Text("Inventorizaciju istorija", maxLines = 1)
+                        Text("Inventorizacijų istorija", maxLines = 1)
                     }
                     if (canBulkEdit) {
                         FilledTonalButton(

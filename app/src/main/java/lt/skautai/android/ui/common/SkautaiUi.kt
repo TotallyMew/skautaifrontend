@@ -693,14 +693,11 @@ private fun snackbarStyleForMessage(message: String): SkautaiStatusStyle {
     val normalized = message.lowercase()
     val looksSuccessful = listOf(
         "sukur",
-        "issaug",
         "išsaug",
         "patvirt",
         "pakeist",
         "palikt",
-        "pridet",
         "pridėt",
-        "issiust",
         "išsiųst"
     ).any { it in normalized }
 
@@ -1056,7 +1053,7 @@ fun itemStatusLabel(status: String): String = when (status) {
     "ACTIVE" -> "Aktyvus"
     "PENDING_APPROVAL" -> "Laukia"
     "INACTIVE" -> "Neaktyvus"
-    else -> status
+    else -> codeLabel(status)
 }
 
 fun itemConditionLabel(condition: String): String = when (condition) {
@@ -1066,14 +1063,14 @@ fun itemConditionLabel(condition: String): String = when (condition) {
     "NEEDS_INSPECTION" -> "Reikia patikrinti"
     "DAMAGED" -> "Sugadinta"
     "WRITTEN_OFF" -> "Nurašyta"
-    else -> customCodeLabel(condition)
+    else -> codeLabel(condition)
 }
 
 fun inventoryTypeLabel(type: String): String = when (type) {
     "COLLECTIVE" -> "Bendras"
     "ASSIGNED" -> "Priskirtas"
     "INDIVIDUAL" -> "Asmeninis"
-    else -> type
+    else -> codeLabel(type)
 }
 
 fun inventoryCategoryLabel(category: String): String = when (category) {
@@ -1084,10 +1081,10 @@ fun inventoryCategoryLabel(category: String): String = when (category) {
     "UNIFORMS" -> "Uniformos"
     "BOOKS" -> "Knygos"
     "PERSONAL_LOANS" -> "Asmeniniai"
-    else -> customCodeLabel(category)
+    else -> codeLabel(category)
 }
 
-private fun customCodeLabel(value: String): String =
+fun codeLabel(value: String): String =
     value.trim()
         .replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "")
         .replace('_', ' ')
@@ -1097,5 +1094,5 @@ private fun customCodeLabel(value: String): String =
 fun itemOriginLabel(origin: String): String = when (origin) {
     "UNIT_ACQUIRED" -> "Savo vieneto"
     "TRANSFERRED_FROM_TUNTAS" -> "Tunto"
-    else -> origin
+    else -> codeLabel(origin)
 }

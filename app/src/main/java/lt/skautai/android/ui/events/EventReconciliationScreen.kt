@@ -389,7 +389,7 @@ private fun ReturnDestinationSelector(value: String, onValueChange: (String) -> 
     var expanded by remember { mutableStateOf(false) }
     val options = listOf(
         "ORIGINAL_SOURCE" to "I originalu saltini",
-        "EVENT_STORAGE" to "I renginio sandeli",
+        "EVENT_STORAGE" to "Į renginio sandėlį",
         "OTHER_LOCATION" to "I kita vieta"
     )
     ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
@@ -397,7 +397,7 @@ private fun ReturnDestinationSelector(value: String, onValueChange: (String) -> 
             value = options.firstOrNull { it.first == value }?.second ?: value,
             onValueChange = {},
             readOnly = true,
-            label = { Text("Kur grizo") },
+            label = { Text("Kur grįžo") },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
@@ -508,7 +508,7 @@ private fun CandidateDropdown(
             value = when {
                 loading -> "Kraunama..."
                 selected != null -> selected.name
-                candidates.isEmpty() -> "Tinkamu daiktu nerasta"
+                candidates.isEmpty() -> "Tinkamų daiktų nerasta"
                 else -> "Pasirinkite daikta"
             },
             onValueChange = {},

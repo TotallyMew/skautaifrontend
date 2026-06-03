@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationItemDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
@@ -373,7 +374,8 @@ fun ReservationStatusChip(status: String) {
         "RETURNED" -> "Grąžinta"
         "CANCELLED" -> "Atšaukta"
         "REJECTED" -> "Atmesta"
-        else -> status
+        else -> codeLabel(status)
     }
     SkautaiStatusPill(label = label, tone = reservationStatusTone(status))
 }
+

@@ -106,6 +106,8 @@ class ItemMappersTest {
             locationPath = null,
             temporaryStorageLabel = null,
             sourceSharedItemId = null,
+            kitId = null,
+            kitName = null,
             quantityBreakdownJson = "null",
             totalQuantityAcrossCustodians = 1,
             responsibleUserId = null,

@@ -108,7 +108,7 @@ fun InventoryAuditHistoryScreen(
     ) {
         item {
             SkautaiSectionHeader(
-                title = "Inventorizaciju istorija",
+                title = "Inventorizacijų istorija",
                 subtitle = "Perziurek atviras ir uzbaigtas sesijas"
             )
         }
@@ -148,7 +148,7 @@ fun InventoryAuditHistoryScreen(
             InventoryAuditHistoryUiState.Empty -> item {
                 SkautaiCard(modifier = Modifier.fillMaxWidth()) {
                     Text(
-                        text = "Inventorizaciju sesiju dar nera.",
+                        text = "Inventorizacijų sesijų dar nėra.",
                         modifier = Modifier.padding(16.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
@@ -338,7 +338,7 @@ private fun AuditCheckCard(check: ItemCheckDto) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = check.itemName ?: "Nezinomas daiktas",
+                    text = check.itemName ?: "Nežinomas daiktas",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold
                 )

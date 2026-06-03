@@ -333,7 +333,7 @@ class ItemRepository @Inject constructor(
         if (response.isSuccessful) {
             Result.success(response.body()!!)
         } else {
-            Result.failure(Exception(response.errorMessage("Nepavyko issaugoti inventorizacijos rezultatu")))
+            Result.failure(Exception(response.errorMessage("Nepavyko išsaugoti inventorizacijos rezultatų")))
         }
     } catch (e: Exception) {
         Result.failure(e.userFacingException())
@@ -580,7 +580,7 @@ class ItemRepository @Inject constructor(
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = itemDao.getItem(itemId, tuntasId)?.toDto()
-                ?: return Result.failure(Exception("Daiktas nerastas offline cache"))
+                ?: return Result.failure(Exception("Daiktas nerastas vietinėje saugykloje"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 description = request.description ?: cached.description,

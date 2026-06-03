@@ -37,6 +37,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSearchBar
@@ -236,7 +237,7 @@ fun unitTypeLabel(type: String): String = when (type) {
     "GILDIJA" -> "Gildija"
     "VYR_SKAUTU_VIENETAS" -> "Vyr. skautų draugovė / būrelis"
     "VYR_SKAUCIU_VIENETAS" -> "Vyr. skaučių draugovė / būrelis"
-    else -> type
+    else -> codeLabel(type)
 }
 
 fun subtypeLabel(subtype: String): String = when (subtype) {
@@ -255,3 +256,4 @@ private fun Int.nounForm(one: String, few: String, many: String): String {
         else -> many
     }
 }
+

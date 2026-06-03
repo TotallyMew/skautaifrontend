@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.inventory
+package lt.skautai.android.ui.inventory
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
@@ -1324,9 +1324,9 @@ private fun itemHistoryLabel(entry: ItemHistoryDto): String {
         "AUDIT_MATCHED" -> "Inventorizacija sutapo$quantity"
         "AUDIT_SHORTAGE" -> "Inventorizacijoje rasta maziau$quantity"
         "AUDIT_OVERAGE" -> "Inventorizacijoje rasta daugiau$quantity"
-        "AUDIT_MISSING" -> "Inventorizacijoje pazymeta kaip nerasta$quantity"
-        "AUDIT_MISPLACED" -> "Inventorizacijoje pazymeta ne vietoje$quantity"
-        "AUDIT_DAMAGED" -> "Inventorizacijoje pazymeta sugadinta$quantity"
+        "AUDIT_MISSING" -> "Inventorizacijoje pažymėta kaip nerasta$quantity"
+        "AUDIT_MISPLACED" -> "Inventorizacijoje pažymėta ne vietoje$quantity"
+        "AUDIT_DAMAGED" -> "Inventorizacijoje pažymėta sugadinta$quantity"
         "DEACTIVATED" -> "Deaktyvuotas įrašas"
         else -> entry.eventType + quantity
     }

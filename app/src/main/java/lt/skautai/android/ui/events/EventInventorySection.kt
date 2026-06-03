@@ -63,6 +63,7 @@ import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.skautaiSelectionStyle
@@ -1319,7 +1320,7 @@ private fun requestStatusLabel(status: String): String = when (status) {
     "FULFILLED" -> "Įvykdyta"
     "REJECTED" -> "Atmesta"
     "SELF_PROVIDED" -> "Savo jėgomis"
-    else -> status
+    else -> codeLabel(status)
 }
 
 private fun bucketTypeLabel(type: String): String = when (type) {
@@ -1329,7 +1330,7 @@ private fun bucketTypeLabel(type: String): String = when (type) {
     "MEDICAL" -> "Medicina"
     "PASTOVYKLE" -> "Pastovyklė"
     "OTHER" -> "Kita"
-    else -> type
+    else -> codeLabel(type)
 }
 
 @Composable

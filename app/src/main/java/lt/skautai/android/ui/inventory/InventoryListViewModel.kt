@@ -72,6 +72,7 @@ internal fun canManageInventoryItem(
 ): Boolean = when {
     item.custodianId == null -> permissions.canManageAllItems()
     permissions.canManageAllItems() -> true
+    item.origin == "TRANSFERRED_FROM_TUNTAS" -> false
     else -> permissions.hasPermissionOwnUnit("items.update") &&
         (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
 }

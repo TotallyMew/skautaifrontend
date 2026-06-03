@@ -33,6 +33,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
@@ -191,7 +192,7 @@ fun purchaseStatusLabel(status: String): String = when (status) {
     "PURCHASED" -> "Nupirkta"
     "ADDED_TO_INVENTORY" -> "Pridėta į inventorių"
     "CANCELLED" -> "Atšaukta"
-    else -> status
+    else -> codeLabel(status)
 }
 
 fun purchaseStatusLabelPublic(status: String): String = purchaseStatusLabel(status)
@@ -414,3 +415,4 @@ private fun parseBudget(notes: String?): Double? {
         ?.replace(',', '.')
         ?.toDoubleOrNull()
 }
+

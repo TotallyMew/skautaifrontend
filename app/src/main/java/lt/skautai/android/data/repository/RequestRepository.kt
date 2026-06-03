@@ -116,7 +116,7 @@ class RequestRepository @Inject constructor(
         return if (cachedRequest != null) {
             Result.success(cachedRequest)
         } else {
-            Result.failure(Exception("Prasymo nepavyko atnaujinti. Prisijunkite prie interneto bent karta, kad jis butu issaugotas offline."))
+            Result.failure(Exception("Prašymo nepavyko atnaujinti. Prisijunkite prie interneto bent kartą, kad jis būtų išsaugotas neprisijungus."))
         }
     }
 
@@ -232,7 +232,7 @@ class RequestRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = bendrasRequestDao.getRequest(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Prašymas nerastas offline cache"))
+                ?: return Result.failure(Exception("Prašymas nerastas vietinėje saugykloje"))
             val updated = if (topLevel) {
                 cached.copy(topLevelStatus = action, topLevelRejectionReason = rejectionReason, updatedAt = Instant.now().toString())
             } else {

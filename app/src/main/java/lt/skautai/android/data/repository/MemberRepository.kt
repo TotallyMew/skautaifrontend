@@ -83,7 +83,7 @@ class MemberRepository @Inject constructor(
                 memberDao.upsertAll(members.toMemberEntities(currentTuntasId))
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant nariųs")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -98,7 +98,7 @@ class MemberRepository @Inject constructor(
                 memberDao.upsert(response.body()!!.toEntity(currentTuntasId))
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant nari")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant narį")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -115,7 +115,7 @@ class MemberRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedMembers.isNotEmpty()) {
             Result.success(MemberListDto(cachedMembers, cachedMembers.size))
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant nariųs"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant narius"))
         }
     }
 
@@ -127,7 +127,7 @@ class MemberRepository @Inject constructor(
         return if (cachedMember != null) {
             Result.success(cachedMember)
         } else {
-            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant nari"))
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant narį"))
         }
     }
 
@@ -183,7 +183,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(userId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida salinant pareigas")))
+                Result.failure(Exception(response.errorMessage("Klaida šalinant pareigas")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -236,7 +236,7 @@ class MemberRepository @Inject constructor(
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val userId = findMemberByLeadershipAssignment(currentTuntasId, assignmentId)
-                ?: return Result.failure(Exception("Nario pareigos nerastos offline cache"))
+                ?: return Result.failure(Exception("Nario pareigos nerastos vietinėje saugykloje"))
             updateCachedMember(currentTuntasId, userId) { member ->
                 member.copy(leadershipRoles = member.leadershipRoles.filterNot { it.id == assignmentId })
             }
@@ -267,7 +267,7 @@ class MemberRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida kuriant atsistatydinimo prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant atsistatydinimo prašymą")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -280,7 +280,7 @@ class MemberRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body() ?: LeadershipChangeRequestListDto(emptyList(), 0))
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant vadovu pasikeitimo prasymus")))
+                Result.failure(Exception(response.errorMessage("Klaida gaunant vadovų pasikeitimo prašymus")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -305,7 +305,7 @@ class MemberRepository @Inject constructor(
                 successorUserId?.let { refreshMember(it) }
                 Result.success(response.body()!!)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida perziurint vadovo pasikeitimo prasyma")))
+                Result.failure(Exception(response.errorMessage("Klaida peržiūrint vadovo pasikeitimo prašymą")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -324,7 +324,7 @@ class MemberRepository @Inject constructor(
                 refreshMember(successorUserId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida perleidziant tuntininko pareigas")))
+                Result.failure(Exception(response.errorMessage("Klaida perleidžiant tuntininko pareigas")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -401,7 +401,7 @@ class MemberRepository @Inject constructor(
                 memberDao.deleteMember(userId, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida salinant nari")))
+                Result.failure(Exception(response.errorMessage("Klaida šalinant narį")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()

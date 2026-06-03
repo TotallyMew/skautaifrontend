@@ -55,6 +55,7 @@ import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiTextField
 import java.time.Instant
@@ -802,7 +803,7 @@ private fun movementLabel(type: String): String = when (type) {
     "RETURN_TO_PASTOVYKLE" -> "Grąžinta pastovyklei"
     "RETURN_TO_EVENT_STORAGE" -> "Grąžinta į sandėlį"
     "TRANSFER" -> "Perduota"
-    else -> type
+    else -> codeLabel(type)
 }
 
 private fun EventInventoryMovementDto.matchesMovementQuery(query: String): Boolean {
@@ -819,3 +820,4 @@ private fun EventInventoryMovementDto.matchesMovementQuery(query: String): Boole
         notes
     ).any { value -> value.lowercase().contains(needle) }
 }
+

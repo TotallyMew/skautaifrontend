@@ -19,7 +19,7 @@ class ApiErrorTest {
     fun `uses fallback for unknown backend error`() {
         val message = parseApiError("""{"error":"Completely unknown"}""", 400, "Nepavyko atnaujinti profilio.")
 
-        assertEquals("Completely unknown", message)
+        assertEquals("Nežinoma reikšmė.", message)
     }
 
     @Test

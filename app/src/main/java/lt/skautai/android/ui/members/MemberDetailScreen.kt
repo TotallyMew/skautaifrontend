@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.members
+package lt.skautai.android.ui.members
 
 import android.content.Intent
 import android.net.Uri
@@ -28,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.*
 import lt.skautai.android.ui.common.MetadataRow
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
@@ -159,7 +160,7 @@ fun MemberDetailScreen(
             },
             confirmText = when {
                 isTuntininkasRoleName(role.roleName) -> "Perleisti pareigas"
-                isPrincipalUnitLeaderRoleName(role.roleName) -> "Pateikti prasyma"
+                isPrincipalUnitLeaderRoleName(role.roleName) -> "Pateikti prašymą"
                 else -> "Atsistatydinti"
             },
             dismissText = "Atšaukti",
@@ -1080,7 +1081,7 @@ private fun MemberDto.primaryMemberSubtitle(): String {
 private fun assignmentTypeLabel(type: String): String = when (type) {
     "MEMBER" -> "Narys"
     "VADOVO_PADEJEJAS" -> "Vadovo padėjėjas"
-    else -> type
+    else -> codeLabel(type)
 }
 
 private fun isTuntininkasRoleName(roleName: String): Boolean = roleName == "Tuntininkas"
@@ -1098,7 +1099,8 @@ private fun termStatusLabel(status: String): String = when (status) {
     "ACTIVE" -> "Aktyvus"
     "COMPLETED" -> "Baigtas"
     "RESIGNED" -> "Atsistatydinta"
-    else -> status
+    else -> codeLabel(status)
 }
+
 
 

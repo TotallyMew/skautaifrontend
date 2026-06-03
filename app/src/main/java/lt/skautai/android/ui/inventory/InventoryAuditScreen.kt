@@ -151,8 +151,8 @@ fun InventoryAuditScreen(
 
         InventoryAuditUiState.Empty -> {
             SkautaiEmptyState(
-                title = "Inventorizuoti kol kas nera ko",
-                subtitle = "Pasirinktoje inventoriaus srityje neradome aktyviu daiktu.",
+                title = "Inventorizuoti kol kas nėra ko",
+                subtitle = "Pasirinktoje inventoriaus srityje neradome aktyvių daiktų.",
                 icon = Icons.Default.Inventory2,
                 actionLabel = "Atnaujinti",
                 onAction = viewModel::loadItems
@@ -209,7 +209,7 @@ fun InventoryAuditScreen(
                     if (visibleItems.isEmpty()) {
                         item {
                             SkautaiEmptyState(
-                                title = "Viskas jau pazymeta",
+                                title = "Viskas jau pažymėta",
                                 subtitle = "Sioje inventorizacijoje neliko neperziuretu daiktu.",
                                 icon = Icons.Default.CheckCircle,
                                 actionLabel = "Rodyti visus",
@@ -325,7 +325,7 @@ private fun AuditSummaryCard(
                 )
                 if (summary.unchecked > 0) {
                     OutlinedButton(onClick = onMarkUncheckedMissing) {
-                        Text("Likusius zymeti kaip nerastus")
+                        Text("Likusius žymėti kaip nerastus")
                     }
                 }
             }
@@ -447,7 +447,7 @@ private fun AuditItemCard(
                     onClick = onClick
                 )
                 Text(
-                    text = if (draft == null) "Spausk zymeti" else "Spausk koreguoti",
+                    text = if (draft == null) "Spausk žymėti" else "Spausk koreguoti",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.primary
                 )

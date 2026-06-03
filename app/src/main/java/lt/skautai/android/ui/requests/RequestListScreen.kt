@@ -36,6 +36,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.BendrasRequestDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
@@ -198,7 +199,8 @@ fun RequestStatusChip(status: String) {
         "APPROVED" -> "Patvirtinta"
         "REJECTED" -> "Atmesta"
         "FORWARDED" -> "Perduota"
-        else -> status
+        else -> codeLabel(status)
     }
     SkautaiStatusPill(label = label, tone = requestStatusTone(status))
 }
+

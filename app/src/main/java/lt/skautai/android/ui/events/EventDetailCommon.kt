@@ -67,6 +67,7 @@ import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.EventInventorySummaryDto
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.ui.common.QuickActionTile
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.SkautaiChip
@@ -253,7 +254,7 @@ fun EventStatusPill(status: String) {
         "WRAP_UP" -> "Suvedimas"
         "COMPLETED" -> "Užbaigtas"
         "CANCELLED" -> "Atšauktas"
-        else -> status
+        else -> codeLabel(status)
     }
     SkautaiStatusPill(label = label, tone = eventStatusTone(status))
 }
@@ -832,7 +833,7 @@ fun eventTypeLabel(type: String, customTypeLabel: String? = null): String {
     "STOVYKLA" -> "Stovykla"
     "SUEIGA" -> "Sueiga"
     "RENGINYS" -> "Renginys"
-    else -> type.replace(Regex("^CUSTOM_", RegexOption.IGNORE_CASE), "").replace('_', ' ')
+    else -> codeLabel(type)
     }
 }
 
@@ -922,3 +923,4 @@ fun BucketFilterChips(
         }
     }
 }
+

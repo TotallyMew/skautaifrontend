@@ -38,6 +38,7 @@ import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.data.remote.TuntasDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.codeLabel
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiSelectableCard
 import lt.skautai.android.ui.common.SkautaiTextField
@@ -688,7 +689,7 @@ private fun StatusChip(status: String) {
         "ACTIVE" -> "Aktyvus" to MaterialTheme.colorScheme.primary
         "REJECTED" -> "Atmestas" to MaterialTheme.colorScheme.error
         "SUSPENDED" -> "Sustabdytas" to MaterialTheme.colorScheme.error
-        else -> status to MaterialTheme.colorScheme.onSurfaceVariant
+        else -> codeLabel(status) to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(
         text = text,
@@ -703,19 +704,19 @@ private fun statusText(status: String): String = when (status) {
     "ACTIVE" -> "Aktyvus"
     "REJECTED" -> "Atmestas"
     "SUSPENDED" -> "Sustabdytas"
-    else -> status
+    else -> codeLabel(status)
 }
 
 private fun termStatusLabel(status: String): String = when (status) {
     "ACTIVE" -> "Aktyvus"
     "COMPLETED" -> "Baigtas"
     "RESIGNED" -> "Atsistatydinta"
-    else -> status
+    else -> codeLabel(status)
 }
 
 private fun assignmentTypeLabel(type: String): String = when (type) {
     "MEMBER" -> "Narys"
-    else -> type
+    else -> codeLabel(type)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -977,3 +978,4 @@ private fun EditSuperAdminRoleDialog(
         }
     )
 }
+

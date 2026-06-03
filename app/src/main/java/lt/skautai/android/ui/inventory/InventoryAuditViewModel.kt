@@ -231,7 +231,7 @@ class InventoryAuditViewModel @Inject constructor(
                 _auditResults.value[item.id]?.let { draft -> item.id to draft }
             }
         )
-        _message.value = "Neinventorizuoti daiktai pazymeti kaip nerasti."
+        _message.value = "Neinventorizuoti daiktai pažymėti kaip nerasti."
     }
 
     fun resolveToken(token: String) {

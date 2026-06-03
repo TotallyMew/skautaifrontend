@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.inventory
+package lt.skautai.android.ui.inventory
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest

@@ -17,7 +17,10 @@ const val SESSION_EXPIRED_MESSAGE = "Prisijungimas baigėsi. Prisijunkite iš na
 const val TUNTAS_SELECTION_REQUIRED_MESSAGE = "Pirmiausia pasirinkite tuntą."
 
 private val translations = mapOf(
+    "Request failed" to "Užklausa nepavyko.",
+    "Internal server error" to "Vidinė serverio klaida.",
     "Insufficient permissions" to "Neturite teisių atlikti šį veiksmą.",
+    "Super admin access required" to "Reikalingos superadministratoriaus teisės.",
     "Not authenticated" to SESSION_EXPIRED_MESSAGE,
     "Invalid token" to SESSION_EXPIRED_MESSAGE,
     "Invalid refresh token" to SESSION_EXPIRED_MESSAGE,
@@ -25,6 +28,8 @@ private val translations = mapOf(
     "Invalid email or password" to "Neteisingas el. paštas arba slaptažodis.",
     "Registration failed" to "Registracija nepavyko. Patikrinkite įvestus duomenis.",
     "Setup failed" to "Konfigūracija nepavyko.",
+    "Refresh failed" to SESSION_EXPIRED_MESSAGE,
+    "Invalid bootstrap token" to "Neteisingas pradinis prieigos kodas.",
     "X-Tuntas-Id header required" to TUNTAS_SELECTION_REQUIRED_MESSAGE,
     "Missing X-Tuntas-Id header" to TUNTAS_SELECTION_REQUIRED_MESSAGE,
     "Invalid tuntas ID" to "Neteisingas tunto ID.",
@@ -34,6 +39,8 @@ private val translations = mapOf(
     "User not found" to "Vartotojas nerastas.",
     "Too many failed login attempts. Please try again later." to "Per daug nesėkmingų bandymų prisijungti. Pabandykite vėliau.",
     "Member not found" to "Narys nerastas.",
+    "Rank not found" to "Laipsnis nerastas.",
+    "Role not found" to "Pareigos nerastos.",
     "Reservation not found" to "Rezervacija nerasta.",
     "Reservation is not accessible" to "Rezervacija nepasiekiama.",
     "Item not found" to "Inventoriaus objektas nerastas.",
@@ -43,12 +50,23 @@ private val translations = mapOf(
     "Location not found or not active" to "Lokacija nerasta.",
     "Organizational unit not found" to "Vienetas nerastas.",
     "Request not found" to "Prašymas nerastas.",
+    "Kit not found" to "Rinkinys nerastas.",
+    "Inventory kit not found" to "Inventoriaus rinkinys nerastas.",
+    "Template not found" to "Šablonas nerastas.",
+    "Purchase not found" to "Pirkimas nerastas.",
+    "Invoice file not found" to "Sąskaitos failas nerastas.",
+    "Shared item not found" to "Bendro inventoriaus objektas nerastas.",
+    "Shared inventory item not found" to "Bendro inventoriaus objektas nerastas.",
+    "Unit item not found" to "Vieneto inventoriaus objektas nerastas.",
+    "Source shared item not found" to "Pradinis bendro inventoriaus objektas nerastas.",
+    "Responsible user not found" to "Atsakingas narys nerastas.",
     "Only active leaders can create a tuntas-level request" to "Tik aktyvus draugininkas arba tuntinio lygio vadovas gali teikti prašymą tuntui.",
     "Tik aktyvus draugininkas arba tuntinio lygio vadovas gali kurti prašymą tuntui" to "Tik aktyvus draugininkas arba tuntinio lygio vadovas gali teikti prašymą tuntui.",
     "Not found" to "Nerasta.",
     "Not a member of this tuntas" to "Nesate šio tunto narys.",
     "You are not an active member of this tuntas" to "Nesate aktyvus šio tunto narys.",
     "Email already registered" to "Šis el. paštas jau užregistruotas.",
+    "Tuntas name already exists" to "Tuntas tokiu pavadinimu jau yra.",
     "Invalid email format" to "Įveskite teisingą el. pašto adresą.",
     "Invalid phone format" to "Įveskite teisingą telefono numerį.",
     "Current password is required" to "Įveskite dabartinį slaptažodį.",
@@ -66,6 +84,44 @@ private val translations = mapOf(
     "Invite code already used" to "Pakvietimo kodas jau panaudotas.",
     "Invite code expired" to "Pakvietimo kodas nebegalioja.",
     "Invalid invite code" to "Neteisingas pakvietimo kodas.",
+    "Unknown role type" to "Nežinomas pareigų tipas.",
+    "Failed to update profile" to "Profilio atnaujinti nepavyko.",
+    "Failed to update password" to "Slaptažodžio pakeisti nepavyko.",
+    "Failed to leave tuntas" to "Tunto palikti nepavyko.",
+    "Approval failed" to "Patvirtinti nepavyko.",
+    "Rejection failed" to "Atmesti nepavyko.",
+    "Failed to fetch organizational units" to "Vienetų gauti nepavyko.",
+    "Failed to fetch members" to "Narių gauti nepavyko.",
+    "Failed to assign leadership role" to "Vadovavimo pareigų priskirti nepavyko.",
+    "Failed to update leadership role" to "Vadovavimo pareigų atnaujinti nepavyko.",
+    "Failed to remove leadership role" to "Vadovavimo pareigų pašalinti nepavyko.",
+    "Failed to assign rank" to "Laipsnio priskirti nepavyko.",
+    "Failed to remove rank" to "Laipsnio pašalinti nepavyko.",
+    "Failed to create inventory item" to "Inventoriaus objekto sukurti nepavyko.",
+    "Invalid status" to "Neteisinga būsena.",
+    "Invalid inventory type" to "Neteisingas inventoriaus tipas.",
+    "Invalid event type" to "Neteisingas renginio tipas.",
+    "Invalid custodian ID" to "Neteisingas saugotojo ID.",
+    "Invalid location ID" to "Neteisingas lokacijos ID.",
+    "Invalid item ID" to "Neteisingas inventoriaus objekto ID.",
+    "Invalid event ID" to "Neteisingas renginio ID.",
+    "Invalid role ID" to "Neteisingas pareigų ID.",
+    "Invalid member ID" to "Neteisingas nario ID.",
+    "Quantity must be at least 1" to "Kiekis turi būti bent 1.",
+    "Item name is required" to "Įveskite inventoriaus objekto pavadinimą.",
+    "Requesting unit is required" to "Pasirinkite prašantį vienetą.",
+    "Request must be forwarded by unit leader first" to "Prašymą pirmiausia turi persiųsti vieneto vadovas.",
+    "Only shared tuntas inventory can be transferred" to "Perduoti galima tik bendrą tunto inventorių.",
+    "Only active shared inventory can be transferred" to "Perduoti galima tik aktyvų bendrą inventorių.",
+    "Only unit inventory can be returned" to "Grąžinti galima tik vieneto inventorių.",
+    "Only transferred shared inventory can be returned" to "Grąžinti galima tik iš bendro inventoriaus perduotus daiktus.",
+    "Only active unit inventory can be returned" to "Grąžinti galima tik aktyvų vieneto inventorių.",
+    "Cannot update an inactive item" to "Neaktyvaus inventoriaus objekto atnaujinti negalima.",
+    "Item is already inactive" to "Inventoriaus objektas jau neaktyvus.",
+    "Write-off reason is required" to "Įveskite nurašymo priežastį.",
+    "Rejection reason is required" to "Įveskite atmetimo priežastį.",
+    "Action must be APPROVED or REJECTED" to "Veiksmas turi būti patvirtinimas arba atmetimas.",
+    "Action must be FORWARDED or REJECTED" to "Veiksmas turi būti persiuntimas arba atmetimas.",
     "Tuntininkas role cannot be invited" to "Tuntininko pareigos negali būti kviečiamos. Jos turi būti perleidžiamos.",
     "Tuntininkas role can only be transferred" to "Tuntininko pareigos negali būti tiesiog priskirtos. Jos turi būti perleidžiamos.",
     "Only active tuntininkas can transfer this role" to "Perleisti tuntininko pareigas gali tik aktyvus tuntininkas.",
@@ -144,7 +200,7 @@ fun parseApiError(body: String?, code: Int, fallback: String): String {
     val raw = parseRawMessage(body)?.trim('"')?.takeIf { it.isNotBlank() }
     return when {
         raw != null && isTechnicalMessage(raw) -> httpFallback(code, fallback)
-        raw != null -> translations[raw] ?: httpFallback(code, raw)
+        raw != null -> translations[raw] ?: genericLithuanianMessage(raw) ?: httpFallback(code, raw)
         else -> httpFallback(code, fallback)
     }
 }
@@ -157,7 +213,23 @@ fun Throwable.userFacingException(fallback: String = "Veiksmas nepavyko. Bandyki
     val safeMessage = when {
         raw.isBlank() -> fallback
         isTechnicalMessage(raw) -> fallback
-        else -> raw
+        else -> genericLithuanianMessage(raw) ?: raw
     }
     return Exception(safeMessage, this)
+}
+
+private fun genericLithuanianMessage(message: String): String? {
+    val normalized = message.lowercase()
+    return when {
+        "not found" in normalized -> "Objektas nerastas."
+        "failed to" in normalized || " failed" in normalized -> "Veiksmas nepavyko. Bandykite dar kartą."
+        "invalid" in normalized -> "Neteisingi duomenys."
+        "required" in normalized -> "Užpildykite privalomus laukus."
+        "already" in normalized -> "Toks įrašas jau yra."
+        "cannot" in normalized -> "Šio veiksmo atlikti negalima."
+        "only " in normalized -> "Neturite teisių atlikti šį veiksmą."
+        "must " in normalized -> "Patikrinkite įvestus duomenis."
+        "unknown" in normalized -> "Nežinoma reikšmė."
+        else -> null
+    }
 }

@@ -126,7 +126,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.upsert(unit.toEntity())
                 Result.success(unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida kuriant vieneta")))
+                Result.failure(Exception(response.errorMessage("Klaida kuriant vienetą")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -164,12 +164,12 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.upsert(unit.toEntity())
                 Result.success(unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida atnaujinant vieneta")))
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant vienetą")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             val cached = organizationalUnitDao.getUnit(unitId, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Vienetas nerastas offline cache"))
+                ?: return Result.failure(Exception("Vienetas nerastas vietinėje saugykloje"))
             val updated = cached.copy(
                 name = request.name ?: cached.name,
                 acceptedRankId = request.acceptedRankId ?: cached.acceptedRankId
@@ -196,7 +196,7 @@ class OrganizationalUnitRepository @Inject constructor(
                 organizationalUnitDao.deleteUnit(unitId, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida trinant vieneta")))
+                Result.failure(Exception(response.errorMessage("Klaida trinant vienetą")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
@@ -218,7 +218,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.getUnitMembers("Bearer ${token()}", tuntasId(), unitId)
             if (response.isSuccessful) Result.success(response.body()!!.members)
-            else Result.failure(Exception(response.errorMessage("Klaida gaunant nariųs")))
+            else Result.failure(Exception(response.errorMessage("Klaida gaunant narius")))
         } catch (e: Exception) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
             val cachedMembers = currentTuntasId
@@ -232,7 +232,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.assignUnitMember("Bearer ${token()}", tuntasId(), unitId, request)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorMessage("Klaida priskiriant nari")))
+            else Result.failure(Exception(response.errorMessage("Klaida priskiriant narį")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             addUnitAssignmentToCachedMember(currentTuntasId, unitId, request.userId, request.assignmentType)
@@ -253,7 +253,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.removeUnitMember("Bearer ${token()}", tuntasId(), unitId, userId)
             if (response.isSuccessful) Result.success(Unit)
-            else Result.failure(Exception(response.errorMessage("Klaida salinant nari")))
+            else Result.failure(Exception(response.errorMessage("Klaida šalinant narį")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             removeUnitAssignmentFromCachedMember(currentTuntasId, unitId, userId)
@@ -296,7 +296,7 @@ class OrganizationalUnitRepository @Inject constructor(
         return try {
             val response = orgUnitApiService.moveUnitMember("Bearer ${token()}", tuntasId(), unitId, userId)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorMessage("Klaida perkeliant nari")))
+            else Result.failure(Exception(response.errorMessage("Klaida perkeliant narį")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()
             addUnitAssignmentToCachedMember(currentTuntasId, unitId, userId, "PRIMARY")

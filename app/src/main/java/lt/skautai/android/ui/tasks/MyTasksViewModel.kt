@@ -84,7 +84,7 @@ class MyTasksViewModel @Inject constructor(
                 .onFailure { error ->
                     _uiState.value = current.copy(
                         isSaving = false,
-                        actionError = error.message ?: "Nepavyko perziureti vadovo pasikeitimo prasymo."
+                        actionError = error.message ?: "Nepavyko peržiūrėti vadovo pasikeitimo prašymo."
                     )
                 }
         }

@@ -46,6 +46,7 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
+import lt.skautai.android.ui.common.codeLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -627,7 +628,7 @@ private fun RequestStatusPill(status: String) {
         "FULFILLED" -> "Įvykdyta" to SkautaiStatusTone.Success
         "REJECTED" -> "Atmesta" to SkautaiStatusTone.Danger
         "SELF_PROVIDED" -> "Savo jėgomis" to SkautaiStatusTone.Neutral
-        else -> status to SkautaiStatusTone.Neutral
+        else -> codeLabel(status) to SkautaiStatusTone.Neutral
     }
     SkautaiStatusPill(label = label, tone = tone)
 }

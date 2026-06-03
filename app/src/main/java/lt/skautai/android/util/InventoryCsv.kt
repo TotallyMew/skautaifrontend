@@ -81,7 +81,7 @@ data class InventoryImportPreview(
 object InventoryCsv {
     private val inventoryHeaders = listOf(
         "Pavadinimas",
-        "Aprasymas",
+        "Aprašymas",
         "Kategorija",
         "Kiekis",
         "Bukle",
@@ -104,7 +104,7 @@ object InventoryCsv {
 
     private val inventoryAliases = mapOf(
         "name" to listOf("name", "pavadinimas", "daiktas", "item", "itemname"),
-        "description" to listOf("description", "aprasymas", "aprasas", "desc"),
+        "description" to listOf("description", "aprašymas", "aprasymas", "aprašas", "aprasas", "desc"),
         "category" to listOf("category", "kategorija"),
         "quantity" to listOf("quantity", "kiekis", "qty", "vnt"),
         "condition" to listOf("condition", "bukle", "busena"),

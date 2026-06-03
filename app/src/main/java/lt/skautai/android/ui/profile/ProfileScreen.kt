@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.profile
+package lt.skautai.android.ui.profile
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
