@@ -5,6 +5,9 @@ sealed class NavRoutes(val route: String) {
     //Super-admin
     object SuperAdminLogin : NavRoutes("super_admin_login")
     object SuperAdminDashboard : NavRoutes("super_admin_dashboard")
+    object SuperAdminMemberDetail : NavRoutes("super_admin_member_detail/{tuntasId}/{userId}") {
+        fun createRoute(tuntasId: String, userId: String) = "super_admin_member_detail/$tuntasId/$userId"
+    }
 
     // Auth
     object Login : NavRoutes("login")

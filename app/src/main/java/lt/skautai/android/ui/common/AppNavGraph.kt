@@ -71,6 +71,7 @@ import lt.skautai.android.ui.reservations.ReservationListScreen
 import lt.skautai.android.ui.reservations.ReservationMovementScreen
 import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
 import lt.skautai.android.ui.superadmin.SuperAdminLoginScreen
+import lt.skautai.android.ui.superadmin.SuperAdminMemberDetailScreen
 import lt.skautai.android.ui.tasks.MyTasksScreen
 import lt.skautai.android.ui.tuntas.TuntasSelectScreen
 import lt.skautai.android.ui.units.UnitCreateScreen
@@ -130,7 +131,26 @@ fun AppNavGraph(
             SuperAdminLoginScreen(navController)
         }
         composable(NavRoutes.SuperAdminDashboard.route) {
-            SuperAdminDashboardScreen()
+            SuperAdminDashboardScreen(
+                onMemberClick = { tuntasId, userId ->
+                    navController.navigate(NavRoutes.SuperAdminMemberDetail.createRoute(tuntasId, userId))
+                }
+            )
+        }
+        composable(
+            route = NavRoutes.SuperAdminMemberDetail.route,
+            arguments = listOf(
+                navArgument("tuntasId") { type = NavType.StringType },
+                navArgument("userId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val tuntasId = backStackEntry.arguments?.getString("tuntasId")!!
+            val userId = backStackEntry.arguments?.getString("userId")!!
+            SuperAdminMemberDetailScreen(
+                tuntasId = tuntasId,
+                userId = userId,
+                onBack = { navController.popBackStack() }
+            )
         }
 
         composable(NavRoutes.Home.route) {

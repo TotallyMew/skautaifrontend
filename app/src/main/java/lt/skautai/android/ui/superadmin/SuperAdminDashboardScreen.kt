@@ -1,23 +1,16 @@
 package lt.skautai.android.ui.superadmin
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,10 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.MemberDto
-import lt.skautai.android.data.remote.MemberLeadershipRoleDto
-import lt.skautai.android.data.remote.MemberRankDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
-import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.data.remote.TuntasDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.codeLabel
@@ -44,16 +34,17 @@ import lt.skautai.android.ui.common.SkautaiSelectableCard
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.skautaiSelectionStyle
 import lt.skautai.android.ui.members.displayRoleName
+import lt.skautai.android.ui.units.subtypeLabel
+import lt.skautai.android.ui.units.unitTypeLabel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SuperAdminDashboardScreen(
+    onMemberClick: (tuntasId: String, userId: String) -> Unit = { _, _ -> },
     viewModel: SuperAdminDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
-    var pendingRoleRemoval by remember { mutableStateOf<MemberLeadershipRoleDto?>(null) }
-    var pendingRankRemoval by remember { mutableStateOf<MemberRankDto?>(null) }
 
     LaunchedEffect(uiState.error, uiState.actionSuccess) {
         uiState.error?.let {
@@ -64,104 +55,6 @@ fun SuperAdminDashboardScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearMessages()
         }
-    }
-
-    if (uiState.showAssignRoleDialog) {
-        AssignSuperAdminRoleDialog(
-            roles = uiState.roles.filter { it.roleType == "LEADERSHIP" },
-            units = uiState.units,
-            selectedRoleId = uiState.selectedRoleId,
-            selectedUnitId = uiState.selectedUnitId,
-            isSaving = uiState.isSaving,
-            onRoleSelected = viewModel::onRoleSelected,
-            onUnitSelected = viewModel::onUnitSelected,
-            onConfirm = viewModel::assignLeadershipRole,
-            onDismiss = viewModel::closeAssignRoleDialog
-        )
-    }
-
-    if (uiState.showAssignRankDialog) {
-        AssignSuperAdminRankDialog(
-            roles = uiState.roles.filter { it.roleType == "RANK" },
-            selectedRoleId = uiState.selectedRankRoleId,
-            isSaving = uiState.isSaving,
-            onRoleSelected = viewModel::onRankSelected,
-            onConfirm = viewModel::assignRank,
-            onDismiss = viewModel::closeAssignRankDialog
-        )
-    }
-
-    if (uiState.showEditRoleDialog) {
-        EditSuperAdminRoleDialog(
-            units = uiState.units,
-            selectedUnitId = uiState.selectedUnitId,
-            selectedTermStatus = uiState.selectedTermStatus,
-            startsAt = uiState.startsAt,
-            expiresAt = uiState.expiresAt,
-            isSaving = uiState.isSaving,
-            onUnitSelected = viewModel::onUnitSelected,
-            onTermStatusSelected = viewModel::onTermStatusSelected,
-            onStartsAtChanged = viewModel::onStartsAtChanged,
-            onExpiresAtChanged = viewModel::onExpiresAtChanged,
-            onConfirm = viewModel::updateLeadershipRole,
-            onDismiss = viewModel::closeEditRoleDialog
-        )
-    }
-
-    pendingRoleRemoval?.let { role ->
-        AlertDialog(
-            onDismissRequest = { pendingRoleRemoval = null },
-            title = { Text("Šalinti pareigas?") },
-            text = {
-                Text(
-                    buildString {
-                        append("Pareigos ")
-                        append(displayRoleName(role.roleName))
-                        role.organizationalUnitName?.let {
-                            append(" vienete ")
-                            append(it)
-                        }
-                        append(" bus pašalintos.")
-                    }
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRoleRemoval = null
-                        viewModel.removeLeadershipRole(role.id)
-                    },
-                    enabled = !uiState.isSaving
-                ) {
-                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRoleRemoval = null }) { Text("Atšaukti") }
-            }
-        )
-    }
-
-    pendingRankRemoval?.let { rank ->
-        AlertDialog(
-            onDismissRequest = { pendingRankRemoval = null },
-            title = { Text("Šalinti laipsnį?") },
-            text = { Text("Laipsnis ${displayRoleName(rank.roleName)} bus pašalintas iš nario.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        pendingRankRemoval = null
-                        viewModel.removeRank(rank.id)
-                    },
-                    enabled = !uiState.isSaving
-                ) {
-                    Text("Šalinti", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingRankRemoval = null }) { Text("Atšaukti") }
-            }
-        )
     }
 
     Scaffold(
@@ -195,6 +88,9 @@ fun SuperAdminDashboardScreen(
 
             else -> {
                 val selectedTuntas = uiState.tuntai.find { it.id == uiState.selectedTuntasId }
+                val pendingTuntai = uiState.tuntai.filter { it.status == "PENDING" }
+                val activeTuntai = uiState.tuntai.filter { it.status == "ACTIVE" }
+                val inactiveTuntai = uiState.tuntai.filter { it.status == "REJECTED" || it.status == "SUSPENDED" }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -203,15 +99,23 @@ fun SuperAdminDashboardScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    TuntaiOverviewSection(
+                        activeCount = activeTuntai.size,
+                        pendingCount = pendingTuntai.size,
+                        inactiveCount = inactiveTuntai.size
+                    )
+
                     PendingTuntaiSection(
-                        tuntai = uiState.tuntai.filter { it.status == "PENDING" },
+                        tuntai = pendingTuntai,
                         isSaving = uiState.isSaving,
                         onApprove = viewModel::approveTuntas,
                         onReject = viewModel::rejectTuntas
                     )
 
                     TuntasSelectorCard(
-                        tuntai = uiState.tuntai,
+                        activeTuntai = activeTuntai,
+                        pendingTuntai = pendingTuntai,
+                        otherTuntai = inactiveTuntai,
                         selectedTuntasId = uiState.selectedTuntasId,
                         onSelected = viewModel::selectTuntas
                     )
@@ -235,24 +139,63 @@ fun SuperAdminDashboardScreen(
                     } else {
                         UnitsSection(units = uiState.units)
                         MembersSection(
-                            members = uiState.members,
-                            selectedMemberId = uiState.selectedMemberId,
-                            onMemberSelected = viewModel::selectMember
-                        )
-                        MemberDetailSection(
-                            member = uiState.selectedMember,
-                            isLoading = uiState.isLoadingMember,
-                            isSaving = uiState.isSaving,
-                            onAssignRole = viewModel::openAssignRoleDialog,
-                            onEditRole = viewModel::openEditRoleDialog,
-                            onRemoveRole = { role -> pendingRoleRemoval = role },
-                            onAssignRank = viewModel::openAssignRankDialog,
-                            onRemoveRank = { rank -> pendingRankRemoval = rank }
+                            members = uiState.filteredMembers,
+                            totalMembers = uiState.members.size,
+                            searchQuery = uiState.memberSearchQuery,
+                            onSearchChanged = viewModel::onMemberSearchChanged,
+                            onMemberSelected = { userId ->
+                                uiState.selectedTuntasId?.let { tuntasId -> onMemberClick(tuntasId, userId) }
+                            }
                         )
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun TuntaiOverviewSection(
+    activeCount: Int,
+    pendingCount: Int,
+    inactiveCount: Int
+) {
+    SectionCard(title = "Tuntų suvestinė") {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TuntasCountBlock(
+                label = "Patvirtinti",
+                count = activeCount,
+                modifier = Modifier.weight(1f)
+            )
+            TuntasCountBlock(
+                label = "Laukia patvirtinimo",
+                count = pendingCount,
+                modifier = Modifier.weight(1f)
+            )
+            TuntasCountBlock(
+                label = "Atmesti / sustabdyti",
+                count = inactiveCount,
+                modifier = Modifier.weight(1f)
+            )
+        }
+    }
+}
+
+@Composable
+private fun TuntasCountBlock(
+    label: String,
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(count.toString(), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -266,6 +209,11 @@ private fun PendingTuntaiSection(
     if (tuntai.isEmpty()) return
 
     SectionCard(title = "Laukiantys tvirtinimo") {
+        Text(
+            "Šie tuntai dar nepatvirtinti. Jie gali egzistuoti kartu su jau patvirtintais tuntais.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             tuntai.forEach { tuntas ->
                 TuntasSummaryRow(
@@ -283,17 +231,25 @@ private fun PendingTuntaiSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TuntasSelectorCard(
-    tuntai: List<TuntasDto>,
+    activeTuntai: List<TuntasDto>,
+    pendingTuntai: List<TuntasDto>,
+    otherTuntai: List<TuntasDto>,
     selectedTuntasId: String?,
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    val tuntai = activeTuntai + pendingTuntai + otherTuntai
     val selectedTuntas = tuntai.find { it.id == selectedTuntasId }
 
-    SectionCard(title = "Pasirinktas tuntas") {
+    SectionCard(title = "Pasirinktas tuntas valdymui") {
+        Text(
+            "Pasirinkite tuntą, kurio vienetus ir narius norite tvarkyti.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
         ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
             OutlinedTextField(
-                value = selectedTuntas?.name ?: "Pasirinkite tuntą",
+                value = selectedTuntas?.let { "${it.name} (${statusText(it.status)})" } ?: "Pasirinkite tuntą",
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Tuntas") },
@@ -306,17 +262,57 @@ private fun TuntasSelectorCard(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
-                tuntai.forEach { tuntas ->
-                    DropdownMenuItem(
-                        text = { Text("${tuntas.name} (${statusText(tuntas.status)})") },
-                        onClick = {
-                            onSelected(tuntas.id)
-                            expanded = false
-                        }
-                    )
-                }
+                TuntasDropdownGroup(
+                    title = "Patvirtinti",
+                    tuntai = activeTuntai,
+                    onSelected = onSelected,
+                    onClose = { expanded = false }
+                )
+                TuntasDropdownGroup(
+                    title = "Laukia patvirtinimo",
+                    tuntai = pendingTuntai,
+                    onSelected = onSelected,
+                    onClose = { expanded = false }
+                )
+                TuntasDropdownGroup(
+                    title = "Atmesti / sustabdyti",
+                    tuntai = otherTuntai,
+                    onSelected = onSelected,
+                    onClose = { expanded = false }
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun TuntasDropdownGroup(
+    title: String,
+    tuntai: List<TuntasDto>,
+    onSelected: (String) -> Unit,
+    onClose: () -> Unit
+) {
+    if (tuntai.isEmpty()) return
+    DropdownMenuItem(
+        text = {
+            Text(
+                title,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.SemiBold
+            )
+        },
+        enabled = false,
+        onClick = {}
+    )
+    tuntai.forEach { tuntas ->
+        DropdownMenuItem(
+            text = { Text("${tuntas.name} (${statusText(tuntas.status)})") },
+            onClick = {
+                onSelected(tuntas.id)
+                onClose()
+            }
+        )
     }
 }
 
@@ -328,6 +324,13 @@ private fun SelectedTuntasCard(
     onReject: () -> Unit
 ) {
     SectionCard(title = "Tunto informacija") {
+        if (tuntas.status == "PENDING") {
+            Text(
+                "Šis tuntas dar laukia patvirtinimo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.tertiary
+            )
+        }
         TuntasSummaryRow(
             tuntas = tuntas,
             showActions = tuntas.status == "PENDING",
@@ -350,10 +353,10 @@ private fun UnitsSection(units: List<OrganizationalUnitDto>) {
                         Text(unit.name, fontWeight = FontWeight.Medium)
                         Text(
                             buildString {
-                                append(unit.type)
+                                append(unitTypeLabel(unit.type))
                                 unit.subtype?.takeIf { it.isNotBlank() }?.let {
                                     append(" / ")
-                                    append(it)
+                                    append(subtypeLabel(it))
                                 }
                                 append(" / ")
                                 append("${unit.memberCount} nariai")
@@ -362,7 +365,9 @@ private fun UnitsSection(units: List<OrganizationalUnitDto>) {
                             style = MaterialTheme.typography.bodySmall
                         )
                     }
-                    if (index != units.lastIndex) HorizontalDivider()
+                    if (index != units.lastIndex) {
+                        HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+                    }
                 }
             }
         }
@@ -372,22 +377,46 @@ private fun UnitsSection(units: List<OrganizationalUnitDto>) {
 @Composable
 private fun MembersSection(
     members: List<MemberDto>,
-    selectedMemberId: String?,
+    totalMembers: Int,
+    searchQuery: String,
+    onSearchChanged: (String) -> Unit,
     onMemberSelected: (String) -> Unit
 ) {
     SectionCard(title = "Nariai") {
+        SkautaiTextField(
+            value = searchQuery,
+            onValueChange = onSearchChanged,
+            label = "Ieškoti nario",
+            placeholder = "Vardas, pavardė, el. paštas arba vienetas",
+            singleLine = true,
+            leadingIcon = Icons.Default.Search,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Text(
+            if (searchQuery.isBlank()) {
+                "Rodoma narių: $totalMembers"
+            } else {
+                "Rasta: ${members.size} iš $totalMembers"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
         if (members.isEmpty()) {
-            Text("Narių nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                if (searchQuery.isBlank()) "Narių nėra" else "Pagal paiešką narių nerasta",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         } else {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 members.forEachIndexed { index, member ->
-                    val isSelected = member.userId == selectedMemberId
                     val selectionStyle = skautaiSelectionStyle(
-                        selected = isSelected,
+                        selected = false,
                         idleContainer = MaterialTheme.colorScheme.surfaceBright
                     )
                     SkautaiSelectableCard(
-                        selected = isSelected,
+                        selected = false,
                         onClick = { onMemberSelected(member.userId) },
                         modifier = Modifier.fillMaxWidth(),
                         style = selectionStyle
@@ -409,9 +438,10 @@ private fun MembersSection(
                         )
                         val unitsText = member.unitAssignments.orEmpty()
                             .joinToString { it.organizationalUnitName }
-                            .ifBlank { "Vienetų nėra" }
+                            .ifBlank { null }
+                        val summary = memberSummary(member, unitsText)
                         Text(
-                            unitsText,
+                            summary,
                             style = MaterialTheme.typography.bodySmall,
                             color = selectionStyle.supportingColor
                         )
@@ -424,192 +454,13 @@ private fun MembersSection(
     }
 }
 
-@Composable
-private fun MemberDetailSection(
-    member: MemberDto?,
-    isLoading: Boolean,
-    isSaving: Boolean,
-    onAssignRole: () -> Unit,
-    onEditRole: (MemberLeadershipRoleDto) -> Unit,
-    onRemoveRole: (MemberLeadershipRoleDto) -> Unit,
-    onAssignRank: () -> Unit,
-    onRemoveRank: (MemberRankDto) -> Unit
-) {
-    SectionCard(title = "Nario detalės") {
-        when {
-            isLoading -> Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-
-            member == null -> Text(
-                "Pasirinkite narį, kad matytumėte daugiau informacijos.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            else -> Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${member.name} ${member.surname}", style = MaterialTheme.typography.titleLarge)
-                    Text(member.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    member.phone?.takeIf { it.isNotBlank() }?.let {
-                        Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-
-                MemberUnitAssignmentsBlock(member = member)
-
-                RoleBlock(
-                    roles = member.leadershipRoles,
-                    isSaving = isSaving,
-                    onAdd = onAssignRole,
-                    onEdit = onEditRole,
-                    onRemove = onRemoveRole
-                )
-
-                RankBlock(
-                    ranks = member.ranks,
-                    isSaving = isSaving,
-                    onAdd = onAssignRank,
-                    onRemove = onRemoveRank
-                )
-            }
-        }
+private fun memberSummary(member: MemberDto, unitsText: String?): String {
+    val parts = buildList {
+        unitsText?.let { add(it) }
+        member.leadershipRoles.forEach { add(displayRoleName(it.roleName)) }
+        member.ranks.forEach { add(displayRoleName(it.roleName)) }
     }
-}
-
-@Composable
-private fun MemberUnitAssignmentsBlock(member: MemberDto) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Vienetai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-        if (member.unitAssignments.isNullOrEmpty()) {
-            Text("Vienetų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            member.unitAssignments.forEach { assignment ->
-                Text(
-                    "${assignment.organizationalUnitName} (${assignmentTypeLabel(assignment.assignmentType)})",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun RoleBlock(
-    roles: List<MemberLeadershipRoleDto>,
-    isSaving: Boolean,
-    onAdd: () -> Unit,
-    onEdit: (MemberLeadershipRoleDto) -> Unit,
-    onRemove: (MemberLeadershipRoleDto) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Pareigos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Button(onClick = onAdd, enabled = !isSaving) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Pridėti")
-            }
-        }
-
-        if (roles.isEmpty()) {
-            Text("Pareigų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            roles.forEachIndexed { index, role ->
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                            Text(displayRoleName(role.roleName), fontWeight = FontWeight.Medium)
-                            role.organizationalUnitName?.let {
-                                Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Text(
-                                buildString {
-                                    append("Būsena: ${termStatusLabel(role.termStatus)}")
-                                    role.startsAt?.let { append(" / nuo ${it.take(10)}") }
-                                    role.expiresAt?.let { append(" / iki ${it.take(10)}") }
-                                },
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        Row {
-                            IconButton(onClick = { onEdit(role) }, enabled = !isSaving) {
-                                Icon(Icons.Default.Edit, contentDescription = "Redaguoti")
-                            }
-                            IconButton(onClick = { onRemove(role) }, enabled = !isSaving) {
-                                Icon(
-                                    Icons.Default.Delete,
-                                    contentDescription = "Šalinti",
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        }
-                    }
-                    if (index != roles.lastIndex) HorizontalDivider()
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun RankBlock(
-    ranks: List<MemberRankDto>,
-    isSaving: Boolean,
-    onAdd: () -> Unit,
-    onRemove: (MemberRankDto) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Laipsniai", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-            Button(onClick = onAdd, enabled = !isSaving) {
-                Icon(Icons.Default.Add, contentDescription = null)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Pridėti")
-            }
-        }
-
-        if (ranks.isEmpty()) {
-            Text("Laipsnių nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            ranks.forEachIndexed { index, rank ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(displayRoleName(rank.roleName), fontWeight = FontWeight.Medium)
-                        Text(
-                            rank.assignedAt.take(10),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    IconButton(onClick = { onRemove(rank) }, enabled = !isSaving) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Šalinti",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-                if (index != ranks.lastIndex) HorizontalDivider()
-            }
-        }
-    }
+    return parts.joinToString(" • ").ifBlank { "Narystės informacija nepateikta" }
 }
 
 @Composable
@@ -707,275 +558,4 @@ private fun statusText(status: String): String = when (status) {
     else -> codeLabel(status)
 }
 
-private fun termStatusLabel(status: String): String = when (status) {
-    "ACTIVE" -> "Aktyvus"
-    "COMPLETED" -> "Baigtas"
-    "RESIGNED" -> "Atsistatydinta"
-    else -> codeLabel(status)
-}
-
-private fun assignmentTypeLabel(type: String): String = when (type) {
-    "MEMBER" -> "Narys"
-    else -> codeLabel(type)
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AssignSuperAdminRoleDialog(
-    roles: List<RoleDto>,
-    units: List<OrganizationalUnitDto>,
-    selectedRoleId: String,
-    selectedUnitId: String?,
-    isSaving: Boolean,
-    onRoleSelected: (String) -> Unit,
-    onUnitSelected: (String?) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var roleExpanded by remember { mutableStateOf(false) }
-    var unitExpanded by remember { mutableStateOf(false) }
-    val selectedRole = roles.find { it.id == selectedRoleId }
-    val selectedUnit = units.find { it.id == selectedUnitId }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Priskirti pareigas") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ExposedDropdownMenuBox(expanded = roleExpanded, onExpandedChange = { roleExpanded = it }) {
-                    OutlinedTextField(
-                        value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite pareigas",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Pareigos") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(roleExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = roleExpanded,
-                        onDismissRequest = { roleExpanded = false }
-                    ) {
-                        roles.forEach { role ->
-                            DropdownMenuItem(
-                                text = { Text(displayRoleName(role.name)) },
-                                onClick = {
-                                    onRoleSelected(role.id)
-                                    roleExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                ExposedDropdownMenuBox(expanded = unitExpanded, onExpandedChange = { unitExpanded = it }) {
-                    OutlinedTextField(
-                        value = selectedUnit?.name ?: "Vienetas (neprivaloma)",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Vienetas") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Nepriskirtas") },
-                            onClick = {
-                                onUnitSelected(null)
-                                unitExpanded = false
-                            }
-                        )
-                        units.forEach { unit ->
-                            DropdownMenuItem(
-                                text = { Text(unit.name) },
-                                onClick = {
-                                    onUnitSelected(unit.id)
-                                    unitExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = selectedRoleId.isNotBlank() && !isSaving) {
-                Text("Priskirti")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Atšaukti")
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun AssignSuperAdminRankDialog(
-    roles: List<RoleDto>,
-    selectedRoleId: String,
-    isSaving: Boolean,
-    onRoleSelected: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedRole = roles.find { it.id == selectedRoleId }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Priskirti laipsnį") },
-        text = {
-            ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-                OutlinedTextField(
-                    value = selectedRole?.name?.let(::displayRoleName) ?: "Pasirinkite laipsnį",
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Laipsnis") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-                    modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                )
-                ExposedDropdownMenu(
-                    expanded = expanded,
-                    onDismissRequest = { expanded = false }
-                ) {
-                    roles.forEach { role ->
-                        DropdownMenuItem(
-                            text = { Text(displayRoleName(role.name)) },
-                            onClick = {
-                                onRoleSelected(role.id)
-                                expanded = false
-                            }
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = selectedRoleId.isNotBlank() && !isSaving) {
-                Text("Priskirti")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Atšaukti")
-            }
-        }
-    )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun EditSuperAdminRoleDialog(
-    units: List<OrganizationalUnitDto>,
-    selectedUnitId: String?,
-    selectedTermStatus: String,
-    startsAt: String,
-    expiresAt: String,
-    isSaving: Boolean,
-    onUnitSelected: (String?) -> Unit,
-    onTermStatusSelected: (String) -> Unit,
-    onStartsAtChanged: (String) -> Unit,
-    onExpiresAtChanged: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    var unitExpanded by remember { mutableStateOf(false) }
-    var statusExpanded by remember { mutableStateOf(false) }
-    val selectedUnit = units.find { it.id == selectedUnitId }
-    val statuses = listOf("ACTIVE", "COMPLETED", "RESIGNED")
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Redaguoti pareigas") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                ExposedDropdownMenuBox(expanded = statusExpanded, onExpandedChange = { statusExpanded = it }) {
-                    OutlinedTextField(
-                        value = termStatusLabel(selectedTermStatus),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Būsena") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(statusExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = statusExpanded,
-                        onDismissRequest = { statusExpanded = false }
-                    ) {
-                        statuses.forEach { status ->
-                            DropdownMenuItem(
-                                text = { Text(termStatusLabel(status)) },
-                                onClick = {
-                                    onTermStatusSelected(status)
-                                    statusExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                ExposedDropdownMenuBox(expanded = unitExpanded, onExpandedChange = { unitExpanded = it }) {
-                    OutlinedTextField(
-                        value = selectedUnit?.name ?: "Vienetas (neprivaloma)",
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Vienetas") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(unitExpanded) },
-                        modifier = Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = unitExpanded,
-                        onDismissRequest = { unitExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Nepriskirtas") },
-                            onClick = {
-                                onUnitSelected(null)
-                                unitExpanded = false
-                            }
-                        )
-                        units.forEach { unit ->
-                            DropdownMenuItem(
-                                text = { Text(unit.name) },
-                                onClick = {
-                                    onUnitSelected(unit.id)
-                                    unitExpanded = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                SkautaiTextField(
-                    value = startsAt,
-                    onValueChange = onStartsAtChanged,
-                    label = "Pradžia (YYYY-MM-DD)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                SkautaiTextField(
-                    value = expiresAt,
-                    onValueChange = onExpiresAtChanged,
-                    label = "Pabaiga (YYYY-MM-DD)",
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm, enabled = !isSaving) {
-                Text("Išsaugoti")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Atšaukti")
-            }
-        }
-    )
-}
 

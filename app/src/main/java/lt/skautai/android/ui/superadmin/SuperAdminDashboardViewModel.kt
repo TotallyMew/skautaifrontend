@@ -27,6 +27,7 @@ data class SuperAdminDashboardUiState(
     val roles: List<RoleDto> = emptyList(),
     val units: List<OrganizationalUnitDto> = emptyList(),
     val members: List<MemberDto> = emptyList(),
+    val memberSearchQuery: String = "",
     val selectedMember: MemberDto? = null,
     val isLoadingTuntai: Boolean = false,
     val isLoadingContext: Boolean = false,
@@ -44,7 +45,23 @@ data class SuperAdminDashboardUiState(
     val startsAt: String = "",
     val expiresAt: String = "",
     val editingAssignmentId: String? = null
-)
+) {
+    val filteredMembers: List<MemberDto>
+        get() {
+            val query = memberSearchQuery.trim().lowercase()
+            if (query.isBlank()) return members
+            return members.filter { member ->
+                val unitNames = member.unitAssignments.orEmpty()
+                    .joinToString(" ") { it.organizationalUnitName }
+                listOf(
+                    member.name,
+                    member.surname,
+                    member.email,
+                    unitNames
+                ).any { it.lowercase().contains(query) }
+            }
+        }
+}
 
 @HiltViewModel
 class SuperAdminDashboardViewModel @Inject constructor(
@@ -66,6 +83,7 @@ class SuperAdminDashboardViewModel @Inject constructor(
                     val currentSelection = _uiState.value.selectedTuntasId
                     val nextSelection = when {
                         tuntai.any { it.id == currentSelection } -> currentSelection
+                        tuntai.any { it.status == "ACTIVE" } -> tuntai.first { it.status == "ACTIVE" }.id
                         tuntai.any { it.status == "PENDING" } -> tuntai.first { it.status == "PENDING" }.id
                         tuntai.isNotEmpty() -> tuntai.first().id
                         else -> null
@@ -95,7 +113,8 @@ class SuperAdminDashboardViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             selectedTuntasId = tuntasId,
             selectedMemberId = null,
-            selectedMember = null
+            selectedMember = null,
+            memberSearchQuery = ""
         )
         loadTuntasContext(tuntasId, null)
     }
@@ -119,6 +138,10 @@ class SuperAdminDashboardViewModel @Inject constructor(
                     )
                 }
         }
+    }
+
+    fun onMemberSearchChanged(value: String) {
+        _uiState.value = _uiState.value.copy(memberSearchQuery = value)
     }
 
     fun approveTuntas(id: String) {
