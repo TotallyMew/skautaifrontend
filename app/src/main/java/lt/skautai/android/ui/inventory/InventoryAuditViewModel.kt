@@ -30,6 +30,7 @@ sealed interface InventoryAuditUiState {
 data class AuditEntryDraft(
     val result: ItemCheckResult,
     val actualQuantity: Int,
+    val conditionAtCheck: String? = null,
     val actualLocationNote: String = "",
     val notes: String = ""
 )
@@ -259,15 +260,21 @@ class InventoryAuditViewModel @Inject constructor(
     fun completeAudit(onCompleted: (String) -> Unit) {
         val currentSessionId = sessionId ?: return
         if (_isCompleting.value) return
+        val items = (uiState.value as? InventoryAuditUiState.Success)?.items.orEmpty()
+        val unchecked = (items.size - _auditResults.value.size).coerceAtLeast(0)
+        if (unchecked > 0) {
+            _message.value = "Prieš užbaigiant reikia patikrinti visus daiktus. Liko: $unchecked."
+            return
+        }
         viewModelScope.launch {
             _isCompleting.value = true
             itemRepository.completeStorageAuditSession(currentSessionId)
                 .onSuccess {
-                    _message.value = "Inventorizacija uzbaigta."
+                    _message.value = "Inventorizacija užbaigta."
                     onCompleted(currentSessionId)
                 }
                 .onFailure {
-                    _message.value = it.message ?: "Nepavyko uzbaigti inventorizacijos"
+                    _message.value = it.message ?: "Nepavyko užbaigti inventorizacijos"
                 }
             _isCompleting.value = false
         }
@@ -315,6 +322,7 @@ class InventoryAuditViewModel @Inject constructor(
                         result = draft.result.name,
                         actualQuantity = draft.actualQuantity,
                         actualLocationNote = draft.actualLocationNote.ifBlank { null },
+                        conditionAtCheck = draft.conditionAtCheck,
                         notes = draft.notes.ifBlank { null }
                     )
                 }
@@ -328,6 +336,11 @@ internal fun defaultDraft(item: ItemDto, result: ItemCheckResult): AuditEntryDra
     actualQuantity = when (result) {
         ItemCheckResult.MISSING -> 0
         else -> item.quantity
+    },
+    conditionAtCheck = when (result) {
+        ItemCheckResult.MISSING -> null
+        ItemCheckResult.DAMAGED -> "DAMAGED"
+        else -> item.condition
     }
 )
 
@@ -336,6 +349,7 @@ private fun ItemCheckDto.toDraft(): AuditEntryDraft? {
     return AuditEntryDraft(
         result = parsedResult,
         actualQuantity = actualQuantity,
+        conditionAtCheck = conditionAtCheck,
         actualLocationNote = actualLocationNote.orEmpty(),
         notes = notes.orEmpty()
     )

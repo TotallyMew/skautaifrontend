@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -19,6 +21,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -35,6 +39,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +60,7 @@ import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.buildItemCheckSummary
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,23 +101,38 @@ fun EventReconciliationScreen(
                 )
                 is EventReconciliationUiState.Success -> {
                     val reconciliation = current.reconciliation
+                    val openReturns = reconciliation.openReturns.orEmpty()
+                    val returnedToEventStorage = reconciliation.returnedToEventStorage.orEmpty()
+                    val unresolvedPurchases = reconciliation.unresolvedPurchases.orEmpty()
+                    val listState = rememberLazyListState()
+                    val coroutineScope = rememberCoroutineScope()
+                    var showUncheckedOnly by rememberSaveable { mutableStateOf(false) }
+                    val visibleReturns = remember(openReturns, showUncheckedOnly) {
+                        if (showUncheckedOnly) {
+                            openReturns.filter { it.auditLog.isEmpty() && it.returnDecision == null }
+                        } else {
+                            openReturns
+                        }
+                    }
                     val checkSummary = remember(reconciliation) {
                         buildItemCheckSummary(
-                            total = reconciliation.openReturns.size + reconciliation.returnedToEventStorage.size,
-                            results = reconciliation.returnedToEventStorage.map { it.toItemCheckResult() }
+                            total = openReturns.size + returnedToEventStorage.size,
+                            results = returnedToEventStorage.map { it.toItemCheckResult() } +
+                                openReturns.map { it.toItemCheckResult() }
                         )
                     }
                     LazyColumn(
+                        state = listState,
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         item {
                             EventDetailHero(
                                 event = current.event,
-                                subtitle = "Atviri grąžinimai: ${reconciliation.openReturns.size} · pirkimai sprendimui: ${reconciliation.unresolvedPurchases.size}",
+                                subtitle = "Atviri grąžinimai: ${openReturns.size} · pirkimai sprendimui: ${unresolvedPurchases.size}",
                                 metrics = listOf(
-                                    "Negrąžinta" to reconciliation.openReturns.sumOf { it.remainingQuantity }.toString(),
-                                    "Pirkimai" to reconciliation.unresolvedPurchases.size.toString(),
+                                    "Negrąžinta" to openReturns.sumOf { it.remainingQuantity }.toString(),
+                                    "Pirkimai" to unresolvedPurchases.size.toString(),
                                     "Būsena" to if (reconciliation.canComplete) "Paruošta" else "Tikrinama"
                                 )
                             )
@@ -119,16 +141,31 @@ fun EventReconciliationScreen(
                         item {
                             ReconciliationCheckSummaryCard(
                                 summary = checkSummary,
-                                openReturnCount = reconciliation.openReturns.sumOf { it.remainingQuantity }
+                                openReturnCount = openReturns.sumOf { it.remainingQuantity },
+                                hasOpenReturns = openReturns.isNotEmpty(),
+                                actionLabel = if (returnedToEventStorage.isEmpty()) {
+                                    "Pradėti inventorizaciją"
+                                } else {
+                                    "Tęsti inventorizaciją"
+                                },
+                                onOpenReturns = {
+                                    coroutineScope.launch { listState.animateScrollToItem(2) }
+                                },
+                                showUncheckedOnly = showUncheckedOnly,
+                                isRefreshing = current.isWorking,
+                                onToggleUncheckedOnly = { showUncheckedOnly = !showUncheckedOnly },
+                                onRefresh = { viewModel.load(eventId) }
                             )
                         }
 
                         item {
                             ReconciliationReturnSection(
                                 title = "Negrąžinti daiktai",
-                                rows = reconciliation.openReturns,
+                                rows = visibleReturns,
+                                totalOpenRows = openReturns.size,
+                                showUncheckedOnly = showUncheckedOnly,
                                 isWorking = current.isWorking || current.event.status == "COMPLETED",
-                                onDecision = { row, decision ->
+                                onOpen = { row, decision ->
                                     pendingReturnDecision = row to decision
                                 }
                             )
@@ -137,14 +174,14 @@ fun EventReconciliationScreen(
                         item {
                             ReconciliationCompletedSection(
                                 title = "Grąžinimų suvestinė",
-                                rows = reconciliation.returnedToEventStorage
+                                rows = returnedToEventStorage
                             )
                         }
 
                         item {
                             ReconciliationPurchaseSection(
                                 title = "Pirkimai sprendimui",
-                                rows = reconciliation.unresolvedPurchases,
+                                rows = unresolvedPurchases,
                                 isWorking = current.isWorking || current.event.status == "COMPLETED",
                                 onDecision = { row, decision ->
                                     if (decision == "INCREASE_EXISTING_ITEM") {
@@ -196,14 +233,14 @@ fun EventReconciliationScreen(
     pendingReturnDecision?.let { (row, decision) ->
         ReconcileReturnQuantityDialog(
             row = row,
-            decision = decision,
+            initialDecision = decision,
             onDismiss = { pendingReturnDecision = null },
-            onConfirm = { quantity, returnToMode, note ->
+            onConfirm = { selectedDecision, quantity, returnToMode, note ->
                 pendingReturnDecision = null
                 viewModel.reconcileReturn(
                     eventId = eventId,
                     custodyId = row.custodyId,
-                    decision = decision,
+                    decision = selectedDecision,
                     quantity = quantity,
                     returnToMode = returnToMode,
                     returnLocationNote = note,
@@ -218,16 +255,46 @@ fun EventReconciliationScreen(
 private fun ReconciliationReturnSection(
     title: String,
     rows: List<EventReconciliationReturnLineDto>,
+    totalOpenRows: Int,
+    showUncheckedOnly: Boolean,
     isWorking: Boolean,
-    onDecision: (EventReconciliationReturnLineDto, String) -> Unit
+    onOpen: (EventReconciliationReturnLineDto, String) -> Unit
 ) {
     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(title, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = if (showUncheckedOnly) {
+                            "Rodomi tik dar nesuvesti: ${rows.size}/$totalOpenRows"
+                        } else {
+                            "Atviri grąžinimai: $totalOpenRows"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (totalOpenRows > 0) {
+                    SkautaiStatusPill(label = "${rows.sumOf { it.remainingQuantity }} vnt.", tone = SkautaiStatusTone.Warning)
+                }
+            }
             if (rows.isEmpty()) {
-                Text("Atvirų grąžinimų nėra.", style = MaterialTheme.typography.bodySmall)
+                Text(
+                    text = if (showUncheckedOnly && totalOpenRows > 0) {
+                        "Visi atviri grąžinimai jau turi bent vieną suvedimo įrašą."
+                    } else {
+                        "Atvirų grąžinimų nėra."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             } else {
-                rows.forEachIndexed { index, row ->
+                rows.forEach { row ->
                     ReconciliationLine(
                         title = row.itemName,
                         subtitle = row.currentHolderSummary ?: listOfNotNull(row.pastovykleName, row.holderUserName).joinToString(" · ").ifBlank { "Renginio sandėlis" },
@@ -244,9 +311,8 @@ private fun ReconciliationReturnSection(
                             "MISSING" to "Dingo",
                             "CONSUMED" to "Sunaudota"
                         ),
-                        onDecision = { onDecision(row, it) }
+                        onDecision = { onOpen(row, it) }
                     )
-                    if (index != rows.lastIndex) HorizontalDivider()
                 }
             }
         }
@@ -330,33 +396,99 @@ private fun ReconciliationPurchaseSection(
 @Composable
 private fun ReconcileReturnQuantityDialog(
     row: EventReconciliationReturnLineDto,
-    decision: String,
+    initialDecision: String,
     onDismiss: () -> Unit,
-    onConfirm: (Int, String?, String?) -> Unit
+    onConfirm: (String, Int, String?, String?) -> Unit
 ) {
-    var quantityText by remember(row.custodyId, decision) { mutableStateOf(row.remainingQuantity.toString()) }
-    var returnToMode by remember(row.custodyId, decision) {
-        mutableStateOf(if (decision in listOf("RETURNED", "DAMAGED")) "ORIGINAL_SOURCE" else null)
+    var selectedDecision by rememberSaveable(row.custodyId, initialDecision) { mutableStateOf(initialDecision) }
+    var quantityText by rememberSaveable(row.custodyId, initialDecision) { mutableStateOf(row.remainingQuantity.toString()) }
+    var returnToMode by rememberSaveable(row.custodyId, initialDecision) {
+        mutableStateOf(if (initialDecision in listOf("RETURNED", "DAMAGED")) "ORIGINAL_SOURCE" else null)
     }
-    var note by remember(row.custodyId, decision) { mutableStateOf("") }
+    var note by rememberSaveable(row.custodyId, initialDecision) { mutableStateOf("") }
     val quantity = quantityText.toIntOrNull()
-    val destinationRequired = decision in listOf("RETURNED", "DAMAGED")
+    val displayQuantity = quantity ?: 0
+    val destinationRequired = selectedDecision in listOf("RETURNED", "DAMAGED")
+    val decisions = listOf(
+        "RETURNED" to "Grįžo",
+        "DAMAGED" to "Sugadinta",
+        "MISSING" to "Dingo",
+        "CONSUMED" to "Sunaudota"
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(returnDecisionLabel(decision)) },
+        title = { Text(row.itemName) },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(row.itemName, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                Text("Likutis: ${row.remainingQuantity} vnt.", style = MaterialTheme.typography.bodySmall)
-                OutlinedTextField(
-                    value = quantityText,
-                    onValueChange = { quantityText = it.filter(Char::isDigit) },
-                    label = { Text("Kiekis") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text("Likutis suvesti: ${row.remainingQuantity} vnt.", style = MaterialTheme.typography.bodyMedium)
+                decisions.chunked(2).forEach { rowDecisions ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        rowDecisions.forEach { (decision, label) ->
+                            FilterChip(
+                                selected = selectedDecision == decision,
+                                onClick = {
+                                    selectedDecision = decision
+                                    if (decision in listOf("RETURNED", "DAMAGED") && returnToMode == null) {
+                                        returnToMode = "ORIGINAL_SOURCE"
+                                    }
+                                    if (decision !in listOf("RETURNED", "DAMAGED")) {
+                                        returnToMode = null
+                                    }
+                                },
+                                label = { Text(label) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = when (decision) {
+                                        "RETURNED" -> MaterialTheme.colorScheme.primaryContainer
+                                        "DAMAGED" -> MaterialTheme.colorScheme.secondaryContainer
+                                        "MISSING" -> MaterialTheme.colorScheme.errorContainer
+                                        else -> MaterialTheme.colorScheme.surfaceVariant
+                                    }
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Kiekis",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { quantityText = (displayQuantity - 1).coerceAtLeast(1).toString() },
+                            enabled = displayQuantity > 1,
+                            modifier = Modifier.heightIn(min = 56.dp)
+                        ) {
+                            Text("-")
+                        }
+                        OutlinedTextField(
+                            value = quantityText,
+                            onValueChange = { quantityText = it.filter(Char::isDigit) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(
+                            onClick = { quantityText = (displayQuantity + 1).coerceAtMost(row.remainingQuantity).toString() },
+                            enabled = displayQuantity < row.remainingQuantity,
+                            modifier = Modifier.heightIn(min = 56.dp)
+                        ) {
+                            Text("+")
+                        }
+                    }
+                }
+
                 if (destinationRequired) {
                     ReturnDestinationSelector(
                         value = returnToMode ?: "ORIGINAL_SOURCE",
@@ -374,7 +506,14 @@ private fun ReconcileReturnQuantityDialog(
         confirmButton = {
             Button(
                 enabled = quantity != null && quantity in 1..row.remainingQuantity,
-                onClick = { onConfirm(quantity ?: 0, if (destinationRequired) returnToMode else null, note.takeIf { it.isNotBlank() }) }
+                onClick = {
+                    onConfirm(
+                        selectedDecision,
+                        quantity ?: 0,
+                        if (destinationRequired) returnToMode else null,
+                        note.takeIf { it.isNotBlank() }
+                    )
+                }
             ) {
                 Text("Suvesti")
             }
@@ -603,14 +742,21 @@ private fun ReconciliationLine(title: String, subtitle: String, trailing: String
 @Composable
 private fun ReconciliationCheckSummaryCard(
     summary: lt.skautai.android.ui.common.ItemCheckSummary,
-    openReturnCount: Int
+    openReturnCount: Int,
+    hasOpenReturns: Boolean,
+    actionLabel: String,
+    onOpenReturns: () -> Unit,
+    showUncheckedOnly: Boolean,
+    isRefreshing: Boolean,
+    onToggleUncheckedOnly: () -> Unit,
+    onRefresh: () -> Unit
 ) {
     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Bendra patikra", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text("Bendra inventorizacijos patikra", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             Text(
                 text = "${summary.total - summary.unchecked}/${summary.total} eil. jau suvestos, dar laukia: ${summary.unchecked}",
                 style = MaterialTheme.typography.bodySmall,
@@ -635,6 +781,48 @@ private fun ReconciliationCheckSummaryCard(
                 if (summary.unchecked > 0 || openReturnCount > 0) {
                     SkautaiStatusPill(label = "Laukia: ${summary.unchecked}", tone = SkautaiStatusTone.Warning)
                 }
+            }
+            if (hasOpenReturns) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onOpenReturns,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text(actionLabel)
+                    }
+                    OutlinedButton(
+                        onClick = onRefresh,
+                        enabled = !isRefreshing,
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                    ) {
+                        Text(if (isRefreshing) "Atnaujinama..." else "Atnaujinti")
+                    }
+                }
+                FilterChip(
+                    selected = showUncheckedOnly,
+                    onClick = onToggleUncheckedOnly,
+                    label = { Text("Tik nesuvesti") }
+                )
+                if (summary.unchecked > 0 || openReturnCount > 0) {
+                    Text(
+                        text = "Renginį galėsi užbaigti, kai grąžinimai ir pirkimai bus suvesti.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            } else {
+                Text(
+                    text = "Visi grąžinimai jau suvesti arba nėra ką inventorizuoti.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }

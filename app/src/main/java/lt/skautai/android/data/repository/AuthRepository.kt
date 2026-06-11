@@ -12,6 +12,7 @@ import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.errorMessage
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.flow.first
 
 @Singleton
 class AuthRepository @Inject constructor(
@@ -20,7 +21,10 @@ class AuthRepository @Inject constructor(
     private val userRepository: UserRepository
 ) {
 
-    private suspend fun persistSession(body: TokenResponseDto) {
+    private suspend fun persistSession(
+        body: TokenResponseDto,
+        resetTuntasContext: Boolean
+    ) {
         tokenManager.saveToken(
             token = body.token,
             refreshToken = body.refreshToken,
@@ -30,9 +34,21 @@ class AuthRepository @Inject constructor(
             type = body.type
         )
 
+        if (resetTuntasContext) {
+            tokenManager.clearActiveTuntas()
+        }
+
         val tuntai = body.tuntai.orEmpty()
-        if (tuntai.size == 1) {
-            val tuntas = tuntai.first()
+        val activeTuntai = tuntai.filter { it.status == "ACTIVE" }
+        val currentActiveTuntasId = tokenManager.activeTuntasId.first()
+        if (
+            currentActiveTuntasId != null &&
+            activeTuntai.none { it.id == currentActiveTuntasId }
+        ) {
+            tokenManager.clearActiveTuntas()
+        }
+        if (activeTuntai.size == 1 && tokenManager.activeTuntasId.first().isNullOrBlank()) {
+            val tuntas = activeTuntai.first()
             val tuntasId = tuntas.id
             tokenManager.setActiveTuntas(tuntasId, tuntas.name)
             userRepository.getMyPermissions(tuntasId)
@@ -49,7 +65,7 @@ class AuthRepository @Inject constructor(
             val response = authApiService.login(LoginRequestDto(email, password))
             if (response.isSuccessful) {
                 val body = response.body()!!
-                persistSession(body)
+                persistSession(body, resetTuntasContext = true)
                 Result.success(body)
 
             } else {
@@ -83,7 +99,7 @@ class AuthRepository @Inject constructor(
             )
             if (response.isSuccessful) {
                 val body = response.body()!!
-                persistSession(body)
+                persistSession(body, resetTuntasContext = true)
                 Result.success(body)
             } else {
                 Result.failure(Exception(response.errorMessage("Registracija nepavyko")))
@@ -114,7 +130,7 @@ class AuthRepository @Inject constructor(
             )
             if (response.isSuccessful) {
                 val body = response.body()!!
-                persistSession(body)
+                persistSession(body, resetTuntasContext = true)
                 Result.success(body)
             } else {
                 Result.failure(Exception(response.errorMessage("Registracija nepavyko")))
@@ -133,7 +149,7 @@ class AuthRepository @Inject constructor(
             val response = authApiService.refresh(RefreshTokenRequestDto(refreshToken))
             if (response.isSuccessful) {
                 val body = response.body()!!
-                persistSession(body)
+                persistSession(body, resetTuntasContext = false)
                 Result.success(body)
             } else {
                 Result.failure(Exception(response.errorMessage("Perkrovimas nepavyko")))

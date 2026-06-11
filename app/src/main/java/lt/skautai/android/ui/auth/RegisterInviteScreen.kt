@@ -48,7 +48,7 @@ fun RegisterInviteScreen(
 
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
-            if (uiState.tuntaiCount == 1) {
+            if (uiState.hasActiveTuntas) {
                 navController.navigate(NavRoutes.Home.route) {
                     popUpTo(NavRoutes.Login.route) { inclusive = true }
                 }
@@ -95,6 +95,8 @@ fun RegisterInviteScreen(
                 value = uiState.name,
                 onValueChange = viewModel::onNameChange,
                 label = "Vardas *",
+                isError = uiState.nameError != null,
+                supportingText = uiState.nameError,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -103,6 +105,8 @@ fun RegisterInviteScreen(
                 value = uiState.surname,
                 onValueChange = viewModel::onSurnameChange,
                 label = "Pavardė *",
+                isError = uiState.surnameError != null,
+                supportingText = uiState.surnameError,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -111,6 +115,8 @@ fun RegisterInviteScreen(
                 value = uiState.email,
                 onValueChange = viewModel::onEmailChange,
                 label = "El. paštas *",
+                isError = uiState.emailError != null,
+                supportingText = uiState.emailError,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -120,6 +126,8 @@ fun RegisterInviteScreen(
                 value = uiState.password,
                 onValueChange = viewModel::onPasswordChange,
                 label = "Slaptažodis *",
+                isError = uiState.passwordError != null,
+                supportingText = uiState.passwordError,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true,
@@ -130,6 +138,8 @@ fun RegisterInviteScreen(
                 value = uiState.phone,
                 onValueChange = viewModel::onPhoneChange,
                 label = "Telefono numeris",
+                isError = uiState.phoneError != null,
+                supportingText = uiState.phoneError,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
@@ -139,6 +149,8 @@ fun RegisterInviteScreen(
                 value = uiState.inviteCode,
                 onValueChange = viewModel::onInviteCodeChange,
                 label = "Pakvietimo kodas *",
+                isError = uiState.inviteCodeError != null,
+                supportingText = uiState.inviteCodeError,
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )

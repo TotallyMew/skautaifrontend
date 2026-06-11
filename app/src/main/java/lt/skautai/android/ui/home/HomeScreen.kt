@@ -33,6 +33,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -50,6 +53,7 @@ import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiAlpha
 import lt.skautai.android.ui.common.SkautaiEmptyState
+import lt.skautai.android.ui.common.SkautaiErrorState
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSummaryCard
@@ -72,6 +76,17 @@ fun HomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val canCreateItems = permissions.canCreateItems()
     val canManageLocations = permissions.canManageLocations()
+    var hasObservedInitialResume by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(lifecycleOwner) {
+        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            if (hasObservedInitialResume) {
+                viewModel.refresh(force = true)
+            } else {
+                hasObservedInitialResume = true
+            }
+        }
+    }
 
     if (uiState.isLoading && uiState.availableUnits.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -80,10 +95,13 @@ fun HomeScreen(
         return
     }
 
-    LaunchedEffect(lifecycleOwner) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
-            viewModel.refresh(force = true)
-        }
+    if (uiState.error != null && uiState.availableUnits.isEmpty()) {
+        SkautaiErrorState(
+            message = uiState.error ?: "Nepavyko gauti pradzios suvestines",
+            onRetry = { viewModel.refresh(force = true) },
+            modifier = Modifier.fillMaxSize()
+        )
+        return
     }
 
     Column(

@@ -132,6 +132,13 @@ fun AppNavGraph(
         }
         composable(NavRoutes.SuperAdminDashboard.route) {
             SuperAdminDashboardScreen(
+                onLogout = {
+                    mainViewModel.logout {
+                        navController.navigate(NavRoutes.SuperAdminLogin.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                },
                 onMemberClick = { tuntasId, userId ->
                     navController.navigate(NavRoutes.SuperAdminMemberDetail.createRoute(tuntasId, userId))
                 }

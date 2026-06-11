@@ -870,29 +870,36 @@ private fun ConditionSelector(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            conditionOptions().forEach { (value, label) ->
-                val isSelected = selected == value
-                if (isSelected) {
-                    Button(
-                        onClick = { onSelected(value) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                    ) {
-                        Text(label)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            conditionOptions().chunked(2).forEach { row ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEach { (value, label) ->
+                        val isSelected = selected == value
+                        if (isSelected) {
+                            Button(
+                                onClick = { onSelected(value) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                            ) {
+                                Text(label)
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = { onSelected(value) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .heightIn(min = 48.dp)
+                            ) {
+                                Text(label)
+                            }
+                        }
                     }
-                } else {
-                    OutlinedButton(
-                        onClick = { onSelected(value) },
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 48.dp)
-                    ) {
-                        Text(label)
+                    if (row.size == 1) {
+                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }

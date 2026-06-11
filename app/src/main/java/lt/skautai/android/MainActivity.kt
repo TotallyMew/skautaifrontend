@@ -48,7 +48,7 @@ class MainActivity : ComponentActivity() {
                         NavRoutes.SuperAdminLogin.route
                     } else {
                         val currentToken = tokenManager.token.first()
-                        val currentTuntasId = tokenManager.activeTuntasId.first()
+                        var currentTuntasId = tokenManager.activeTuntasId.first()
                         val currentTuntasName = tokenManager.activeTuntasName.first()
                         var sessionIsValid = currentToken != null
                         val myTuntaiResult = if (currentToken != null) {
@@ -61,26 +61,45 @@ class MainActivity : ComponentActivity() {
                         } else {
                             null
                         }
+                        val activeTuntai = myTuntaiResult
+                            ?.getOrNull()
+                            ?.filter { it.status == "ACTIVE" }
+                            .orEmpty()
+
                         if (currentToken != null &&
                             sessionIsValid &&
                             !currentTuntasId.isNullOrBlank() &&
                             currentTuntasName.isNullOrBlank()
                         ) {
-                            myTuntaiResult
-                                ?.getOrNull()
-                                ?.firstOrNull { it.id == currentTuntasId && it.status == "ACTIVE" }
+                            activeTuntai
+                                .firstOrNull { it.id == currentTuntasId }
                                 ?.let { tokenManager.setActiveTuntas(it.id, it.name) }
                         }
                         val activeTuntasStillAvailable = if (sessionIsValid && !currentTuntasId.isNullOrBlank()) {
-                            myTuntaiResult
-                                ?.getOrNull()
-                                ?.any { it.id == currentTuntasId && it.status == "ACTIVE" }
-                                ?: true
+                            activeTuntai.any { it.id == currentTuntasId }
                         } else {
                             true
                         }
                         if (!activeTuntasStillAvailable) {
                             tokenManager.clearActiveTuntas()
+                            currentTuntasId = null
+                        }
+                        if (
+                            currentToken != null &&
+                            sessionIsValid &&
+                            currentTuntasId.isNullOrBlank() &&
+                            activeTuntai.size == 1
+                        ) {
+                            val tuntas = activeTuntai.first()
+                            val permissionsResult = userRepository.getMyPermissions(tuntas.id)
+                            tokenManager.setActiveTuntas(tuntas.id, tuntas.name)
+                            tokenManager.setActiveOrgUnit(null)
+                            permissionsResult.onSuccess {
+                                tokenManager.savePermissions(it.permissions)
+                                tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
+                                tokenManager.cachePermissionsForTuntas(tuntas.id, it.permissions)
+                            }
+                            currentTuntasId = tuntas.id
                         }
                         when {
                             !sessionIsValid || currentToken == null -> NavRoutes.Login.route

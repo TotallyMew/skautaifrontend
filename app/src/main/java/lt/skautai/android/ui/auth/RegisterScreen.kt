@@ -140,6 +140,8 @@ fun RegisterScreen(
                 value = uiState.phone,
                 onValueChange = viewModel::onPhoneChange,
                 label = "Telefono numeris",
+                isError = uiState.phoneError != null,
+                supportingText = uiState.phoneError,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()

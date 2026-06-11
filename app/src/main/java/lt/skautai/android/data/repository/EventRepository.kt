@@ -454,7 +454,7 @@ class EventRepository @Inject constructor(
         return try {
             val response = eventApiService.getInventoryPlan("Bearer ${token()}", tuntasId(), eventId)
             if (response.isSuccessful) {
-                val plan = response.body() ?: EventInventoryPlanDto(emptyList(), emptyList(), emptyList())
+                val plan = (response.body() ?: EventInventoryPlanDto(emptyList(), emptyList(), emptyList())).withSafeCollections()
                 cacheInventoryPlan(eventId, plan)
                 Result.success(plan)
             } else {
@@ -556,7 +556,7 @@ class EventRepository @Inject constructor(
         return try {
             val response = eventApiService.createInventoryItem("Bearer ${token()}", tuntasId(), eventId, request)
             if (response.isSuccessful) {
-                val item = response.body()!!
+                val item = response.body()!!.withSafeCollections()
                 upsertCachedInventoryItem(eventId, item)
                 Result.success(item)
             } else Result.failure(Exception(response.errorMessage("Klaida")))
@@ -598,7 +598,7 @@ class EventRepository @Inject constructor(
         return try {
             val response = eventApiService.createInventoryItemsBulk("Bearer ${token()}", tuntasId(), eventId, request)
             if (response.isSuccessful) {
-                val created = response.body()!!
+                val created = response.body()!!.withSafeCollections()
                 mergeCachedInventoryItems(eventId, created.items)
                 Result.success(created)
             } else Result.failure(Exception(response.errorMessage("Klaida")))
@@ -715,7 +715,7 @@ class EventRepository @Inject constructor(
                 ApplyInventoryTemplateRequestDto(template.id)
             )
             if (response.isSuccessful) {
-                val created = response.body()!!
+                val created = response.body()!!.withSafeCollections()
                 mergeCachedInventoryItems(eventId, created.items)
                 Result.success(created)
             } else {
@@ -756,7 +756,7 @@ class EventRepository @Inject constructor(
         return try {
             val response = eventApiService.updateInventoryItem("Bearer ${token()}", tuntasId(), eventId, inventoryItemId, request)
             if (response.isSuccessful) {
-                val item = response.body()!!
+                val item = response.body()!!.withSafeCollections()
                 upsertCachedInventoryItem(eventId, item)
                 Result.success(item)
             } else Result.failure(Exception(response.errorMessage("Klaida")))
@@ -1814,7 +1814,7 @@ class EventRepository @Inject constructor(
         getCachedEventEntity(eventId)?.cachedPastovyklės()
 
     private suspend fun cachedInventoryPlan(eventId: String): EventInventoryPlanDto? =
-        getCachedEventEntity(eventId)?.cachedInventoryPlan()
+        getCachedEventEntity(eventId)?.cachedInventoryPlan()?.withSafeCollections()
 
     private suspend fun cachedPurchases(eventId: String): List<EventPurchaseDto>? =
         getCachedEventEntity(eventId)?.cachedPurchases()
@@ -1842,7 +1842,7 @@ class EventRepository @Inject constructor(
     }
 
     private suspend fun cacheInventoryPlan(eventId: String, plan: EventInventoryPlanDto?) {
-        updateCachedEvent(eventId) { it.withCachedInventoryPlan(plan) }
+        updateCachedEvent(eventId) { it.withCachedInventoryPlan(plan?.withSafeCollections()) }
     }
 
     private suspend fun cachePurchases(eventId: String, purchases: List<EventPurchaseDto>) {
@@ -1902,7 +1902,7 @@ class EventRepository @Inject constructor(
     private suspend fun upsertCachedInventoryItem(eventId: String, item: EventInventoryItemDto) {
         val plan = cachedInventoryPlan(eventId) ?: EventInventoryPlanDto(emptyList(), emptyList(), emptyList())
         val updated = plan.copy(
-            items = plan.items.filterNot { it.id == item.id } + recalculateItemAllocation(plan.allocations, item)
+            items = plan.items.filterNot { it.id == item.id } + recalculateItemAllocation(plan.allocations, item.withSafeCollections())
         )
         cacheInventoryPlan(eventId, updated)
     }
@@ -1910,7 +1910,8 @@ class EventRepository @Inject constructor(
     private suspend fun mergeCachedInventoryItems(eventId: String, items: List<EventInventoryItemDto>) {
         var plan = cachedInventoryPlan(eventId) ?: EventInventoryPlanDto(emptyList(), emptyList(), emptyList())
         for (item in items) {
-            plan = plan.copy(items = plan.items.filterNot { it.id == item.id } + recalculateItemAllocation(plan.allocations, item))
+            val safeItem = item.withSafeCollections()
+            plan = plan.copy(items = plan.items.filterNot { it.id == safeItem.id } + recalculateItemAllocation(plan.allocations, safeItem))
         }
         cacheInventoryPlan(eventId, plan)
     }
@@ -2035,13 +2036,27 @@ class EventRepository @Inject constructor(
         item: EventInventoryItemDto
     ): EventInventoryItemDto {
         val allocated = allocations.filter { it.eventInventoryItemId == item.id }.sumOf { it.quantity }
-        return item.copy(
+        return item.withSafeCollections().copy(
             allocatedQuantity = allocated,
             unallocatedQuantity = (item.availableQuantity - allocated).coerceAtLeast(0),
             shortageQuantity = (item.plannedQuantity - item.availableQuantity).coerceAtLeast(0),
             needsPurchase = item.plannedQuantity > item.availableQuantity
         )
     }
+
+    private fun EventInventoryPlanDto.withSafeCollections(): EventInventoryPlanDto = copy(
+        buckets = buckets.orEmpty(),
+        items = items.orEmpty().map { it.withSafeCollections() },
+        allocations = allocations.orEmpty()
+    )
+
+    private fun EventInventoryItemListDto.withSafeCollections(): EventInventoryItemListDto = copy(
+        items = items.orEmpty().map { it.withSafeCollections() }
+    )
+
+    private fun EventInventoryItemDto.withSafeCollections(): EventInventoryItemDto = copy(
+        sources = sources.orEmpty()
+    )
 
     private suspend fun updateCachedEvent(eventId: String, block: (lt.skautai.android.data.local.entity.EventEntity) -> lt.skautai.android.data.local.entity.EventEntity) {
         val currentTuntasId = tokenManager.activeTuntasId.first() ?: return

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -72,6 +73,7 @@ class HomeViewModel @Inject constructor(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
+    private var refreshJob: Job? = null
 
     val userName: StateFlow<String?> = tokenManager.userName
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -81,7 +83,8 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refresh(force: Boolean = false) {
-        viewModelScope.launch {
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
             val hasLoadedData = _uiState.value.availableUnits.isNotEmpty() ||
                 _uiState.value.activeUnitItemCount > 0 ||
                 _uiState.value.sharedInventoryCount > 0 ||

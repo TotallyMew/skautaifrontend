@@ -1,5 +1,6 @@
 package lt.skautai.android.ui.superadmin
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +45,7 @@ import lt.skautai.android.ui.units.unitTypeLabel
 @Composable
 fun SuperAdminDashboardScreen(
     onMemberClick: (tuntasId: String, userId: String) -> Unit = { _, _ -> },
+    onLogout: () -> Unit = {},
     viewModel: SuperAdminDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -57,9 +62,21 @@ fun SuperAdminDashboardScreen(
         }
     }
 
+    BackHandler(onBack = onLogout)
+
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("Superadministratorius") })
+            TopAppBar(
+                title = { Text("Superadministratorius") },
+                actions = {
+                    IconButton(onClick = onLogout) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ExitToApp,
+                            contentDescription = "Atsijungti"
+                        )
+                    }
+                }
+            )
         },
         snackbarHost = { SkautaiErrorSnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
@@ -90,7 +107,7 @@ fun SuperAdminDashboardScreen(
                 val selectedTuntas = uiState.tuntai.find { it.id == uiState.selectedTuntasId }
                 val pendingTuntai = uiState.tuntai.filter { it.status == "PENDING" }
                 val activeTuntai = uiState.tuntai.filter { it.status == "ACTIVE" }
-                val inactiveTuntai = uiState.tuntai.filter { it.status == "REJECTED" || it.status == "SUSPENDED" }
+                val inactiveTuntai = uiState.tuntai.filter { it.status == "REJECTED" }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -137,9 +154,9 @@ fun SuperAdminDashboardScreen(
                             CircularProgressIndicator()
                         }
                     } else {
-                        UnitsSection(units = uiState.units)
-                        MembersSection(
-                            members = uiState.filteredMembers,
+                        UnitMemberDirectorySection(
+                            units = uiState.units,
+                            members = uiState.members,
                             totalMembers = uiState.members.size,
                             searchQuery = uiState.memberSearchQuery,
                             onSearchChanged = viewModel::onMemberSearchChanged,
@@ -176,7 +193,7 @@ private fun TuntaiOverviewSection(
                 modifier = Modifier.weight(1f)
             )
             TuntasCountBlock(
-                label = "Atmesti / sustabdyti",
+                label = "Atmesti",
                 count = inactiveCount,
                 modifier = Modifier.weight(1f)
             )
@@ -275,7 +292,7 @@ private fun TuntasSelectorCard(
                     onClose = { expanded = false }
                 )
                 TuntasDropdownGroup(
-                    title = "Atmesti / sustabdyti",
+                    title = "Atmesti",
                     tuntai = otherTuntai,
                     onSelected = onSelected,
                     onClose = { expanded = false }
@@ -342,31 +359,122 @@ private fun SelectedTuntasCard(
 }
 
 @Composable
-private fun UnitsSection(units: List<OrganizationalUnitDto>) {
-    SectionCard(title = "Vienetai") {
-        if (units.isEmpty()) {
-            Text("Vienetų nėra", color = MaterialTheme.colorScheme.onSurfaceVariant)
+private fun UnitMemberDirectorySection(
+    units: List<OrganizationalUnitDto>,
+    members: List<MemberDto>,
+    totalMembers: Int,
+    searchQuery: String,
+    onSearchChanged: (String) -> Unit,
+    onMemberSelected: (String) -> Unit
+) {
+    var expandedUnitIds by remember { mutableStateOf(emptySet<String>()) }
+    val query = searchQuery.trim()
+    val normalizedQuery = query.lowercase()
+    val unassignedMembers = members.filter { it.unitAssignments.isNullOrEmpty() }
+    val visibleGroups = units.mapNotNull { unit ->
+        val unitMembers = members.filter { member ->
+            member.unitAssignments.orEmpty().any { it.organizationalUnitId == unit.id }
+        }
+        val unitMatches = normalizedQuery.isBlank() || unit.matchesSearch(normalizedQuery)
+        val matchingMembers = if (normalizedQuery.isBlank() || unitMatches) {
+            unitMembers
         } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                units.forEachIndexed { index, unit ->
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(unit.name, fontWeight = FontWeight.Medium)
-                        Text(
-                            buildString {
-                                append(unitTypeLabel(unit.type))
-                                unit.subtype?.takeIf { it.isNotBlank() }?.let {
-                                    append(" / ")
-                                    append(subtypeLabel(it))
+            unitMembers.filter { it.matchesSearch(normalizedQuery) }
+        }
+        if (matchingMembers.isNotEmpty() || unitMatches) UnitMemberGroup(unit, matchingMembers) else null
+    }
+    val visibleUnassignedMembers = when {
+        normalizedQuery.isBlank() -> unassignedMembers
+        "be vieneto".contains(normalizedQuery) -> unassignedMembers
+        else -> unassignedMembers.filter { it.matchesSearch(normalizedQuery) }
+    }
+    val visibleMemberCount = (visibleGroups.flatMap { it.members } + visibleUnassignedMembers)
+        .distinctBy { it.userId }
+        .size
+
+    SectionCard(title = "Vienetai ir nariai") {
+        SkautaiTextField(
+            value = searchQuery,
+            onValueChange = onSearchChanged,
+            label = "Ieškoti nario",
+            placeholder = "Vienetas, vardas, pavardė, el. paštas arba pareigos",
+            singleLine = true,
+            leadingIcon = Icons.Default.Search,
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Text(
+            if (query.isBlank()) {
+                "Vienetai suskleisti. Rodoma narių: $totalMembers"
+            } else {
+                "Rasta narių: $visibleMemberCount iš $totalMembers"
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (visibleGroups.isEmpty() && visibleUnassignedMembers.isEmpty()) {
+            Text(
+                if (query.isBlank()) "Vienetų ir narių nėra" else "Pagal paiešką rezultatų nerasta",
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                visibleGroups.forEachIndexed { index, group ->
+                    val isExpanded = query.isNotBlank() || group.unit.id in expandedUnitIds
+                    UnitGroupRow(
+                        unit = group.unit,
+                        memberCount = group.members.size,
+                        expanded = isExpanded,
+                        onToggle = {
+                            expandedUnitIds = if (group.unit.id in expandedUnitIds) {
+                                expandedUnitIds - group.unit.id
+                            } else {
+                                expandedUnitIds + group.unit.id
+                            }
+                        }
+                    )
+                    if (isExpanded) {
+                        if (group.members.isEmpty()) {
+                            Text(
+                                "Šiame vienete narių nerasta",
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                group.members.forEach { member ->
+                                    MemberListRow(member = member, onMemberSelected = onMemberSelected)
                                 }
-                                append(" / ")
-                                append("${unit.memberCount} nariai")
-                            },
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                            }
+                        }
                     }
-                    if (index != units.lastIndex) {
+                    if (index != visibleGroups.lastIndex || visibleUnassignedMembers.isNotEmpty()) {
                         HorizontalDivider(modifier = Modifier.padding(horizontal = 12.dp))
+                    }
+                }
+
+                if (visibleUnassignedMembers.isNotEmpty()) {
+                    val unassignedExpanded = query.isNotBlank() || UNASSIGNED_UNIT_KEY in expandedUnitIds
+                    UnitGroupHeader(
+                        title = "Be vieneto",
+                        subtitle = "${visibleUnassignedMembers.size} nariai",
+                        expanded = unassignedExpanded,
+                        onToggle = {
+                            expandedUnitIds = if (UNASSIGNED_UNIT_KEY in expandedUnitIds) {
+                                expandedUnitIds - UNASSIGNED_UNIT_KEY
+                            } else {
+                                expandedUnitIds + UNASSIGNED_UNIT_KEY
+                            }
+                        }
+                    )
+                    if (unassignedExpanded) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            visibleUnassignedMembers.forEach { member ->
+                                MemberListRow(member = member, onMemberSelected = onMemberSelected)
+                            }
+                        }
                     }
                 }
             }
@@ -375,92 +483,130 @@ private fun UnitsSection(units: List<OrganizationalUnitDto>) {
 }
 
 @Composable
-private fun MembersSection(
-    members: List<MemberDto>,
-    totalMembers: Int,
-    searchQuery: String,
-    onSearchChanged: (String) -> Unit,
-    onMemberSelected: (String) -> Unit
+private fun UnitGroupRow(
+    unit: OrganizationalUnitDto,
+    memberCount: Int,
+    expanded: Boolean,
+    onToggle: () -> Unit
 ) {
-    SectionCard(title = "Nariai") {
-        SkautaiTextField(
-            value = searchQuery,
-            onValueChange = onSearchChanged,
-            label = "Ieškoti nario",
-            placeholder = "Vardas, pavardė, el. paštas arba vienetas",
-            singleLine = true,
-            leadingIcon = Icons.Default.Search,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        Text(
-            if (searchQuery.isBlank()) {
-                "Rodoma narių: $totalMembers"
-            } else {
-                "Rasta: ${members.size} iš $totalMembers"
-            },
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-
-        if (members.isEmpty()) {
-            Text(
-                if (searchQuery.isBlank()) "Narių nėra" else "Pagal paiešką narių nerasta",
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                members.forEachIndexed { index, member ->
-                    val selectionStyle = skautaiSelectionStyle(
-                        selected = false,
-                        idleContainer = MaterialTheme.colorScheme.surfaceBright
-                    )
-                    SkautaiSelectableCard(
-                        selected = false,
-                        onClick = { onMemberSelected(member.userId) },
-                        modifier = Modifier.fillMaxWidth(),
-                        style = selectionStyle
-                    ) {
-                        Column(
-                        modifier = Modifier
-                            .padding(12.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp)
-                    ) {
-                        Text(
-                            "${member.name} ${member.surname}",
-                            fontWeight = FontWeight.Medium,
-                            color = selectionStyle.titleColor
-                        )
-                        Text(
-                            member.email,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = selectionStyle.supportingColor
-                        )
-                        val unitsText = member.unitAssignments.orEmpty()
-                            .joinToString { it.organizationalUnitName }
-                            .ifBlank { null }
-                        val summary = memberSummary(member, unitsText)
-                        Text(
-                            summary,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = selectionStyle.supportingColor
-                        )
-                    }
-                    }
-                    if (index != members.lastIndex) HorizontalDivider()
-                }
+    UnitGroupHeader(
+        title = unit.name,
+        subtitle = buildString {
+            append(unitTypeLabel(unit.type))
+            unit.subtype?.takeIf { it.isNotBlank() }?.let {
+                append(" / ")
+                append(subtypeLabel(it))
             }
+            append(" / ")
+            append("$memberCount nariai")
+        },
+        expanded = expanded,
+        onToggle = onToggle
+    )
+}
+
+@Composable
+private fun UnitGroupHeader(
+    title: String,
+    subtitle: String,
+    expanded: Boolean,
+    onToggle: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(title, fontWeight = FontWeight.SemiBold)
+            Text(
+                subtitle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+        IconButton(onClick = onToggle) {
+            Icon(
+                imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = if (expanded) "Suskleisti" else "Išskleisti"
+            )
         }
     }
 }
 
-private fun memberSummary(member: MemberDto, unitsText: String?): String {
+@Composable
+private fun MemberListRow(
+    member: MemberDto,
+    onMemberSelected: (String) -> Unit
+) {
+    val selectionStyle = skautaiSelectionStyle(
+        selected = false,
+        idleContainer = MaterialTheme.colorScheme.surfaceBright
+    )
+    SkautaiSelectableCard(
+        selected = false,
+        onClick = { onMemberSelected(member.userId) },
+        modifier = Modifier.fillMaxWidth(),
+        style = selectionStyle
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                "${member.name} ${member.surname}",
+                fontWeight = FontWeight.Medium,
+                color = selectionStyle.titleColor
+            )
+            Text(
+                member.email,
+                style = MaterialTheme.typography.bodySmall,
+                color = selectionStyle.supportingColor
+            )
+            Text(
+                memberSummary(member),
+                style = MaterialTheme.typography.bodySmall,
+                color = selectionStyle.supportingColor
+            )
+        }
+    }
+}
+
+private data class UnitMemberGroup(
+    val unit: OrganizationalUnitDto,
+    val members: List<MemberDto>
+)
+
+private const val UNASSIGNED_UNIT_KEY = "unassigned"
+
+private fun OrganizationalUnitDto.matchesSearch(query: String): Boolean =
+    listOfNotNull(
+        name,
+        type,
+        unitTypeLabel(type),
+        subtype,
+        subtype?.let(::subtypeLabel)
+    ).any { it.lowercase().contains(query) }
+
+private fun MemberDto.matchesSearch(query: String): Boolean {
+    val units = unitAssignments.orEmpty().joinToString(" ") { it.organizationalUnitName }
+    val roles = leadershipRoles.joinToString(" ") { displayRoleName(it.roleName) }
+    val ranks = ranks.joinToString(" ") { displayRoleName(it.roleName) }
+    return listOf(name, surname, email, units, roles, ranks)
+        .any { it.lowercase().contains(query) }
+}
+
+private fun memberSummary(member: MemberDto): String {
     val parts = buildList {
-        unitsText?.let { add(it) }
         member.leadershipRoles.forEach { add(displayRoleName(it.roleName)) }
         member.ranks.forEach { add(displayRoleName(it.roleName)) }
     }
-    return parts.joinToString(" • ").ifBlank { "Narystės informacija nepateikta" }
+    return parts.joinToString(" • ").ifBlank { "Pareigų ar laipsnių nėra" }
 }
 
 @Composable

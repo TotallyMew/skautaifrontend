@@ -20,8 +20,14 @@ data class RegisterInviteUiState(
     val inviteCode: String = "",
     val isLoading: Boolean = false,
     val error: String? = null,
+    val nameError: String? = null,
+    val surnameError: String? = null,
+    val emailError: String? = null,
+    val passwordError: String? = null,
+    val phoneError: String? = null,
+    val inviteCodeError: String? = null,
     val isSuccess: Boolean = false,
-    val tuntaiCount: Int = 0
+    val hasActiveTuntas: Boolean = false
 )
 
 @HiltViewModel
@@ -32,33 +38,53 @@ class RegisterInviteViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(RegisterInviteUiState())
     val uiState: StateFlow<RegisterInviteUiState> = _uiState.asStateFlow()
 
-    fun onNameChange(value: String) { _uiState.value = _uiState.value.copy(name = value, error = null) }
-    fun onSurnameChange(value: String) { _uiState.value = _uiState.value.copy(surname = value, error = null) }
-    fun onEmailChange(value: String) { _uiState.value = _uiState.value.copy(email = value, error = null) }
-    fun onPasswordChange(value: String) { _uiState.value = _uiState.value.copy(password = value, error = null) }
-    fun onPhoneChange(value: String) { _uiState.value = _uiState.value.copy(phone = value) }
-    fun onInviteCodeChange(value: String) { _uiState.value = _uiState.value.copy(inviteCode = value, error = null) }
+    fun onNameChange(value: String) { _uiState.value = _uiState.value.copy(name = value, nameError = null, error = null) }
+    fun onSurnameChange(value: String) { _uiState.value = _uiState.value.copy(surname = value, surnameError = null, error = null) }
+    fun onEmailChange(value: String) { _uiState.value = _uiState.value.copy(email = value, emailError = null, error = null) }
+    fun onPasswordChange(value: String) { _uiState.value = _uiState.value.copy(password = value, passwordError = null, error = null) }
+    fun onPhoneChange(value: String) { _uiState.value = _uiState.value.copy(phone = value, phoneError = null, error = null) }
+    fun onInviteCodeChange(value: String) { _uiState.value = _uiState.value.copy(inviteCode = value, inviteCodeError = null, error = null) }
 
     fun register() {
         val state = _uiState.value
+        val nameError = RegistrationValidation.nameError(state.name)
+        val surnameError = RegistrationValidation.surnameError(state.surname)
+        val emailError = RegistrationValidation.emailError(state.email)
+        val passwordError = RegistrationValidation.passwordError(state.password)
+        val phoneError = RegistrationValidation.phoneError(state.phone)
+        val inviteCodeError = RegistrationValidation.inviteCodeError(state.inviteCode)
 
-        if (state.name.isBlank() || state.surname.isBlank() || state.inviteCode.isBlank()) {
-            _uiState.value = state.copy(error = "Užpildykite privalomus laukus")
-            return
-        }
-
-        RegistrationValidation.emailError(state.email)?.let { error ->
-            _uiState.value = state.copy(error = error)
-            return
-        }
-
-        RegistrationValidation.passwordError(state.password)?.let { error ->
-            _uiState.value = state.copy(error = error)
+        if (
+            nameError != null ||
+            surnameError != null ||
+            emailError != null ||
+            passwordError != null ||
+            phoneError != null ||
+            inviteCodeError != null
+        ) {
+            _uiState.value = state.copy(
+                nameError = nameError,
+                surnameError = surnameError,
+                emailError = emailError,
+                passwordError = passwordError,
+                phoneError = phoneError,
+                inviteCodeError = inviteCodeError,
+                error = "Patikslinkite pažymėtus laukus."
+            )
             return
         }
 
         viewModelScope.launch {
-            _uiState.value = state.copy(isLoading = true, error = null)
+            _uiState.value = state.copy(
+                isLoading = true,
+                error = null,
+                nameError = null,
+                surnameError = null,
+                emailError = null,
+                passwordError = null,
+                phoneError = null,
+                inviteCodeError = null
+            )
             authRepository.registerWithInvite(
                 name = state.name.trim(),
                 surname = state.surname.trim(),
@@ -70,7 +96,7 @@ class RegisterInviteViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     isSuccess = true,
-                    tuntaiCount = response.tuntai.orEmpty().size
+                    hasActiveTuntas = response.tuntai.orEmpty().count { it.status == "ACTIVE" } == 1
                 )
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(

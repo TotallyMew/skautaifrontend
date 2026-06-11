@@ -50,6 +50,7 @@ class SuperAdminLoginViewModel @Inject constructor(
                 val response = authApiService.loginSuperAdmin(LoginRequestDto(state.email, state.password))
                 if (response.isSuccessful) {
                     val body = response.body()!!
+                    tokenManager.clearAll()
                     tokenManager.saveToken(
                         token = body.token,
                         refreshToken = body.refreshToken,

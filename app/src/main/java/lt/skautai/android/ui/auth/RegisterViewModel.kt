@@ -24,6 +24,7 @@ data class RegisterUiState(
     val surnameError: String? = null,
     val emailError: String? = null,
     val passwordError: String? = null,
+    val phoneError: String? = null,
     val tuntasNameError: String? = null,
     val tuntasKrastasError: String? = null,
     val formError: String? = null,
@@ -55,7 +56,7 @@ class RegisterViewModel @Inject constructor(
     }
 
     fun onPhoneChange(value: String) {
-        _uiState.value = _uiState.value.copy(phone = value)
+        _uiState.value = _uiState.value.copy(phone = value, phoneError = null, formError = null)
     }
 
     fun onTuntasNameChange(value: String) {
@@ -76,11 +77,12 @@ class RegisterViewModel @Inject constructor(
 
     fun register() {
         val state = _uiState.value
-        val nameError = if (state.name.isBlank()) "Įveskite vardą." else null
-        val surnameError = if (state.surname.isBlank()) "Įveskite pavardę." else null
-        val tuntasNameError = if (state.tuntasName.isBlank()) "Įveskite tunto pavadinimą." else null
+        val nameError = RegistrationValidation.nameError(state.name)
+        val surnameError = RegistrationValidation.surnameError(state.surname)
+        val tuntasNameError = RegistrationValidation.tuntasNameError(state.tuntasName)
         val emailError = RegistrationValidation.emailError(state.email)?.normalizeLithuanianAscii()
         val passwordError = RegistrationValidation.passwordError(state.password)?.normalizeLithuanianAscii()
+        val phoneError = RegistrationValidation.phoneError(state.phone)
         val krastasError = RegistrationValidation.krastasError(state.tuntasKrastas)?.normalizeLithuanianAscii()
 
         if (
@@ -89,6 +91,7 @@ class RegisterViewModel @Inject constructor(
             tuntasNameError != null ||
             emailError != null ||
             passwordError != null ||
+            phoneError != null ||
             krastasError != null
         ) {
             _uiState.value = state.copy(
@@ -96,6 +99,7 @@ class RegisterViewModel @Inject constructor(
                 surnameError = surnameError,
                 emailError = emailError,
                 passwordError = passwordError,
+                phoneError = phoneError,
                 tuntasNameError = tuntasNameError,
                 tuntasKrastasError = krastasError,
                 formError = "Patikslinkite pažymėtus laukus."
@@ -110,6 +114,7 @@ class RegisterViewModel @Inject constructor(
                 surnameError = null,
                 emailError = null,
                 passwordError = null,
+                phoneError = null,
                 tuntasNameError = null,
                 tuntasKrastasError = null,
                 formError = null

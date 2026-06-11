@@ -174,6 +174,9 @@ fun EventDetailScreen(
                             ) {
                                 val workAreas = buildList {
                                     if (canInventory) {
+                                        if (state.event.status == "WRAP_UP") {
+                                            add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Inventoriaus suvedimas", "Grąžinimai ir inventorizacija") { onOpenReconciliation(eventId) })
+                                        }
                                         add(EventWorkArea(Icons.Default.Checklist, "Poreikiai", "Greitas kūrimas") { onOpenNeeds(eventId) })
                                         add(
                                             EventWorkArea(
@@ -185,8 +188,8 @@ fun EventDetailScreen(
                                             ) { onOpenPlan(eventId) }
                                         )
                                         add(EventWorkArea(Icons.Default.ShoppingCart, "Pirkimai", "Būsena ir sąskaitos") { onOpenPurchases(eventId) })
-                                        if (state.event.status in listOf("WRAP_UP", "COMPLETED")) {
-                                            add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Suvedimas", "Grąžinimai ir pirkimai") { onOpenReconciliation(eventId) })
+                                        if (state.event.status == "COMPLETED") {
+                                            add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Inventoriaus suvedimas", "Grąžinimai ir pirkimai") { onOpenReconciliation(eventId) })
                                         }
                                         add(EventWorkArea(Icons.Default.Inventory2, "Ūkvedys", "Trūkumai ir atsargos") { onOpenUkvedys(eventId) })
                                     }
@@ -196,7 +199,7 @@ fun EventDetailScreen(
                                     if (!canInventory && canPlanView) {
                                         add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Inventoriaus planas", "Peržiūra") { onOpenPlan(eventId) })
                                     }
-                                    if (canInventory || canOpenMovement || isPastovykleLeader) {
+                                    if (canOpenMovement && (canInventory || canManage || isPastovykleLeader)) {
                                         add(EventWorkArea(Icons.Default.SwapHoriz, "Judėjimas", "Išdavimas ir grąžinimas") { onOpenMovement(eventId) })
                                     }
                                     if (canManage || canInventory || isPastovykleLeader) {

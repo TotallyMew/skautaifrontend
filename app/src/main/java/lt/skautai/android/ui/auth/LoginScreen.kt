@@ -56,7 +56,7 @@ fun LoginScreen(
 
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
-            if (uiState.tuntaiCount == 1) {
+            if (uiState.hasActiveTuntas) {
                 navController.navigate(NavRoutes.Home.route) {
                     popUpTo(NavRoutes.Login.route) { inclusive = true }
                 }

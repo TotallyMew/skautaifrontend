@@ -14,13 +14,18 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.HelpOutline
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.ReportProblem
@@ -28,7 +33,9 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -96,7 +103,7 @@ fun InventoryAuditScreen(
                     if (result.contents.isNullOrBlank()) {
                         "Skenavimas nutrauktas. Gali bandyti dar karta."
                     } else {
-                        "Sis QR kodas neatpazintas. Tikimasi formato ${QrPayload.forScanToken("token")}."
+                        "Šis QR kodas neatpažintas. Tikimasi formato ${QrPayload.forScanToken("token")}."
                     }
                 )
             }
@@ -118,7 +125,7 @@ fun InventoryAuditScreen(
         launchScan = false
         val options = ScanOptions().apply {
             setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setPrompt("Skenuok inventoriaus QR koda inventorizacijai")
+            setPrompt("Skenuok inventoriaus QR kodą inventorizacijai")
             setBeepEnabled(false)
             setOrientationLocked(true)
         }
@@ -199,7 +206,6 @@ fun InventoryAuditScreen(
                                 }
                             },
                             onToggleUncheckedOnly = viewModel::toggleUncheckedOnly,
-                            onMarkUncheckedMissing = viewModel::markUncheckedAsMissing,
                             onComplete = {
                                 viewModel.completeAudit(onAuditCompleted)
                             }
@@ -210,7 +216,7 @@ fun InventoryAuditScreen(
                         item {
                             SkautaiEmptyState(
                                 title = "Viskas jau pažymėta",
-                                subtitle = "Sioje inventorizacijoje neliko neperziuretu daiktu.",
+                                subtitle = "Šioje inventorizacijoje neliko neperžiūrėtų daiktų.",
                                 icon = Icons.Default.CheckCircle,
                                 actionLabel = "Rodyti visus",
                                 onAction = {
@@ -257,9 +263,9 @@ private fun AuditSummaryCard(
     onRefresh: () -> Unit,
     onScan: () -> Unit,
     onToggleUncheckedOnly: () -> Unit,
-    onMarkUncheckedMissing: () -> Unit,
     onComplete: () -> Unit
 ) {
+    val onMarkUncheckedMissing = {}
     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -276,12 +282,12 @@ private fun AuditSummaryCard(
             ) {
                 SummaryChip("Rasta", summary.found, SkautaiStatusTone.Success)
                 SummaryChip("Nerasta", summary.missing, SkautaiStatusTone.Danger)
-                SummaryChip("Sumazejo", summary.decreased, SkautaiStatusTone.Warning)
-                SummaryChip("Padaugejo", summary.increased, SkautaiStatusTone.Info)
+                SummaryChip("Sumažėjo", summary.decreased, SkautaiStatusTone.Warning)
+                SummaryChip("Padaugėjo", summary.increased, SkautaiStatusTone.Info)
             }
 
             Text(
-                text = "Laukta ${summary.expectedQuantityTotal} vnt., rasta ${summary.actualQuantityTotal} vnt., truksta ${summary.shortageQuantityTotal} vnt., perteklius ${summary.overageQuantityTotal} vnt.",
+                text = "Laukta ${summary.expectedQuantityTotal} vnt., rasta ${summary.actualQuantityTotal} vnt., trūksta ${summary.shortageQuantityTotal} vnt., perteklius ${summary.overageQuantityTotal} vnt.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -310,7 +316,7 @@ private fun AuditSummaryCard(
                         .weight(1f)
                         .heightIn(min = 48.dp)
                 ) {
-                    Text(if (isRefreshing) "Atnaujinama..." else "Atnaujinti sarasa")
+                    Text(if (isRefreshing) "Atnaujinama..." else "Atnaujinti sąrašą")
                 }
             }
 
@@ -323,19 +329,27 @@ private fun AuditSummaryCard(
                     onClick = onToggleUncheckedOnly,
                     label = { Text("Tik nepatikrinti") }
                 )
-                if (summary.unchecked > 0) {
+                if (false) {
                     OutlinedButton(onClick = onMarkUncheckedMissing) {
                         Text("Likusius žymėti kaip nerastus")
                     }
                 }
             }
 
+            if (summary.unchecked > 0) {
+                Text(
+                    text = "Užbaigti galėsi, kai patikrinsi visus daiktus. Liko: ${summary.unchecked}.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
             Button(
                 onClick = onComplete,
-                enabled = !isCompleting,
+                enabled = !isCompleting && summary.unchecked == 0,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(if (isCompleting) "Uzbaigiama..." else "Uzbaigti inventorizacija")
+                Text(if (isCompleting) "Užbaigiama..." else "Užbaigti inventorizaciją")
             }
         }
     }
@@ -442,7 +456,7 @@ private fun AuditItemCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 SkautaiChip(
-                    label = "Bukle: ${itemConditionLabel(item.condition)}",
+                    label = "Būklė: ${itemConditionLabel(item.condition)}",
                     selected = false,
                     onClick = onClick
                 )
@@ -466,8 +480,15 @@ private fun AuditResultDialog(
     val initialDraft = currentDraft ?: defaultDraft(item, ItemCheckResult.FOUND)
     var selectedResult by rememberSaveable(item.id, currentDraft?.result) { mutableStateOf(initialDraft.result) }
     var quantityText by rememberSaveable(item.id, currentDraft?.actualQuantity) { mutableStateOf(initialDraft.actualQuantity.toString()) }
+    var conditionAtCheck by rememberSaveable(item.id, currentDraft?.conditionAtCheck) {
+        mutableStateOf(initialDraft.conditionAtCheck ?: item.condition)
+    }
     var actualLocationNote by rememberSaveable(item.id, currentDraft?.actualLocationNote) { mutableStateOf(initialDraft.actualLocationNote) }
     var notes by rememberSaveable(item.id, currentDraft?.notes) { mutableStateOf(initialDraft.notes) }
+    val parsedQuantity = quantityText.toIntOrNull()
+    val displayQuantity = parsedQuantity ?: 0
+    val showLocation = selectedResult == ItemCheckResult.MISPLACED
+    val showCondition = selectedResult != ItemCheckResult.MISSING
 
     val options = listOf(
         AuditOption(ItemCheckResult.FOUND, "Rasta", Icons.Default.CheckCircle),
@@ -475,56 +496,176 @@ private fun AuditResultDialog(
         AuditOption(ItemCheckResult.MISPLACED, "Ne vietoje", Icons.Default.Place),
         AuditOption(ItemCheckResult.DAMAGED, "Sugadinta", Icons.Default.ReportProblem)
     )
+    val conditionOptions = listOf("GOOD", "NEEDS_INSPECTION", "UNDER_REPAIR", "DAMAGED", "MISSING", "WRITTEN_OFF")
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(item.name) },
+        title = {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Text(
+                    text = item.name,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge
+                )
+                if (currentDraft != null) {
+                    IconButton(
+                        onClick = { onSelect(null) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = "Išvalyti žymą")
+                    }
+                }
+            }
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(
                     text = "Lauktas kiekis: ${item.quantity} vnt.",
                     style = MaterialTheme.typography.bodyMedium
                 )
-                options.forEach { option ->
+
+                options.chunked(2).forEach { rowOptions ->
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                selectedResult = option.result
-                                if (option.result == ItemCheckResult.MISSING) {
-                                    quantityText = "0"
-                                }
-                            }
-                            .padding(vertical = 6.dp),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(
-                            imageVector = option.icon,
-                            contentDescription = null,
-                            tint = if (selectedResult == option.result) {
-                                MaterialTheme.colorScheme.primary
-                            } else {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            }
-                        )
-                        Text(option.label, style = MaterialTheme.typography.bodyLarge)
+                        rowOptions.forEach { option ->
+                            FilterChip(
+                                selected = selectedResult == option.result,
+                                onClick = {
+                                    selectedResult = option.result
+                                    when (option.result) {
+                                        ItemCheckResult.MISSING -> quantityText = "0"
+                                        ItemCheckResult.DAMAGED -> conditionAtCheck = "DAMAGED"
+                                        else -> if (conditionAtCheck == "MISSING") conditionAtCheck = item.condition
+                                    }
+                                },
+                                label = { Text(option.label) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = when (option.result) {
+                                        ItemCheckResult.FOUND -> MaterialTheme.colorScheme.primaryContainer
+                                        ItemCheckResult.MISSING -> MaterialTheme.colorScheme.errorContainer
+                                        ItemCheckResult.MISPLACED -> MaterialTheme.colorScheme.tertiaryContainer
+                                        ItemCheckResult.DAMAGED -> MaterialTheme.colorScheme.secondaryContainer
+                                        ItemCheckResult.CONSUMED -> MaterialTheme.colorScheme.surfaceVariant
+                                    },
+                                    selectedLabelColor = when (option.result) {
+                                        ItemCheckResult.FOUND -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        ItemCheckResult.MISSING -> MaterialTheme.colorScheme.onErrorContainer
+                                        ItemCheckResult.MISPLACED -> MaterialTheme.colorScheme.onTertiaryContainer
+                                        ItemCheckResult.DAMAGED -> MaterialTheme.colorScheme.onSecondaryContainer
+                                        ItemCheckResult.CONSUMED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    },
+                                    selectedLeadingIconColor = when (option.result) {
+                                        ItemCheckResult.FOUND -> MaterialTheme.colorScheme.onPrimaryContainer
+                                        ItemCheckResult.MISSING -> MaterialTheme.colorScheme.onErrorContainer
+                                        ItemCheckResult.MISPLACED -> MaterialTheme.colorScheme.onTertiaryContainer
+                                        ItemCheckResult.DAMAGED -> MaterialTheme.colorScheme.onSecondaryContainer
+                                        ItemCheckResult.CONSUMED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                    }
+                                ),
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = option.icon,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
                     }
                 }
-                OutlinedTextField(
-                    value = quantityText,
-                    onValueChange = { quantityText = it.filter(Char::isDigit) },
-                    label = { Text("Faktinis kiekis") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = actualLocationNote,
-                    onValueChange = { actualLocationNote = it },
-                    label = { Text("Kur radai (jei ne vietoje)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
+
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "Faktinis kiekis",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        OutlinedButton(
+                            onClick = { quantityText = (displayQuantity - 1).coerceAtLeast(0).toString() },
+                            enabled = displayQuantity > 0,
+                            modifier = Modifier.heightIn(min = 56.dp)
+                        ) {
+                            Icon(Icons.Default.Remove, contentDescription = "Mažinti")
+                        }
+                        OutlinedTextField(
+                            value = quantityText,
+                            onValueChange = { quantityText = it.filter(Char::isDigit) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Button(
+                            onClick = { quantityText = (displayQuantity + 1).toString() },
+                            modifier = Modifier.heightIn(min = 56.dp)
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Didinti")
+                        }
+                    }
+                }
+
+                if (showCondition) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            text = "Būklė",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        conditionOptions.chunked(2).forEach { rowOptions ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                rowOptions.forEach { condition ->
+                                    FilterChip(
+                                        selected = conditionAtCheck == condition,
+                                        onClick = {
+                                            conditionAtCheck = condition
+                                            if (condition == "DAMAGED") selectedResult = ItemCheckResult.DAMAGED
+                                        },
+                                        label = { Text(itemConditionLabel(condition)) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = when (condition) {
+                                                "GOOD" -> MaterialTheme.colorScheme.primaryContainer
+                                                "DAMAGED", "UNDER_REPAIR", "NEEDS_INSPECTION" -> MaterialTheme.colorScheme.tertiaryContainer
+                                                "MISSING", "WRITTEN_OFF" -> MaterialTheme.colorScheme.errorContainer
+                                                else -> MaterialTheme.colorScheme.surfaceVariant
+                                            },
+                                            selectedLabelColor = when (condition) {
+                                                "GOOD" -> MaterialTheme.colorScheme.onPrimaryContainer
+                                                "DAMAGED", "UNDER_REPAIR", "NEEDS_INSPECTION" -> MaterialTheme.colorScheme.onTertiaryContainer
+                                                "MISSING", "WRITTEN_OFF" -> MaterialTheme.colorScheme.onErrorContainer
+                                                else -> MaterialTheme.colorScheme.onSurfaceVariant
+                                            }
+                                        ),
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (showLocation) {
+                    OutlinedTextField(
+                        value = actualLocationNote,
+                        onValueChange = { actualLocationNote = it },
+                        label = { Text("Kur radai") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
@@ -542,7 +683,8 @@ private fun AuditResultDialog(
                             AuditEntryDraft(
                                 result = selectedResult,
                                 actualQuantity = defaultDraft(item, selectedResult).actualQuantity,
-                                actualLocationNote = actualLocationNote,
+                                conditionAtCheck = conditionAtCheck.takeIf { showCondition },
+                                actualLocationNote = actualLocationNote.takeIf { showLocation }.orEmpty(),
                                 notes = notes
                             )
                         )
@@ -551,24 +693,25 @@ private fun AuditResultDialog(
                             AuditEntryDraft(
                                 result = selectedResult,
                                 actualQuantity = actualQuantity,
-                                actualLocationNote = actualLocationNote,
+                                conditionAtCheck = conditionAtCheck.takeIf { showCondition },
+                                actualLocationNote = actualLocationNote.takeIf { showLocation }.orEmpty(),
                                 notes = notes
                             )
                         )
                     }
                 }
             ) {
-                Text("Issaugoti")
+                Text("Išsaugoti")
             }
         },
         dismissButton = {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { onSelect(null) }) {
-                    Text("Isvalyti zyma")
-                }
-                TextButton(onClick = onDismiss) {
-                    Text("Uzdaryti")
-                }
+            TextButton(onClick = onDismiss) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 6.dp)
+                )
+                Text("Uždaryti")
             }
         }
     )

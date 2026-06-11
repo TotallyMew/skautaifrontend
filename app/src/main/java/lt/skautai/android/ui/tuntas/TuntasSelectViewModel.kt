@@ -183,9 +183,17 @@ class TuntasSelectViewModel @Inject constructor(
         val activeTuntasId = tokenManager.activeTuntasId.first()
         userRepository.getMyTuntai()
             .onSuccess { tuntai ->
+                val activeTuntai = tuntai.filter { it.status == "ACTIVE" }
+                if (activeTuntasId.isNullOrBlank() && activeTuntai.size == 1) {
+                    val activationResult = activateTuntas(tuntai, activeTuntai.first().id)
+                    if (activationResult.isSuccess) {
+                        _navigateHome.value = true
+                        return@onSuccess
+                    }
+                }
                 _uiState.value = TuntasSelectUiState.Success(
                     tuntai = tuntai,
-                    activeTuntasId = activeTuntasId,
+                    activeTuntasId = tokenManager.activeTuntasId.first(),
                     message = message
                 )
             }

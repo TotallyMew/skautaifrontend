@@ -41,7 +41,7 @@ fun SuperAdminLoginScreen(
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             navController.navigate(NavRoutes.SuperAdminDashboard.route) {
-                popUpTo(NavRoutes.SuperAdminLogin.route) { inclusive = true }
+                popUpTo(0) { inclusive = true }
             }
         }
     }

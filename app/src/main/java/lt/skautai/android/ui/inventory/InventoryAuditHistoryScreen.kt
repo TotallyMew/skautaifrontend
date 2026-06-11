@@ -109,7 +109,7 @@ fun InventoryAuditHistoryScreen(
         item {
             SkautaiSectionHeader(
                 title = "Inventorizacijų istorija",
-                subtitle = "Perziurek atviras ir uzbaigtas sesijas"
+                subtitle = "Peržiūrėk atviras ir užbaigtas sesijas"
             )
         }
         item {
@@ -123,7 +123,7 @@ fun InventoryAuditHistoryScreen(
                 AuditFilterButton("Atviros", filter == AuditHistoryFilter.Open) {
                     viewModel.setFilter(AuditHistoryFilter.Open)
                 }
-                AuditFilterButton("Uzbaigtos", filter == AuditHistoryFilter.Completed) {
+                AuditFilterButton("Užbaigtos", filter == AuditHistoryFilter.Completed) {
                     viewModel.setFilter(AuditHistoryFilter.Completed)
                 }
             }
@@ -208,7 +208,7 @@ private fun AuditSessionCard(
                     )
                 }
                 SkautaiStatusPill(
-                    label = if (session.status == "OPEN") "Atvira" else "Uzbaigta",
+                    label = if (session.status == "OPEN") "Atvira" else "Užbaigta",
                     tone = if (session.status == "OPEN") SkautaiStatusTone.Warning else SkautaiStatusTone.Success
                 )
             }

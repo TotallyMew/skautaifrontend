@@ -299,7 +299,7 @@ private data class PickupPlanLine(
 )
 
 private fun EventInventoryItemDto.pickupSources(): List<EventInventorySourceDto> {
-    val current = sources.filter { it.reservedQuantity > 0 && !it.pickupSummary.isNullOrBlank() }
+    val current = sources.orEmpty().filter { it.reservedQuantity > 0 && !it.pickupSummary.isNullOrBlank() }
     if (current.isNotEmpty()) return current
     return sourcePickupSummary?.takeIf { it.isNotBlank() && availableQuantity > 0 }?.let {
         listOf(

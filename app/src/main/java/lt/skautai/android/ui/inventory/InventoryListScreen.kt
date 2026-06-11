@@ -1018,7 +1018,6 @@ private fun InventoryCatalogContent(
     val unassignedGroups = remember(unassignedItems) { unassignedItems.toInventoryGroups() }
     var expandedKitIds by rememberSaveable { mutableStateOf(setOf<String>()) }
     var filtersExpanded by remember { mutableStateOf(false) }
-    var toolsExpanded by remember { mutableStateOf(false) }
     var viewMode by rememberSaveable { mutableStateOf(InventoryCatalogViewMode.List) }
     val activeFilterCount = selectedTypes.size + selectedCategories.size + selectedLocationIds.size +
         (if (assignedOnly) 1 else 0) +
@@ -1034,14 +1033,14 @@ private fun InventoryCatalogContent(
     ) {
         if (!selectionMode && canShowTools) {
             item {
-                InventoryToolsCard(
-                    expanded = toolsExpanded,
+                InventoryCatalogToolbar(
+                    visibleCount = filteredItems.size,
+                    totalCount = allItems.size,
                     canExportCsv = canExportCsv,
                     canImportCsv = canImportCsv,
                     canGenerateQrPdf = canGenerateQrPdf,
                     canGenerateQrPdfNow = hasPrintableItems,
                     canBulkEdit = hasBulkEditableItems,
-                    onExpandedChange = { toolsExpanded = it },
                     onExportCsv = onExportCsv,
                     onImportCsv = onImportCsv,
                     onStartQrSelection = onStartQrSelection,
@@ -1053,10 +1052,6 @@ private fun InventoryCatalogContent(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                InventoryViewModeToggle(
-                    viewMode = viewMode,
-                    onViewModeChange = { viewMode = it }
-                )
                 SkautaiCard(
                     modifier = Modifier.fillMaxWidth(),
                     tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
@@ -1091,6 +1086,16 @@ private fun InventoryCatalogContent(
                         }
                         AnimatedVisibility(visible = filtersExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text(
+                                    text = "Vaizdas",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                InventoryViewModeToggle(
+                                    viewMode = viewMode,
+                                    onViewModeChange = { viewMode = it }
+                                )
+                                HorizontalDivider(color = skautaiDividerTone())
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     contentPadding = PaddingValues(vertical = 2.dp)
@@ -1385,6 +1390,114 @@ private fun InventoryViewModeToggle(
                 selected = viewMode == InventoryCatalogViewMode.Gallery,
                 onClick = { onViewModeChange(InventoryCatalogViewMode.Gallery) }
             )
+        }
+    }
+}
+
+@Composable
+private fun InventoryCatalogToolbar(
+    visibleCount: Int,
+    totalCount: Int,
+    canExportCsv: Boolean,
+    canImportCsv: Boolean,
+    canGenerateQrPdf: Boolean,
+    canGenerateQrPdfNow: Boolean,
+    canBulkEdit: Boolean,
+    onExportCsv: () -> Unit,
+    onImportCsv: () -> Unit,
+    onStartQrSelection: () -> Unit,
+    onStartAudit: () -> Unit,
+    onOpenAuditHistory: () -> Unit,
+    onStartBulkSelection: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = if (visibleCount == totalCount) {
+                "$totalCount daiktų"
+            } else {
+                "Rodoma $visibleCount iš $totalCount"
+            },
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box {
+            FilledTonalButton(onClick = { expanded = true }) {
+                Icon(
+                    imageVector = Icons.Default.Build,
+                    contentDescription = null,
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("Veiksmai")
+            }
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                if (canExportCsv) {
+                    DropdownMenuItem(
+                        text = { Text("Eksportuoti CSV") },
+                        leadingIcon = { Icon(Icons.Default.FileUpload, contentDescription = null) },
+                        onClick = {
+                            expanded = false
+                            onExportCsv()
+                        }
+                    )
+                }
+                if (canImportCsv) {
+                    DropdownMenuItem(
+                        text = { Text("Importuoti CSV") },
+                        leadingIcon = { Icon(Icons.Default.FileDownload, contentDescription = null) },
+                        onClick = {
+                            expanded = false
+                            onImportCsv()
+                        }
+                    )
+                }
+                if (canGenerateQrPdf) {
+                    DropdownMenuItem(
+                        text = { Text("Generuoti QR PDF") },
+                        leadingIcon = { Icon(Icons.Default.QrCode2, contentDescription = null) },
+                        enabled = canGenerateQrPdfNow,
+                        onClick = {
+                            expanded = false
+                            onStartQrSelection()
+                        }
+                    )
+                }
+                DropdownMenuItem(
+                    text = { Text("Inventorizacija") },
+                    leadingIcon = { Icon(Icons.Default.HealthAndSafety, contentDescription = null) },
+                    onClick = {
+                        expanded = false
+                        onStartAudit()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Inventorizacijų istorija") },
+                    leadingIcon = { Icon(Icons.Default.MenuBook, contentDescription = null) },
+                    onClick = {
+                        expanded = false
+                        onOpenAuditHistory()
+                    }
+                )
+                if (canBulkEdit) {
+                    DropdownMenuItem(
+                        text = { Text("Masiniai veiksmai") },
+                        leadingIcon = { Icon(Icons.Default.Build, contentDescription = null) },
+                        onClick = {
+                            expanded = false
+                            onStartBulkSelection()
+                        }
+                    )
+                }
+            }
         }
     }
 }

@@ -18,7 +18,7 @@ data class LoginUiState(
     val passwordError: String? = null,
     val formError: String? = null,
     val isLoginSuccessful: Boolean = false,
-    val tuntaiCount: Int = 0
+    val hasActiveTuntas: Boolean = false
 )
 
 @HiltViewModel
@@ -71,7 +71,7 @@ class LoginViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoginSuccessful = true,
-                        tuntaiCount = response.tuntai.orEmpty().size
+                        hasActiveTuntas = response.tuntai.orEmpty().count { it.status == "ACTIVE" } == 1
                     )
                 }
                 .onFailure { error ->

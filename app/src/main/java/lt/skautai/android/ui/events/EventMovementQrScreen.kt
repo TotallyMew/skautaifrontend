@@ -182,8 +182,8 @@ fun EventMovementQrScreen(
                         .filter { it.userId == state.currentUserId }
                         .map { it.role }
                         .toSet()
-                    val readOnly = isEventReadOnlyStatus(state.event.status)
-                    val canManage = !readOnly &&
+                    val movementClosed = state.event.status != "ACTIVE"
+                    val canManage = !movementClosed &&
                         ("events.inventory.distribute:ALL" in permissions ||
                             myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") })
                     val coLeaderPastovykleIds = state.event.eventRoles
@@ -241,6 +241,10 @@ fun EventMovementQrScreen(
                                 )
                                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                     FilledTonalButton(onClick = {
+                                        if (movementClosed) {
+                                            viewModel.showMessage("Inventoriaus judėjimas galimas tik aktyvioje stovykloje.")
+                                            return@FilledTonalButton
+                                        }
                                         viewModel.clearMessage()
                                         val hasPermission = ContextCompat.checkSelfPermission(
                                             context,
@@ -251,7 +255,7 @@ fun EventMovementQrScreen(
                                         } else {
                                             permissionLauncher.launch(Manifest.permission.CAMERA)
                                         }
-                                    }) {
+                                    }, enabled = !movementClosed) {
                                         Text("Skenuoti QR")
                                     }
                                     Button(onClick = {
@@ -287,7 +291,12 @@ fun EventMovementQrScreen(
                                 notes = notes,
                                 onNotesChange = { notes = it },
                                 isWorking = state.isWorking,
+                                movementClosed = movementClosed,
                                 onSubmit = {
+                                    if (movementClosed) {
+                                        viewModel.showMessage("Inventoriaus judėjimas galimas tik aktyvioje stovykloje.")
+                                        return@ItemQrActionCard
+                                    }
                                     val selectedItem = itemMatches.firstOrNull { it.id == selectedEventItemId }
                                     val quantity = quantityText.toIntOrNull()
                                     if (selectedItem == null || quantity == null || quantity <= 0) {
@@ -347,7 +356,12 @@ fun EventMovementQrScreen(
                                 notes = notes,
                                 onNotesChange = { notes = it },
                                 isWorking = state.isWorking,
+                                movementClosed = movementClosed,
                                 onSubmit = {
+                                    if (movementClosed) {
+                                        viewModel.showMessage("Inventoriaus judėjimas galimas tik aktyvioje stovykloje.")
+                                        return@CustodyQrActionCard
+                                    }
                                     val selectedCustody = custodyMatches.firstOrNull { it.id == selectedCustodyId }
                                     val quantity = quantityText.toIntOrNull()
                                     if (selectedCustody == null || quantity == null || quantity <= 0) {
@@ -419,12 +433,25 @@ private fun ItemQrActionCard(
     notes: String,
     onNotesChange: (String) -> Unit,
     isWorking: Boolean,
+    movementClosed: Boolean,
     onSubmit: () -> Unit
 ) {
-    val selectedItem = matches.firstOrNull { it.id == selectedEventItemId } ?: matches.first()
+    val selectedItem = matches.firstOrNull { it.id == selectedEventItemId } ?: matches.firstOrNull()
+    if (selectedItem == null) {
+        SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Nuskenuotas daiktas nerastas renginio inventoriaus plane.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(18.dp)
+            )
+        }
+        return
+    }
     val canSelectTargetUser = canManage || selectedPastovykleId in responsiblePastovykleIds
     LaunchedEffect(matches) {
-        if (selectedEventItemId == null) onSelectedEventItemId(matches.first().id)
+        if (selectedEventItemId == null) {
+            matches.firstOrNull()?.let { onSelectedEventItemId(it.id) }
+        }
     }
 
     SkautaiCard(modifier = Modifier.fillMaxWidth()) {
@@ -484,7 +511,7 @@ private fun ItemQrActionCard(
                 label = "Pastabos",
                 modifier = Modifier.fillMaxWidth()
             )
-            Button(onClick = onSubmit, enabled = !isWorking, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onSubmit, enabled = !isWorking && !movementClosed, modifier = Modifier.fillMaxWidth()) {
                 Text(if (action == ItemQrAction.Checkout) "Registruoti paėmimą" else "Registruoti išdavimą")
             }
         }
@@ -513,15 +540,28 @@ private fun CustodyQrActionCard(
     notes: String,
     onNotesChange: (String) -> Unit,
     isWorking: Boolean,
+    movementClosed: Boolean,
     onSubmit: () -> Unit
 ) {
-    val selectedCustody = matches.firstOrNull { it.id == selectedCustodyId } ?: matches.first()
+    val selectedCustody = matches.firstOrNull { it.id == selectedCustodyId } ?: matches.firstOrNull()
+    if (selectedCustody == null) {
+        SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = "Aktyvus judėjimo įrašas šiam daiktui nerastas.",
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(18.dp)
+            )
+        }
+        return
+    }
     val returnOptions = buildReturnOptions(selectedCustody)
     val canTransfer = canManage || selectedCustody.pastovykleId in responsiblePastovykleIds
     val effectiveAction = if (action == CustodyQrAction.Transfer && !canTransfer) CustodyQrAction.Return else action
 
     LaunchedEffect(matches) {
-        if (selectedCustodyId == null) onSelectedCustodyId(matches.first().id)
+        if (selectedCustodyId == null) {
+            matches.firstOrNull()?.let { onSelectedCustodyId(it.id) }
+        }
     }
     LaunchedEffect(selectedCustody.id) {
         onSelectedPastovykleId(null)
@@ -584,7 +624,7 @@ private fun CustodyQrActionCard(
                 label = "Pastabos",
                 modifier = Modifier.fillMaxWidth()
             )
-            Button(onClick = onSubmit, enabled = !isWorking, modifier = Modifier.fillMaxWidth()) {
+            Button(onClick = onSubmit, enabled = !isWorking && !movementClosed, modifier = Modifier.fillMaxWidth()) {
                 Text(if (effectiveAction == CustodyQrAction.Transfer) "Registruoti perdavimą" else "Registruoti grąžinimą")
             }
         }

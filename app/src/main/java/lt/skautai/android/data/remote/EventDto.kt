@@ -94,7 +94,7 @@ data class EventInventoryItemDto(
     @SerializedName("sourceTemporaryStorageLabel") val sourceTemporaryStorageLabel: String? = null,
     @SerializedName("sourceResponsibleUserName") val sourceResponsibleUserName: String? = null,
     @SerializedName("sourcePickupSummary") val sourcePickupSummary: String? = null,
-    @SerializedName("sources") val sources: List<EventInventorySourceDto> = emptyList(),
+    @SerializedName("sources") val sources: List<EventInventorySourceDto>? = emptyList(),
     @SerializedName("responsibleUserId") val responsibleUserId: String?,
     @SerializedName("responsibleUserName") val responsibleUserName: String?,
     @SerializedName("createdByUserId") val createdByUserId: String?,
