@@ -53,3 +53,9 @@ data class TuntasDto(
 data class MessageResponseDto(
     val message: String
 )
+
+data class SuperAdminNotificationRequestDto(
+    val title: String,
+    val body: String,
+    val tuntasId: String? = null
+)

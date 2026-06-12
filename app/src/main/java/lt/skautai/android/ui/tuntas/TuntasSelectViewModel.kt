@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.notifications.FcmTokenRegistrar
 import lt.skautai.android.data.remote.InvitationResponseDto
 import lt.skautai.android.data.remote.UserTuntasDto
 import lt.skautai.android.data.repository.InvitationRepository
@@ -34,7 +35,8 @@ sealed interface TuntasSelectUiState {
 class TuntasSelectViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val invitationRepository: InvitationRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val fcmTokenRegistrar: FcmTokenRegistrar
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<TuntasSelectUiState>(TuntasSelectUiState.Loading)
@@ -165,9 +167,11 @@ class TuntasSelectViewModel @Inject constructor(
     }
 
     fun logout() {
-        viewModelScope.launch {
-            tokenManager.clearAll()
-            _navigateLogin.value = true
+        fcmTokenRegistrar.unregisterCurrentToken {
+            viewModelScope.launch {
+                tokenManager.clearAll()
+                _navigateLogin.value = true
+            }
         }
     }
 

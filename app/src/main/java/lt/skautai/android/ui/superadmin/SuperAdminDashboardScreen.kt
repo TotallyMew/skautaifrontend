@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -146,6 +147,18 @@ fun SuperAdminDashboardScreen(
                         )
                     }
 
+                    SuperAdminNotificationSection(
+                        selectedTuntas = selectedTuntas,
+                        title = uiState.notificationTitle,
+                        body = uiState.notificationBody,
+                        sendToAllTuntai = uiState.sendNotificationToAllTuntai,
+                        isSaving = uiState.isSaving,
+                        onTitleChanged = viewModel::onNotificationTitleChanged,
+                        onBodyChanged = viewModel::onNotificationBodyChanged,
+                        onSendToAllTuntaiChanged = viewModel::onSendNotificationToAllTuntaiChanged,
+                        onSend = viewModel::sendNotification
+                    )
+
                     if (uiState.isLoadingContext) {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
@@ -167,6 +180,68 @@ fun SuperAdminDashboardScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SuperAdminNotificationSection(
+    selectedTuntas: TuntasDto?,
+    title: String,
+    body: String,
+    sendToAllTuntai: Boolean,
+    isSaving: Boolean,
+    onTitleChanged: (String) -> Unit,
+    onBodyChanged: (String) -> Unit,
+    onSendToAllTuntaiChanged: (Boolean) -> Unit,
+    onSend: () -> Unit
+) {
+    SectionCard(title = "Pranešimai") {
+        Text(
+            if (sendToAllTuntai) {
+                "Pranešimas bus išsiųstas visų aktyvių tuntų nariams."
+            } else {
+                selectedTuntas?.let { "Pranešimas bus išsiųstas tunto „${it.name}“ nariams." }
+                    ?: "Pasirinkite tuntą arba pažymėkite siuntimą visiems tuntams."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = sendToAllTuntai,
+                onCheckedChange = onSendToAllTuntaiChanged,
+                enabled = !isSaving
+            )
+            Text("Siųsti visiems aktyviems tuntams")
+        }
+        SkautaiTextField(
+            value = title,
+            onValueChange = onTitleChanged,
+            label = "Pavadinimas",
+            singleLine = true,
+            enabled = !isSaving,
+            modifier = Modifier.fillMaxWidth()
+        )
+        SkautaiTextField(
+            value = body,
+            onValueChange = onBodyChanged,
+            label = "Tekstas",
+            minLines = 3,
+            maxLines = 5,
+            enabled = !isSaving,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Button(
+            onClick = onSend,
+            enabled = !isSaving && title.isNotBlank() && body.isNotBlank() && (sendToAllTuntai || selectedTuntas != null),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null)
+            Text("Siųsti pranešimą", modifier = Modifier.padding(start = 8.dp))
         }
     }
 }

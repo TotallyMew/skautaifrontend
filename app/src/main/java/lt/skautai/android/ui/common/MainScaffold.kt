@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.MarkEmailUnread
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PendingActions
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Place
@@ -121,6 +122,14 @@ fun MainScaffold(
                 icon = Icons.Default.Home,
                 selected = currentRoute == NavRoutes.Home.route,
                 onClick = { navController.navigate(NavRoutes.Home.route) }
+            )
+        )
+        add(
+            DrawerNavItem(
+                label = "Pranešimai",
+                icon = Icons.Default.Notifications,
+                selected = currentRoute == NavRoutes.Notifications.route,
+                onClick = { navController.navigate(NavRoutes.Notifications.route) }
             )
         )
         add(

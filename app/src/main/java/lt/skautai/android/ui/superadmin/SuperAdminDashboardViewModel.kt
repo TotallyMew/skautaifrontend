@@ -29,6 +29,9 @@ data class SuperAdminDashboardUiState(
     val members: List<MemberDto> = emptyList(),
     val memberSearchQuery: String = "",
     val selectedMember: MemberDto? = null,
+    val notificationTitle: String = "",
+    val notificationBody: String = "",
+    val sendNotificationToAllTuntai: Boolean = false,
     val isLoadingTuntai: Boolean = false,
     val isLoadingContext: Boolean = false,
     val isLoadingMember: Boolean = false,
@@ -142,6 +145,52 @@ class SuperAdminDashboardViewModel @Inject constructor(
 
     fun onMemberSearchChanged(value: String) {
         _uiState.value = _uiState.value.copy(memberSearchQuery = value)
+    }
+
+    fun onNotificationTitleChanged(value: String) {
+        _uiState.value = _uiState.value.copy(notificationTitle = value)
+    }
+
+    fun onNotificationBodyChanged(value: String) {
+        _uiState.value = _uiState.value.copy(notificationBody = value)
+    }
+
+    fun onSendNotificationToAllTuntaiChanged(value: Boolean) {
+        _uiState.value = _uiState.value.copy(sendNotificationToAllTuntai = value)
+    }
+
+    fun sendNotification() {
+        val state = _uiState.value
+        val title = state.notificationTitle.trim()
+        val body = state.notificationBody.trim()
+        if (title.isBlank() || body.isBlank()) {
+            _uiState.value = state.copy(error = "Ir pavadinimas, ir tekstas yra privalomi")
+            return
+        }
+        val targetTuntasId = if (state.sendNotificationToAllTuntai) null else state.selectedTuntasId
+        if (targetTuntasId == null && !state.sendNotificationToAllTuntai) {
+            _uiState.value = state.copy(error = "Pasirinkite tuntą arba siųskite visiems tuntams")
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = state.copy(isSaving = true, error = null)
+            superAdminRepository.sendNotification(title, body, targetTuntasId)
+                .onSuccess { message ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        notificationTitle = "",
+                        notificationBody = "",
+                        actionSuccess = message
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        error = error.message ?: "Klaida siunčiant pranešimą"
+                    )
+                }
+        }
     }
 
     fun approveTuntas(id: String) {

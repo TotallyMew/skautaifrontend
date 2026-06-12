@@ -18,4 +18,6 @@
     <string name="error_empty_fields">Užpildykite visus laukus</string>
     <string name="error_invalid_email">Neteisingas el. pašto formatas</string>
     <string name="error_short_password">Slaptažodis per trumpas</string>
+    <string name="default_notification_channel_id">skautai_general</string>
+    <string name="default_notification_channel_name">Skautu pranesimai</string>
 </resources>

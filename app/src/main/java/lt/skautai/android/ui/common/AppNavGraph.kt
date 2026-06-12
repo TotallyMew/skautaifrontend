@@ -10,6 +10,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -58,6 +59,9 @@ import lt.skautai.android.ui.members.InviteAcceptScreen
 import lt.skautai.android.ui.members.InviteCreateScreen
 import lt.skautai.android.ui.members.MemberDetailScreen
 import lt.skautai.android.ui.members.MemberListScreen
+import lt.skautai.android.ui.notifications.NotificationsScreen
+import lt.skautai.android.ui.notifications.NotificationsTopBarActions
+import lt.skautai.android.ui.notifications.NotificationsViewModel
 import lt.skautai.android.ui.profile.ProfileScreen
 import lt.skautai.android.ui.requests.RequestCreateScreen
 import lt.skautai.android.ui.requests.RequestDetailScreen
@@ -88,7 +92,8 @@ import lt.skautai.android.util.TokenManager
 fun AppNavGraph(
     navController: NavHostController,
     tokenManager: TokenManager,
-    startDestination: String = NavRoutes.Login.route
+    startDestination: String = NavRoutes.Login.route,
+    notificationRoute: String? = null
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
@@ -219,6 +224,28 @@ fun AppNavGraph(
                 onNavigateBack = { navController.popBackStack() }
             ) {
                 MyTasksScreen(navController = navController)
+            }
+        }
+
+        composable(NavRoutes.Notifications.route) {
+            val notificationsViewModel: NotificationsViewModel = hiltViewModel()
+            val notificationsState by notificationsViewModel.uiState.collectAsState()
+            MainScaffold(
+                navController = navController,
+                tokenManager = tokenManager,
+                onLogout = onLogout,
+                topBarActions = {
+                    NotificationsTopBarActions(
+                        unreadCount = notificationsState.unreadCount,
+                        enabled = !notificationsState.isSaving,
+                        onMarkAllRead = notificationsViewModel::markAllRead
+                    )
+                }
+            ) {
+                NotificationsScreen(
+                    viewModel = notificationsViewModel,
+                    onOpenRoute = { route -> navController.navigate(route) }
+                )
             }
         }
 
@@ -958,6 +985,12 @@ fun AppNavGraph(
             ) {
                 SyncStatusScreen()
             }
+        }
+    }
+
+    LaunchedEffect(startDestination, notificationRoute) {
+        if (startDestination == NavRoutes.Home.route && !notificationRoute.isNullOrBlank()) {
+            navController.navigate(notificationRoute)
         }
     }
 }

@@ -28,6 +28,12 @@ interface SuperAdminApiService {
         @Path("id") id: String
     ): Response<MessageResponseDto>
 
+    @POST("api/super-admin/notifications")
+    suspend fun sendNotification(
+        @Header("Authorization") token: String,
+        @Body request: SuperAdminNotificationRequestDto
+    ): Response<MessageResponseDto>
+
     @GET("api/super-admin/tuntai/{id}/roles")
     suspend fun getRoles(
         @Header("Authorization") token: String,

@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.live.LiveRefreshBus
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MyTaskDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
@@ -69,7 +70,8 @@ class HomeViewModel @Inject constructor(
     private val myTaskRepository: MyTaskRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val userRepository: UserRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    private val liveRefreshBus: LiveRefreshBus
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
@@ -80,6 +82,15 @@ class HomeViewModel @Inject constructor(
 
     init {
         refresh(force = true)
+        observeLiveRefreshes()
+    }
+
+    private fun observeLiveRefreshes() {
+        viewModelScope.launch {
+            liveRefreshBus.events.collect {
+                refresh(force = true)
+            }
+        }
     }
 
     fun refresh(force: Boolean = false) {

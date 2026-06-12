@@ -8,6 +8,7 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import lt.skautai.android.BuildConfig
 import lt.skautai.android.data.remote.AuthApiService
+import lt.skautai.android.data.remote.DeviceApiService
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.InvitationApiService
 import lt.skautai.android.data.remote.InventoryKitApiService
@@ -16,6 +17,7 @@ import lt.skautai.android.data.remote.LocationApiService
 import lt.skautai.android.data.remote.MemberApiService
 import lt.skautai.android.data.remote.MobileApiService
 import lt.skautai.android.data.remote.MyTaskApiService
+import lt.skautai.android.data.remote.NotificationApiService
 import lt.skautai.android.data.remote.OrganizationalUnitApiService
 import lt.skautai.android.data.remote.RequestApiService
 import lt.skautai.android.data.remote.RequisitionApiService
@@ -115,6 +117,12 @@ object NetworkModule {
 
     @Provides
     @Singleton
+    fun provideDeviceApiService(retrofit: Retrofit): DeviceApiService {
+        return retrofit.create(DeviceApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
     fun provideUserApiService(retrofit: Retrofit): UserApiService {
         return retrofit.create(UserApiService::class.java)
     }
@@ -165,6 +173,12 @@ object NetworkModule {
     @Singleton
     fun provideMyTaskApiService(retrofit: Retrofit): MyTaskApiService {
         return retrofit.create(MyTaskApiService::class.java)
+    }
+
+    @Provides
+    @Singleton
+    fun provideNotificationApiService(retrofit: Retrofit): NotificationApiService {
+        return retrofit.create(NotificationApiService::class.java)
     }
 
     @Provides

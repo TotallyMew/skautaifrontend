@@ -15,6 +15,7 @@ sealed class NavRoutes(val route: String) {
     object RegisterInvite : NavRoutes("register_invite")
     object Home : NavRoutes("home")
     object MyTasks : NavRoutes("my_tasks")
+    object Notifications : NavRoutes("notifications")
     object Calendar : NavRoutes("calendar")
 
     object InviteCreate : NavRoutes("invite_create")
@@ -198,6 +199,7 @@ sealed class NavRoutes(val route: String) {
         fun titleFor(currentRoute: String?): String = when (currentRoute?.substringBefore("?")) {
             Home.route -> "Pradžia"
             MyTasks.route -> "Mano užduotys"
+            Notifications.route -> "Pranešimai"
             Calendar.route -> "Kalendorius"
             InventoryList.route.substringBefore("?") -> "Inventorius"
             InventoryKits.route -> "Komplektai"

@@ -10,6 +10,7 @@ import lt.skautai.android.data.remote.MemberRankDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.data.remote.SuperAdminApiService
+import lt.skautai.android.data.remote.SuperAdminNotificationRequestDto
 import lt.skautai.android.data.remote.TuntasDto
 import lt.skautai.android.data.remote.UpdateLeadershipRoleRequestDto
 import lt.skautai.android.util.TokenManager
@@ -48,6 +49,21 @@ class SuperAdminRepository @Inject constructor(
             throw Exception(response.errorMessage("Klaida atmetant tuntas"))
         }
         response.body()?.message ?: "Tuntas atmestas"
+    }
+
+    suspend fun sendNotification(title: String, body: String, tuntasId: String?): Result<String> = runCatching {
+        val response = superAdminApiService.sendNotification(
+            "Bearer ${token()}",
+            SuperAdminNotificationRequestDto(
+                title = title,
+                body = body,
+                tuntasId = tuntasId
+            )
+        )
+        if (!response.isSuccessful) {
+            throw Exception(response.errorMessage("Klaida siunciant pranesima"))
+        }
+        response.body()?.message ?: "Pranesimas issiustas"
     }
 
     suspend fun getRoles(tuntasId: String): Result<List<RoleDto>> = runCatching {

@@ -1,6 +1,10 @@
 package lt.skautai.android
 
+import android.Manifest
 import android.os.Bundle
+import android.os.Build
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,6 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 import lt.skautai.android.data.repository.UserRepository
@@ -24,6 +29,9 @@ import kotlinx.coroutines.flow.first
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {}
 
     @Inject
     lateinit var tokenManager: TokenManager
@@ -34,11 +42,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        askNotificationPermission()
 
         val uri = intent?.data
         val isSuperAdminDeepLink = uri?.scheme == "skautai" &&
                 uri.host == "superadmin" &&
                 uri.queryParameterNames.isEmpty()
+        val notificationRoute = notificationRoute(intent)
 
         setContent {
             SkautuInventoriusTheme {
@@ -117,10 +127,32 @@ class MainActivity : ComponentActivity() {
                     AppNavGraph(
                         navController = navController,
                         tokenManager = tokenManager,
-                        startDestination = startDestination!!
+                        startDestination = startDestination!!,
+                        notificationRoute = notificationRoute
                     )
                 }
             }
         }
+    }
+
+    private fun askNotificationPermission() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val permission = Manifest.permission.POST_NOTIFICATIONS
+        if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+            requestNotificationPermission.launch(permission)
+        }
+    }
+
+    private fun notificationRoute(intent: android.content.Intent?): String? =
+        intent?.getStringExtra(EXTRA_NOTIFICATION_ROUTE)
+            ?: intent?.data?.takeIf { it.scheme == "skautai" }?.let { uri ->
+                when (uri.host) {
+                    "reservation" -> uri.lastPathSegment?.let { NavRoutes.ReservationDetail.createRoute(it) }
+                    else -> null
+                }
+            }
+
+    private companion object {
+        const val EXTRA_NOTIFICATION_ROUTE = "notification_route"
     }
 }
