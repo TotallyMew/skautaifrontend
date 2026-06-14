@@ -39,8 +39,10 @@ import lt.skautai.android.data.remote.CreateEventInventoryBucketRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
+import lt.skautai.android.data.remote.CreateEventPackingContainerRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryRequestRequestDto
+import lt.skautai.android.data.remote.CreateEventExtraCostRequestDto
 import lt.skautai.android.data.remote.CreateEventPurchaseRequestDto
 import lt.skautai.android.data.remote.CreateInventoryTemplateRequestDto
 import lt.skautai.android.data.remote.AttachEventPurchaseInvoiceRequestDto
@@ -53,6 +55,7 @@ import lt.skautai.android.data.remote.ApplyInventoryTemplateRequestDto
 import lt.skautai.android.data.remote.AppliedInventoryTemplateDto
 import lt.skautai.android.data.remote.EventApiService
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventFinanceDto
 import lt.skautai.android.data.remote.EventRoleDto
 import lt.skautai.android.data.remote.EventInventoryAllocationDto
 import lt.skautai.android.data.remote.EventInventoryBucketDto
@@ -64,6 +67,7 @@ import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryMovementListDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
+import lt.skautai.android.data.remote.EventPackingListDto
 import lt.skautai.android.data.remote.EventInventoryRequestListDto
 import lt.skautai.android.data.remote.EventListDto
 import lt.skautai.android.data.remote.InventoryTemplateDto
@@ -71,6 +75,7 @@ import lt.skautai.android.data.remote.InventoryTemplateListDto
 import lt.skautai.android.data.remote.MemberListDto
 import lt.skautai.android.data.remote.EventPurchaseItemDto
 import lt.skautai.android.data.remote.EventPurchaseDto
+import lt.skautai.android.data.remote.EventPurchaseInvoiceDto
 import lt.skautai.android.data.remote.EventPurchaseListDto
 import lt.skautai.android.data.remote.EventPurchaseReconciliationCandidateListDto
 import lt.skautai.android.data.remote.EventReconciliationDto
@@ -85,9 +90,12 @@ import lt.skautai.android.data.remote.ReconcileEventReturnsRequestDto
 import lt.skautai.android.data.remote.FulfillPastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.MarkPastovykleInventoryRequestSelfProvidedRequestDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
+import lt.skautai.android.data.remote.UpdateEventExtraCostRequestDto
+import lt.skautai.android.data.remote.UpdateEventFinanceBudgetRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryAllocationRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryBucketRequestDto
 import lt.skautai.android.data.remote.UpdateEventInventoryItemRequestDto
+import lt.skautai.android.data.remote.UpdateEventPackingLineRequestDto
 import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
 import lt.skautai.android.data.remote.UpdateInventoryTemplateRequestDto
 import lt.skautai.android.data.remote.UpdatePastovykleInventoryRequestDto
@@ -462,6 +470,65 @@ class EventRepository @Inject constructor(
             }
         } catch (e: IOException) {
             cachedInventoryPlan(eventId)?.let { Result.success(it) } ?: Result.failure(e.userFacingException())
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getPackingList(eventId: String): Result<EventPackingListDto> {
+        return try {
+            val response = eventApiService.getPackingList("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti pakavimo saraso.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun generatePackingList(eventId: String): Result<EventPackingListDto> {
+        return try {
+            val response = eventApiService.generatePackingList("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko sugeneruoti pakavimo saraso.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun createPackingContainer(
+        eventId: String,
+        request: CreateEventPackingContainerRequestDto
+    ): Result<EventPackingListDto> {
+        return try {
+            val response = eventApiService.createPackingContainer("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko sukurti pakavimo vietos.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun updatePackingLine(
+        eventId: String,
+        lineId: String,
+        request: UpdateEventPackingLineRequestDto
+    ): Result<EventPackingListDto> {
+        return try {
+            val response = eventApiService.updatePackingLine("Bearer ${token()}", tuntasId(), eventId, lineId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko atnaujinti pakavimo eilutes.")))
+            }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
@@ -981,7 +1048,7 @@ class EventRepository @Inject constructor(
             val currentTuntasId = tuntasId()
             val cached = cachedPurchases(eventId)?.firstOrNull { it.id == purchaseId }
                 ?: return Result.failure(Exception("Pirkimas nerastas vietinėje saugykloje"))
-            val updated = cached.copy(invoiceFileUrl = invoiceFileUrl, updatedAt = Instant.now().toString())
+            val updated = cached.withInvoiceUrl(invoiceFileUrl)
             upsertCachedPurchase(eventId, updated)
             pendingOperationRepository.enqueue(
                 currentTuntasId,
@@ -1009,7 +1076,7 @@ class EventRepository @Inject constructor(
             val currentTuntasId = tuntasId()
             val cached = cachedPurchases(eventId)?.firstOrNull { it.id == purchaseId }
                 ?: return Result.failure(Exception("Pirkimas nerastas vietinėje saugykloje"))
-            val updated = cached.copy(invoiceFileUrl = invoiceFileUrl, updatedAt = Instant.now().toString())
+            val updated = cached.withInvoiceUrl(invoiceFileUrl)
             upsertCachedPurchase(eventId, updated)
             pendingOperationRepository.enqueue(
                 currentTuntasId,
@@ -1052,6 +1119,76 @@ class EventRepository @Inject constructor(
                 payload = EventPurchasePayload(eventId, purchaseId)
             )
             Result.success(updated)
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getEventFinance(eventId: String): Result<EventFinanceDto> {
+        return try {
+            val response = eventApiService.getEventFinance("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti renginio finansų.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun updateEventFinanceBudget(eventId: String, amount: Double?): Result<EventFinanceDto> {
+        return try {
+            val response = eventApiService.updateEventFinanceBudget(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                UpdateEventFinanceBudgetRequestDto(amount)
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko atnaujinti biudžeto.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun createEventExtraCost(eventId: String, request: CreateEventExtraCostRequestDto): Result<EventFinanceDto> {
+        return try {
+            val response = eventApiService.createEventExtraCost("Bearer ${token()}", tuntasId(), eventId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko pridėti išlaidų.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun updateEventExtraCost(eventId: String, costId: String, request: UpdateEventExtraCostRequestDto): Result<EventFinanceDto> {
+        return try {
+            val response = eventApiService.updateEventExtraCost("Bearer ${token()}", tuntasId(), eventId, costId, request)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko atnaujinti išlaidų.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun deleteEventExtraCost(eventId: String, costId: String): Result<EventFinanceDto> {
+        return try {
+            val response = eventApiService.deleteEventExtraCost("Bearer ${token()}", tuntasId(), eventId, costId)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko pašalinti išlaidų.")))
+            }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
@@ -1952,6 +2089,21 @@ class EventRepository @Inject constructor(
         if (purchase.status == "PURCHASED" || purchase.status == "ADDED_TO_INVENTORY") {
             applyPurchaseToInventoryPlan(eventId, purchase)
         }
+    }
+
+    private fun EventPurchaseDto.withInvoiceUrl(invoiceFileUrl: String): EventPurchaseDto {
+        val now = Instant.now().toString()
+        val invoice = EventPurchaseInvoiceDto(
+            id = "local-${UUID.randomUUID()}",
+            purchaseId = id,
+            fileUrl = invoiceFileUrl,
+            createdAt = now
+        )
+        return copy(
+            invoiceFileUrl = this.invoiceFileUrl ?: invoiceFileUrl,
+            invoices = invoices.filterNot { it.fileUrl == invoiceFileUrl } + invoice,
+            updatedAt = now
+        )
     }
 
     private suspend fun upsertCachedPastovykleInventory(eventId: String, pastovykleId: String, inventory: PastovykleInventoryDto) {

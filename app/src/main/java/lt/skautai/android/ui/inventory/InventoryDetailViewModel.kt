@@ -13,6 +13,8 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateBendrasRequestDto
 import lt.skautai.android.data.remote.CreateBendrasRequestItemDto
+import lt.skautai.android.data.remote.CreateRequisitionDto
+import lt.skautai.android.data.remote.CreateRequisitionItemDto
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
@@ -27,6 +29,7 @@ import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
+import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.canManageSharedInventory
@@ -49,6 +52,7 @@ sealed interface InventoryDetailUiState {
 class InventoryDetailViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val requestRepository: RequestRepository,
+    private val requisitionRepository: RequisitionRepository,
     private val reservationRepository: ReservationRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
     private val tokenManager: TokenManager
@@ -75,11 +79,17 @@ class InventoryDetailViewModel @Inject constructor(
     private val _sharedRequestCreated = MutableStateFlow(false)
     val sharedRequestCreated: StateFlow<Boolean> = _sharedRequestCreated.asStateFlow()
 
+    private val _requisitionCreated = MutableStateFlow(false)
+    val requisitionCreated: StateFlow<Boolean> = _requisitionCreated.asStateFlow()
+
     private val _shareMessage = MutableStateFlow<String?>(null)
     val shareMessage: StateFlow<String?> = _shareMessage.asStateFlow()
 
     private val _isCreatingSharedRequest = MutableStateFlow(false)
     val isCreatingSharedRequest: StateFlow<Boolean> = _isCreatingSharedRequest.asStateFlow()
+
+    private val _isCreatingRequisition = MutableStateFlow(false)
+    val isCreatingRequisition: StateFlow<Boolean> = _isCreatingRequisition.asStateFlow()
 
     private val _isUpdatingStatus = MutableStateFlow(false)
     val isUpdatingStatus: StateFlow<Boolean> = _isUpdatingStatus.asStateFlow()
@@ -272,6 +282,22 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    fun consumeItem(itemId: String, quantity: Int, notes: String?) {
+        viewModelScope.launch {
+            if (_isTransferring.value) return@launch
+            _isTransferring.value = true
+            itemRepository.consumeItem(itemId, quantity, notes)
+                .onSuccess {
+                    _shareMessage.value = "Kiekis sunaudotas."
+                    loadItem(itemId)
+                }
+                .onFailure { error ->
+                    _actionError.value = error.message ?: "Nepavyko sunaudoti kiekio"
+                }
+            _isTransferring.value = false
+        }
+    }
+
     fun reviewItemAddition(itemId: String, decision: String, rejectionReason: String? = null) {
         viewModelScope.launch {
             itemRepository.reviewItemAddition(itemId, decision, rejectionReason)
@@ -329,6 +355,42 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    fun createRestockRequisitionForItem(itemId: String) {
+        viewModelScope.launch {
+            if (_isCreatingRequisition.value) return@launch
+            val item = (_uiState.value as? InventoryDetailUiState.Success)?.item
+                ?: itemRepository.getCachedItem(itemId)
+                ?: return@launch
+            if (!item.isConsumable || !item.isLowStock) {
+                _actionError.value = "Pirkimo prašymą greitai kurti galima tik mažo likučio sunaudojamai prekei."
+                return@launch
+            }
+            val targetMinimum = item.minimumQuantity ?: 0
+            val requestQuantity = (targetMinimum - item.quantity).coerceAtLeast(1)
+            _isCreatingRequisition.value = true
+            requisitionRepository.createRequest(
+                CreateRequisitionDto(
+                    requestingUnitId = item.custodianId ?: tokenManager.activeOrgUnitId.first(),
+                    notes = "Automatinis papildymo prašymas pagal minimalų likutį.",
+                    items = listOf(
+                        CreateRequisitionItemDto(
+                            itemName = item.name,
+                            quantity = requestQuantity,
+                            notes = "Dabartinis likutis: ${item.quantity} ${item.unitOfMeasure}. Minimalus likutis: ${item.minimumQuantity ?: 0} ${item.unitOfMeasure}.",
+                            requestType = "RESTOCK_EXISTING",
+                            existingItemId = item.id
+                        )
+                    )
+                )
+            ).onSuccess {
+                _requisitionCreated.value = true
+            }.onFailure { error ->
+                _actionError.value = error.message ?: "Nepavyko sukurti pirkimo prašymo"
+            }
+            _isCreatingRequisition.value = false
+        }
+    }
+
     private fun loadItemReservations(itemId: String) {
         viewModelScope.launch {
             reservationRepository.getReservations(itemId = itemId)
@@ -364,6 +426,10 @@ class InventoryDetailViewModel @Inject constructor(
 
     fun onSharedRequestMessageShown() {
         _sharedRequestCreated.value = false
+    }
+
+    fun onRequisitionMessageShown() {
+        _requisitionCreated.value = false
     }
 
     fun onQrPdfShared() {

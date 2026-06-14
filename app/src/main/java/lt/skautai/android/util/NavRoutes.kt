@@ -1,9 +1,12 @@
 package lt.skautai.android.util
 
+import android.net.Uri
+
+private fun queryParam(name: String, value: String): String = "$name=${Uri.encode(value)}"
+
 sealed class NavRoutes(val route: String) {
 
     //Super-admin
-    object SuperAdminLogin : NavRoutes("super_admin_login")
     object SuperAdminDashboard : NavRoutes("super_admin_dashboard")
     object SuperAdminMemberDetail : NavRoutes("super_admin_member_detail/{tuntasId}/{userId}") {
         fun createRoute(tuntasId: String, userId: String) = "super_admin_member_detail/$tuntasId/$userId"
@@ -32,11 +35,11 @@ sealed class NavRoutes(val route: String) {
             personalOwner: String? = null
         ): String {
             val params = buildList {
-                if (type != null) add("type=$type")
-                if (category != null) add("category=$category")
-                if (custodianId != null) add("custodianId=$custodianId")
-                if (sharedOnly != null) add("sharedOnly=$sharedOnly")
-                if (personalOwner != null) add("personalOwner=$personalOwner")
+                if (type != null) add(queryParam("type", type))
+                if (category != null) add(queryParam("category", category))
+                if (custodianId != null) add(queryParam("custodianId", custodianId))
+                if (sharedOnly != null) add(queryParam("sharedOnly", sharedOnly.toString()))
+                if (personalOwner != null) add(queryParam("personalOwner", personalOwner))
             }
             return if (params.isEmpty()) {
                 "inventory_list"
@@ -59,11 +62,11 @@ sealed class NavRoutes(val route: String) {
             personalOwner: String? = null
         ): String {
             val params = buildList {
-                if (type != null) add("type=$type")
-                if (category != null) add("category=$category")
-                if (custodianId != null) add("custodianId=$custodianId")
-                if (sharedOnly != null) add("sharedOnly=$sharedOnly")
-                if (personalOwner != null) add("personalOwner=$personalOwner")
+                if (type != null) add(queryParam("type", type))
+                if (category != null) add(queryParam("category", category))
+                if (custodianId != null) add(queryParam("custodianId", custodianId))
+                if (sharedOnly != null) add(queryParam("sharedOnly", sharedOnly.toString()))
+                if (personalOwner != null) add(queryParam("personalOwner", personalOwner))
             }
             return if (params.isEmpty()) {
                 "inventory_audit"
@@ -173,6 +176,9 @@ sealed class NavRoutes(val route: String) {
     object EventPlan : NavRoutes("event_plan/{eventId}") {
         fun createRoute(eventId: String) = "event_plan/$eventId"
     }
+    object EventPacking : NavRoutes("event_packing/{eventId}") {
+        fun createRoute(eventId: String) = "event_packing/$eventId"
+    }
     object EventStaff : NavRoutes("event_staff/{eventId}") {
         fun createRoute(eventId: String) = "event_staff/$eventId"
     }
@@ -241,6 +247,7 @@ sealed class NavRoutes(val route: String) {
             EventPurchases.route -> "Renginio pirkimai"
             EventReconciliation.route -> "Suvedimas"
             EventPlan.route -> "Inventoriaus planas"
+            EventPacking.route -> "Pakavimas"
             EventStaff.route -> "Komanda"
             EventPastovyklės.route -> "Pastovyklės"
             EventMovement.route -> "Inventoriaus judėjimas"

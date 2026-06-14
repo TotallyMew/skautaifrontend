@@ -137,6 +137,12 @@ class InventoryListViewModel @Inject constructor(
     private val _assignedOnly = MutableStateFlow(false)
     val assignedOnly: StateFlow<Boolean> = _assignedOnly.asStateFlow()
 
+    private val _consumablesOnly = MutableStateFlow(false)
+    val consumablesOnly: StateFlow<Boolean> = _consumablesOnly.asStateFlow()
+
+    private val _lowStockOnly = MutableStateFlow(false)
+    val lowStockOnly: StateFlow<Boolean> = _lowStockOnly.asStateFlow()
+
     private val initialCustodianId = savedStateHandle.get<String?>("custodianId")
     private val initialType = savedStateHandle.get<String?>("type")
     private val initialSharedOnly = savedStateHandle.get<Boolean>("sharedOnly") ?: false
@@ -171,14 +177,12 @@ class InventoryListViewModel @Inject constructor(
             combine(
                 itemRepository.observeItems(
                     custodianId = initialCustodianId,
-                    type = initialType,
                     sharedOnly = initialSharedOnly,
                     createdByUserId = personalOwnerId
                 ),
                 itemRepository.observeItems(
                     custodianId = initialCustodianId,
                     status = "INACTIVE",
-                    type = initialType,
                     sharedOnly = initialSharedOnly,
                     createdByUserId = personalOwnerId
                 ),
@@ -196,7 +200,7 @@ class InventoryListViewModel @Inject constructor(
                     "PENDING_APPROVAL" -> visiblePendingItems
                     else -> activeItems
                 }
-                if (visibleItems.isEmpty() && visiblePendingItems.isEmpty()) {
+                if (selectedStatus == "ACTIVE" && activeItems.isEmpty() && visiblePendingItems.isEmpty()) {
                     InventoryListUiState.Empty
                 } else {
                     InventoryListUiState.Success(visibleItems, visiblePendingItems, kits)
@@ -223,7 +227,6 @@ class InventoryListViewModel @Inject constructor(
                 val personalOwnerId = personalOwnerFilterId(currentUserId)
                 val itemsResult = itemRepository.refreshItems(
                     custodianId = initialCustodianId,
-                    type = initialType,
                     sharedOnly = initialSharedOnly,
                     createdByUserId = personalOwnerId
                 )
@@ -238,7 +241,6 @@ class InventoryListViewModel @Inject constructor(
                     itemRepository.refreshItems(
                         custodianId = initialCustodianId,
                         status = "INACTIVE",
-                        type = initialType,
                         sharedOnly = initialSharedOnly,
                         createdByUserId = personalOwnerId
                     )
@@ -370,11 +372,23 @@ class InventoryListViewModel @Inject constructor(
         clearSelection()
     }
 
+    fun onConsumablesOnlyChange(enabled: Boolean) {
+        _consumablesOnly.value = enabled
+        clearSelection()
+    }
+
+    fun onLowStockOnlyChange(enabled: Boolean) {
+        _lowStockOnly.value = enabled
+        clearSelection()
+    }
+
     fun clearFilters() {
         _selectedTypes.value = emptySet()
         _selectedCategories.value = emptySet()
         _selectedLocationIds.value = emptySet()
         _assignedOnly.value = false
+        _consumablesOnly.value = false
+        _lowStockOnly.value = false
         clearSelection()
     }
 
@@ -549,6 +563,9 @@ class InventoryListViewModel @Inject constructor(
                             existing.id,
                             UpdateItemRequestDto(
                                 quantity = existing.quantity + requestWithLocation.quantity,
+                                isConsumable = requestWithLocation.isConsumable || existing.isConsumable,
+                                unitOfMeasure = requestWithLocation.unitOfMeasure,
+                                minimumQuantity = requestWithLocation.minimumQuantity ?: existing.minimumQuantity,
                                 locationId = requestWithLocation.locationId ?: existing.locationId,
                                 temporaryStorageLabel = requestWithLocation.temporaryStorageLabel ?: existing.temporaryStorageLabel,
                                 notes = mergeNotes(existing.notes, requestWithLocation.notes),
@@ -588,6 +605,8 @@ class InventoryListViewModel @Inject constructor(
         val selectedCategories = _selectedCategories.value
         val selectedLocationIds = _selectedLocationIds.value
         val assignedOnly = _assignedOnly.value
+        val consumablesOnly = _consumablesOnly.value
+        val lowStockOnly = _lowStockOnly.value
         val byType = if (selectedTypes.isEmpty()) {
             items
         } else {
@@ -609,9 +628,19 @@ class InventoryListViewModel @Inject constructor(
         } else {
             byLocation
         }
+        val byConsumable = if (consumablesOnly) {
+            byAssigned.filter { it.isConsumable }
+        } else {
+            byAssigned
+        }
+        val byStock = if (lowStockOnly) {
+            byConsumable.filter { it.isLowStock }
+        } else {
+            byConsumable
+        }
 
-        if (query.isBlank()) return byAssigned
-        return byAssigned.filter {
+        if (query.isBlank()) return byStock
+        return byStock.filter {
             it.name.contains(query, ignoreCase = true) ||
                 it.notes?.contains(query, ignoreCase = true) == true ||
                 it.custodianName?.contains(query, ignoreCase = true) == true ||

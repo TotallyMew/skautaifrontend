@@ -15,6 +15,7 @@ object PendingOperationType {
     const val ITEM_CREATE = "ITEM_CREATE"
     const val ITEM_UPDATE = "ITEM_UPDATE"
     const val ITEM_DELETE = "ITEM_DELETE"
+    const val ITEM_CONSUME = "ITEM_CONSUME"
     const val RESERVATION_CREATE = "RESERVATION_CREATE"
     const val RESERVATION_CANCEL = "RESERVATION_CANCEL"
     const val RESERVATION_REVIEW_UNIT = "RESERVATION_REVIEW_UNIT"

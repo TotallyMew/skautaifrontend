@@ -41,6 +41,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.util.canManageEventFinanceSections
 import lt.skautai.android.util.canManageEventInventorySections
 import lt.skautai.android.util.canManageEventSections
 import lt.skautai.android.util.canRequestEventInventory
@@ -61,6 +62,7 @@ fun EventDetailScreen(
     onOpenPurchases: (String) -> Unit,
     onOpenReconciliation: (String) -> Unit,
     onOpenPlan: (String) -> Unit,
+    onOpenPacking: (String) -> Unit,
     onOpenStaff: (String) -> Unit,
     viewModel: EventDetailViewModel = hiltViewModel()
 ) {
@@ -132,6 +134,7 @@ fun EventDetailScreen(
                     val canManage = canManageEventSections(permissions, myRoles, readOnly)
                     val canStart = !readOnly && (canManage || "KOMENDANTAS" in myRoles)
                     val canInventory = canManageEventInventorySections(permissions, myRoles, readOnly)
+                    val canFinance = canManageEventFinanceSections(permissions, myRoles, readOnly)
                     val canPlanView = canViewEventPlan(permissions, myRoles)
                     val canInventoryRequest = canRequestEventInventory(myRoles, readOnly)
                     val canOpenMovement = !readOnly && state.event.status == "ACTIVE"
@@ -187,11 +190,15 @@ fun EventDetailScreen(
                                                 } ?: "Eilutės ir atsakingi"
                                             ) { onOpenPlan(eventId) }
                                         )
+                                        add(EventWorkArea(Icons.Default.Inventory2, "Pakavimas", "Sarasas ir progresas") { onOpenPacking(eventId) })
                                         add(EventWorkArea(Icons.Default.ShoppingCart, "Pirkimai", "Būsena ir sąskaitos") { onOpenPurchases(eventId) })
                                         if (state.event.status == "COMPLETED") {
                                             add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Inventoriaus suvedimas", "Grąžinimai ir pirkimai") { onOpenReconciliation(eventId) })
                                         }
                                         add(EventWorkArea(Icons.Default.Inventory2, "Ūkvedys", "Trūkumai ir atsargos") { onOpenUkvedys(eventId) })
+                                    }
+                                    if (!canInventory && canFinance) {
+                                        add(EventWorkArea(Icons.Default.ShoppingCart, "Pirkimai", "Biudžetas ir sąskaitos") { onOpenPurchases(eventId) })
                                     }
                                     if (!canInventory && canInventoryRequest) {
                                         add(EventWorkArea(Icons.Default.Checklist, "Mano užsakymai", "Programos poreikiai") { onOpenNeeds(eventId) })

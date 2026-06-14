@@ -308,6 +308,7 @@ private fun MyTaskDto.icon(): ImageVector = when (type) {
     "RESERVATION_APPROVAL_PENDING", "RESERVATION_MOVEMENT_OPEN" -> Icons.Default.EventAvailable
     "MY_RETURN_OVERDUE", "MY_RETURN_DUE_TODAY" -> Icons.Default.Inventory2
     "REQUISITION_REVIEW_PENDING" -> Icons.Default.Assignment
+    "EVENT_PACKING_GENERATE", "EVENT_PACKING_OPEN", "EVENT_PACKING_RETURN_OPEN" -> Icons.Default.Inventory2
     "EVENT_LOGISTICS_OPEN", "EVENT_RECONCILIATION_OPEN" -> Icons.Default.EventNote
     else -> Icons.Default.Flag
 }

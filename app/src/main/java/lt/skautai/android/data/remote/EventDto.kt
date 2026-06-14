@@ -25,10 +25,12 @@ data class EventDto(
     @SerializedName("organizationalUnitId") val organizationalUnitId: String?,
     @SerializedName("createdByUserId") val createdByUserId: String?,
     @SerializedName("status") val status: String,
+    @SerializedName("inventoryBudgetAmount") val inventoryBudgetAmount: Double? = null,
     @SerializedName("notes") val notes: String?,
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("eventRoles") val eventRoles: List<EventRoleDto>,
-    @SerializedName("inventorySummary") val inventorySummary: EventInventorySummaryDto?
+    @SerializedName("inventorySummary") val inventorySummary: EventInventorySummaryDto?,
+    @SerializedName("financeSummary") val financeSummary: EventFinanceSummaryDto? = null
 )
 
 data class EventListDto(
@@ -60,6 +62,60 @@ data class EventInventorySummaryDto(
     @SerializedName("totalShortageQuantity") val totalShortageQuantity: Int,
     @SerializedName("totalAllocatedQuantity") val totalAllocatedQuantity: Int,
     @SerializedName("itemsNeedingPurchase") val itemsNeedingPurchase: Int
+)
+
+data class EventFinanceSummaryDto(
+    @SerializedName("inventoryBudgetAmount") val inventoryBudgetAmount: Double? = null,
+    @SerializedName("purchaseTotal") val purchaseTotal: Double,
+    @SerializedName("extraCostTotal") val extraCostTotal: Double,
+    @SerializedName("spentTotal") val spentTotal: Double,
+    @SerializedName("remainingAmount") val remainingAmount: Double? = null,
+    @SerializedName("overBudget") val overBudget: Boolean
+)
+
+data class EventExtraCostDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("category") val category: String,
+    @SerializedName("label") val label: String,
+    @SerializedName("quantity") val quantity: Double? = null,
+    @SerializedName("unit") val unit: String? = null,
+    @SerializedName("unitPrice") val unitPrice: Double? = null,
+    @SerializedName("totalAmount") val totalAmount: Double,
+    @SerializedName("notes") val notes: String? = null,
+    @SerializedName("createdByUserId") val createdByUserId: String? = null,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("updatedAt") val updatedAt: String
+)
+
+data class EventFinanceDto(
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("summary") val summary: EventFinanceSummaryDto,
+    @SerializedName("extraCosts") val extraCosts: List<EventExtraCostDto>
+)
+
+data class UpdateEventFinanceBudgetRequestDto(
+    @SerializedName("inventoryBudgetAmount") val inventoryBudgetAmount: Double? = null
+)
+
+data class CreateEventExtraCostRequestDto(
+    @SerializedName("category") val category: String,
+    @SerializedName("label") val label: String,
+    @SerializedName("quantity") val quantity: Double? = null,
+    @SerializedName("unit") val unit: String? = null,
+    @SerializedName("unitPrice") val unitPrice: Double? = null,
+    @SerializedName("totalAmount") val totalAmount: Double? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdateEventExtraCostRequestDto(
+    @SerializedName("category") val category: String? = null,
+    @SerializedName("label") val label: String? = null,
+    @SerializedName("quantity") val quantity: Double? = null,
+    @SerializedName("unit") val unit: String? = null,
+    @SerializedName("unitPrice") val unitPrice: Double? = null,
+    @SerializedName("totalAmount") val totalAmount: Double? = null,
+    @SerializedName("notes") val notes: String? = null
 )
 
 data class EventInventoryBucketDto(
@@ -317,6 +373,13 @@ data class EventPurchaseItemDto(
     @SerializedName("notes") val notes: String?
 )
 
+data class EventPurchaseInvoiceDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("purchaseId") val purchaseId: String,
+    @SerializedName("fileUrl") val fileUrl: String,
+    @SerializedName("createdAt") val createdAt: String
+)
+
 data class EventPurchaseDto(
     @SerializedName("id") val id: String,
     @SerializedName("eventId") val eventId: String,
@@ -326,6 +389,7 @@ data class EventPurchaseDto(
     @SerializedName("purchaseDate") val purchaseDate: String?,
     @SerializedName("totalAmount") val totalAmount: Double?,
     @SerializedName("invoiceFileUrl") val invoiceFileUrl: String?,
+    @SerializedName("invoices") val invoices: List<EventPurchaseInvoiceDto> = emptyList(),
     @SerializedName("notes") val notes: String?,
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("updatedAt") val updatedAt: String,
@@ -657,5 +721,67 @@ data class CreateEventInventoryMovementRequestDto(
     @SerializedName("toUserId") val toUserId: String? = null,
     @SerializedName("fromCustodyId") val fromCustodyId: String? = null,
     @SerializedName("requestId") val requestId: String? = null,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class EventPackingContainerDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("type") val type: String,
+    @SerializedName("status") val status: String,
+    @SerializedName("sortOrder") val sortOrder: Int,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("updatedAt") val updatedAt: String
+)
+
+data class EventPackingLineDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("allocationId") val allocationId: String?,
+    @SerializedName("containerId") val containerId: String?,
+    @SerializedName("containerName") val containerName: String?,
+    @SerializedName("bucketId") val bucketId: String?,
+    @SerializedName("bucketName") val bucketName: String?,
+    @SerializedName("itemId") val itemId: String?,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("requiredQuantity") val requiredQuantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("sourceSummary") val sourceSummary: String?,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("checkedByUserId") val checkedByUserId: String?,
+    @SerializedName("checkedByUserName") val checkedByUserName: String?,
+    @SerializedName("checkedAt") val checkedAt: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("updatedAt") val updatedAt: String
+)
+
+data class EventPackingSummaryDto(
+    @SerializedName("totalLines") val totalLines: Int,
+    @SerializedName("doneLines") val doneLines: Int,
+    @SerializedName("totalQuantity") val totalQuantity: Int,
+    @SerializedName("doneQuantity") val doneQuantity: Int,
+    @SerializedName("progressPercent") val progressPercent: Int
+)
+
+data class EventPackingListDto(
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("containers") val containers: List<EventPackingContainerDto>,
+    @SerializedName("lines") val lines: List<EventPackingLineDto>,
+    @SerializedName("summary") val summary: EventPackingSummaryDto
+)
+
+data class CreateEventPackingContainerRequestDto(
+    @SerializedName("name") val name: String,
+    @SerializedName("type") val type: String = "BOX",
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class UpdateEventPackingLineRequestDto(
+    @SerializedName("status") val status: String? = null,
+    @SerializedName("containerId") val containerId: String? = null,
+    @SerializedName("clearContainer") val clearContainer: Boolean = false,
     @SerializedName("notes") val notes: String? = null
 )

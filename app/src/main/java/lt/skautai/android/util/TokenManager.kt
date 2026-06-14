@@ -6,12 +6,15 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.flow.first
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
+import lt.skautai.android.data.remote.UserTuntasDto
 
 val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "auth_prefs")
 
@@ -33,7 +36,12 @@ class TokenManager @Inject constructor(
         // Per-tuntas cache: "tuntasId1=perm1,perm2;tuntasId2=perm3" (max 5 entries)
         val PERMISSIONS_CACHE_KEY = stringPreferencesKey("permissions_cache")
         val LEADERSHIP_UNIT_IDS_KEY = stringPreferencesKey("leadership_unit_ids")
+        val LEADERSHIP_UNIT_IDS_CACHE_KEY = stringPreferencesKey("leadership_unit_ids_cache")
+        val MY_TUNTAI_CACHE_KEY = stringPreferencesKey("my_tuntai_cache")
     }
+
+    private val gson = Gson()
+    private val userTuntaiType = object : TypeToken<List<UserTuntasDto>>() {}.type
 
     private fun enc(value: String?) = EncryptionHelper.encrypt(value ?: "")
     private fun dec(value: String?) = value?.let { EncryptionHelper.decrypt(it) }?.takeIf { it.isNotEmpty() }
@@ -143,15 +151,79 @@ class TokenManager @Inject constructor(
         return permsStr.split(",").filter { it.isNotBlank() }.toSet()
     }
 
+    suspend fun leadershipUnitIdsForTuntas(tuntasId: String): List<String>? {
+        val raw = dec(context.dataStore.data.first()[LEADERSHIP_UNIT_IDS_CACHE_KEY]) ?: return null
+        val entry = raw.split(";").firstOrNull { it.startsWith("$tuntasId=") } ?: return null
+        val idsStr = entry.substringAfter("=")
+        return idsStr.split(",").filter { it.isNotBlank() }
+    }
+
     suspend fun cachePermissionsForTuntas(tuntasId: String, perms: List<String>) {
+        cacheTuntasContext(tuntasId, perms, leadershipUnitIds.first())
+    }
+
+    suspend fun cacheTuntasContext(
+        tuntasId: String,
+        perms: List<String>,
+        leadershipUnitIds: List<String>
+    ) {
         context.dataStore.edit { prefs ->
-            val existing = dec(prefs[PERMISSIONS_CACHE_KEY]) ?: ""
-            val entries = existing.split(";")
-                .filter { it.isNotBlank() && !it.startsWith("$tuntasId=") }
-                .toMutableList()
-            entries.add("$tuntasId=${perms.joinToString(",")}")
-            val limited = if (entries.size > 5) entries.takeLast(5) else entries
-            prefs[PERMISSIONS_CACHE_KEY] = enc(limited.joinToString(";"))
+            prefs[PERMISSIONS_CACHE_KEY] = enc(
+                updatePerTuntasCache(
+                    existing = dec(prefs[PERMISSIONS_CACHE_KEY]) ?: "",
+                    tuntasId = tuntasId,
+                    value = perms.joinToString(",")
+                )
+            )
+            prefs[LEADERSHIP_UNIT_IDS_CACHE_KEY] = enc(
+                updatePerTuntasCache(
+                    existing = dec(prefs[LEADERSHIP_UNIT_IDS_CACHE_KEY]) ?: "",
+                    tuntasId = tuntasId,
+                    value = leadershipUnitIds.joinToString(",")
+                )
+            )
+        }
+    }
+
+    suspend fun cacheMyTuntai(tuntai: List<UserTuntasDto>) {
+        context.dataStore.edit { prefs ->
+            prefs[MY_TUNTAI_CACHE_KEY] = enc(gson.toJson(tuntai))
+        }
+    }
+
+    suspend fun cachedMyTuntai(): List<UserTuntasDto> {
+        val raw = dec(context.dataStore.data.first()[MY_TUNTAI_CACHE_KEY]) ?: return emptyList()
+        return runCatching { gson.fromJson<List<UserTuntasDto>>(raw, userTuntaiType) }
+            .getOrNull()
+            .orEmpty()
+    }
+
+    private fun updatePerTuntasCache(existing: String, tuntasId: String, value: String): String {
+        val entries = existing.split(";")
+            .filter { it.isNotBlank() && !it.startsWith("$tuntasId=") }
+            .toMutableList()
+        entries.add("$tuntasId=$value")
+        return if (entries.size > 5) entries.takeLast(5).joinToString(";") else entries.joinToString(";")
+    }
+
+    suspend fun removeTuntasFromCache(tuntasId: String) {
+        context.dataStore.edit { prefs ->
+            val tuntai = runCatching {
+                gson.fromJson<List<UserTuntasDto>>(dec(prefs[MY_TUNTAI_CACHE_KEY]).orEmpty(), userTuntaiType)
+            }.getOrNull().orEmpty()
+            prefs[MY_TUNTAI_CACHE_KEY] = enc(gson.toJson(tuntai.filterNot { it.id == tuntasId }))
+            prefs[PERMISSIONS_CACHE_KEY] = enc(
+                (dec(prefs[PERMISSIONS_CACHE_KEY]) ?: "")
+                    .split(";")
+                    .filter { it.isNotBlank() && !it.startsWith("$tuntasId=") }
+                    .joinToString(";")
+            )
+            prefs[LEADERSHIP_UNIT_IDS_CACHE_KEY] = enc(
+                (dec(prefs[LEADERSHIP_UNIT_IDS_CACHE_KEY]) ?: "")
+                    .split(";")
+                    .filter { it.isNotBlank() && !it.startsWith("$tuntasId=") }
+                    .joinToString(";")
+            )
         }
     }
 

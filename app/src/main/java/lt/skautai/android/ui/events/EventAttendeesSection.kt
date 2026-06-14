@@ -103,7 +103,7 @@ fun StaffPickerSheet(
     var selectedUserId by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedRole by remember { mutableStateOf("VADOVAS") }
-    val roleOptions = listOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS", "PROGRAMERIS", "MAISTININKAS", "VADOVAS", "SAVANORIS")
+    val roleOptions = listOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS", "FINANSININKAS", "PROGRAMERIS", "MAISTININKAS", "VADOVAS", "SAVANORIS")
     val filteredMembers = remember(members, searchQuery) {
         val query = searchQuery.trim()
         members
@@ -174,6 +174,7 @@ private fun eventRoleLabel(role: String): String = when (role) {
     "VIRSININKAS" -> "Viršininkas"
     "KOMENDANTAS" -> "Komendantas"
     "UKVEDYS" -> "Ūkvedys"
+    "FINANSININKAS" -> "Finansininkas"
     "PROGRAMERIS" -> "Programeris"
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"

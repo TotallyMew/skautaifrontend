@@ -159,6 +159,14 @@ object DatabaseModule {
                 )
             }
         }
+        val migration15To16 = object : Migration(15, 16) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `isConsumable` INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `unitOfMeasure` TEXT NOT NULL DEFAULT 'vnt.'")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `minimumQuantity` INTEGER")
+                db.execSQL("ALTER TABLE `items` ADD COLUMN `isLowStock` INTEGER NOT NULL DEFAULT 0")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
@@ -179,7 +187,8 @@ object DatabaseModule {
                 migration11To12,
                 migration12To13,
                 migration13To14,
-                migration14To15
+                migration14To15,
+                migration15To16
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()

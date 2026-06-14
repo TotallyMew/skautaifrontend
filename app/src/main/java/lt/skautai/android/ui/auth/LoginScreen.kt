@@ -56,7 +56,11 @@ fun LoginScreen(
 
     LaunchedEffect(uiState.isLoginSuccessful) {
         if (uiState.isLoginSuccessful) {
-            if (uiState.hasActiveTuntas) {
+            if (uiState.isSuperAdmin) {
+                navController.navigate(NavRoutes.SuperAdminDashboard.route) {
+                    popUpTo(NavRoutes.Login.route) { inclusive = true }
+                }
+            } else if (uiState.hasActiveTuntas) {
                 navController.navigate(NavRoutes.Home.route) {
                     popUpTo(NavRoutes.Login.route) { inclusive = true }
                 }

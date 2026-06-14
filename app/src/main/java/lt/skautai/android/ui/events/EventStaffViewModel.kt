@@ -485,6 +485,7 @@ private fun staffRoleLabel(role: String): String = when (role) {
     "VIRSININKAS" -> "Viršininkas"
     "KOMENDANTAS" -> "Komendantas"
     "UKVEDYS" -> "Ūkvedys"
+    "FINANSININKAS" -> "Finansininkas"
     "PROGRAMERIS" -> "Programeris"
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"

@@ -6,6 +6,8 @@ import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.ItemCustomFieldDto
 import lt.skautai.android.data.remote.ItemDto
 import java.io.ByteArrayInputStream
+import java.nio.charset.Charset
+import java.time.LocalDate
 import java.text.Normalizer
 import java.util.Locale
 import java.util.zip.ZipInputStream
@@ -49,6 +51,8 @@ enum class InventoryImportField(
     PurchasePrice("purchasePrice", "Pirkimo kaina"),
     Location("locationName", "Lokacija"),
     UnitOfMeasure("unitOfMeasure", "Mato vienetas", defaultValue = "vnt."),
+    Consumable("isConsumable", "Sunaudojama", defaultValue = "false"),
+    MinimumQuantity("minimumQuantity", "Minimalus likutis"),
     Tags("tags", "Žymos"),
     StatusReason("statusReason", "Būklės / nurašymo priežastis"),
     Type("type", "Tipas")
@@ -90,8 +94,14 @@ object InventoryCsv {
         "Pirkimo kaina",
         "Lokacija",
         "Mato vienetas",
+        "Sunaudojama",
+        "Minimalus likutis",
         "Zymos",
-        "Bukles priezastis"
+        "Bukles priezastis",
+        "Tipas",
+        "Saugotojas",
+        "Atsakingas",
+        "Statusas"
     )
 
     private val eventHeaders = listOf(
@@ -115,6 +125,8 @@ object InventoryCsv {
         "custodianName" to listOf("custodianname", "custodian", "vienetas", "savininkas"),
         "locationName" to listOf("locationname", "location", "vieta", "lokacija", "sandelys", "sandelis", "lentyna", "deze"),
         "unitOfMeasure" to listOf("unitofmeasure", "unit", "measure", "matovienetas", "mato_vienetas", "vienetas"),
+        "isConsumable" to listOf("isconsumable", "consumable", "sunaudojama", "sunaudojamas", "sunaudojamapreke", "sunaudojama_preke"),
+        "minimumQuantity" to listOf("minimumquantity", "minimum_quantity", "minquantity", "min", "minimaluslikutis", "minimalus_likutis"),
         "tags" to listOf("tags", "zymos", "tagai", "labels"),
         "statusReason" to listOf("statusreason", "conditionreason", "priezastis", "buklespriezastis", "nurasymopriezastis"),
         "responsibleUserName" to listOf("responsibleusername", "responsible", "atsakingas"),
@@ -148,7 +160,9 @@ object InventoryCsv {
                 item.purchaseDate.orEmpty(),
                 item.purchasePrice?.toString().orEmpty(),
                 item.locationPath ?: item.locationName.orEmpty(),
-                item.customFieldValue("Mato vienetas").orEmpty(),
+                item.unitOfMeasure.ifBlank { item.customFieldValue("Mato vienetas").orEmpty() },
+                item.isConsumable.toString(),
+                item.minimumQuantity?.toString().orEmpty(),
                 item.customFieldValue("Žymos").orEmpty(),
                 item.customFieldValue("Priežastis").orEmpty(),
                 item.type,
@@ -177,6 +191,8 @@ object InventoryCsv {
     }
 
     fun parseTextTable(text: String): List<List<String>> = parse(text)
+
+    fun parseTextTable(bytes: ByteArray): List<List<String>> = parse(decodeText(bytes))
 
     fun parseXlsxTable(bytes: ByteArray): List<List<String>> = XlsxTableReader.readFirstSheet(bytes)
 
@@ -296,7 +312,7 @@ object InventoryCsv {
             val rowNumber = index + 2
             val name = row.value(mapping, InventoryImportField.Name).trim()
             val quantityText = row.value(mapping, InventoryImportField.Quantity).trim()
-            val quantity = if (quantityText.isBlank()) 1 else quantityText.toIntOrNull()
+            val quantity = quantityText.toImportIntOrNull() ?: 1.takeIf { quantityText.isBlank() }
             if (name.isBlank()) {
                 skipped += 1
                 warnings += "Eilute $rowNumber praleista: nenurodytas pavadinimas."
@@ -316,6 +332,17 @@ object InventoryCsv {
                 .ifBlank { "GOOD" }
             val rowType = row.value(mapping, InventoryImportField.Type)
                 .normalizeInventoryType(type)
+            val unitOfMeasure = row.value(mapping, InventoryImportField.UnitOfMeasure)
+                .trim()
+                .ifBlank { "vnt." }
+            val isConsumable = row.value(mapping, InventoryImportField.Consumable).toImportBoolean()
+            val minimumQuantityText = row.value(mapping, InventoryImportField.MinimumQuantity).trim()
+            val minimumQuantity = minimumQuantityText.toImportIntOrNull()
+            if (minimumQuantityText.isNotBlank() && (minimumQuantity == null || minimumQuantity < 0)) {
+                skipped += 1
+                warnings += "Eilute $rowNumber praleista: netinkamas minimalus likutis."
+                return@forEachIndexed
+            }
 
             parsedRows += CreateItemRequestDto(
                 name = name,
@@ -328,13 +355,13 @@ object InventoryCsv {
                 condition = condition,
                 temporaryStorageLabel = row.value(mapping, InventoryImportField.Location).blankToNull(),
                 notes = row.value(mapping, InventoryImportField.Notes).blankToNull(),
-                purchaseDate = row.value(mapping, InventoryImportField.PurchaseDate).blankToNull(),
-                purchasePrice = row.value(mapping, InventoryImportField.PurchasePrice).replace(',', '.').toDoubleOrNull(),
+                purchaseDate = row.value(mapping, InventoryImportField.PurchaseDate).toImportDateOrNull(),
+                purchasePrice = row.value(mapping, InventoryImportField.PurchasePrice).toImportDecimalOrNull(),
+                isConsumable = isConsumable,
+                unitOfMeasure = unitOfMeasure,
+                minimumQuantity = minimumQuantity,
                 customFields = listOfNotNull(
-                    row.value(mapping, InventoryImportField.UnitOfMeasure)
-                        .trim()
-                        .ifBlank { "vnt." }
-                        .let { ItemCustomFieldDto(fieldName = "Mato vienetas", fieldValue = it) },
+                    ItemCustomFieldDto(fieldName = "Mato vienetas", fieldValue = unitOfMeasure),
                     row.value(mapping, InventoryImportField.Tags)
                         .blankToNull()
                         ?.let { ItemCustomFieldDto(fieldName = "Žymos", fieldValue = it) },
@@ -366,12 +393,13 @@ object InventoryCsv {
         if (table.isEmpty()) return CsvImportResult(emptyList(), 0, errors = listOf("Failas tuscias."))
         if (table.size == 1) return CsvImportResult(emptyList(), 0, errors = listOf("Faile yra tik antraste, be importuojamu eiluciu."))
 
-        val headerMap = HeaderMap.from(table.first(), eventAliases)
+        val headerRowIndex = detectHeaderRowIndex(table, eventAliases, requiredCanonical = "name")
+        val headerMap = HeaderMap.from(table[headerRowIndex], eventAliases)
         val missingColumns = listOf("name").filterNot { headerMap.has(it) }
         if (missingColumns.isNotEmpty()) {
             return CsvImportResult(
                 rows = emptyList(),
-                skippedRows = table.size - 1,
+                skippedRows = table.size - (headerRowIndex + 1),
                 errors = listOf("Truksta privalomo stulpelio: ${missingColumns.joinToString(", ")}."),
                 unknownColumns = headerMap.unknownColumns,
                 missingColumns = missingColumns
@@ -382,11 +410,11 @@ object InventoryCsv {
         val warnings = mutableListOf<String>()
         var skipped = 0
 
-        table.drop(1).forEachIndexed { index, row ->
-            val rowNumber = index + 2
+        table.drop(headerRowIndex + 1).forEachIndexed { index, row ->
+            val rowNumber = headerRowIndex + index + 2
             val name = row.value(headerMap, "name").trim()
             val quantityText = row.value(headerMap, "plannedQuantity").trim()
-            val quantity = if (quantityText.isBlank()) 1 else quantityText.toIntOrNull()
+            val quantity = quantityText.toImportIntOrNull() ?: 1.takeIf { quantityText.isBlank() }
             if (name.isBlank()) {
                 skipped += 1
                 warnings += "Eilute $rowNumber praleista: nenurodytas pavadinimas."
@@ -459,8 +487,13 @@ object InventoryCsv {
     }
 
     private fun detectDelimiter(csv: String): Char {
-        val firstLine = csv.lineSequence().firstOrNull { it.isNotBlank() }.orEmpty()
-        return listOf(',', ';', '\t').maxBy { delimiter -> firstLine.countOutsideQuotes(delimiter) }
+        val sampleLines = csv.lineSequence()
+            .filter { it.isNotBlank() }
+            .take(10)
+            .toList()
+        return listOf(',', ';', '\t').maxBy { delimiter ->
+            sampleLines.sumOf { line -> line.countOutsideQuotes(delimiter) }
+        }
     }
 
     private fun String.countOutsideQuotes(target: Char): Int {
@@ -497,6 +530,9 @@ object InventoryCsv {
             description = first.description ?: firstNotNullOfOrNull { it.description },
             purchaseDate = first.purchaseDate ?: firstNotNullOfOrNull { it.purchaseDate },
             purchasePrice = first.purchasePrice ?: firstNotNullOfOrNull { it.purchasePrice },
+            isConsumable = any { it.isConsumable },
+            unitOfMeasure = first.unitOfMeasure.ifBlank { firstNotNullOfOrNull { it.unitOfMeasure.takeIf(String::isNotBlank) } ?: "vnt." },
+            minimumQuantity = first.minimumQuantity ?: firstNotNullOfOrNull { it.minimumQuantity },
             customFields = mergeCustomFields(flatMap { it.customFields })
         )
     }
@@ -530,6 +566,61 @@ object InventoryCsv {
             .distinct()
             .joinToString("; ")
             .ifBlank { null }
+
+    private fun String.toImportBoolean(): Boolean = when (trim().lowercase(Locale.ROOT)) {
+        "true", "1", "yes", "y", "taip", "t", "x", "sunaudojama" -> true
+        else -> false
+    }
+
+    private fun String.toImportIntOrNull(): Int? {
+        val cleaned = trim()
+            .replace("\u00A0", "")
+            .replace(" ", "")
+            .replace(',', '.')
+        if (cleaned.isBlank()) return null
+        return cleaned.toIntOrNull()
+            ?: cleaned.toDoubleOrNull()
+                ?.takeIf { it % 1.0 == 0.0 }
+                ?.toInt()
+    }
+
+    private fun String.toImportDecimalOrNull(): Double? {
+        val compact = trim()
+            .replace("\u00A0", "")
+            .replace(" ", "")
+            .replace(Regex("[^0-9,.-]"), "")
+        if (compact.isBlank()) return null
+        val normalized = when {
+            ',' in compact && '.' in compact && compact.lastIndexOf(',') > compact.lastIndexOf('.') ->
+                compact.replace(".", "").replace(',', '.')
+            ',' in compact && '.' in compact ->
+                compact.replace(",", "")
+            else -> compact.replace(',', '.')
+        }
+        return normalized.toDoubleOrNull()
+    }
+
+    private fun String.toImportDateOrNull(): String? {
+        val value = trim()
+        if (value.isBlank()) return null
+        value.toImportIntOrNull()
+            ?.takeIf { it in 1..60000 }
+            ?.let { serial -> return LocalDate.of(1899, 12, 30).plusDays(serial.toLong()).toString() }
+
+        val normalized = value.substringBefore(' ')
+        listOf(
+            Regex("""^(\d{4})-(\d{1,2})-(\d{1,2})$""") to { m: MatchResult -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) },
+            Regex("""^(\d{4})[./](\d{1,2})[./](\d{1,2})$""") to { m: MatchResult -> Triple(m.groupValues[1], m.groupValues[2], m.groupValues[3]) },
+            Regex("""^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$""") to { m: MatchResult -> Triple(m.groupValues[3], m.groupValues[2], m.groupValues[1]) }
+        ).forEach { (regex, parts) ->
+            val match = regex.matchEntire(normalized) ?: return@forEach
+            val (year, month, day) = parts(match)
+            return runCatching {
+                LocalDate.of(year.toInt(), month.toInt(), day.toInt()).toString()
+            }.getOrNull()
+        }
+        return value
+    }
 
     private fun CreateItemRequestDto.inventoryKey(): String =
         listOf(name, category, condition, type).joinToString("|") { it.normalizedKey() }
@@ -653,7 +744,7 @@ object InventoryCsv {
         val aliasLookup = aliases.flatMap { (canonical, values) ->
             values.map { normalizeAliasValue(it) to canonical }
         }.toMap()
-        val candidates = table.take(10).mapIndexed { rowIndex, row ->
+        val candidates = table.take(25).mapIndexed { rowIndex, row ->
             val canonicalHits = row.mapNotNull { aliasLookup[normalizeAliasValue(it)] }.toSet()
             val score = canonicalHits.size
             Triple(rowIndex, score, requiredCanonical in canonicalHits)
@@ -668,6 +759,20 @@ object InventoryCsv {
             .replace("\\p{Mn}+".toRegex(), "")
             .lowercase(Locale.ROOT)
             .replace("[^a-z0-9]+".toRegex(), "")
+
+    private fun decodeText(bytes: ByteArray): String {
+        if (bytes.size >= 3 &&
+            bytes[0] == 0xEF.toByte() &&
+            bytes[1] == 0xBB.toByte() &&
+            bytes[2] == 0xBF.toByte()
+        ) {
+            return bytes.drop(3).toByteArray().toString(Charsets.UTF_8)
+        }
+        val utf8 = bytes.toString(Charsets.UTF_8)
+        if ('\uFFFD' !in utf8) return utf8
+        return runCatching { bytes.toString(Charset.forName("windows-1257")) }
+            .getOrElse { utf8 }
+    }
 
     private object XlsxTableReader {
         fun readFirstSheet(bytes: ByteArray): List<List<String>> {

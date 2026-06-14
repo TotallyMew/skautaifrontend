@@ -633,7 +633,7 @@ private fun ExtraRoleAssignmentPanel(
         DropdownField(
             label = "Pareiga",
             value = eventRoleLabel(selectedRole),
-            options = listOf("VADOVAS" to "Vadovas", "SAVANORIS" to "Savanoris"),
+            options = listOf("FINANSININKAS" to "Finansininkas", "VADOVAS" to "Vadovas", "SAVANORIS" to "Savanoris"),
             onSelect = { selectedRole = it }
         )
         SkautaiTextField(
@@ -759,6 +759,7 @@ private fun eventRoleLabel(role: String): String = when (role) {
     "VIRSININKAS" -> "Viršininkas"
     "KOMENDANTAS" -> "Komendantas"
     "UKVEDYS" -> "Ūkvedys"
+    "FINANSININKAS" -> "Finansininkas"
     "PROGRAMERIS" -> "Programeris"
     "MAISTININKAS" -> "Maistininkas"
     "VADOVAS" -> "Vadovas"

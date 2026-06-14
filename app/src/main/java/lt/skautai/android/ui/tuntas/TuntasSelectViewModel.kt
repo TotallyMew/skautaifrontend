@@ -127,7 +127,9 @@ class TuntasSelectViewModel @Inject constructor(
             _uiState.value = state.copy(isLeavingTuntas = true, message = null)
             userRepository.leaveTuntas(tuntasId)
                 .onSuccess {
-                    val refreshedTuntai = userRepository.getMyTuntai().getOrDefault(emptyList())
+                    tokenManager.removeTuntasFromCache(tuntasId)
+                    val refreshedTuntai = userRepository.getMyTuntai()
+                        .getOrDefault(state.tuntai.filterNot { it.id == tuntasId })
                     val previousActive = state.activeTuntasId
                     val nextActive = when {
                         previousActive != null && previousActive != tuntasId && refreshedTuntai.any { it.id == previousActive } -> previousActive
@@ -202,9 +204,18 @@ class TuntasSelectViewModel @Inject constructor(
                 )
             }
             .onFailure { error ->
-                _uiState.value = TuntasSelectUiState.Error(
-                    error.message ?: "Nepavyko gauti tuntų sąrašo."
-                )
+                val cachedTuntai = tokenManager.cachedMyTuntai()
+                _uiState.value = if (cachedTuntai.isNotEmpty()) {
+                    TuntasSelectUiState.Success(
+                        tuntai = cachedTuntai,
+                        activeTuntasId = activeTuntasId,
+                        message = message ?: "Nėra ryšio. Rodomas paskutinis išsaugotas tuntų sąrašas."
+                    )
+                } else {
+                    TuntasSelectUiState.Error(
+                        error.message ?: "Nepavyko gauti tuntų sąrašo."
+                    )
+                }
             }
     }
 
@@ -215,19 +226,21 @@ class TuntasSelectViewModel @Inject constructor(
             return Result.failure(Exception("Tuntas dar nepatvirtintas"))
         }
         val cachedPerms = tokenManager.permissionsForTuntas(tuntasId)
+        val cachedLeadershipUnitIds = tokenManager.leadershipUnitIdsForTuntas(tuntasId).orEmpty()
         return userRepository.getMyPermissions(tuntasId)
             .mapCatching { result ->
                 tokenManager.setActiveTuntas(tuntasId, tuntas.name)
                 tokenManager.setActiveOrgUnit(null)
                 tokenManager.savePermissions(result.permissions)
                 tokenManager.saveLeadershipUnitIds(result.leadershipUnitIds)
-                tokenManager.cachePermissionsForTuntas(tuntasId, result.permissions)
+                tokenManager.cacheTuntasContext(tuntasId, result.permissions, result.leadershipUnitIds)
             }
             .recoverCatching { error ->
                 if (cachedPerms != null) {
                     tokenManager.setActiveTuntas(tuntasId, tuntas.name)
                     tokenManager.setActiveOrgUnit(null)
                     tokenManager.savePermissions(cachedPerms.toList())
+                    tokenManager.saveLeadershipUnitIds(cachedLeadershipUnitIds)
                 } else {
                     throw error
                 }

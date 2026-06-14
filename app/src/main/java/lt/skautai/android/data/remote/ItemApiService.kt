@@ -149,6 +149,14 @@ interface ItemApiService {
         @Body request: RestockItemRequestDto
     ): Response<ItemDto>
 
+    @POST("api/items/{itemId}/consume")
+    suspend fun consumeItem(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: ConsumeItemRequestDto
+    ): Response<ItemDto>
+
     @POST("api/items/{itemId}/write-off")
     suspend fun writeOffItem(
         @Header("Authorization") token: String,

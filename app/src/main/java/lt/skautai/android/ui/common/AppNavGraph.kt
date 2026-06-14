@@ -35,6 +35,7 @@ import lt.skautai.android.ui.events.EventListScreen
 import lt.skautai.android.ui.events.EventMovementScreen
 import lt.skautai.android.ui.events.EventMovementQrScreen
 import lt.skautai.android.ui.events.EventNeedsScreen
+import lt.skautai.android.ui.events.EventPackingScreen
 import lt.skautai.android.ui.events.EventPastovyklėsScreen
 import lt.skautai.android.ui.events.EventPlanScreen
 import lt.skautai.android.ui.events.EventPurchasesScreen
@@ -74,7 +75,6 @@ import lt.skautai.android.ui.reservations.ReservationDetailScreen
 import lt.skautai.android.ui.reservations.ReservationListScreen
 import lt.skautai.android.ui.reservations.ReservationMovementScreen
 import lt.skautai.android.ui.superadmin.SuperAdminDashboardScreen
-import lt.skautai.android.ui.superadmin.SuperAdminLoginScreen
 import lt.skautai.android.ui.superadmin.SuperAdminMemberDetailScreen
 import lt.skautai.android.ui.tasks.MyTasksScreen
 import lt.skautai.android.ui.tuntas.TuntasSelectScreen
@@ -132,14 +132,11 @@ fun AppNavGraph(
             RegisterInviteScreen(navController)
         }
 
-        composable(NavRoutes.SuperAdminLogin.route) {
-            SuperAdminLoginScreen(navController)
-        }
         composable(NavRoutes.SuperAdminDashboard.route) {
             SuperAdminDashboardScreen(
                 onLogout = {
                     mainViewModel.logout {
-                        navController.navigate(NavRoutes.SuperAdminLogin.route) {
+                        navController.navigate(NavRoutes.Login.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     }
@@ -845,6 +842,7 @@ fun AppNavGraph(
                 onOpenPurchases = { id -> navController.navigate(NavRoutes.EventPurchases.createRoute(id)) },
                 onOpenReconciliation = { id -> navController.navigate(NavRoutes.EventReconciliation.createRoute(id)) },
                 onOpenPlan = { id -> navController.navigate(NavRoutes.EventPlan.createRoute(id)) },
+                onOpenPacking = { id -> navController.navigate(NavRoutes.EventPacking.createRoute(id)) },
                 onOpenStaff = { id -> navController.navigate(NavRoutes.EventStaff.createRoute(id)) }
             )
         }
@@ -891,6 +889,14 @@ fun AppNavGraph(
         ) {
             val eventId = it.arguments?.getString("eventId")!!
             EventPlanScreen(eventId = eventId, onBack = { navController.popBackStack() })
+        }
+
+        composable(
+            route = NavRoutes.EventPacking.route,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType })
+        ) {
+            val eventId = it.arguments?.getString("eventId")!!
+            EventPackingScreen(eventId = eventId, onBack = { navController.popBackStack() })
         }
 
         composable(

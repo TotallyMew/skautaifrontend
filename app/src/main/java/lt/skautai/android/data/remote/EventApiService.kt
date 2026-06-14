@@ -73,6 +73,37 @@ interface EventApiService {
         @Path("id") id: String
     ): Response<EventInventoryPlanDto>
 
+    @GET("api/events/{id}/packing-list")
+    suspend fun getPackingList(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventPackingListDto>
+
+    @POST("api/events/{id}/packing-list/generate")
+    suspend fun generatePackingList(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventPackingListDto>
+
+    @POST("api/events/{id}/packing-list/containers")
+    suspend fun createPackingContainer(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: CreateEventPackingContainerRequestDto
+    ): Response<EventPackingListDto>
+
+    @PUT("api/events/{id}/packing-list/lines/{lineId}")
+    suspend fun updatePackingLine(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("lineId") lineId: String,
+        @Body request: UpdateEventPackingLineRequestDto
+    ): Response<EventPackingListDto>
+
     @POST("api/events/{id}/inventory-buckets")
     suspend fun createInventoryBucket(
         @Header("Authorization") token: String,
@@ -268,6 +299,15 @@ interface EventApiService {
         @Path("purchaseId") purchaseId: String
     ): Response<okhttp3.ResponseBody>
 
+    @GET("api/events/{id}/purchases/{purchaseId}/invoices/{invoiceId}/download")
+    suspend fun downloadPurchaseInvoice(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("purchaseId") purchaseId: String,
+        @Path("invoiceId") invoiceId: String
+    ): Response<okhttp3.ResponseBody>
+
     @POST("api/events/{id}/purchases/{purchaseId}/complete")
     suspend fun completePurchase(
         @Header("Authorization") token: String,
@@ -283,6 +323,46 @@ interface EventApiService {
         @Path("id") id: String,
         @Path("purchaseId") purchaseId: String
     ): Response<EventPurchaseDto>
+
+    @GET("api/events/{id}/finance")
+    suspend fun getEventFinance(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventFinanceDto>
+
+    @PUT("api/events/{id}/finance/budget")
+    suspend fun updateEventFinanceBudget(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: UpdateEventFinanceBudgetRequestDto
+    ): Response<EventFinanceDto>
+
+    @POST("api/events/{id}/finance/costs")
+    suspend fun createEventExtraCost(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: CreateEventExtraCostRequestDto
+    ): Response<EventFinanceDto>
+
+    @PUT("api/events/{id}/finance/costs/{costId}")
+    suspend fun updateEventExtraCost(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("costId") costId: String,
+        @Body request: UpdateEventExtraCostRequestDto
+    ): Response<EventFinanceDto>
+
+    @DELETE("api/events/{id}/finance/costs/{costId}")
+    suspend fun deleteEventExtraCost(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("costId") costId: String
+    ): Response<EventFinanceDto>
 
     @GET("api/events/{id}/reconciliation")
     suspend fun getReconciliation(

@@ -22,6 +22,16 @@ fun canManageEventInventorySections(
     return eventRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
 }
 
+fun canManageEventFinanceSections(
+    permissions: Set<String>,
+    eventRoles: Set<String>,
+    isReadOnly: Boolean
+): Boolean {
+    if (isReadOnly) return false
+    if (canManageEventInventorySections(permissions, eventRoles, isReadOnly)) return true
+    return eventRoles.any { it == "FINANSININKAS" }
+}
+
 fun canViewEventPlan(
     permissions: Set<String>,
     eventRoles: Set<String>

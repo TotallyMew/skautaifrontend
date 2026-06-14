@@ -42,7 +42,9 @@ class UserRepository @Inject constructor(
                 ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
             val response = userApiService.getMyTuntai("Bearer $token")
             if (response.isSuccessful) {
-                Result.success(response.body()!!)
+                val tuntai = response.body()!!
+                tokenManager.cacheMyTuntai(tuntai)
+                Result.success(tuntai)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti tuntų sąrašo.")))
             }

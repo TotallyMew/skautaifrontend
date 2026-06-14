@@ -59,6 +59,7 @@ import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleRequestDto
 import lt.skautai.android.data.remote.CreateItemRequestDto
 import lt.skautai.android.data.remote.CreateLocationRequestDto
+import lt.skautai.android.data.remote.ConsumeItemRequestDto
 import lt.skautai.android.data.remote.UpdateLocationRequestDto
 import lt.skautai.android.data.remote.CreateOrganizationalUnitRequestDto
 import lt.skautai.android.data.remote.CreateRequisitionDto
@@ -261,6 +262,11 @@ class PendingOperationRepository @Inject constructor(
             PendingOperationType.ITEM_DELETE -> {
                 requireSuccessfulUnit(itemApiService.deleteItem(auth, operation.tuntasId, operation.entityId), "Klaida trinant daikta")
                 itemDao.deleteItem(operation.entityId, operation.tuntasId)
+            }
+            PendingOperationType.ITEM_CONSUME -> {
+                val request = gson.fromJson(operation.payloadJson, ConsumeItemRequestDto::class.java)
+                val item = requireSuccessful(itemApiService.consumeItem(auth, operation.tuntasId, operation.entityId, request), "Klaida sunaudojant kieki")
+                itemDao.upsert(item.toEntity())
             }
             PendingOperationType.RESERVATION_CREATE -> {
                 val request = gson.fromJson(operation.payloadJson, CreateReservationRequestDto::class.java)

@@ -181,6 +181,8 @@ fun InventoryListScreen(
     val selectedLocationIds by viewModel.selectedLocationIds.collectAsStateWithLifecycle()
     val selectedStatus by viewModel.selectedStatus.collectAsStateWithLifecycle()
     val assignedOnly by viewModel.assignedOnly.collectAsStateWithLifecycle()
+    val consumablesOnly by viewModel.consumablesOnly.collectAsStateWithLifecycle()
+    val lowStockOnly by viewModel.lowStockOnly.collectAsStateWithLifecycle()
     val importDraft by viewModel.importDraft.collectAsStateWithLifecycle()
     val locations by viewModel.locations.collectAsStateWithLifecycle()
     val canReviewAdditions = permissions.canReviewItemAdditions()
@@ -222,6 +224,8 @@ fun InventoryListScreen(
         selectedCategories,
         selectedLocationIds,
         assignedOnly,
+        consumablesOnly,
+        lowStockOnly,
         locations
     ) {
         val successState = uiState as? InventoryListUiState.Success ?: return@remember emptyList()
@@ -341,6 +345,8 @@ fun InventoryListScreen(
             selectedLocationIds = selectedLocationIds,
             selectedStatus = selectedStatus,
             assignedOnly = assignedOnly,
+            consumablesOnly = consumablesOnly,
+            lowStockOnly = lowStockOnly,
                 locations = locations,
                 openedCustodianId = openedCustodianId,
                 openedPersonalOwnerOnly = openedPersonalOwnerOnly,
@@ -573,7 +579,8 @@ private fun List<String>.importTemplateKey(): String =
     "mapping_" + joinToString("|") { it.trim().lowercase() }.hashCode()
 
 private fun ItemDto.unitLabel(): String =
-    customFields.firstOrNull { it.fieldName.equals("Mato vienetas", ignoreCase = true) }
+    unitOfMeasure.takeIf { it.isNotBlank() }
+        ?: customFields.firstOrNull { it.fieldName.equals("Mato vienetas", ignoreCase = true) }
         ?.fieldValue
         ?.takeIf { it.isNotBlank() }
         ?: "vnt."
@@ -811,6 +818,8 @@ private fun InventoryBody(
     selectedLocationIds: Set<String>,
     selectedStatus: String,
     assignedOnly: Boolean,
+    consumablesOnly: Boolean,
+    lowStockOnly: Boolean,
     locations: List<LocationDto>,
     openedCustodianId: String?,
     openedPersonalOwnerOnly: Boolean,
@@ -882,6 +891,9 @@ private fun InventoryBody(
                 selectedTypes,
                 selectedCategories,
                 selectedLocationIds,
+                assignedOnly,
+                consumablesOnly,
+                lowStockOnly,
                 locations
             ) {
                 viewModel.filteredItems(state.items)
@@ -912,6 +924,8 @@ private fun InventoryBody(
                 selectedLocationIds = selectedLocationIds,
                 selectedStatus = selectedStatus,
                 assignedOnly = assignedOnly,
+                consumablesOnly = consumablesOnly,
+                lowStockOnly = lowStockOnly,
                 locations = locations,
                 openedCustodianId = openedCustodianId,
                 canViewInactive = canViewInactive,
@@ -946,6 +960,8 @@ private fun InventoryBody(
                 onTypeSelected = viewModel::onTypeSelected,
                 onCategorySelected = viewModel::onCategorySelected,
                 onAssignedOnlyChange = viewModel::onAssignedOnlyChange,
+                onConsumablesOnlyChange = viewModel::onConsumablesOnlyChange,
+                onLowStockOnlyChange = viewModel::onLowStockOnlyChange,
                 onLocationSelected = viewModel::onLocationSelected,
                 onStatusSelected = viewModel::onStatusSelected,
                 onOpenItem = { itemId -> navController.navigate(NavRoutes.InventoryDetail.createRoute(itemId)) },
@@ -968,6 +984,8 @@ private fun InventoryCatalogContent(
     selectedLocationIds: Set<String>,
     selectedStatus: String,
     assignedOnly: Boolean,
+    consumablesOnly: Boolean,
+    lowStockOnly: Boolean,
     locations: List<LocationDto>,
     openedCustodianId: String?,
     canViewInactive: Boolean,
@@ -991,6 +1009,8 @@ private fun InventoryCatalogContent(
     onTypeSelected: (String) -> Unit,
     onCategorySelected: (String) -> Unit,
     onAssignedOnlyChange: (Boolean) -> Unit,
+    onConsumablesOnlyChange: (Boolean) -> Unit,
+    onLowStockOnlyChange: (Boolean) -> Unit,
     onLocationSelected: (String) -> Unit,
     onStatusSelected: (String) -> Unit,
     onOpenItem: (String) -> Unit,
@@ -1021,8 +1041,12 @@ private fun InventoryCatalogContent(
     var viewMode by rememberSaveable { mutableStateOf(InventoryCatalogViewMode.List) }
     val activeFilterCount = selectedTypes.size + selectedCategories.size + selectedLocationIds.size +
         (if (assignedOnly) 1 else 0) +
+        (if (consumablesOnly) 1 else 0) +
+        (if (lowStockOnly) 1 else 0) +
         (if (selectedStatus != "ACTIVE") 1 else 0)
     val assignedCount = allItems.count { it.isAssignedToPerson() }
+    val consumableCount = allItems.count { it.isConsumable }
+    val lowStockCount = allItems.count { it.isLowStock }
     val hasBulkEditableItems = filteredItems.any(canBulkManage)
     val canShowTools = canExportCsv || canImportCsv || canGenerateQrPdf || hasBulkEditableItems || allItems.isNotEmpty()
     val hasPrintableItems = filteredItems.any { it.toPrintableQrItemOrNull() != null }
@@ -1084,6 +1108,36 @@ private fun InventoryCatalogContent(
                                 )
                             }
                         }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            contentPadding = PaddingValues(vertical = 2.dp)
+                        ) {
+                            item {
+                                SkautaiChip(
+                                    label = "Aktyvus",
+                                    selected = selectedStatus == "ACTIVE",
+                                    onClick = { onStatusSelected("ACTIVE") }
+                                )
+                            }
+                            if (canViewInactive) {
+                                item {
+                                    SkautaiChip(
+                                        label = "Neaktyvus",
+                                        selected = selectedStatus == "INACTIVE",
+                                        onClick = { onStatusSelected("INACTIVE") }
+                                    )
+                                }
+                            }
+                            if (canApprovePending) {
+                                item {
+                                    SkautaiChip(
+                                        label = "Laukia",
+                                        selected = selectedStatus == "PENDING_APPROVAL",
+                                        onClick = { onStatusSelected("PENDING_APPROVAL") }
+                                    )
+                                }
+                            }
+                        }
                         AnimatedVisibility(visible = filtersExpanded) {
                             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text(
@@ -1096,36 +1150,6 @@ private fun InventoryCatalogContent(
                                     onViewModeChange = { viewMode = it }
                                 )
                                 HorizontalDivider(color = skautaiDividerTone())
-                                LazyRow(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                    contentPadding = PaddingValues(vertical = 2.dp)
-                                ) {
-                                    item {
-                                        SkautaiChip(
-                                            label = "Aktyvus",
-                                            selected = selectedStatus == "ACTIVE",
-                                            onClick = { onStatusSelected("ACTIVE") }
-                                        )
-                                    }
-                                    if (canViewInactive) {
-                                        item {
-                                            SkautaiChip(
-                                                label = "Neaktyvus",
-                                                selected = selectedStatus == "INACTIVE",
-                                                onClick = { onStatusSelected("INACTIVE") }
-                                            )
-                                        }
-                                    }
-                                    if (canApprovePending) {
-                                        item {
-                                            SkautaiChip(
-                                                label = "Laukia",
-                                                selected = selectedStatus == "PENDING_APPROVAL",
-                                                onClick = { onStatusSelected("PENDING_APPROVAL") }
-                                            )
-                                        }
-                                    }
-                                }
                                 LazyRow(
                                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     contentPadding = PaddingValues(vertical = 2.dp)
@@ -1151,6 +1175,20 @@ private fun InventoryCatalogContent(
                                             label = "Priskirta ($assignedCount)",
                                             selected = assignedOnly,
                                             onClick = { onAssignedOnlyChange(!assignedOnly) }
+                                        )
+                                    }
+                                    item {
+                                        SkautaiChip(
+                                            label = "Sunaudojama ($consumableCount)",
+                                            selected = consumablesOnly,
+                                            onClick = { onConsumablesOnlyChange(!consumablesOnly) }
+                                        )
+                                    }
+                                    item {
+                                        SkautaiChip(
+                                            label = "Mažas likutis ($lowStockCount)",
+                                            selected = lowStockOnly,
+                                            onClick = { onLowStockOnlyChange(!lowStockOnly) }
                                         )
                                     }
                                     items(typeFilters, key = { it.first }) { (type, chip) ->
@@ -1885,6 +1923,11 @@ private fun InventoryDenseRow(
                     isSelected = isSelected,
                     isSelectable = isSelectable
                 )
+            } else if (item.isLowStock) {
+                SkautaiStatusPill(
+                    label = "Mažas likutis",
+                    tone = SkautaiStatusTone.Warning
+                )
             } else {
                 SkautaiStatusPill(
                     label = itemConditionLabel(item.condition),
@@ -2314,7 +2357,7 @@ private fun android.content.Context.readInventoryImportTable(uri: Uri): Pair<Str
     ) {
         InventoryCsv.parseXlsxTable(bytes)
     } else {
-        InventoryCsv.parseTextTable(bytes.toString(Charsets.UTF_8))
+        InventoryCsv.parseTextTable(bytes)
     }
     return fileName to table
 }

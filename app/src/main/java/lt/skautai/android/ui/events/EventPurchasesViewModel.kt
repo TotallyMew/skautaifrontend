@@ -1,4 +1,4 @@
-package lt.skautai.android.ui.events
+﻿package lt.skautai.android.ui.events
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel
@@ -13,7 +13,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import lt.skautai.android.data.remote.CreateEventExtraCostRequestDto
 import lt.skautai.android.data.remote.EventDto
+import lt.skautai.android.data.remote.EventFinanceDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.UpdateEventPurchaseRequestDto
 import lt.skautai.android.data.repository.EventRepository
@@ -25,6 +27,7 @@ sealed interface EventPurchasesUiState {
     data class Success(
         val event: EventDto,
         val purchases: List<EventPurchaseDto> = emptyList(),
+        val finance: EventFinanceDto? = null,
         val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
@@ -54,10 +57,11 @@ class EventPurchasesViewModel @Inject constructor(
                     val current = _uiState.value as? EventPurchasesUiState.Success
                     _uiState.value = EventPurchasesUiState.Success(
                     event = event,
-                    purchases = current?.purchases.orEmpty(),
-                    currentUserId = current?.currentUserId ?: tokenManager.userId.first(),
-                    isWorking = current?.isWorking == true,
-                    error = current?.error
+                        purchases = current?.purchases.orEmpty(),
+                        finance = current?.finance,
+                        currentUserId = current?.currentUserId ?: tokenManager.userId.first(),
+                        isWorking = current?.isWorking == true,
+                        error = current?.error
                     )
                 } else if (_uiState.value !is EventPurchasesUiState.Success) {
                     _uiState.value = EventPurchasesUiState.Loading
@@ -76,8 +80,9 @@ class EventPurchasesViewModel @Inject constructor(
                     return@launch
                 }
             val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
+            val finance = eventRepository.getEventFinance(eventId).getOrNull()
             val current = _uiState.value as? EventPurchasesUiState.Success ?: return@launch
-            _uiState.value = current.copy(purchases = purchases, isWorking = false)
+            _uiState.value = current.copy(purchases = purchases, finance = finance, isWorking = false)
         }
     }
 
@@ -94,7 +99,7 @@ class EventPurchasesViewModel @Inject constructor(
                 if (updateResult.isFailure) {
                     _uiState.value = current.copy(
                         isWorking = false,
-                        error = updateResult.exceptionOrNull()?.message ?: "Nepavyko išsaugoti pirkimo sumos."
+                        error = updateResult.exceptionOrNull()?.message ?: "Nepavyko iÅ¡saugoti pirkimo sumos."
                     )
                     return@launch
                 }
@@ -103,7 +108,7 @@ class EventPurchasesViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko užbaigti pirkimo.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko uÅ¾baigti pirkimo.")
                     }
                 }
         }
@@ -121,42 +126,120 @@ class EventPurchasesViewModel @Inject constructor(
                 .onSuccess { load(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išsaugoti pirkimo sumos.")
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko iÅ¡saugoti pirkimo sumos.")
                     }
                 }
         }
     }
 
-    fun attachInvoice(eventId: String, purchaseId: String, uri: Uri) {
+    fun attachInvoices(eventId: String, purchaseId: String, uris: List<Uri>) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (uris.isEmpty()) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
-            uploadRepository.uploadDocument(uri)
-                .onSuccess { url ->
-                    eventRepository.attachPurchaseInvoice(eventId, purchaseId, url)
-                        .onSuccess { load(eventId) }
-                        .onFailure { error ->
-                            (_uiState.value as? EventPurchasesUiState.Success)?.let {
-                                _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko prisegti sąskaitos.")
-                            }
-                        }
-                }
-                .onFailure { error ->
+            uris.forEach { uri ->
+                val uploadResult = uploadRepository.uploadDocument(uri)
+                if (uploadResult.isFailure) {
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
-                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko įkelti sąskaitos.")
+                        _uiState.value = it.copy(isWorking = false, error = uploadResult.exceptionOrNull()?.message ?: "Nepavyko įkelti sąskaitos.")
                     }
+                    return@launch
                 }
+                val attachResult = eventRepository.attachPurchaseInvoice(eventId, purchaseId, uploadResult.getOrThrow())
+                if (attachResult.isFailure) {
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = attachResult.exceptionOrNull()?.message ?: "Nepavyko prisegti sąskaitos.")
+                    }
+                    return@launch
+                }
+            }
+            load(eventId)
         }
     }
 
-    fun downloadInvoice(eventId: String, purchaseId: String) {
+    fun downloadInvoice(eventId: String, purchaseId: String, invoiceId: String? = null, invoiceFileUrl: String? = null) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
-        val invoiceFileUrl = current.purchases.firstOrNull { it.id == purchaseId }?.invoiceFileUrl
+        val resolvedInvoiceFileUrl = invoiceFileUrl
+            ?: current.purchases.firstOrNull { it.id == purchaseId }?.invoiceFileUrl
         viewModelScope.launch {
-            uploadRepository.downloadEventPurchaseInvoice(eventId, purchaseId, invoiceFileUrl)
+            uploadRepository.downloadEventPurchaseInvoice(eventId, purchaseId, resolvedInvoiceFileUrl, invoiceId)
                 .onFailure { error ->
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
                         _uiState.value = it.copy(error = error.message ?: "Nepavyko atsisiųsti sąskaitos.")
+                    }
+                }
+        }
+    }
+
+    fun updateBudget(eventId: String, amount: Double?) {
+        val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.updateEventFinanceBudget(eventId, amount)
+                .onSuccess { finance ->
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(finance = finance, isWorking = false)
+                    }
+                }
+                .onFailure { error ->
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko atnaujinti biudžeto.")
+                    }
+                }
+        }
+    }
+
+    fun addExtraCost(
+        eventId: String,
+        category: String,
+        label: String,
+        quantity: Double?,
+        unit: String?,
+        unitPrice: Double?,
+        totalAmount: Double?,
+        notes: String?
+    ) {
+        val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.createEventExtraCost(
+                eventId,
+                CreateEventExtraCostRequestDto(
+                    category = category,
+                    label = label,
+                    quantity = quantity,
+                    unit = unit,
+                    unitPrice = unitPrice,
+                    totalAmount = totalAmount,
+                    notes = notes
+                )
+            )
+                .onSuccess { finance ->
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(finance = finance, isWorking = false)
+                    }
+                }
+                .onFailure { error ->
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pridėti išlaidų.")
+                    }
+                }
+        }
+    }
+
+    fun deleteExtraCost(eventId: String, costId: String) {
+        val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.deleteEventExtraCost(eventId, costId)
+                .onSuccess { finance ->
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(finance = finance, isWorking = false)
+                    }
+                }
+                .onFailure { error ->
+                    (_uiState.value as? EventPurchasesUiState.Success)?.let {
+                        _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti išlaidų.")
                     }
                 }
         }

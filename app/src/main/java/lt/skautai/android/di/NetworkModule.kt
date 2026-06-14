@@ -96,6 +96,17 @@ object NetworkModule {
             )
         }
 
+        if (Constants.BASE_URL.contains("ngrok-free.")) {
+            builder.addInterceptor { chain ->
+                chain.proceed(
+                    chain.request()
+                        .newBuilder()
+                        .header("ngrok-skip-browser-warning", "true")
+                        .build()
+                )
+            }
+        }
+
         return builder.build()
     }
 

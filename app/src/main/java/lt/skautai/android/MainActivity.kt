@@ -44,23 +44,21 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         askNotificationPermission()
 
-        val uri = intent?.data
-        val isSuperAdminDeepLink = uri?.scheme == "skautai" &&
-                uri.host == "superadmin" &&
-                uri.queryParameterNames.isEmpty()
         val notificationRoute = notificationRoute(intent)
 
         setContent {
             SkautuInventoriusTheme {
                 val navController = rememberNavController()
-                val startDestination by produceState<String?>(initialValue = null, isSuperAdminDeepLink) {
-                    value = if (isSuperAdminDeepLink) {
-                        NavRoutes.SuperAdminLogin.route
-                    } else {
+                val startDestination by produceState<String?>(initialValue = null) {
+                    value = run {
                         val currentToken = tokenManager.token.first()
+                        val currentUserType = tokenManager.userType.first()
                         var currentTuntasId = tokenManager.activeTuntasId.first()
                         val currentTuntasName = tokenManager.activeTuntasName.first()
                         var sessionIsValid = currentToken != null
+                        if (currentToken != null && currentUserType == "super_admin") {
+                            return@run NavRoutes.SuperAdminDashboard.route
+                        }
                         val myTuntaiResult = if (currentToken != null) {
                             userRepository.getMyTuntai().onFailure { error ->
                                 if (error.message == SESSION_EXPIRED_MESSAGE || error.message == "Vartotojas nerastas.") {
@@ -71,10 +69,14 @@ class MainActivity : ComponentActivity() {
                         } else {
                             null
                         }
-                        val activeTuntai = myTuntaiResult
-                            ?.getOrNull()
-                            ?.filter { it.status == "ACTIVE" }
-                            .orEmpty()
+                        val cachedTuntai = if (sessionIsValid && myTuntaiResult?.isFailure == true) {
+                            tokenManager.cachedMyTuntai()
+                        } else {
+                            emptyList()
+                        }
+                        val knownTuntai = myTuntaiResult?.getOrNull() ?: cachedTuntai
+                        val hasReliableTuntasList = myTuntaiResult?.isSuccess == true || cachedTuntai.isNotEmpty()
+                        val activeTuntai = knownTuntai.filter { it.status == "ACTIVE" }
 
                         if (currentToken != null &&
                             sessionIsValid &&
@@ -85,7 +87,11 @@ class MainActivity : ComponentActivity() {
                                 .firstOrNull { it.id == currentTuntasId }
                                 ?.let { tokenManager.setActiveTuntas(it.id, it.name) }
                         }
-                        val activeTuntasStillAvailable = if (sessionIsValid && !currentTuntasId.isNullOrBlank()) {
+                        val activeTuntasStillAvailable = if (
+                            sessionIsValid &&
+                            hasReliableTuntasList &&
+                            !currentTuntasId.isNullOrBlank()
+                        ) {
                             activeTuntai.any { it.id == currentTuntasId }
                         } else {
                             true
@@ -107,7 +113,13 @@ class MainActivity : ComponentActivity() {
                             permissionsResult.onSuccess {
                                 tokenManager.savePermissions(it.permissions)
                                 tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
-                                tokenManager.cachePermissionsForTuntas(tuntas.id, it.permissions)
+                                tokenManager.cacheTuntasContext(tuntas.id, it.permissions, it.leadershipUnitIds)
+                            }.onFailure {
+                                tokenManager.permissionsForTuntas(tuntas.id)?.let { permissions ->
+                                    val leadershipUnitIds = tokenManager.leadershipUnitIdsForTuntas(tuntas.id).orEmpty()
+                                    tokenManager.savePermissions(permissions.toList())
+                                    tokenManager.saveLeadershipUnitIds(leadershipUnitIds)
+                                }
                             }
                             currentTuntasId = tuntas.id
                         }

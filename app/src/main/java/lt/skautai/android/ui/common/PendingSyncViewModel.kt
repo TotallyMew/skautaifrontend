@@ -144,6 +144,7 @@ private fun operationTypeLabel(type: String): String = when (type) {
     PendingOperationType.ITEM_CREATE -> "Sukurtas daiktas"
     PendingOperationType.ITEM_UPDATE -> "Atnaujintas daiktas"
     PendingOperationType.ITEM_DELETE -> "Ištrintas daiktas"
+    PendingOperationType.ITEM_CONSUME -> "Sunaudotas kiekis"
     PendingOperationType.RESERVATION_CREATE -> "Sukurta rezervacija"
     PendingOperationType.RESERVATION_CANCEL -> "Atšaukta rezervacija"
     PendingOperationType.RESERVATION_REVIEW_UNIT -> "Peržiūrėta rezervacija"

@@ -46,6 +46,8 @@ data class InventoryAddEditUiState(
     val custodianId: String? = null,
     val origin: String = "UNIT_ACQUIRED",
     val quantity: String = "1",
+    val isConsumable: Boolean = false,
+    val minimumQuantity: String = "",
     val notes: String = "",
     val unitOfMeasure: String = "vnt.",
     val tags: String = "",
@@ -146,8 +148,10 @@ class InventoryAddEditViewModel @Inject constructor(
                             custodianId = item.custodianId,
                             origin = item.origin,
                             quantity = item.quantity.toString(),
+                            isConsumable = item.isConsumable,
+                            minimumQuantity = item.minimumQuantity?.toString().orEmpty(),
                             notes = item.notes ?: "",
-                            unitOfMeasure = item.customFields.fieldValue("Mato vienetas") ?: "vnt.",
+                            unitOfMeasure = item.unitOfMeasure,
                             tags = item.customFields.fieldValue("Žymos").orEmpty(),
                             statusReason = item.customFields.fieldValue("Priežastis").orEmpty(),
                             purchaseDate = item.purchaseDate ?: "",
@@ -206,6 +210,14 @@ class InventoryAddEditViewModel @Inject constructor(
 
     fun onQuantityChange(value: String) {
         _uiState.value = _uiState.value.copy(quantity = value, quantityError = null, formError = null)
+    }
+
+    fun onConsumableChange(value: Boolean) {
+        _uiState.value = _uiState.value.copy(isConsumable = value)
+    }
+
+    fun onMinimumQuantityChange(value: String) {
+        _uiState.value = _uiState.value.copy(minimumQuantity = value.filter(Char::isDigit), formError = null)
     }
 
     fun onPurchaseDateChange(value: String) {
@@ -444,6 +456,8 @@ class InventoryAddEditViewModel @Inject constructor(
             description = "",
             condition = "GOOD",
             quantity = "1",
+            isConsumable = false,
+            minimumQuantity = "",
             notes = "",
             unitOfMeasure = "vnt.",
             tags = "",
@@ -493,6 +507,7 @@ class InventoryAddEditViewModel @Inject constructor(
             )
 
             val quantity = state.quantity.toInt()
+            val minimumQuantity = state.minimumQuantity.toIntOrNull()
             val price = state.purchasePrice.toDoubleOrNull()
             val customFields = state.customFields
                 .mapNotNull { field ->
@@ -537,6 +552,9 @@ class InventoryAddEditViewModel @Inject constructor(
                     custodianId = custodianId,
                     origin = state.origin,
                     quantity = quantity,
+                    isConsumable = state.isConsumable,
+                    unitOfMeasure = state.unitOfMeasure.trim().ifBlank { "vnt." },
+                    minimumQuantity = minimumQuantity,
                     condition = state.condition,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
@@ -576,6 +594,9 @@ class InventoryAddEditViewModel @Inject constructor(
                     category = state.category,
                     condition = state.condition,
                     quantity = quantity,
+                    isConsumable = state.isConsumable,
+                    unitOfMeasure = state.unitOfMeasure.trim().ifBlank { "vnt." },
+                    minimumQuantity = minimumQuantity,
                     custodianId = custodianId,
                     locationId = locationId,
                     temporaryStorageLabel = state.temporaryStorageLabel.ifBlank { null },
@@ -587,7 +608,8 @@ class InventoryAddEditViewModel @Inject constructor(
                     customFields = customFields,
                     clearCustodianId = custodianId == null,
                     clearLocationId = locationId == null,
-                    clearResponsibleUserId = responsibleUserId == null
+                    clearResponsibleUserId = responsibleUserId == null,
+                    clearMinimumQuantity = state.minimumQuantity.isBlank()
                 )
                 itemRepository.updateItem(itemId, request)
                     .onSuccess {

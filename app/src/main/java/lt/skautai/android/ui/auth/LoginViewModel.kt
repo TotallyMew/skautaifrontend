@@ -18,7 +18,8 @@ data class LoginUiState(
     val passwordError: String? = null,
     val formError: String? = null,
     val isLoginSuccessful: Boolean = false,
-    val hasActiveTuntas: Boolean = false
+    val hasActiveTuntas: Boolean = false,
+    val isSuperAdmin: Boolean = false
 )
 
 @HiltViewModel
@@ -71,7 +72,8 @@ class LoginViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         isLoginSuccessful = true,
-                        hasActiveTuntas = response.tuntai.orEmpty().count { it.status == "ACTIVE" } == 1
+                        hasActiveTuntas = response.tuntai.orEmpty().count { it.status == "ACTIVE" } == 1,
+                        isSuperAdmin = response.type == "super_admin"
                     )
                 }
                 .onFailure { error ->

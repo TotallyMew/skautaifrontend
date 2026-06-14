@@ -1,5 +1,9 @@
 package lt.skautai.android.ui.inventory
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -23,6 +27,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -54,9 +59,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -75,6 +83,7 @@ import lt.skautai.android.ui.common.inventoryCategoryLabel
 import lt.skautai.android.ui.common.inventoryTypeLabel
 import java.time.Instant
 import java.time.ZoneOffset
+import java.io.File
 
 private const val STEP_CONTEXT = 0
 private const val STEP_INFO = 1
@@ -489,6 +498,23 @@ private fun ItemInfoStep(
             singleLine = true
         )
 
+        CheckboxRow(
+            checked = uiState.isConsumable,
+            onCheckedChange = viewModel::onConsumableChange,
+            label = "Sunaudojama prekė"
+        )
+
+        if (uiState.isConsumable) {
+            SkautaiTextField(
+                value = uiState.minimumQuantity,
+                onValueChange = viewModel::onMinimumQuantityChange,
+                label = "Minimalus likutis",
+                placeholder = "Pvz. 5",
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true
+            )
+        }
+
         ConditionSelector(
             selected = uiState.condition,
             onSelected = viewModel::onConditionChange
@@ -633,9 +659,15 @@ private fun ReviewStep(uiState: InventoryAddEditUiState) {
                 ReviewRow("Atsakingas vienetas", selectedUnit?.name ?: "Bendras tunto saugojimas")
                 ReviewRow("Atsakingas žmogus", selectedResponsibleUser?.fullName() ?: "Nepriskirtas")
                 ReviewRow("Kilmė", originLabelForMode(uiState.mode))
-                ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
-                ReviewRow("Mato vienetas", uiState.unitOfMeasure.ifBlank { "vnt." })
-                ReviewRow("Būklė", itemConditionLabel(uiState.condition))
+              ReviewRow("Kiekis", uiState.quantity.ifBlank { "1" })
+              ReviewRow("Mato vienetas", uiState.unitOfMeasure.ifBlank { "vnt." })
+              if (uiState.isConsumable) {
+                  ReviewRow("Apskaita", "Sunaudojama prekė")
+                  uiState.minimumQuantity.takeIf { it.isNotBlank() }?.let {
+                      ReviewRow("Minimalus likutis", it)
+                  }
+              }
+              ReviewRow("Būklė", itemConditionLabel(uiState.condition))
                 uiState.statusReason.takeIf { it.isNotBlank() }?.let {
                     ReviewRow("Priežastis", it)
                 }
@@ -660,10 +692,38 @@ private fun PhotoField(
     uiState: InventoryAddEditUiState,
     viewModel: InventoryAddEditViewModel
 ) {
+    val context = LocalContext.current
+    var pendingCameraUri by remember { mutableStateOf<Uri?>(null) }
+
     val photoPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         uri?.let { viewModel.uploadPhoto(it) }
+    }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { captured ->
+        val uri = pendingCameraUri
+        pendingCameraUri = null
+        if (captured && uri != null) {
+            viewModel.uploadPhoto(uri)
+        } else if (!captured) {
+            viewModel.showValidationError("Fotografavimas atšauktas.")
+        }
+    }
+    fun launchCamera() {
+        val uri = createInventoryPhotoUri(context)
+        pendingCameraUri = uri
+        cameraLauncher.launch(uri)
+    }
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchCamera()
+        } else {
+            viewModel.showValidationError("Be kameros leidimo fotografuoti nepavyks.")
+        }
     }
 
     SkautaiCard(
@@ -674,22 +734,52 @@ private fun PhotoField(
             modifier = Modifier.padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            OutlinedButton(
-                onClick = {
-                    photoPicker.launch(
-                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                    )
-                },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                androidx.compose.material3.Icon(
-                    imageVector = Icons.Default.AddAPhoto,
-                    contentDescription = null,
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text("Pridėti nuotrauką")
+                Button(
+                    onClick = {
+                        val hasPermission = ContextCompat.checkSelfPermission(
+                            context,
+                            Manifest.permission.CAMERA
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (hasPermission) {
+                            launchCamera()
+                        } else {
+                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                        }
+                    },
+                    enabled = !uiState.isUploadingPhoto,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("Fotografuoti")
+                }
+                OutlinedButton(
+                    onClick = {
+                        photoPicker.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    enabled = !uiState.isUploadingPhoto,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 56.dp)
+                ) {
+                    androidx.compose.material3.Icon(
+                        imageVector = Icons.Default.AddAPhoto,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 8.dp)
+                    )
+                    Text("Iš galerijos")
+                }
             }
             if (uiState.isUploadingPhoto) {
                 Row(
@@ -721,6 +811,16 @@ private fun PhotoField(
             }
         }
     }
+}
+
+private fun createInventoryPhotoUri(context: Context): Uri {
+    val photoDir = File(context.cacheDir, "inventory-photos").apply { mkdirs() }
+    val photoFile = File.createTempFile("inventory-photo-", ".jpg", photoDir)
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        photoFile
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

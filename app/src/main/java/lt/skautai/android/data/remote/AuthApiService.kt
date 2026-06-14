@@ -21,9 +21,6 @@ interface AuthApiService {
     @POST("api/auth/register/invite")
     suspend fun registerWithInvite(@Body request: RegisterWithInviteRequestDto): Response<TokenResponseDto>
 
-    @POST("api/super-admin/login")
-    suspend fun loginSuperAdmin(@Body request: LoginRequestDto): Response<TokenResponseDto>
-
     @GET("api/super-admin/tuntai")
     suspend fun getTuntai(
         @Header("Authorization") token: String

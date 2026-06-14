@@ -3,4 +3,7 @@
     <cache-path
         name="shared_qr_pdfs"
         path="shared-qr-pdfs/" />
+    <cache-path
+        name="inventory_photos"
+        path="inventory-photos/" />
 </paths>

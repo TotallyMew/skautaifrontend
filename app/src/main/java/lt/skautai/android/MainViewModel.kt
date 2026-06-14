@@ -41,7 +41,7 @@ class MainViewModel @Inject constructor(
                 .onSuccess {
                     tokenManager.savePermissions(it.permissions)
                     tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
-                    tokenManager.cachePermissionsForTuntas(tuntasId, it.permissions)
+                    tokenManager.cacheTuntasContext(tuntasId, it.permissions, it.leadershipUnitIds)
                 }
         }
     }

@@ -39,6 +39,7 @@ class AuthRepository @Inject constructor(
         }
 
         val tuntai = body.tuntai.orEmpty()
+        tokenManager.cacheMyTuntai(tuntai)
         val activeTuntai = tuntai.filter { it.status == "ACTIVE" }
         val currentActiveTuntasId = tokenManager.activeTuntasId.first()
         if (
@@ -55,7 +56,7 @@ class AuthRepository @Inject constructor(
                 .onSuccess {
                     tokenManager.savePermissions(it.permissions)
                     tokenManager.saveLeadershipUnitIds(it.leadershipUnitIds)
-                    tokenManager.cachePermissionsForTuntas(tuntasId, it.permissions)
+                    tokenManager.cacheTuntasContext(tuntasId, it.permissions, it.leadershipUnitIds)
                 }
         }
     }

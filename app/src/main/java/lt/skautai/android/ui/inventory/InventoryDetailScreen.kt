@@ -83,6 +83,7 @@ import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrCodeBitmap
 import lt.skautai.android.util.QrPdfShareLauncher
 import lt.skautai.android.util.QrPayload
+import lt.skautai.android.util.canCreateRequisitions
 import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
 import lt.skautai.android.util.hasPermission
@@ -101,8 +102,10 @@ fun InventoryDetailScreen(
     val deleted by viewModel.deleted.collectAsStateWithLifecycle()
     val actionError by viewModel.actionError.collectAsStateWithLifecycle()
     val sharedRequestCreated by viewModel.sharedRequestCreated.collectAsStateWithLifecycle()
+    val requisitionCreated by viewModel.requisitionCreated.collectAsStateWithLifecycle()
     val shareMessage by viewModel.shareMessage.collectAsStateWithLifecycle()
     val isCreatingSharedRequest by viewModel.isCreatingSharedRequest.collectAsStateWithLifecycle()
+    val isCreatingRequisition by viewModel.isCreatingRequisition.collectAsStateWithLifecycle()
     val isUpdatingStatus by viewModel.isUpdatingStatus.collectAsStateWithLifecycle()
     val isTransferring by viewModel.isTransferring.collectAsStateWithLifecycle()
     val orgUnits by viewModel.orgUnits.collectAsStateWithLifecycle()
@@ -117,6 +120,7 @@ fun InventoryDetailScreen(
     var showTransferDialog by remember { mutableStateOf(false) }
     var showReturnDialog by remember { mutableStateOf(false) }
     var showRestockDialog by remember { mutableStateOf(false) }
+    var showConsumeDialog by remember { mutableStateOf(false) }
     var showApproveDialog by remember { mutableStateOf(false) }
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectionReasonText by remember { mutableStateOf("") }
@@ -149,6 +153,13 @@ fun InventoryDetailScreen(
         }
     }
 
+    LaunchedEffect(requisitionCreated) {
+        if (requisitionCreated) {
+            snackbarHostState.showSnackbar("Pirkimo prašymas sukurtas.")
+            viewModel.onRequisitionMessageShown()
+        }
+    }
+
     LaunchedEffect(shareMessage) {
         shareMessage?.let {
             snackbarHostState.showSnackbar(it)
@@ -172,6 +183,8 @@ fun InventoryDetailScreen(
     val canDelete = canEdit && currentItem?.status != "INACTIVE" &&
         (!isTransferredFromTuntas || canManageShared)
     val canRestock = canEdit && currentItem?.status == "ACTIVE"
+    val canConsume = canEdit && currentItem?.isConsumable == true && currentItem.status == "ACTIVE" && currentItem.quantity > 0
+    val canCreateRestockRequest = currentItem?.isLowStock == true && permissions.canCreateRequisitions()
     val canDirectTransfer = currentItem?.let {
         canManageShared && it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 && it.type != "INDIVIDUAL"
     } ?: false
@@ -255,12 +268,15 @@ fun InventoryDetailScreen(
                         canChangeStatus = canChangeStatus,
                         canDelete = canDelete,
                         isCreatingSharedRequest = isCreatingSharedRequest,
+                        isCreatingRequisition = isCreatingRequisition,
                         isUpdatingStatus = isUpdatingStatus,
                         canShowQr = canShowQr,
                         canRequestForUnit = canRequestForUnit,
                         canDirectTransfer = canDirectTransfer,
                         canReturnToShared = canReturnToShared,
                         canRestock = canRestock,
+                        canConsume = canConsume,
+                        canCreateRestockRequest = canCreateRestockRequest,
                         canReviewAddition = canReviewAddition,
                         isTransferring = isTransferring,
                         onRequestSharedItem = {
@@ -273,6 +289,8 @@ fun InventoryDetailScreen(
                         onDirectTransfer = { showTransferDialog = true },
                         onReturnToShared = { showReturnDialog = true },
                         onRestock = { showRestockDialog = true },
+                        onConsume = { showConsumeDialog = true },
+                        onCreateRestockRequest = { viewModel.createRestockRequisitionForItem(itemId) },
                         onDelete = { showDeleteDialog = true },
                         onWriteOff = {
                             writeOffReason = ""
@@ -401,6 +419,21 @@ fun InventoryDetailScreen(
             onConfirm = { quantity, purchaseDate, purchasePrice, notes ->
                 showRestockDialog = false
                 viewModel.restockItem(currentItem.id, quantity, purchaseDate, purchasePrice, notes)
+            }
+        )
+    }
+
+    if (showConsumeDialog && currentItem != null) {
+        QuantityNotesDialog(
+            title = "Sunaudoti kiekį",
+            description = "Nurodyk, kiek ${currentItem.unitLabel()} buvo sunaudota.",
+            maxQuantity = currentItem.quantity,
+            confirmLabel = "Sunaudoti",
+            isSubmitting = isTransferring,
+            onDismiss = { if (!isTransferring) showConsumeDialog = false },
+            onConfirm = { quantity, notes ->
+                showConsumeDialog = false
+                viewModel.consumeItem(currentItem.id, quantity, notes)
             }
         )
     }
@@ -779,12 +812,15 @@ private fun ItemDetailContent(
     canChangeStatus: Boolean,
     canDelete: Boolean,
     isCreatingSharedRequest: Boolean,
+    isCreatingRequisition: Boolean,
     isUpdatingStatus: Boolean,
     canShowQr: Boolean,
     canRequestForUnit: Boolean,
     canDirectTransfer: Boolean,
     canReturnToShared: Boolean,
     canRestock: Boolean,
+    canConsume: Boolean,
+    canCreateRestockRequest: Boolean,
     canReviewAddition: Boolean,
     isTransferring: Boolean,
     onRequestSharedItem: () -> Unit,
@@ -793,6 +829,8 @@ private fun ItemDetailContent(
     onDirectTransfer: () -> Unit,
     onReturnToShared: () -> Unit,
     onRestock: () -> Unit,
+    onConsume: () -> Unit,
+    onCreateRestockRequest: () -> Unit,
     onDelete: () -> Unit,
     onWriteOff: () -> Unit,
     onShowQr: () -> Unit,
@@ -925,9 +963,14 @@ private fun ItemDetailContent(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Text(text = "Metaduomenys", style = MaterialTheme.typography.titleLarge)
-                MetadataRow("Tipas", inventoryTypeLabel(item.effectiveInventoryType()))
-                MetadataRow("Kategorija", inventoryCategoryLabel(item.category))
-                MetadataRow("Būsena", itemStatusLabel(item.status))
+               MetadataRow("Tipas", inventoryTypeLabel(item.effectiveInventoryType()))
+               MetadataRow("Kategorija", inventoryCategoryLabel(item.category))
+               if (item.isConsumable) {
+                   MetadataRow("Apskaita", "Sunaudojama prekė")
+                   item.minimumQuantity?.let { MetadataRow("Minimalus likutis", "$it ${item.unitLabel()}") }
+                   if (item.isLowStock) MetadataRow("Likutis", "Pasiektas minimalus likutis")
+               }
+               MetadataRow("Būsena", itemStatusLabel(item.status))
                 MetadataRow("Būklė", itemConditionLabel(item.condition))
                 item.customFields.fieldValue("Priežastis")?.let { MetadataRow("Priežastis", it) }
                 item.customFields.fieldValue("Žymos")?.let { MetadataRow("Žymos", it) }
@@ -1126,8 +1169,8 @@ private fun ItemDetailContent(
             }
         }
 
-        if (canRestock) {
-            Button(
+      if (canRestock) {
+          Button(
                 onClick = onRestock,
                 enabled = !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
                 modifier = Modifier.fillMaxWidth()
@@ -1143,10 +1186,30 @@ private fun ItemDetailContent(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text(if (isTransferring) "Grąžinama..." else "Grąžinti į bendrą inventorių")
-            }
-        }
+          }
+      }
 
-        if (canChangeStatus) {
+      if (canConsume) {
+          OutlinedButton(
+              onClick = onConsume,
+              enabled = !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
+              modifier = Modifier.fillMaxWidth()
+          ) {
+              Text(if (isTransferring) "Sunaudojama..." else "Sunaudoti kiekį")
+          }
+      }
+
+      if (canCreateRestockRequest) {
+          OutlinedButton(
+              onClick = onCreateRestockRequest,
+              enabled = !isCreatingRequisition && !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
+              modifier = Modifier.fillMaxWidth()
+          ) {
+              Text(if (isCreatingRequisition) "Kuriamas..." else "Kurti papildymo prašymą")
+          }
+      }
+
+      if (canChangeStatus) {
             SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
                 tonal = MaterialTheme.colorScheme.surfaceContainerLow
@@ -1305,9 +1368,10 @@ private fun itemHistoryLabel(entry: ItemHistoryDto): String {
     return when (entry.eventType) {
         "CREATED" -> "Sukurtas įrašas$quantity"
         "PURCHASED_NEW" -> "Nupirkta ir sukurta inventoriuje$quantity"
-        "RESTOCKED" -> "Papildytas kiekis$quantity"
-        "MANUAL_RESTOCKED" -> "Papildytas kiekis$quantity"
-        "EVENT_PURCHASED_NEW" -> "Nupirkta renginiui ir sukurta inventoriuje$quantity"
+      "RESTOCKED" -> "Papildytas kiekis$quantity"
+      "MANUAL_RESTOCKED" -> "Papildytas kiekis$quantity"
+      "CONSUMED" -> "Sunaudotas kiekis$quantity"
+      "EVENT_PURCHASED_NEW" -> "Nupirkta renginiui ir sukurta inventoriuje$quantity"
         "EVENT_PURCHASE_RESTOCKED" -> "Papildyta po renginio pirkimo$quantity"
         "TRANSFERRED_TO_UNIT" -> "Perduota vienetui$quantity"
         "RECEIVED_FROM_SHARED" -> "Gauta iš bendro inventoriaus$quantity"
@@ -1530,7 +1594,7 @@ private fun StatusPill(label: String) {
 }
 
 private fun ItemDto.unitLabel(): String =
-    customFields.fieldValue("Mato vienetas") ?: "vnt."
+    unitOfMeasure.takeIf { it.isNotBlank() } ?: customFields.fieldValue("Mato vienetas") ?: "vnt."
 
 private fun List<lt.skautai.android.data.remote.ItemCustomFieldDto>.fieldValue(name: String): String? =
     firstOrNull { it.fieldName.equals(name, ignoreCase = true) }

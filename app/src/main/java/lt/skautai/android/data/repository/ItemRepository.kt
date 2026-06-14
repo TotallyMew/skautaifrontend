@@ -20,6 +20,7 @@ import lt.skautai.android.data.local.mapper.toItemDtos
 import lt.skautai.android.data.local.mapper.toItemEntities
 import lt.skautai.android.data.remote.CreateItemRequestDto
 import lt.skautai.android.data.remote.CreateStorageAuditSessionRequestDto
+import lt.skautai.android.data.remote.ConsumeItemRequestDto
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.StorageAuditSessionDto
@@ -506,6 +507,10 @@ class ItemRepository @Inject constructor(
                 category = request.category,
                 condition = request.condition,
                 quantity = request.quantity,
+                isConsumable = request.isConsumable,
+                unitOfMeasure = request.unitOfMeasure,
+                minimumQuantity = request.minimumQuantity,
+                isLowStock = request.isConsumable && request.minimumQuantity?.let { request.quantity <= it } == true,
                 locationId = request.locationId,
                 locationName = null,
                 locationPath = null,
@@ -588,6 +593,12 @@ class ItemRepository @Inject constructor(
                 category = request.category ?: cached.category,
                 condition = request.condition ?: cached.condition,
                 quantity = request.quantity ?: cached.quantity,
+                isConsumable = request.isConsumable ?: cached.isConsumable,
+                unitOfMeasure = request.unitOfMeasure ?: cached.unitOfMeasure,
+                minimumQuantity = if (request.clearMinimumQuantity) null else request.minimumQuantity ?: cached.minimumQuantity,
+                isLowStock = (request.isConsumable ?: cached.isConsumable) &&
+                    (if (request.clearMinimumQuantity) null else request.minimumQuantity ?: cached.minimumQuantity)
+                        ?.let { (request.quantity ?: cached.quantity) <= it } == true,
                 custodianId = request.custodianId ?: cached.custodianId,
                 locationId = request.locationId ?: cached.locationId,
                 temporaryStorageLabel = request.temporaryStorageLabel ?: cached.temporaryStorageLabel,
@@ -739,6 +750,70 @@ class ItemRepository @Inject constructor(
         Result.failure(e.userFacingException())
     }
 
+    suspend fun consumeItem(
+        itemId: String,
+        quantity: Int,
+        notes: String?
+    ): Result<ItemDto> {
+        return try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.consumeItem(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            itemId = itemId,
+            request = ConsumeItemRequestDto(quantity = quantity, notes = notes?.ifBlank { null })
+        )
+        if (response.isSuccessful) {
+            val item = response.body()!!.withSafeCollections()
+            itemDao.upsert(item.toEntity())
+            refreshItem(itemId)
+            Result.success(item)
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida sunaudojant kiekį")))
+        }
+    } catch (e: IOException) {
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        if (quantity < 1) return Result.failure(Exception("Kiekis turi buti teigiamas skaicius"))
+        val cached = itemDao.getItem(itemId, tuntasId)?.toDto()
+            ?: return Result.failure(Exception("Daiktas nerastas vietineje saugykloje"))
+        if (!cached.isConsumable) return Result.failure(Exception("Sunaudoti galima tik sunaudojamas prekes"))
+        if (cached.quantity < quantity) return Result.failure(Exception("Negalima sunaudoti daugiau nei yra likutyje"))
+        val updatedQuantity = cached.quantity - quantity
+        val updated = cached.copy(
+            quantity = updatedQuantity,
+            isLowStock = cached.isConsumable && cached.minimumQuantity?.let { updatedQuantity <= it } == true,
+            updatedAt = Instant.now().toString()
+        )
+        itemDao.upsert(updated.toEntity())
+        val mergedIntoCreate = if (itemId.startsWith("local-")) {
+            pendingOperationRepository.replaceCreatePayloadIfPending(
+                entityType = PendingEntityType.ITEM,
+                entityId = itemId,
+                createOperationType = PendingOperationType.ITEM_CREATE,
+                payload = updated.toCreateRequest()
+            )
+        } else {
+            false
+        }
+        if (!mergedIntoCreate) {
+            pendingOperationRepository.enqueue(
+                tuntasId = tuntasId,
+                entityType = PendingEntityType.ITEM,
+                entityId = itemId,
+                operationType = PendingOperationType.ITEM_CONSUME,
+                payload = ConsumeItemRequestDto(quantity = quantity, notes = notes?.ifBlank { null })
+            )
+        }
+        Result.success(updated)
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+    }
+
     suspend fun reviewItemAddition(
         itemId: String,
         decision: String,
@@ -773,6 +848,9 @@ class ItemRepository @Inject constructor(
         custodianId = custodianId,
         origin = origin,
         quantity = quantity,
+        isConsumable = isConsumable,
+        unitOfMeasure = unitOfMeasure,
+        minimumQuantity = minimumQuantity,
         condition = condition,
         locationId = locationId,
         temporaryStorageLabel = temporaryStorageLabel,

@@ -90,14 +90,23 @@ class UploadRepository @Inject constructor(
         }
     }
 
-    suspend fun downloadEventPurchaseInvoice(eventId: String, purchaseId: String, invoiceFileUrl: String?): Result<Long> {
+    suspend fun downloadEventPurchaseInvoice(
+        eventId: String,
+        purchaseId: String,
+        invoiceFileUrl: String?,
+        invoiceId: String? = null
+    ): Result<Long> {
         return try {
             val token = tokenManager.token.first()
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val url = Constants.BASE_URL.trimEnd('/') +
-                "/api/events/$eventId/purchases/$purchaseId/invoice/download"
+                if (invoiceId.isNullOrBlank()) {
+                    "/api/events/$eventId/purchases/$purchaseId/invoice/download"
+                } else {
+                    "/api/events/$eventId/purchases/$purchaseId/invoices/$invoiceId/download"
+                }
             val request = DownloadManager.Request(Uri.parse(url))
                 .addRequestHeader("Authorization", "Bearer $token")
                 .addRequestHeader("X-Tuntas-Id", tuntasId)
@@ -106,7 +115,7 @@ class UploadRepository @Inject constructor(
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalPublicDir(
                     Environment.DIRECTORY_DOWNLOADS,
-                    "saskaita-$purchaseId.${invoiceExtension(invoiceFileUrl)}"
+                    "saskaita-${invoiceId ?: purchaseId}.${invoiceExtension(invoiceFileUrl)}"
                 )
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             Result.success(manager.enqueue(request))

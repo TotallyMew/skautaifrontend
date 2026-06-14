@@ -36,7 +36,7 @@ import lt.skautai.android.data.local.entity.ReservationEntity
         PendingOperationEntity::class,
         CacheMetadataEntity::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

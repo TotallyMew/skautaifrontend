@@ -2,6 +2,7 @@ package lt.skautai.android.ui.calendar
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -145,6 +147,8 @@ private fun CalendarContent(
                 month = selectedMonth,
                 selectedDate = selectedDate,
                 entriesByDate = entriesByDate,
+                onPreviousMonth = onPreviousMonth,
+                onNextMonth = onNextMonth,
                 onSelectDate = onSelectDate
             )
         }
@@ -196,7 +200,7 @@ private fun CalendarHeader(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = selectedMonth.format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("lt"))),
+                text = selectedMonth.formatMonthTitle(),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold
             )
@@ -218,10 +222,32 @@ private fun CalendarMonthGrid(
     month: YearMonth,
     selectedDate: LocalDate,
     entriesByDate: Map<LocalDate, List<CalendarEntry>>,
+    onPreviousMonth: () -> Unit,
+    onNextMonth: () -> Unit,
     onSelectDate: (LocalDate) -> Unit
 ) {
     val weeks = remember(month) { month.calendarWeeks() }
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    var horizontalDrag by remember(month) { mutableStateOf(0f) }
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .pointerInput(month) {
+                detectHorizontalDragGestures(
+                    onDragEnd = {
+                        when {
+                            horizontalDrag > 80f -> onPreviousMonth()
+                            horizontalDrag < -80f -> onNextMonth()
+                        }
+                        horizontalDrag = 0f
+                    },
+                    onDragCancel = { horizontalDrag = 0f },
+                    onHorizontalDrag = { _, dragAmount ->
+                        horizontalDrag += dragAmount
+                    }
+                )
+            },
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             listOf("Pr", "An", "Tr", "Kt", "Pn", "Št", "Sk").forEach { label ->
                 Text(
@@ -472,6 +498,14 @@ private fun List<LocalDate?>.visibleWeekBlocks(entriesByDate: Map<LocalDate, Lis
 }
 
 private fun YearMonth.calendarWeeks(): List<List<LocalDate?>> = calendarCells().chunked(7)
+
+private fun YearMonth.formatMonthTitle(): String {
+    val locale = Locale.forLanguageTag("lt-LT")
+    return format(DateTimeFormatter.ofPattern("LLLL yyyy", locale))
+        .replaceFirstChar { char ->
+            if (char.isLowerCase()) char.titlecase(locale) else char.toString()
+        }
+}
 
 private fun YearMonth.calendarCells(): List<LocalDate?> {
     val firstDay = atDay(1)
