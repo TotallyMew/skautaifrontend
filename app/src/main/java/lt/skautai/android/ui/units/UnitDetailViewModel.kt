@@ -68,7 +68,9 @@ class UnitDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val currentUserId = tokenManager.userId.first()
-            val currentUserMember = currentUserId?.let { memberRepository.getMember(it).getOrNull() }
+            val currentUserMember = currentUserId?.let {
+                memberRepository.getCachedMember(it) ?: memberRepository.getMember(it).getOrNull()
+            }
             if (currentUserMember != null && isScoutReadOnlyMember(currentUserMember)) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -77,19 +79,48 @@ class UnitDetailViewModel @Inject constructor(
                 )
                 return@launch
             }
+            val cachedUnit = orgUnitRepository.getCachedUnit(unitId)
+            val cachedMembers = orgUnitRepository.getCachedUnitMembers(unitId)
+            val cachedAllMembers = memberRepository.getCachedMembers().members
+            val reservationsResult = reservationRepository.getCachedReservations()
+            val requisitionsResult = requisitionRepository.getCachedRequests()
+            val sharedRequestsResult = requestRepository.getCachedRequests()
+            val cachedCurrentMember = currentUserId?.let { memberRepository.getCachedMember(it) }
+            val cachedHasCurrentUserAssignment = cachedCurrentMember?.unitAssignments.orEmpty()
+                .any { it.organizationalUnitId == unitId }
+            val cachedHasCurrentUserLeadership = cachedCurrentMember?.leadershipRoles.orEmpty()
+                .any { it.termStatus == "ACTIVE" && it.organizationalUnitId == unitId }
+            val activeReservations = reservationsResult
+                .reservations
+                .orEmpty()
+                .count { it.requestingUnitId == unitId && it.status.isActiveReservationStatus() }
+            val activeRequisitions = requisitionsResult
+                .requests
+                .orEmpty()
+                .count { it.requestingUnitId == unitId && it.status.isActiveRequestStatus() }
+            val activeSharedRequests = sharedRequestsResult
+                .requests
+                .orEmpty()
+                .count { it.requestingUnitId == unitId && it.isActiveSharedRequest() }
+            cachedUnit?.let { unit ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    unit = unit,
+                    members = cachedMembers,
+                    memberDetails = cachedAllMembers.associateBy { it.userId },
+                    canCurrentUserManageThisUnit = cachedHasCurrentUserLeadership,
+                    canCurrentUserLeaveThisUnit = cachedHasCurrentUserAssignment && !cachedHasCurrentUserLeadership,
+                    activeReservationsCount = activeReservations,
+                    activeRequestsCount = activeRequisitions + activeSharedRequests
+                )
+            }
             val unitDeferred = async { orgUnitRepository.getUnit(unitId) }
             val membersDeferred = async { orgUnitRepository.getUnitMembers(unitId) }
             val allMembersDeferred = async { memberRepository.getMembers() }
-            val reservationsDeferred = async { reservationRepository.getReservations() }
-            val requisitionsDeferred = async { requisitionRepository.getRequests() }
-            val sharedRequestsDeferred = async { requestRepository.getRequests() }
             val currentMemberDeferred = currentUserId?.let { async { memberRepository.getMember(it) } }
             val unitResult = unitDeferred.await()
             val membersResult = membersDeferred.await()
             val allMembersResult = allMembersDeferred.await()
-            val reservationsResult = reservationsDeferred.await()
-            val requisitionsResult = requisitionsDeferred.await()
-            val sharedRequestsResult = sharedRequestsDeferred.await()
             val currentMember = currentMemberDeferred?.await()?.getOrNull()
             val hasCurrentUserAssignment = currentMember?.unitAssignments.orEmpty()
                 .any { it.organizationalUnitId == unitId }
@@ -100,18 +131,6 @@ class UnitDetailViewModel @Inject constructor(
                 ?.members
                 ?.associateBy { it.userId }
                 .orEmpty()
-            val activeReservations = reservationsResult.getOrNull()
-                ?.reservations
-                .orEmpty()
-                .count { it.requestingUnitId == unitId && it.status.isActiveReservationStatus() }
-            val activeRequisitions = requisitionsResult.getOrNull()
-                ?.requests
-                .orEmpty()
-                .count { it.requestingUnitId == unitId && it.status.isActiveRequestStatus() }
-            val activeSharedRequests = sharedRequestsResult.getOrNull()
-                ?.requests
-                .orEmpty()
-                .count { it.requestingUnitId == unitId && it.isActiveSharedRequest() }
             unitResult
                 .onSuccess { unit ->
                     _uiState.value = _uiState.value.copy(
@@ -140,6 +159,7 @@ class UnitDetailViewModel @Inject constructor(
     fun hideLeaveDialog() { _uiState.value = _uiState.value.copy(showLeaveDialog = false) }
 
     fun deleteUnit(unitId: String) {
+        if (_uiState.value.isSaving) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
             orgUnitRepository.deleteUnit(unitId)
@@ -156,11 +176,19 @@ class UnitDetailViewModel @Inject constructor(
 
     fun openAssignMemberDialog() {
         viewModelScope.launch {
+            val existingMemberIds = _uiState.value.members.map { it.userId }.toSet()
+            val cachedMembers = memberRepository.getCachedMembers().members
+            if (cachedMembers.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    availableTuntasMembers = cachedMembers.filterNot { it.userId in existingMemberIds },
+                    showAssignMemberDialog = true
+                )
+            }
             memberRepository.getMembers()
                 .onSuccess { list ->
-                    val existingMemberIds = _uiState.value.members.map { it.userId }.toSet()
+                    val currentExistingMemberIds = _uiState.value.members.map { it.userId }.toSet()
                     _uiState.value = _uiState.value.copy(
-                        availableTuntasMembers = list.members.filterNot { it.userId in existingMemberIds },
+                        availableTuntasMembers = list.members.filterNot { it.userId in currentExistingMemberIds },
                         showAssignMemberDialog = true
                     )
                 }
@@ -183,7 +211,7 @@ class UnitDetailViewModel @Inject constructor(
 
     fun assignMember(unitId: String) {
         val state = _uiState.value
-        if (state.selectedMemberId.isBlank()) return
+        if (state.isSaving || state.selectedMemberId.isBlank()) return
         viewModelScope.launch {
             _uiState.value = state.copy(isSaving = true, actionError = null)
             orgUnitRepository.assignUnitMember(
@@ -203,6 +231,7 @@ class UnitDetailViewModel @Inject constructor(
     }
 
     fun removeUnitMember(unitId: String, userId: String) {
+        if (_uiState.value.isSaving) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
             orgUnitRepository.removeUnitMember(unitId, userId)
@@ -222,6 +251,7 @@ class UnitDetailViewModel @Inject constructor(
     }
 
     fun leaveUnit(unitId: String) {
+        if (_uiState.value.isSaving) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
             orgUnitRepository.leaveUnit(unitId)

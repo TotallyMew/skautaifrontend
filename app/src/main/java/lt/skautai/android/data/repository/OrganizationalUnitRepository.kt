@@ -93,6 +93,13 @@ class OrganizationalUnitRepository @Inject constructor(
         }
     }
 
+    suspend fun getCachedUnits(type: String? = null): List<OrganizationalUnitDto> {
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        return currentTuntasId
+            ?.let { organizationalUnitDao.getUnits(it, type).toOrganizationalUnitDtos() }
+            .orEmpty()
+    }
+
     suspend fun getUnit(unitId: String): Result<OrganizationalUnitDto> {
         return try {
             val currentTuntasId = tuntasId()
@@ -116,6 +123,11 @@ class OrganizationalUnitRepository @Inject constructor(
             }
             if (cachedUnit != null) Result.success(cachedUnit) else Result.failure(e.userFacingException())
         }
+    }
+
+    suspend fun getCachedUnit(unitId: String): OrganizationalUnitDto? {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return null
+        return organizationalUnitDao.getUnit(unitId, currentTuntasId)?.toDto()
     }
 
     suspend fun createUnit(request: CreateOrganizationalUnitRequestDto): Result<OrganizationalUnitDto> {
@@ -228,10 +240,19 @@ class OrganizationalUnitRepository @Inject constructor(
         }
     }
 
+    suspend fun getCachedUnitMembers(unitId: String): List<UnitMembershipDto> {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return emptyList()
+        return cachedUnitMembers(currentTuntasId, unitId)
+    }
+
     suspend fun assignUnitMember(unitId: String, request: AssignUnitMemberRequestDto): Result<UnitMembershipDto> {
         return try {
-            val response = orgUnitApiService.assignUnitMember("Bearer ${token()}", tuntasId(), unitId, request)
-            if (response.isSuccessful) Result.success(response.body()!!)
+            val currentTuntasId = tuntasId()
+            val response = orgUnitApiService.assignUnitMember("Bearer ${token()}", currentTuntasId, unitId, request)
+            if (response.isSuccessful) {
+                addUnitAssignmentToCachedMember(currentTuntasId, unitId, request.userId, request.assignmentType)
+                Result.success(response.body()!!)
+            }
             else Result.failure(Exception(response.errorMessage("Klaida priskiriant narį")))
         } catch (e: IOException) {
             val currentTuntasId = tuntasId()

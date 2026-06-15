@@ -80,7 +80,7 @@ class ReservationListViewModel @Inject constructor(
                         val userId = tokenManager.userId.first()
                         val permissions = tokenManager.permissions.first()
                         val activeUnitId = tokenManager.activeOrgUnitId.first()
-                        val allReservations = reservationRepository.getReservations().getOrNull()?.reservations.orEmpty()
+                        val allReservations = reservationRepository.getCachedReservations().reservations
                         val canUseReviewModes = permissions.canUseReviewModes()
                         _uiState.value = ReservationListUiState.Success(
                             reservations = allReservations.filterForMode(mode, userId, permissions, activeUnitId),

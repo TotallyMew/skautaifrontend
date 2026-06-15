@@ -7,13 +7,15 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 interface RequisitionApiService {
 
     @GET("api/requisitions")
     suspend fun getRequests(
         @Header("Authorization") token: String,
-        @Header("X-Tuntas-Id") tuntasId: String
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("updatedAfter") updatedAfter: String? = null
     ): Response<RequisitionListDto>
 
     @GET("api/requisitions/{id}")

@@ -80,7 +80,9 @@ class MemberDetailViewModel @Inject constructor(
     fun loadMember(userId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val currentUser = currentUserId.value?.let { memberRepository.getMember(it).getOrNull() }
+            val currentUser = currentUserId.value?.let {
+                memberRepository.getCachedMember(it) ?: memberRepository.getMember(it).getOrNull()
+            }
             if (currentUser != null && isScoutReadOnlyMember(currentUser) && currentUser.userId != userId) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -88,22 +90,35 @@ class MemberDetailViewModel @Inject constructor(
                 )
                 return@launch
             }
+            val cachedMember = memberRepository.getCachedMember(userId)
+            val reservationResult = reservationRepository.getCachedReservations()
+            val requisitionResult = requisitionRepository.getCachedRequests()
+            val sharedRequestResult = requestRepository.getCachedRequests()
+            cachedMember?.let { member ->
+                _uiState.value = _uiState.value.copy(
+                    isLoading = false,
+                    member = member,
+                    activeReservationsCount = reservationResult.reservations
+                        .count { it.reservedByUserId == userId && it.status.isActiveReservationStatus() },
+                    activeRequestsCount = requisitionResult.requests
+                        .count { it.createdByUserId == userId && it.status.isActiveRequestStatus() } +
+                        sharedRequestResult.requests
+                            .count { it.requestedByUserId == userId && it.isActiveSharedRequest() }
+                )
+            }
             val memberResult = memberRepository.getMember(userId)
-            val reservationResult = reservationRepository.getReservations()
-            val requisitionResult = requisitionRepository.getRequests()
-            val sharedRequestResult = requestRepository.getRequests()
             memberResult
                 .onSuccess { member ->
-                    val activeReservations = reservationResult.getOrNull()
-                        ?.reservations
+                    val activeReservations = reservationResult
+                        .reservations
                         .orEmpty()
                         .count { it.reservedByUserId == userId && it.status.isActiveReservationStatus() }
-                    val activeRequisitions = requisitionResult.getOrNull()
-                        ?.requests
+                    val activeRequisitions = requisitionResult
+                        .requests
                         .orEmpty()
                         .count { it.createdByUserId == userId && it.status.isActiveRequestStatus() }
-                    val activeSharedRequests = sharedRequestResult.getOrNull()
-                        ?.requests
+                    val activeSharedRequests = sharedRequestResult
+                        .requests
                         .orEmpty()
                         .count { it.requestedByUserId == userId && it.isActiveSharedRequest() }
                     _uiState.value = _uiState.value.copy(

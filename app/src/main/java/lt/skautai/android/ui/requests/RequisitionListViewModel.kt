@@ -71,10 +71,8 @@ class RequisitionListViewModel @Inject constructor(
                     val permissions = tokenManager.permissions.first()
                     val activeUnitId = tokenManager.activeOrgUnitId.first()
                     _uiState.value = RequisitionListUiState.Success(
-                        requisitionRepository.getRequests()
-                            .getOrNull()
-                            ?.requests
-                            .orEmpty()
+                        requisitionRepository.getCachedRequests()
+                            .requests
                             .filterForMode(mode, userId, permissions, activeUnitId)
                     )
                 }

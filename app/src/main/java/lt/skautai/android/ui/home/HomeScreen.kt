@@ -81,7 +81,7 @@ fun HomeScreen(
     LaunchedEffect(lifecycleOwner) {
         lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
             if (hasObservedInitialResume) {
-                viewModel.refresh(force = true)
+                viewModel.refresh(force = false)
             } else {
                 hasObservedInitialResume = true
             }

@@ -94,7 +94,12 @@ class ItemRepository @Inject constructor(
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val tuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
-            val updatedAfter = refreshCoordinator.lastSuccessfulRefreshInstant(ITEMS_RESOURCE, queryKey)
+            val hasCachedRows = itemDao.getItems(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category).isNotEmpty()
+            val updatedAfter = if (hasCachedRows) {
+                refreshCoordinator.lastSuccessfulRefreshInstant(ITEMS_RESOURCE, queryKey)
+            } else {
+                null
+            }
             val response = itemApiService.getItems(
                 token = "Bearer $token",
                 tuntasId = tuntasId,
@@ -849,7 +854,7 @@ class ItemRepository @Inject constructor(
         origin = origin,
         quantity = quantity,
         isConsumable = isConsumable,
-        unitOfMeasure = unitOfMeasure,
+        unitOfMeasure = unitOfMeasure ?: DEFAULT_UNIT_OF_MEASURE,
         minimumQuantity = minimumQuantity,
         condition = condition,
         locationId = locationId,
@@ -864,6 +869,7 @@ class ItemRepository @Inject constructor(
     )
 
     private fun ItemDto.withSafeCollections(): ItemDto = copy(
+        unitOfMeasure = unitOfMeasure ?: DEFAULT_UNIT_OF_MEASURE,
         quantityBreakdown = quantityBreakdown.orEmpty(),
         customFields = customFields.orEmpty()
     )
@@ -887,5 +893,6 @@ class ItemRepository @Inject constructor(
     companion object {
         private const val ITEMS_RESOURCE = "items"
         private const val ITEM_RESOURCE = "item"
+        private const val DEFAULT_UNIT_OF_MEASURE = "vnt."
     }
 }

@@ -102,16 +102,16 @@ fun EventPastovyklėsScreen(
 
     LaunchedEffect(eventId) { viewModel.load(eventId) }
 
-    LaunchedEffect((uiState as? EventPastovyklėsUiState.Success)?.error) {
-        (uiState as? EventPastovyklėsUiState.Success)?.error?.let {
+    LaunchedEffect((uiState as? EventPastovyklesUiState.Success)?.error) {
+        (uiState as? EventPastovyklesUiState.Success)?.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
     }
 
     val state = uiState
-    val readOnly = (state as? EventPastovyklėsUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
-    val eventRoles = (state as? EventPastovyklėsUiState.Success)
+    val readOnly = (state as? EventPastovyklesUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
+    val eventRoles = (state as? EventPastovyklesUiState.Success)
         ?.let { eventRolesForUser(it.event.eventRoles, it.currentUserId) }
         .orEmpty()
     val canManage = canManageEventSections(
@@ -120,7 +120,7 @@ fun EventPastovyklėsScreen(
         isReadOnly = readOnly
     )
 
-    if (state is EventPastovyklėsUiState.Success && showEditor && canManage) {
+    if (state is EventPastovyklesUiState.Success && showEditor && canManage) {
         PastovykleEditorScreen(
             pastovykle = editingPastovykle,
             event = state.event,
@@ -185,13 +185,13 @@ fun EventPastovyklėsScreen(
                 .padding(padding)
         ) {
             when (state) {
-                EventPastovyklėsUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-                is EventPastovyklėsUiState.Error -> SkautaiErrorState(
+                EventPastovyklesUiState.Loading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                is EventPastovyklesUiState.Error -> SkautaiErrorState(
                     message = state.message,
                     onRetry = { viewModel.load(eventId) },
                     modifier = Modifier.align(Alignment.Center)
                 )
-                is EventPastovyklėsUiState.Success -> {
+                is EventPastovyklesUiState.Success -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),

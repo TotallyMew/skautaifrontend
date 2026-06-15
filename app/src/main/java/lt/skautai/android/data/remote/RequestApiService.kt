@@ -8,7 +8,8 @@ interface RequestApiService {
     @GET("api/inventory-requests")
     suspend fun getRequests(
         @Header("Authorization") token: String,
-        @Header("X-Tuntas-Id") tuntasId: String
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("updatedAfter") updatedAfter: String? = null
     ): Response<BendrasRequestListDto>
 
     @GET("api/inventory-requests/{id}")

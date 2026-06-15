@@ -119,6 +119,14 @@ class MemberRepository @Inject constructor(
         }
     }
 
+    suspend fun getCachedMembers(): MemberListDto {
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val cachedMembers = currentTuntasId
+            ?.let { memberDao.getMembers(it).toMemberDtos() }
+            .orEmpty()
+        return MemberListDto(cachedMembers, cachedMembers.size)
+    }
+
     suspend fun getMember(userId: String): Result<MemberDto> {
         val shouldRefresh = refreshCoordinator.shouldRefresh(MEMBER_RESOURCE, userId, CacheTtl.DETAIL)
         val refreshResult = if (shouldRefresh) refreshMember(userId) else Result.success(Unit)
@@ -129,6 +137,11 @@ class MemberRepository @Inject constructor(
         } else {
             Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant narį"))
         }
+    }
+
+    suspend fun getCachedMember(userId: String): MemberDto? {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return null
+        return memberDao.getMember(userId, currentTuntasId)?.toDto()
     }
 
     suspend fun assignLeadershipRole(

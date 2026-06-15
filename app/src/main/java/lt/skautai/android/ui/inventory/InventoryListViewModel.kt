@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +58,13 @@ data class InventoryBulkAction(
     fun isEmpty(): Boolean =
         condition == null && locationId == null && !clearLocation && !deactivate
 }
+
+private data class InventoryListMeta(
+    val kits: List<InventoryKitDto>,
+    val kitsLoaded: Boolean,
+    val selectedStatus: String,
+    val permissions: Set<String>
+)
 
 private fun ItemDto.effectiveInventoryType(): String =
     if (origin == "TRANSFERRED_FROM_TUNTAS" && custodianId != null) "COLLECTIVE" else type
@@ -118,6 +126,8 @@ class InventoryListViewModel @Inject constructor(
     val actionMessage: StateFlow<String?> = _actionMessage.asStateFlow()
 
     private val _kits = MutableStateFlow<List<InventoryKitDto>>(emptyList())
+    private val _kitsLoaded = MutableStateFlow(false)
+    private var loadJob: Job? = null
 
     private val _importDraft = MutableStateFlow<InventoryImportDraft?>(null)
     val importDraft: StateFlow<InventoryImportDraft?> = _importDraft.asStateFlow()
@@ -187,11 +197,16 @@ class InventoryListViewModel @Inject constructor(
                     createdByUserId = personalOwnerId
                 ),
                 itemRepository.observeItems(status = "PENDING_APPROVAL"),
-                combine(_kits, selectedStatus, permissions) { kits, status, userPermissions ->
-                    Triple(kits, status, userPermissions)
+                combine(_kits, _kitsLoaded, selectedStatus, permissions) { kits, kitsLoaded, status, userPermissions ->
+                    InventoryListMeta(kits, kitsLoaded, status, userPermissions)
                 }
             ) { activeItems, inactiveItems, pendingItems, meta ->
-                val (kits, selectedStatus, permissions) = meta
+                if (!meta.kitsLoaded && _uiState.value !is InventoryListUiState.Success) {
+                    return@combine InventoryListUiState.Loading
+                }
+                val kits = meta.kits
+                val selectedStatus = meta.selectedStatus
+                val permissions = meta.permissions
                 val visibleInactiveItems = if (permissions.canManageAllItems()) inactiveItems else emptyList()
                 val canSeePending = permissions.canReviewItemAdditions() || permissions.canSubmitItemAddition()
                 val visiblePendingItems = if (canSeePending) pendingItems else emptyList()
@@ -207,8 +222,7 @@ class InventoryListViewModel @Inject constructor(
                 }
             }.collect { state ->
                 if (!_isRefreshing.value ||
-                    state is InventoryListUiState.Success ||
-                    state is InventoryListUiState.Empty
+                    state is InventoryListUiState.Success
                 ) {
                     _uiState.value = state
                 }
@@ -217,7 +231,8 @@ class InventoryListViewModel @Inject constructor(
     }
 
     fun loadItems() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             _isRefreshing.value = true
             if (_uiState.value !is InventoryListUiState.Success) {
                 _uiState.value = InventoryListUiState.Loading
@@ -225,38 +240,56 @@ class InventoryListViewModel @Inject constructor(
             try {
                 val currentUserId = tokenManager.userId.first()
                 val personalOwnerId = personalOwnerFilterId(currentUserId)
-                val itemsResult = itemRepository.refreshItems(
-                    custodianId = initialCustodianId,
-                    sharedOnly = initialSharedOnly,
-                    createdByUserId = personalOwnerId
-                )
                 val currentPermissions = permissions.value
                 val canSeePending = currentPermissions.canReviewItemAdditions() || currentPermissions.canSubmitItemAddition()
-
-                val pendingItemsResult = if (canSeePending) {
-                    itemRepository.refreshItems(status = "PENDING_APPROVAL")
-                } else Result.success(Unit)
-
-                val inactiveItemsResult = if (currentPermissions.canManageAllItems()) {
-                    itemRepository.refreshItems(
+                val selectedStatus = _selectedStatus.value
+                val itemsResult = when {
+                    selectedStatus == "PENDING_APPROVAL" && canSeePending ->
+                        itemRepository.refreshItems(status = "PENDING_APPROVAL")
+                    selectedStatus == "INACTIVE" && currentPermissions.canManageAllItems() ->
+                        itemRepository.refreshItems(
+                            custodianId = initialCustodianId,
+                            status = "INACTIVE",
+                            sharedOnly = initialSharedOnly,
+                            createdByUserId = personalOwnerId
+                        )
+                    else -> itemRepository.refreshItems(
                         custodianId = initialCustodianId,
-                        status = "INACTIVE",
                         sharedOnly = initialSharedOnly,
                         createdByUserId = personalOwnerId
                     )
-                } else Result.success(Unit)
+                }
 
                 inventoryKitRepository.getKits()
                     .onSuccess { _kits.value = it.kits }
+                _kitsLoaded.value = true
 
                 val error = itemsResult.exceptionOrNull()
-                    ?: pendingItemsResult.exceptionOrNull()
-                    ?: inactiveItemsResult.exceptionOrNull()
                 if (error != null && _uiState.value !is InventoryListUiState.Success) {
                     val currentState = _uiState.value
                     if (currentState !is InventoryListUiState.Empty) {
                         _uiState.value = InventoryListUiState.Error(
                             error.message ?: "Nepavyko gauti inventoriaus"
+                        )
+                    }
+                } else if (_uiState.value is InventoryListUiState.Loading) {
+                    val cachedItems = itemRepository.getCachedItems(
+                        custodianId = initialCustodianId,
+                        status = when {
+                            selectedStatus == "PENDING_APPROVAL" && canSeePending -> "PENDING_APPROVAL"
+                            selectedStatus == "INACTIVE" && currentPermissions.canManageAllItems() -> "INACTIVE"
+                            else -> "ACTIVE"
+                        },
+                        sharedOnly = initialSharedOnly,
+                        createdByUserId = personalOwnerId
+                    )
+                    _uiState.value = if (cachedItems.isEmpty() && _kits.value.isEmpty()) {
+                        InventoryListUiState.Empty
+                    } else {
+                        InventoryListUiState.Success(
+                            items = cachedItems,
+                            pendingItems = if (selectedStatus == "PENDING_APPROVAL") cachedItems else emptyList(),
+                            kits = _kits.value
                         )
                     }
                 }

@@ -22,8 +22,8 @@ import lt.skautai.android.data.remote.UpdatePastovykleRequestDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.util.TokenManager
 
-sealed interface EventPastovyklėsUiState {
-    data object Loading : EventPastovyklėsUiState
+sealed interface EventPastovyklesUiState {
+    data object Loading : EventPastovyklesUiState
     data class Success(
         val event: EventDto,
         val pastovykles: List<PastovykleDto> = emptyList(),
@@ -31,8 +31,8 @@ sealed interface EventPastovyklėsUiState {
         val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
-    ) : EventPastovyklėsUiState
-    data class Error(val message: String) : EventPastovyklėsUiState
+    ) : EventPastovyklesUiState
+    data class Error(val message: String) : EventPastovyklesUiState
 }
 
 @HiltViewModel
@@ -41,8 +41,8 @@ class EventPastovyklėsViewModel @Inject constructor(
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow<EventPastovyklėsUiState>(EventPastovyklėsUiState.Loading)
-    val uiState: StateFlow<EventPastovyklėsUiState> = _uiState.asStateFlow()
+    private val _uiState = MutableStateFlow<EventPastovyklesUiState>(EventPastovyklesUiState.Loading)
+    val uiState: StateFlow<EventPastovyklesUiState> = _uiState.asStateFlow()
     private var observeJob: Job? = null
 
     val permissions: StateFlow<Set<String>> = tokenManager.permissions
@@ -53,8 +53,8 @@ class EventPastovyklėsViewModel @Inject constructor(
         observeJob = viewModelScope.launch {
             eventRepository.observeEvent(eventId).collect { event ->
                 if (event != null) {
-                    val current = _uiState.value as? EventPastovyklėsUiState.Success
-                    _uiState.value = EventPastovyklėsUiState.Success(
+                    val current = _uiState.value as? EventPastovyklesUiState.Success
+                    _uiState.value = EventPastovyklesUiState.Success(
                         event = event,
                         pastovykles = current?.pastovykles.orEmpty(),
                         members = current?.members.orEmpty(),
@@ -62,24 +62,24 @@ class EventPastovyklėsViewModel @Inject constructor(
                         isWorking = current?.isWorking == true,
                         error = current?.error
                     )
-                } else if (_uiState.value !is EventPastovyklėsUiState.Success) {
-                    _uiState.value = EventPastovyklėsUiState.Loading
+                } else if (_uiState.value !is EventPastovyklesUiState.Success) {
+                    _uiState.value = EventPastovyklesUiState.Loading
                 }
             }
         }
 
         viewModelScope.launch {
-            if (_uiState.value !is EventPastovyklėsUiState.Success) {
-                _uiState.value = EventPastovyklėsUiState.Loading
+            if (_uiState.value !is EventPastovyklesUiState.Success) {
+                _uiState.value = EventPastovyklesUiState.Loading
             }
             val eventResult = eventRepository.getEvent(eventId)
             val event = eventResult.getOrElse { error ->
-                _uiState.value = EventPastovyklėsUiState.Error(error.message ?: "Nepavyko gauti renginio.")
+                _uiState.value = EventPastovyklesUiState.Error(error.message ?: "Nepavyko gauti renginio.")
                 return@launch
             }
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
-            _uiState.value = EventPastovyklėsUiState.Success(
+            _uiState.value = EventPastovyklesUiState.Success(
                 event = event,
                 pastovykles = pastovykles.sortedBy { it.name.lowercase() },
                 members = members,
@@ -96,7 +96,7 @@ class EventPastovyklėsViewModel @Inject constructor(
         responsibleUserId: String?,
         notes: String?
     ) {
-        val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
+        val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
             _uiState.value = current.copy(error = "Įveskite pastovyklės pavadinimą.")
@@ -177,7 +177,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                     load(eventId)
                 }
                 .onFailure { error ->
-                    (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
+                    (_uiState.value as? EventPastovyklesUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko išsaugoti pastovyklės.")
                     }
                 }
@@ -185,7 +185,7 @@ class EventPastovyklėsViewModel @Inject constructor(
     }
 
     fun deletePastovykle(eventId: String, pastovykle: PastovykleDto) {
-        val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
+        val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.deletePastovykle(eventId, pastovykle.id)
@@ -194,7 +194,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                     load(eventId)
                 }
                 .onFailure { error ->
-                    (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
+                    (_uiState.value as? EventPastovyklesUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti pastovyklės.")
                     }
                 }
@@ -202,7 +202,7 @@ class EventPastovyklėsViewModel @Inject constructor(
     }
 
     fun clearError() {
-        (_uiState.value as? EventPastovyklėsUiState.Success)?.let { _uiState.value = it.copy(error = null) }
+        (_uiState.value as? EventPastovyklesUiState.Success)?.let { _uiState.value = it.copy(error = null) }
     }
 
     private suspend fun syncLeaderRole(
@@ -215,7 +215,7 @@ class EventPastovyklėsViewModel @Inject constructor(
             removeLeaderRoleFor(eventId, previousResponsibleUserId, excludingPastovykleId = previousPastovykleId)
         }
         if (!savedResponsibleUserId.isNullOrBlank()) {
-            val event = (_uiState.value as? EventPastovyklėsUiState.Success)?.event
+            val event = (_uiState.value as? EventPastovyklesUiState.Success)?.event
             val alreadyAssigned = event?.eventRoles.orEmpty().any {
                 it.role == "PASTOVYKLES_GURU" && it.userId == savedResponsibleUserId && it.pastovykleId == null
             }
@@ -230,7 +230,7 @@ class EventPastovyklėsViewModel @Inject constructor(
 
     private suspend fun removeLeaderRoleFor(eventId: String, userId: String?, excludingPastovykleId: String?) {
         if (userId.isNullOrBlank()) return
-        val state = _uiState.value as? EventPastovyklėsUiState.Success ?: return
+        val state = _uiState.value as? EventPastovyklesUiState.Success ?: return
         val stillLeadsAnotherPastovykle = state.pastovykles.any {
             it.id != excludingPastovykleId && it.responsibleUserId == userId
         }
@@ -242,14 +242,17 @@ class EventPastovyklėsViewModel @Inject constructor(
     }
 
     fun addCoLeader(eventId: String, pastovykleId: String, userId: String) {
-        val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
-        if (userId.isBlank()) return
+        val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        if (current.isWorking || userId.isBlank()) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.assignPastovykleLeader(eventId, pastovykleId, userId)
-                .onSuccess { load(eventId) }
+                .onSuccess { role ->
+                    updateCoLeaderRole(role.copy(pastovykleId = role.pastovykleId ?: pastovykleId))
+                    load(eventId)
+                }
                 .onFailure { error ->
-                    (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
+                    (_uiState.value as? EventPastovyklesUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko prideti bendravadovio.")
                     }
                 }
@@ -257,16 +260,41 @@ class EventPastovyklėsViewModel @Inject constructor(
     }
 
     fun removeCoLeader(eventId: String, pastovykleId: String, roleId: String) {
-        val current = _uiState.value as? EventPastovyklėsUiState.Success ?: return
+        val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.removePastovykleLeader(eventId, pastovykleId, roleId)
-                .onSuccess { load(eventId) }
+                .onSuccess {
+                    removeCoLeaderRole(roleId)
+                    load(eventId)
+                }
                 .onFailure { error ->
-                    (_uiState.value as? EventPastovyklėsUiState.Success)?.let {
+                    (_uiState.value as? EventPastovyklesUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti bendravadovio.")
                     }
                 }
         }
+    }
+
+    private fun updateCoLeaderRole(role: EventRoleDto) {
+        val latest = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        _uiState.value = latest.copy(
+            event = latest.event.copy(
+                eventRoles = (latest.event.eventRoles + role).distinctBy { it.id }
+            ),
+            isWorking = false,
+            error = null
+        )
+    }
+
+    private fun removeCoLeaderRole(roleId: String) {
+        val latest = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        _uiState.value = latest.copy(
+            event = latest.event.copy(
+                eventRoles = latest.event.eventRoles.filterNot { it.id == roleId }
+            ),
+            isWorking = false,
+            error = null
+        )
     }
 }

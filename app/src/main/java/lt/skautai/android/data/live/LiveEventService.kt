@@ -51,6 +51,9 @@ class LiveEventService @Inject constructor(
         .build()
 
     private var connectionJob: Job? = null
+    private var networkRefreshJob: Job? = null
+    private val pendingRefreshResources = mutableSetOf<String>()
+    private val lastNetworkRefreshAt = mutableMapOf<String, Long>()
 
     fun start() {
         if (connectionJob?.isActive == true) return
@@ -115,31 +118,46 @@ class LiveEventService @Inject constructor(
 
     private suspend fun handleEvent(event: LiveEvent) {
         liveRefreshBus.emit(event)
-        when (event.resource) {
-            "items" -> {
-                itemRepository.refreshItems()
-                itemRepository.refreshItems(status = "PENDING_APPROVAL")
+        val resources = when (event.resource) {
+            "general" -> CORE_REFRESH_RESOURCES
+            else -> setOf(event.resource)
+        }
+        synchronized(pendingRefreshResources) {
+            pendingRefreshResources.addAll(resources)
+            if (networkRefreshJob?.isActive == true) return
+            networkRefreshJob = scope.launch {
+                delay(NETWORK_REFRESH_DEBOUNCE_MILLIS)
+                val resourcesToRefresh = synchronized(pendingRefreshResources) {
+                    pendingRefreshResources.toSet().also { pendingRefreshResources.clear() }
+                }
+                refreshResources(resourcesToRefresh)
             }
-            "reservations" -> reservationRepository.refreshReservations()
-            "bendras_requests" -> requestRepository.refreshRequests()
-            "requisitions" -> requisitionRepository.refreshRequests()
-            "events" -> eventRepository.refreshEvents()
-            "locations" -> locationRepository.refreshLocations()
-            "members" -> memberRepository.refreshMembers()
-            "organizational_units" -> organizationalUnitRepository.refreshUnits()
-            "general" -> refreshCoreResources()
         }
     }
 
-    private suspend fun refreshCoreResources() {
-        itemRepository.refreshItems()
-        reservationRepository.refreshReservations()
-        requestRepository.refreshRequests()
-        requisitionRepository.refreshRequests()
-        eventRepository.refreshEvents()
+    private suspend fun refreshResources(resources: Set<String>) {
+        val now = System.currentTimeMillis()
+        resources.forEach { resource ->
+            val lastRefresh = lastNetworkRefreshAt[resource] ?: 0L
+            if (now - lastRefresh < NETWORK_REFRESH_MIN_INTERVAL_MILLIS) return@forEach
+            lastNetworkRefreshAt[resource] = now
+            when (resource) {
+                "items" -> itemRepository.refreshItems()
+                "reservations" -> reservationRepository.refreshReservations()
+                "bendras_requests" -> requestRepository.refreshRequests()
+                "requisitions" -> requisitionRepository.refreshRequests()
+                "events" -> eventRepository.refreshEvents()
+                "locations" -> locationRepository.refreshLocations()
+                "members" -> memberRepository.refreshMembers()
+                "organizational_units" -> organizationalUnitRepository.refreshUnits()
+            }
+        }
     }
 
     private companion object {
         const val RECONNECT_DELAY_MILLIS = 5_000L
+        const val NETWORK_REFRESH_DEBOUNCE_MILLIS = 1_500L
+        const val NETWORK_REFRESH_MIN_INTERVAL_MILLIS = 15_000L
+        val CORE_REFRESH_RESOURCES = setOf("items", "reservations", "bendras_requests", "requisitions", "events")
     }
 }

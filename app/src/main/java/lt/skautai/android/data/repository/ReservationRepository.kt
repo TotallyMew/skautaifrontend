@@ -79,7 +79,12 @@ class ReservationRepository @Inject constructor(
         val queryKey = reservationQueryKey(itemId, status)
         return try {
             val currentTuntasId = tuntasId()
-            val updatedAfter = refreshCoordinator.lastSuccessfulRefreshInstant(RESERVATIONS_RESOURCE, queryKey)
+            val hasCachedRows = reservationDao.getReservations(currentTuntasId, itemId, status).isNotEmpty()
+            val updatedAfter = if (hasCachedRows) {
+                refreshCoordinator.lastSuccessfulRefreshInstant(RESERVATIONS_RESOURCE, queryKey)
+            } else {
+                null
+            }
             val response = reservationApiService.getReservations(
                 token = "Bearer ${token()}",
                 tuntasId = currentTuntasId,

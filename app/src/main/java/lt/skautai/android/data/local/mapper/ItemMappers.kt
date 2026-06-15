@@ -25,7 +25,7 @@ fun ItemDto.toEntity(): ItemEntity = ItemEntity(
     condition = condition,
     quantity = quantity,
     isConsumable = isConsumable,
-    unitOfMeasure = unitOfMeasure,
+    unitOfMeasure = unitOfMeasure ?: DEFAULT_UNIT_OF_MEASURE,
     minimumQuantity = minimumQuantity,
     isLowStock = isLowStock,
     locationId = locationId,
@@ -55,6 +55,8 @@ fun ItemDto.toEntity(): ItemEntity = ItemEntity(
     createdAt = createdAt,
     updatedAt = updatedAt
 )
+
+private const val DEFAULT_UNIT_OF_MEASURE = "vnt."
 
 fun ItemEntity.toDto(): ItemDto = ItemDto(
     id = id,

@@ -29,6 +29,7 @@ class AttentionViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(AttentionUiState())
     val uiState: StateFlow<AttentionUiState> = _uiState.asStateFlow()
     private var observeJob: Job? = null
+    private var refreshJob: Job? = null
 
     init {
         observeCachedRequests()
@@ -36,8 +37,9 @@ class AttentionViewModel @Inject constructor(
     }
 
     fun refresh() {
-        viewModelScope.launch {
-            requisitionRepository.refreshRequests()
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
+            requisitionRepository.getRequests()
         }
     }
 

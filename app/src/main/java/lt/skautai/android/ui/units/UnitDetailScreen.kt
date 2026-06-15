@@ -544,11 +544,11 @@ private fun AssignMemberDialog(
                 onClick = onConfirm,
                 enabled = members.isNotEmpty() && selectedMemberId.isNotBlank() && !isSaving
             ) {
-                Text("Priskirti")
+                Text(if (isSaving) "Priskiriama..." else "Priskirti")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Atšaukti") }
+            TextButton(onClick = onDismiss, enabled = !isSaving) { Text("Atšaukti") }
         }
     )
 }

@@ -70,11 +70,19 @@ class RequisitionRepository @Inject constructor(
     suspend fun refreshRequests(): Result<Unit> {
         return try {
             val currentTuntasId = tuntasId()
-            val response = requisitionApiService.getRequests("Bearer ${token()}", currentTuntasId)
+            val hasCachedRows = requisitionDao.getRequests(currentTuntasId).isNotEmpty()
+            val updatedAfter = if (hasCachedRows) {
+                refreshCoordinator.lastSuccessfulRefreshInstant(REQUESTS_RESOURCE)
+            } else {
+                null
+            }
+            val response = requisitionApiService.getRequests("Bearer ${token()}", currentTuntasId, updatedAfter)
             if (response.isSuccessful) {
                 val requests = response.body()?.requests.orEmpty()
                 val entities = requests.toRequisitionEntities()
-                requisitionDao.deleteForTuntas(currentTuntasId)
+                if (updatedAfter == null) {
+                    requisitionDao.deleteForTuntas(currentTuntasId)
+                }
                 requisitionDao.upsertAll(entities)
                 refreshCoordinator.recordAttempt(REQUESTS_RESOURCE, success = true)
                 Result.success(Unit)
@@ -110,6 +118,14 @@ class RequisitionRepository @Inject constructor(
             ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
             .orEmpty()
         return Result.success(RequisitionListDto(cachedRequests, cachedRequests.size))
+    }
+
+    suspend fun getCachedRequests(): RequisitionListDto {
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val cachedRequests = currentTuntasId
+            ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
+            .orEmpty()
+        return RequisitionListDto(cachedRequests, cachedRequests.size)
     }
 
     suspend fun getRequest(id: String): Result<RequisitionDto> {

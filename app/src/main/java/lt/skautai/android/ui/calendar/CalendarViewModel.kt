@@ -32,7 +32,26 @@ class CalendarViewModel @Inject constructor(
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     init {
-        refresh()
+        loadCachedOrRefresh()
+    }
+
+    private fun loadCachedOrRefresh() {
+        viewModelScope.launch {
+            _uiState.value = CalendarUiState.Loading
+            val eventsDeferred = async { eventRepository.getCachedEvents() }
+            val reservationsDeferred = async { reservationRepository.getCachedReservations() }
+            val events = eventsDeferred.await()
+            val reservations = reservationsDeferred.await()
+
+            if (events.events.isNotEmpty() || reservations.reservations.isNotEmpty()) {
+                _uiState.value = CalendarUiState.Success(
+                    events = events.events,
+                    reservations = reservations.reservations
+                )
+            } else {
+                refresh()
+            }
+        }
     }
 
     fun refresh() {

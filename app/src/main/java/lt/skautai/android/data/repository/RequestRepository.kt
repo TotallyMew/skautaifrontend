@@ -67,11 +67,19 @@ class RequestRepository @Inject constructor(
     suspend fun refreshRequests(): Result<Unit> {
         return try {
             val currentTuntasId = tuntasId()
-            val response = requestApiService.getRequests("Bearer ${token()}", currentTuntasId)
+            val hasCachedRows = bendrasRequestDao.getRequests(currentTuntasId).isNotEmpty()
+            val updatedAfter = if (hasCachedRows) {
+                refreshCoordinator.lastSuccessfulRefreshInstant(REQUESTS_RESOURCE)
+            } else {
+                null
+            }
+            val response = requestApiService.getRequests("Bearer ${token()}", currentTuntasId, updatedAfter)
             if (response.isSuccessful) {
                 val requests = response.body()?.requests.orEmpty()
                 val entities = requests.toBendrasRequestEntities()
-                bendrasRequestDao.deleteForTuntas(currentTuntasId)
+                if (updatedAfter == null) {
+                    bendrasRequestDao.deleteForTuntas(currentTuntasId)
+                }
                 bendrasRequestDao.upsertAll(entities)
                 refreshCoordinator.recordAttempt(REQUESTS_RESOURCE, success = true)
                 Result.success(Unit)
@@ -107,6 +115,14 @@ class RequestRepository @Inject constructor(
             ?.let { bendrasRequestDao.getRequests(it).toBendrasRequestDtos() }
             .orEmpty()
         return Result.success(BendrasRequestListDto(cachedRequests, cachedRequests.size))
+    }
+
+    suspend fun getCachedRequests(): BendrasRequestListDto {
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val cachedRequests = currentTuntasId
+            ?.let { bendrasRequestDao.getRequests(it).toBendrasRequestDtos() }
+            .orEmpty()
+        return BendrasRequestListDto(cachedRequests, cachedRequests.size)
     }
 
     suspend fun getRequest(id: String): Result<BendrasRequestDto> {

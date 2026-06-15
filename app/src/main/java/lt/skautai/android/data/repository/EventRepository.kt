@@ -172,7 +172,12 @@ class EventRepository @Inject constructor(
         val queryKey = eventQueryKey(type, status)
         return try {
             val currentTuntasId = tuntasId()
-            val updatedAfter = refreshCoordinator.lastSuccessfulRefreshInstant(EVENTS_RESOURCE, queryKey)
+            val hasCachedRows = eventDao.getEvents(currentTuntasId, type, status).isNotEmpty()
+            val updatedAfter = if (hasCachedRows) {
+                refreshCoordinator.lastSuccessfulRefreshInstant(EVENTS_RESOURCE, queryKey)
+            } else {
+                null
+            }
             val response = eventApiService.getEvents("Bearer ${token()}", currentTuntasId, type, status, updatedAfter)
             if (response.isSuccessful) {
                 val events = response.body()?.events.orEmpty()
