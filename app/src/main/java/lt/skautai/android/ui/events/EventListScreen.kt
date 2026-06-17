@@ -50,6 +50,7 @@ import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.eventStatusTone
+import lt.skautai.android.util.hasPermission
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
@@ -63,7 +64,7 @@ fun EventListScreen(
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadEvents)
-    val canCreate = "events.create" in permissions
+    val canCreate = permissions.hasPermission("events.create")
 
     Box(
         modifier = Modifier
@@ -121,7 +122,7 @@ fun EventListScreen(
                     }
                 }
 
-                if (canCreate && state.events.isNotEmpty()) {
+                if (canCreate) {
                     FloatingActionButton(
                         onClick = onCreateClick,
                         modifier = Modifier

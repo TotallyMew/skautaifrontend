@@ -125,6 +125,11 @@ class RequestRepository @Inject constructor(
         return BendrasRequestListDto(cachedRequests, cachedRequests.size)
     }
 
+    suspend fun getCachedRequest(id: String): BendrasRequestDto? {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return null
+        return bendrasRequestDao.getRequest(id, currentTuntasId)?.toDto()
+    }
+
     suspend fun getRequest(id: String): Result<BendrasRequestDto> {
         refreshRequest(id)
         val currentTuntasId = tokenManager.activeTuntasId.first()

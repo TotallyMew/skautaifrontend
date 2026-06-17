@@ -52,30 +52,17 @@ class ReservationMovementViewModel @Inject constructor(
 
     fun loadReservation() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val cachedReservation = reservationRepository.getCachedReservation(reservationId)
+            val cachedLocations = locationRepository.getCachedLocations()
+            if (cachedReservation != null) {
+                applyReservation(cachedReservation, cachedLocations)
+            } else {
+                _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            }
             reservationRepository.getReservation(reservationId)
                 .onSuccess { reservation ->
-                    val locations = locationRepository.getLocations().getOrDefault(emptyList())
-                    val permissions = tokenManager.permissions.first()
-                    val activeUnitId = tokenManager.activeOrgUnitId.first()
-                    val defaultQuantities = reservation.items
-                        .mapNotNull { item ->
-                            val max = maxQuantity(item, permissions, activeUnitId)
-                            if (max > 0) item.itemId to max else null
-                        }
-                        .toMap()
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        reservation = reservation,
-                        selectedQuantities = defaultQuantities,
-                        locations = locations,
-                        permissions = permissions,
-                        activeUnitId = activeUnitId,
-                        selectedLocationId = when (mode) {
-                            "return" -> reservation.returnLocationId
-                            else -> reservation.pickupLocationId
-                        }
-                    )
+                    val locations = locationRepository.getLocations().getOrDefault(cachedLocations)
+                    applyReservation(reservation, locations)
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(
@@ -117,6 +104,7 @@ class ReservationMovementViewModel @Inject constructor(
 
     fun submit() {
         val state = _uiState.value
+        if (state.isSaving) return
         val items = state.selectedQuantities
             .filterValues { it > 0 }
             .map { (itemId, quantity) -> ReservationMovementItemRequestDto(itemId, quantity) }
@@ -170,6 +158,29 @@ class ReservationMovementViewModel @Inject constructor(
             "mark_returned" -> item.remainingToMarkReturned
             else -> item.remainingToIssue
         }
+    }
+
+    private suspend fun applyReservation(reservation: ReservationDto, locations: List<LocationDto>) {
+        val permissions = tokenManager.permissions.first()
+        val activeUnitId = tokenManager.activeOrgUnitId.first()
+        val defaultQuantities = reservation.items
+            .mapNotNull { item ->
+                val max = maxQuantity(item, permissions, activeUnitId)
+                if (max > 0) item.itemId to max else null
+            }
+            .toMap()
+        _uiState.value = _uiState.value.copy(
+            isLoading = false,
+            reservation = reservation,
+            selectedQuantities = defaultQuantities,
+            locations = locations,
+            permissions = permissions,
+            activeUnitId = activeUnitId,
+            selectedLocationId = when (mode) {
+                "return" -> reservation.returnLocationId
+                else -> reservation.pickupLocationId
+            }
+        )
     }
 }
 

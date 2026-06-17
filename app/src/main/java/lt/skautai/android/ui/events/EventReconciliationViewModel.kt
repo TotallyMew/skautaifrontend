@@ -39,25 +39,32 @@ class EventReconciliationViewModel @Inject constructor(
 
     fun load(eventId: String) {
         viewModelScope.launch {
-            _uiState.value = EventReconciliationUiState.Loading
-            val event = eventRepository.getEvent(eventId).getOrElse {
-                _uiState.value = EventReconciliationUiState.Error(it.message ?: "Nepavyko gauti renginio.")
-                return@launch
-            }
+            val current = _uiState.value as? EventReconciliationUiState.Success
+            _uiState.value = current?.copy(isWorking = true, error = null) ?: EventReconciliationUiState.Loading
+            val event = eventRepository.getCachedEvent(eventId)
+                ?: eventRepository.getEvent(eventId).getOrElse {
+                    _uiState.value = EventReconciliationUiState.Error(it.message ?: "Nepavyko gauti renginio.")
+                    return@launch
+                }
             val reconciliation = eventRepository.getReconciliation(eventId).getOrElse {
                 _uiState.value = EventReconciliationUiState.Error(it.message ?: "Nepavyko gauti suvedimo.")
                 return@launch
             }
-            _uiState.value = EventReconciliationUiState.Success(event, reconciliation)
+            _uiState.value = EventReconciliationUiState.Success(
+                event = event,
+                reconciliation = reconciliation,
+                purchaseCandidates = current?.purchaseCandidates.orEmpty()
+            )
         }
     }
 
     fun complete(eventId: String) {
         val current = _uiState.value as? EventReconciliationUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.completeEvent(eventId)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshReconciliation(eventId) }
                 .onFailure {
                     _uiState.value = current.copy(
                         isWorking = false,
@@ -77,6 +84,7 @@ class EventReconciliationViewModel @Inject constructor(
         notes: String? = null
     ) {
         val current = _uiState.value as? EventReconciliationUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             val request = ReconcileEventReturnsRequestDto(
@@ -92,7 +100,7 @@ class EventReconciliationViewModel @Inject constructor(
                 )
             )
             eventRepository.reconcileReturns(eventId, request)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshReconciliation(eventId) }
                 .onFailure {
                     _uiState.value = current.copy(isWorking = false, error = it.message ?: "Nepavyko suvesti grąžinimo.")
                 }
@@ -107,6 +115,7 @@ class EventReconciliationViewModel @Inject constructor(
         existingItemId: String? = null
     ) {
         val current = _uiState.value as? EventReconciliationUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             val request = ReconcileEventPurchasesRequestDto(
@@ -120,7 +129,7 @@ class EventReconciliationViewModel @Inject constructor(
                 )
             )
             eventRepository.reconcilePurchases(eventId, request)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshReconciliation(eventId) }
                 .onFailure {
                     _uiState.value = current.copy(isWorking = false, error = it.message ?: "Nepavyko suvesti pirkimo.")
                 }
@@ -153,5 +162,22 @@ class EventReconciliationViewModel @Inject constructor(
     fun clearError() {
         val current = _uiState.value as? EventReconciliationUiState.Success ?: return
         _uiState.value = current.copy(error = null)
+    }
+
+    private suspend fun refreshReconciliation(eventId: String) {
+        val current = _uiState.value as? EventReconciliationUiState.Success ?: return
+        eventRepository.getReconciliation(eventId)
+            .onSuccess { reconciliation ->
+                val latestEvent = eventRepository.getCachedEvent(eventId) ?: current.event
+                _uiState.value = current.copy(
+                    event = latestEvent,
+                    reconciliation = reconciliation,
+                    isWorking = false,
+                    error = null
+                )
+            }
+            .onFailure {
+                _uiState.value = current.copy(isWorking = false, error = it.message ?: "Nepavyko atnaujinti suvedimo.")
+            }
     }
 }

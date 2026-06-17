@@ -221,7 +221,7 @@ class UnitDetailViewModel @Inject constructor(
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isSaving = false, showAssignMemberDialog = false,
                         selectedMemberId = "", selectedAssignmentType = "MEMBER")
-                    loadUnit(unitId)
+                    refreshUnitMembers(unitId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
@@ -241,7 +241,7 @@ class UnitDetailViewModel @Inject constructor(
                         clearActiveUnitIfNeeded(unitId)
                     }
                     _uiState.value = _uiState.value.copy(isSaving = false)
-                    loadUnit(unitId)
+                    refreshUnitMembers(unitId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
@@ -289,5 +289,25 @@ class UnitDetailViewModel @Inject constructor(
         if (tokenManager.activeOrgUnitId.first() == unitId) {
             tokenManager.setActiveOrgUnit(null)
         }
+    }
+
+    private suspend fun refreshUnitMembers(unitId: String) {
+        val members = orgUnitRepository.getUnitMembers(unitId).getOrNull()
+            ?: orgUnitRepository.getCachedUnitMembers(unitId)
+        val memberDetails = memberRepository.getCachedMembers().members.associateBy { it.userId }
+        val state = _uiState.value
+        val currentUserId = tokenManager.userId.first()
+        val currentMember = currentUserId?.let { memberRepository.getCachedMember(it) }
+        val hasCurrentUserAssignment = currentMember?.unitAssignments.orEmpty()
+            .any { it.organizationalUnitId == unitId }
+        val hasCurrentUserLeadership = currentMember?.leadershipRoles.orEmpty()
+            .any { it.termStatus == "ACTIVE" && it.organizationalUnitId == unitId }
+        _uiState.value = state.copy(
+            members = members,
+            memberDetails = if (memberDetails.isNotEmpty()) memberDetails else state.memberDetails,
+            canCurrentUserLeaveThisUnit = hasCurrentUserAssignment && !hasCurrentUserLeadership,
+            isSaving = false,
+            actionError = null
+        )
     }
 }

@@ -50,10 +50,16 @@ class RequisitionDetailViewModel @Inject constructor(
 
     fun loadRequest(id: String) {
         viewModelScope.launch {
-            _uiState.value = RequisitionDetailUiState.Loading
+            val cachedRequest = repository.getCachedRequest(id)
+            val cachedItems = itemRepository.getCachedItems(status = "ACTIVE")
+            if (cachedRequest != null) {
+                _uiState.value = RequisitionDetailUiState.Success(cachedRequest, inventoryItems = cachedItems)
+            } else {
+                _uiState.value = RequisitionDetailUiState.Loading
+            }
             repository.getRequest(id)
                 .onSuccess { request ->
-                    val items = itemRepository.getItems(status = "ACTIVE").getOrDefault(emptyList())
+                    val items = itemRepository.getItems(status = "ACTIVE").getOrDefault(cachedItems)
                     _uiState.value = RequisitionDetailUiState.Success(request, inventoryItems = items)
                 }
                 .onFailure {
@@ -76,10 +82,13 @@ class RequisitionDetailViewModel @Inject constructor(
 
     fun markPurchased(id: String) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        if (current.isActioning) return
         viewModelScope.launch {
             _uiState.value = current.copy(isActioning = true, error = null)
             repository.markPurchased(id)
-                .onSuccess { loadRequest(id) }
+                .onSuccess { updated ->
+                    _uiState.value = current.copy(request = updated, isActioning = false, error = null)
+                }
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
@@ -97,6 +106,7 @@ class RequisitionDetailViewModel @Inject constructor(
         notes: String?
     ) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        if (current.isActioning) return
         viewModelScope.launch {
             _uiState.value = current.copy(isActioning = true, error = null)
             repository.addToInventory(
@@ -112,7 +122,9 @@ class RequisitionDetailViewModel @Inject constructor(
                         )
                     )
                 )
-            ).onSuccess { loadRequest(id) }
+            ).onSuccess { updated ->
+                _uiState.value = current.copy(request = updated, isActioning = false, error = null)
+            }
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
@@ -124,10 +136,17 @@ class RequisitionDetailViewModel @Inject constructor(
 
     fun cancelRequest(id: String) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        if (current.isActioning) return
         viewModelScope.launch {
             _uiState.value = current.copy(isActioning = true, error = null)
             repository.cancelRequest(id)
-                .onSuccess { loadRequest(id) }
+                .onSuccess {
+                    _uiState.value = current.copy(
+                        request = current.request.copy(status = "CANCELLED", lastAction = "CANCELLED"),
+                        isActioning = false,
+                        error = null
+                    )
+                }
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
@@ -139,10 +158,13 @@ class RequisitionDetailViewModel @Inject constructor(
 
     private fun runUnitReview(id: String, action: String, reason: String?) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        if (current.isActioning) return
         viewModelScope.launch {
             _uiState.value = current.copy(isActioning = true, error = null)
             repository.unitReview(id, action, reason)
-                .onSuccess { loadRequest(id) }
+                .onSuccess { updated ->
+                    _uiState.value = current.copy(request = updated, isActioning = false, error = null)
+                }
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,
@@ -154,10 +176,13 @@ class RequisitionDetailViewModel @Inject constructor(
 
     private fun runTopLevelReview(id: String, action: String, reason: String?) {
         val current = _uiState.value as? RequisitionDetailUiState.Success ?: return
+        if (current.isActioning) return
         viewModelScope.launch {
             _uiState.value = current.copy(isActioning = true, error = null)
             repository.topLevelReview(id, action, reason)
-                .onSuccess { loadRequest(id) }
+                .onSuccess { updated ->
+                    _uiState.value = current.copy(request = updated, isActioning = false, error = null)
+                }
                 .onFailure {
                     _uiState.value = current.copy(
                         isActioning = false,

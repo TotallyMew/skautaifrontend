@@ -128,6 +128,11 @@ class RequisitionRepository @Inject constructor(
         return RequisitionListDto(cachedRequests, cachedRequests.size)
     }
 
+    suspend fun getCachedRequest(id: String): RequisitionDto? {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return null
+        return requisitionDao.getRequest(id, currentTuntasId)?.toDto()
+    }
+
     suspend fun getRequest(id: String): Result<RequisitionDto> {
         refreshRequest(id)
         val currentTuntasId = tokenManager.activeTuntasId.first()

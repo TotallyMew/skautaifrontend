@@ -48,7 +48,12 @@ class ReservationDetailViewModel @Inject constructor(
 
     fun loadReservation(id: String) {
         viewModelScope.launch {
-            _uiState.value = ReservationDetailUiState.Loading
+            val cached = reservationRepository.getCachedReservation(id)
+            _uiState.value = if (cached != null) {
+                ReservationDetailUiState.Success(cached)
+            } else {
+                ReservationDetailUiState.Loading
+            }
             reservationRepository.getReservation(id)
                 .onSuccess { reservation ->
                     _uiState.value = ReservationDetailUiState.Success(reservation)
@@ -63,11 +68,17 @@ class ReservationDetailViewModel @Inject constructor(
 
     fun cancelReservation(id: String) {
         val current = _uiState.value as? ReservationDetailUiState.Success ?: return
+        if (current.isCancelling) return
         viewModelScope.launch {
             _uiState.value = current.copy(isCancelling = true, error = null)
             reservationRepository.cancelReservation(id)
                 .onSuccess {
-                    loadReservation(id)
+                    _uiState.value = current.copy(
+                        reservation = current.reservation.copy(status = "CANCELLED"),
+                        isCancelling = false,
+                        actionSuccess = "Rezervacija atšaukta",
+                        error = null
+                    )
                 }
                 .onFailure { error ->
                     _uiState.value = current.copy(
@@ -92,13 +103,19 @@ class ReservationDetailViewModel @Inject constructor(
 
     fun updatePickupTime(id: String, pickupAt: String?, response: String? = null) {
         val current = _uiState.value as? ReservationDetailUiState.Success ?: return
+        if (current.isCancelling) return
         viewModelScope.launch {
-            _uiState.value = current.copy(error = null)
+            _uiState.value = current.copy(isCancelling = true, error = null)
             reservationRepository.updateReservationPickupTime(
                 id = id,
                 request = UpdateReservationPickupRequestDto(pickupAt = pickupAt, response = response)
-            ).onSuccess {
-                loadReservation(id)
+            ).onSuccess { updated ->
+                _uiState.value = current.copy(
+                    reservation = updated,
+                    isCancelling = false,
+                    actionSuccess = "Pickup time updated",
+                    error = null
+                )
             }.onFailure { error ->
                 _uiState.value = current.copy(
                     error = error.message ?: "Klaida atnaujinant atsiėmimo laiką"
@@ -109,13 +126,19 @@ class ReservationDetailViewModel @Inject constructor(
 
     fun updateReturnTime(id: String, returnAt: String?, response: String? = null) {
         val current = _uiState.value as? ReservationDetailUiState.Success ?: return
+        if (current.isCancelling) return
         viewModelScope.launch {
-            _uiState.value = current.copy(error = null)
+            _uiState.value = current.copy(isCancelling = true, error = null)
             reservationRepository.updateReservationReturnTime(
                 id = id,
                 request = UpdateReservationReturnTimeRequestDto(returnAt = returnAt, response = response)
-            ).onSuccess {
-                loadReservation(id)
+            ).onSuccess { updated ->
+                _uiState.value = current.copy(
+                    reservation = updated,
+                    isCancelling = false,
+                    actionSuccess = "Return time updated",
+                    error = null
+                )
             }.onFailure { error ->
                 _uiState.value = current.copy(
                     error = error.message ?: "Klaida atnaujinant grąžinimo laiką"
@@ -133,7 +156,14 @@ class ReservationDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(error = null)
             action(id, ReviewReservationRequestDto(status = status))
-                .onSuccess { loadReservation(id) }
+                .onSuccess { updated ->
+                    _uiState.value = current.copy(
+                        reservation = updated,
+                        isCancelling = false,
+                        actionSuccess = "Reservation updated",
+                        error = null
+                    )
+                }
                 .onFailure { error ->
                     _uiState.value = current.copy(
                         error = error.message ?: "Klaida tvirtinant rezervaciją"

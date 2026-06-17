@@ -105,6 +105,7 @@ class EventStaffViewModel @Inject constructor(
                     }
                     return@launch
                 }
+            applyCachedStaffData(eventId)
 
             val event = (_uiState.value as? EventStaffUiState.Success)?.event ?: return@launch
             val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members.orEmpty()
@@ -121,6 +122,7 @@ class EventStaffViewModel @Inject constructor(
 
     fun assignToSlot(eventId: String, slot: EventStaffSlotUiModel, userId: String) {
         val current = _uiState.value as? EventStaffUiState.Success ?: return
+        if (current.isWorking) return
         if (userId.isBlank()) {
             _uiState.value = current.copy(error = "Pasirinkite žmogų.")
             return
@@ -153,7 +155,7 @@ class EventStaffViewModel @Inject constructor(
                 else -> reassignRole(eventId, slot, userId)
             }
             result
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshStaffData(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventStaffUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko priskirti pareigos.")
@@ -164,6 +166,7 @@ class EventStaffViewModel @Inject constructor(
 
     fun assignAdditionalRole(eventId: String, userId: String, role: String) {
         val current = _uiState.value as? EventStaffUiState.Success ?: return
+        if (current.isWorking) return
         if (userId.isBlank()) {
             _uiState.value = current.copy(error = "Pasirinkite žmogų.")
             return
@@ -182,7 +185,7 @@ class EventStaffViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.assignEventRole(eventId, AssignEventRoleRequestDto(userId = userId, role = role))
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshStaffData(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventStaffUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pridėti štabo nario.")
@@ -193,10 +196,11 @@ class EventStaffViewModel @Inject constructor(
 
     fun removeRole(eventId: String, roleId: String) {
         val current = _uiState.value as? EventStaffUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.removeEventRole(eventId, roleId)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshStaffData(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventStaffUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti štabo nario.")
@@ -207,6 +211,7 @@ class EventStaffViewModel @Inject constructor(
 
     fun removeFromSlot(eventId: String, slot: EventStaffSlotUiModel) {
         val current = _uiState.value as? EventStaffUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             val result = when (slot.role) {
@@ -215,7 +220,7 @@ class EventStaffViewModel @Inject constructor(
                     ?: Result.failure(Exception("Pareiga nėra priskirta."))
             }
             result
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshStaffData(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventStaffUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pašalinti pareigos.")
@@ -276,6 +281,39 @@ class EventStaffViewModel @Inject constructor(
             currentUserId = currentUserId,
             isWorking = isWorking,
             error = error
+        )
+    }
+
+    private suspend fun applyCachedStaffData(eventId: String) {
+        val current = _uiState.value as? EventStaffUiState.Success ?: return
+        val cachedEvent = eventRepository.getCachedEvent(eventId) ?: current.event
+        val cachedPastovykles = eventRepository.getCachedPastovykles(eventId)?.pastovykles.orEmpty()
+        if (cachedEvent != current.event || cachedPastovykles.isNotEmpty()) {
+            _uiState.value = buildSuccessState(
+                event = cachedEvent,
+                members = current.members,
+                pastovykles = if (cachedPastovykles.isNotEmpty()) cachedPastovykles else current.pastovykles,
+                currentUserId = current.currentUserId,
+                isWorking = current.isWorking,
+                error = current.error
+            )
+        }
+    }
+
+    private suspend fun refreshStaffData(eventId: String) {
+        val current = _uiState.value as? EventStaffUiState.Success ?: return
+        applyCachedStaffData(eventId)
+        val event = eventRepository.getEvent(eventId).getOrNull()
+        val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members
+        val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles
+        val latest = _uiState.value as? EventStaffUiState.Success ?: current
+        _uiState.value = buildSuccessState(
+            event = event ?: latest.event,
+            members = members ?: latest.members,
+            pastovykles = pastovykles ?: latest.pastovykles,
+            currentUserId = latest.currentUserId,
+            isWorking = false,
+            error = null
         )
     }
 

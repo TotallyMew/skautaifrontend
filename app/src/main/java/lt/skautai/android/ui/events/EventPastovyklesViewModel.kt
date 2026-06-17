@@ -97,6 +97,7 @@ class EventPastovyklėsViewModel @Inject constructor(
         notes: String?
     ) {
         val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        if (current.isWorking) return
         val cleanName = name.trim()
         if (cleanName.isBlank()) {
             _uiState.value = current.copy(error = "Įveskite pastovyklės pavadinimą.")
@@ -174,7 +175,7 @@ class EventPastovyklėsViewModel @Inject constructor(
                         previousResponsibleUserId = previous?.responsibleUserId,
                         savedResponsibleUserId = saved.responsibleUserId
                     )
-                    load(eventId)
+                    refreshPastovyklesData(eventId)
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklesUiState.Success)?.let {
@@ -186,12 +187,13 @@ class EventPastovyklėsViewModel @Inject constructor(
 
     fun deletePastovykle(eventId: String, pastovykle: PastovykleDto) {
         val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.deletePastovykle(eventId, pastovykle.id)
                 .onSuccess {
                     removeLeaderRoleFor(eventId, pastovykle.responsibleUserId, excludingPastovykleId = pastovykle.id)
-                    load(eventId)
+                    refreshPastovyklesData(eventId)
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklesUiState.Success)?.let {
@@ -249,7 +251,7 @@ class EventPastovyklėsViewModel @Inject constructor(
             eventRepository.assignPastovykleLeader(eventId, pastovykleId, userId)
                 .onSuccess { role ->
                     updateCoLeaderRole(role.copy(pastovykleId = role.pastovykleId ?: pastovykleId))
-                    load(eventId)
+                    refreshPastovyklesData(eventId)
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklesUiState.Success)?.let {
@@ -261,12 +263,13 @@ class EventPastovyklėsViewModel @Inject constructor(
 
     fun removeCoLeader(eventId: String, pastovykleId: String, roleId: String) {
         val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.removePastovykleLeader(eventId, pastovykleId, roleId)
                 .onSuccess {
                     removeCoLeaderRole(roleId)
-                    load(eventId)
+                    refreshPastovyklesData(eventId)
                 }
                 .onFailure { error ->
                     (_uiState.value as? EventPastovyklesUiState.Success)?.let {
@@ -297,4 +300,33 @@ class EventPastovyklėsViewModel @Inject constructor(
             error = null
         )
     }
+
+    private suspend fun refreshPastovyklesData(eventId: String) {
+        val current = _uiState.value as? EventPastovyklesUiState.Success ?: return
+        val cachedEvent = eventRepository.getCachedEvent(eventId)
+        val cachedPastovykles = eventRepository.getCachedPastovykles(eventId)?.pastovykles.orEmpty()
+        if (cachedEvent != null || cachedPastovykles.isNotEmpty()) {
+            _uiState.value = current.copy(
+                event = cachedEvent ?: current.event,
+                pastovykles = if (cachedPastovykles.isNotEmpty()) {
+                    cachedPastovykles.sortedBy { it.name.lowercase() }
+                } else {
+                    current.pastovykles
+                }
+            )
+        }
+
+        val latest = _uiState.value as? EventPastovyklesUiState.Success ?: current
+        val event = eventRepository.getEvent(eventId).getOrNull()
+        val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles
+        val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members
+        _uiState.value = latest.copy(
+            event = event ?: latest.event,
+            pastovykles = (pastovykles ?: latest.pastovykles).sortedBy { it.name.lowercase() },
+            members = members ?: latest.members,
+            isWorking = false,
+            error = null
+        )
+    }
 }
+

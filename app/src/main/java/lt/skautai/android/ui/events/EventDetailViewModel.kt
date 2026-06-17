@@ -71,6 +71,15 @@ class EventDetailViewModel @Inject constructor(
             if (_uiState.value !is EventDetailUiState.Success) {
                 _uiState.value = EventDetailUiState.Loading
             }
+            val cachedEvent = eventRepository.getCachedEvent(id)
+            val cachedPastovykles = eventRepository.getCachedPastovykles(id)?.pastovykles.orEmpty()
+            if (cachedEvent != null) {
+                _uiState.value = EventDetailUiState.Success(
+                    event = cachedEvent,
+                    currentUserId = tokenManager.userId.first(),
+                    pastovykles = cachedPastovykles
+                )
+            }
             eventRepository.getEvent(id)
                 .onFailure { error ->
                     if (_uiState.value !is EventDetailUiState.Success) {

@@ -69,6 +69,18 @@ class EventMovementQrViewModel @Inject constructor(
                 return@launch
             }
 
+            val cachedPlan = eventRepository.getCachedInventoryPlan(eventId)
+            val cachedPastovykles = eventRepository.getCachedPastovykles(eventId)?.pastovykles.orEmpty()
+            val cachedCustody = eventRepository.getCachedInventoryCustody(eventId)?.custody.orEmpty()
+            if (current != null && (cachedPlan != null || cachedPastovykles.isNotEmpty() || cachedCustody.isNotEmpty())) {
+                _uiState.value = current.copy(
+                    inventoryPlan = cachedPlan ?: current.inventoryPlan,
+                    pastovykles = if (cachedPastovykles.isNotEmpty()) cachedPastovykles else current.pastovykles,
+                    custody = if (cachedCustody.isNotEmpty()) cachedCustody else current.custody,
+                    isWorking = false
+                )
+            }
+
             val inventoryPlanResult = eventRepository.getInventoryPlan(eventId)
             if (inventoryPlanResult.isFailure) {
                 _uiState.value = EventMovementQrUiState.Error(
@@ -126,11 +138,12 @@ class EventMovementQrViewModel @Inject constructor(
         onSuccess: () -> Unit
     ) {
         val current = _uiState.value as? EventMovementQrUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, message = null)
             eventRepository.createInventoryMovement(eventId, request)
                 .onSuccess {
-                    load(eventId)
+                    refreshMovementData(eventId)
                     onSuccess()
                 }
                 .onFailure { error ->
@@ -174,4 +187,22 @@ class EventMovementQrViewModel @Inject constructor(
         requestId = UUID.randomUUID().toString(),
         notes = notes
     )
+
+    private suspend fun refreshMovementData(eventId: String) {
+        val current = _uiState.value as? EventMovementQrUiState.Success ?: return
+        val cachedCustody = eventRepository.getCachedInventoryCustody(eventId)?.custody
+        if (cachedCustody != null) {
+            _uiState.value = current.copy(custody = cachedCustody)
+        }
+        val plan = eventRepository.getInventoryPlan(eventId).getOrNull()
+        val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody
+        (_uiState.value as? EventMovementQrUiState.Success)?.let {
+            _uiState.value = it.copy(
+                inventoryPlan = plan ?: it.inventoryPlan,
+                custody = custody ?: it.custody,
+                isWorking = false,
+                message = null
+            )
+        }
+    }
 }

@@ -53,14 +53,24 @@ class RequisitionCreateViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val cachedUnits = orgUnitRepository.getCachedUnits()
+            val cachedItems = itemRepository.getCachedItems(status = "ACTIVE")
+            if (cachedUnits.isNotEmpty() || cachedItems.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingUnits = false,
+                    orgUnits = cachedUnits,
+                    existingItems = cachedItems
+                )
+            }
             val unitsResult = orgUnitRepository.getUnits()
             val currentUserId = tokenManager.userId.first()
+            val cachedMember = currentUserId?.let { memberRepository.getCachedMember(it) }
             val currentMemberResult = currentUserId?.let { memberRepository.getMember(it) }
 
             unitsResult
                 .onSuccess { units ->
                     val ownUnits = currentUserId?.let { userId ->
-                        findOwnUnits(userId, currentMemberResult?.getOrNull(), units)
+                        findOwnUnits(userId, currentMemberResult?.getOrNull() ?: cachedMember, units)
                     }.orEmpty()
                     val selected = ownUnits.firstOrNull()
                     val currentMember = currentMemberResult?.getOrNull()
@@ -134,6 +144,7 @@ class RequisitionCreateViewModel @Inject constructor(
 
     fun createRequest() {
         val state = _uiState.value
+        if (state.isSaving) return
         if (state.requestType == "NEW_ITEM" && state.itemName.isBlank()) {
             _uiState.value = state.copy(error = "Įveskite norimo daikto pavadinimą")
             return
@@ -196,6 +207,8 @@ class RequisitionCreateViewModel @Inject constructor(
             .toSet()
 
         val ownUnitIds = leadershipUnitIds.toMutableSet()
+        currentMember?.unitAssignments
+            ?.mapTo(ownUnitIds) { it.organizationalUnitId }
         units.forEach { unit ->
             val isAssigned = orgUnitRepository.getUnitMembers(unit.id)
                 .getOrDefault(emptyList())

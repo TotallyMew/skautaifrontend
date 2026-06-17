@@ -120,6 +120,17 @@ class InventoryAddEditViewModel @Inject constructor(
                 canSubmitForApproval = canSubmitForApproval
             )
 
+            val cachedUnits = orgUnitRepository.getCachedUnits()
+            val cachedLocations = locationRepository.getCachedLocations()
+            val cachedMembers = memberRepository.getCachedMembers().members
+            if (cachedUnits.isNotEmpty() || cachedLocations.isNotEmpty() || cachedMembers.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    orgUnits = cachedUnits,
+                    locations = cachedLocations,
+                    members = cachedMembers
+                )
+            }
+
             orgUnitRepository.getUnits()
                 .onSuccess { units ->
                     _uiState.value = _uiState.value.copy(orgUnits = units)
@@ -136,6 +147,9 @@ class InventoryAddEditViewModel @Inject constructor(
                 }
 
             if (itemId != null) {
+                itemRepository.getCachedItem(itemId)?.let { item ->
+                    applyItemToState(item, isLoading = true)
+                }
                 itemRepository.getItem(itemId)
                     .onSuccess { item ->
                         _uiState.value = _uiState.value.copy(
@@ -473,6 +487,7 @@ class InventoryAddEditViewModel @Inject constructor(
 
     fun save(itemId: String?) {
         val state = _uiState.value
+        if (state.isSaving) return
 
         val nameError = if (state.name.isBlank()) "Pavadinimas yra privalomas." else null
         val quantityError = if (state.quantity.toIntOrNull() == null || state.quantity.toIntOrNull() ?: 0 < 1) {
@@ -623,6 +638,42 @@ class InventoryAddEditViewModel @Inject constructor(
                     }
             }
         }
+    }
+
+    private fun applyItemToState(item: ItemDto, isLoading: Boolean) {
+        _uiState.value = _uiState.value.copy(
+            isLoading = isLoading,
+            name = item.name,
+            description = item.description ?: "",
+            type = item.type,
+            category = item.category,
+            condition = item.condition,
+            custodianId = item.custodianId,
+            origin = item.origin,
+            quantity = item.quantity.toString(),
+            isConsumable = item.isConsumable,
+            minimumQuantity = item.minimumQuantity?.toString().orEmpty(),
+            notes = item.notes ?: "",
+            unitOfMeasure = item.unitOfMeasure,
+            tags = item.customFields.fieldValue("Å½ymos").orEmpty(),
+            statusReason = item.customFields.fieldValue("PrieÅ¾astis").orEmpty(),
+            purchaseDate = item.purchaseDate ?: "",
+            purchasePrice = item.purchasePrice?.toString() ?: "",
+            customFields = item.customFields.orEmpty()
+                .filterNot { field -> managedCustomFieldNames.any { it.equals(field.fieldName, ignoreCase = true) } }
+                .map {
+                    CustomFieldInput(
+                        fieldName = it.fieldName,
+                        fieldValue = it.fieldValue.orEmpty()
+                    )
+                },
+            photoUrl = item.photoUrl ?: "",
+            selectedPhotoUri = "",
+            temporaryStorageLabel = item.temporaryStorageLabel ?: "",
+            selectedOrgUnitId = item.custodianId ?: "",
+            selectedLocationId = item.locationId ?: "",
+            selectedResponsibleUserId = item.responsibleUserId ?: ""
+        )
     }
 
     private fun defaultTypeForMode(mode: String): String = when (mode) {

@@ -67,7 +67,19 @@ class ReservationCreateViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingItems = true, formError = null)
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first()
-            val locations = locationRepository.getLocations().getOrDefault(emptyList())
+            val cachedLocations = locationRepository.getCachedLocations()
+            val cachedItems = itemRepository.getCachedItems(status = "ACTIVE")
+            if (cachedItems.isNotEmpty() || cachedLocations.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingItems = false,
+                    activeOrgUnitId = activeOrgUnitId,
+                    locations = cachedLocations,
+                    items = cachedItems
+                        .filter { item -> item.custodianId == null || item.custodianId == activeOrgUnitId }
+                        .sortedBy { it.name.lowercase() }
+                )
+            }
+            val locations = locationRepository.getLocations().getOrDefault(cachedLocations)
             itemRepository.getItems(status = "ACTIVE")
                 .onSuccess { items ->
                     _uiState.value = _uiState.value.copy(
@@ -174,6 +186,7 @@ class ReservationCreateViewModel @Inject constructor(
 
     fun createReservation() {
         val state = _uiState.value
+        if (state.isSaving) return
         val titleError = if (state.title.isBlank()) "Įveskite rezervacijos pavadinimą." else null
         val startDateError = if (state.startDate.isBlank()) "Pasirinkite pradžios datą." else null
         val endDateError = if (state.endDate.isBlank()) "Pasirinkite pabaigos datą." else null

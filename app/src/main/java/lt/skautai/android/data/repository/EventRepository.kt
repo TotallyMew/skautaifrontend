@@ -715,6 +715,32 @@ class EventRepository @Inject constructor(
         return EventListDto(cachedEvents, cachedEvents.size)
     }
 
+    suspend fun getCachedEvent(eventId: String): EventDto? {
+        val currentTuntasId = tokenManager.activeTuntasId.first() ?: return null
+        return eventDao.getEvent(eventId, currentTuntasId)?.toDto()
+    }
+
+    suspend fun getCachedInventoryPlan(eventId: String): EventInventoryPlanDto? =
+        cachedInventoryPlan(eventId)
+
+    suspend fun getCachedPastovykles(eventId: String): PastovykleListDto? =
+        cachedPastovyklės(eventId)?.let { PastovykleListDto(it, it.size) }
+
+    suspend fun getCachedPurchases(eventId: String): EventPurchaseListDto? =
+        cachedPurchases(eventId)?.let { EventPurchaseListDto(it, it.size) }
+
+    suspend fun getCachedPastovykleInventory(eventId: String, pastovykleId: String): PastovykleInventoryListDto? =
+        cachedPastovykleInventory(eventId, pastovykleId)?.let { PastovykleInventoryListDto(it, it.size) }
+
+    suspend fun getCachedPastovykleRequests(eventId: String, pastovykleId: String): EventInventoryRequestListDto? =
+        cachedPastovykleRequests(eventId, pastovykleId)?.let { EventInventoryRequestListDto(it, it.size) }
+
+    suspend fun getCachedInventoryCustody(eventId: String): EventInventoryCustodyListDto? =
+        cachedInventoryCustody(eventId)?.let { EventInventoryCustodyListDto(it, it.size) }
+
+    suspend fun getCachedInventoryMovements(eventId: String): EventInventoryMovementListDto? =
+        cachedInventoryMovements(eventId)?.let { EventInventoryMovementListDto(it, it.size) }
+
     suspend fun getFreshEvents(type: String? = null, status: String? = null): Result<EventListDto> {
         refreshEvents(type, status)
         return getEvents(type, status)

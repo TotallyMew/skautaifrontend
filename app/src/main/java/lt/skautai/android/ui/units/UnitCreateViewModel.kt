@@ -47,6 +47,7 @@ class UnitCreateViewModel @Inject constructor(
 
     fun createUnit() {
         val state = _uiState.value
+        if (state.isSaving) return
         if (state.name.isBlank() || state.type.isBlank()) {
             _uiState.value = state.copy(error = "Pavadinimas ir tipas yra privalomi")
             return

@@ -29,6 +29,9 @@ class UnitEditViewModel @Inject constructor(
 
     fun loadUnit(unitId: String) {
         viewModelScope.launch {
+            orgUnitRepository.getCachedUnit(unitId)?.let { unit ->
+                _uiState.value = _uiState.value.copy(isLoading = false, name = unit.name)
+            }
             orgUnitRepository.getUnit(unitId)
                 .onSuccess { unit ->
                     _uiState.value = _uiState.value.copy(isLoading = false, name = unit.name)
@@ -46,6 +49,7 @@ class UnitEditViewModel @Inject constructor(
 
     fun saveUnit(unitId: String) {
         val state = _uiState.value
+        if (state.isSaving) return
         if (state.name.isBlank()) {
             _uiState.value = state.copy(error = "Pavadinimas negali būti tuščias")
             return

@@ -79,6 +79,7 @@ class EventPurchasesViewModel @Inject constructor(
                     }
                     return@launch
                 }
+            applyCachedPurchases(eventId)
             val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
             val finance = eventRepository.getEventFinance(eventId).getOrNull()
             val current = _uiState.value as? EventPurchasesUiState.Success ?: return@launch
@@ -88,6 +89,7 @@ class EventPurchasesViewModel @Inject constructor(
 
     fun completePurchase(eventId: String, purchaseId: String, totalAmount: Double?) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             if (totalAmount != null) {
@@ -105,7 +107,7 @@ class EventPurchasesViewModel @Inject constructor(
                 }
             }
             eventRepository.completePurchase(eventId, purchaseId)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshPurchases(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko uÅ¾baigti pirkimo.")
@@ -116,6 +118,7 @@ class EventPurchasesViewModel @Inject constructor(
 
     fun updatePurchaseAmount(eventId: String, purchaseId: String, totalAmount: Double?) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.updatePurchase(
@@ -123,7 +126,7 @@ class EventPurchasesViewModel @Inject constructor(
                 purchaseId,
                 UpdateEventPurchaseRequestDto(totalAmount = totalAmount)
             )
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshPurchases(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPurchasesUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko iÅ¡saugoti pirkimo sumos.")
@@ -134,6 +137,7 @@ class EventPurchasesViewModel @Inject constructor(
 
     fun attachInvoices(eventId: String, purchaseId: String, uris: List<Uri>) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (current.isWorking) return
         if (uris.isEmpty()) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
@@ -153,7 +157,7 @@ class EventPurchasesViewModel @Inject constructor(
                     return@launch
                 }
             }
-            load(eventId)
+            refreshPurchases(eventId)
         }
     }
 
@@ -173,6 +177,7 @@ class EventPurchasesViewModel @Inject constructor(
 
     fun updateBudget(eventId: String, amount: Double?) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.updateEventFinanceBudget(eventId, amount)
@@ -200,6 +205,7 @@ class EventPurchasesViewModel @Inject constructor(
         notes: String?
     ) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.createEventExtraCost(
@@ -229,6 +235,7 @@ class EventPurchasesViewModel @Inject constructor(
 
     fun deleteExtraCost(eventId: String, costId: String) {
         val current = _uiState.value as? EventPurchasesUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.deleteEventExtraCost(eventId, costId)
@@ -247,5 +254,27 @@ class EventPurchasesViewModel @Inject constructor(
 
     fun clearError() {
         (_uiState.value as? EventPurchasesUiState.Success)?.let { _uiState.value = it.copy(error = null) }
+    }
+
+    private suspend fun applyCachedPurchases(eventId: String) {
+        val cached = eventRepository.getCachedPurchases(eventId)?.purchases.orEmpty()
+        if (cached.isEmpty()) return
+        (_uiState.value as? EventPurchasesUiState.Success)?.let {
+            _uiState.value = it.copy(purchases = cached)
+        }
+    }
+
+    private suspend fun refreshPurchases(eventId: String) {
+        applyCachedPurchases(eventId)
+        val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases
+        val finance = eventRepository.getEventFinance(eventId).getOrNull()
+        (_uiState.value as? EventPurchasesUiState.Success)?.let {
+            _uiState.value = it.copy(
+                purchases = purchases ?: it.purchases,
+                finance = finance ?: it.finance,
+                isWorking = false,
+                error = null
+            )
+        }
     }
 }

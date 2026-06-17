@@ -48,6 +48,7 @@ class EventPackingViewModel @Inject constructor(
 
     fun generate(eventId: String) {
         val current = _uiState.value as? EventPackingUiState.Success
+        if (current?.isWorking == true) return
         viewModelScope.launch {
             if (current != null) {
                 _uiState.value = current.copy(isWorking = true, error = null)
@@ -69,6 +70,7 @@ class EventPackingViewModel @Inject constructor(
 
     fun updateLineStatus(eventId: String, lineId: String, status: String) {
         val current = _uiState.value as? EventPackingUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.updatePackingLine(
@@ -90,6 +92,7 @@ class EventPackingViewModel @Inject constructor(
 
     fun createContainer(eventId: String, name: String) {
         val current = _uiState.value as? EventPackingUiState.Success ?: return
+        if (current.isWorking) return
         if (name.isBlank()) {
             _uiState.value = current.copy(error = "Ivesk pakavimo vietos pavadinima.")
             return
@@ -119,6 +122,7 @@ class EventPackingViewModel @Inject constructor(
         notes: String?
     ) {
         val current = _uiState.value as? EventPackingUiState.Success ?: return
+        if (current.isWorking) return
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.updatePackingLine(

@@ -52,19 +52,29 @@ class NotificationsViewModel @Inject constructor(
 
     fun markRead(id: String, afterMarked: () -> Unit) {
         viewModelScope.launch {
+            val current = _uiState.value
+            _uiState.value = current.copy(
+                notifications = current.notifications.map {
+                    if (it.id == id) it.copy(readAt = it.readAt ?: "") else it
+                },
+                unreadCount = (current.unreadCount - current.notifications.count { it.id == id && it.readAt == null }).coerceAtLeast(0)
+            )
             notificationRepository.markRead(id)
-            refresh()
             afterMarked()
         }
     }
 
     fun markAllRead() {
+        if (_uiState.value.isSaving) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, error = null)
             notificationRepository.markAllRead()
                 .onSuccess {
-                    _uiState.value = _uiState.value.copy(isSaving = false)
-                    refresh()
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        notifications = _uiState.value.notifications.map { it.copy(readAt = it.readAt ?: "") },
+                        unreadCount = 0
+                    )
                 }
                 .onFailure { error ->
                     _uiState.value = _uiState.value.copy(

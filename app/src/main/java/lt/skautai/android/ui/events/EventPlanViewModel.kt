@@ -71,6 +71,11 @@ class EventPlanViewModel @Inject constructor(
             if (_uiState.value !is EventPlanUiState.Success) {
                 _uiState.value = EventPlanUiState.Loading
             }
+            eventRepository.getCachedInventoryPlan(eventId)?.let { cachedPlan ->
+                (_uiState.value as? EventPlanUiState.Success)?.let {
+                    _uiState.value = it.copy(inventoryPlan = cachedPlan)
+                }
+            }
             eventRepository.getEvent(eventId)
                 .onFailure { error ->
                     if (_uiState.value !is EventPlanUiState.Success) {
@@ -118,7 +123,7 @@ class EventPlanViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.applyInventoryTemplate(eventId, template)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshPlanAfterMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPlanUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko pritaikyti šablono.")
@@ -155,7 +160,7 @@ class EventPlanViewModel @Inject constructor(
                     notes = notes.ifBlank { null }
                 )
             )
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshPlanAfterMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPlanUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko atnaujinti plano.")
@@ -169,7 +174,7 @@ class EventPlanViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = current.copy(isWorking = true, error = null)
             eventRepository.deleteInventoryItem(eventId, inventoryItemId)
-                .onSuccess { load(eventId) }
+                .onSuccess { refreshPlanAfterMutation(eventId) }
                 .onFailure { error ->
                     (_uiState.value as? EventPlanUiState.Success)?.let {
                         _uiState.value = it.copy(isWorking = false, error = error.message ?: "Nepavyko ištrinti plano eilutės.")
@@ -180,5 +185,22 @@ class EventPlanViewModel @Inject constructor(
 
     fun clearError() {
         (_uiState.value as? EventPlanUiState.Success)?.let { _uiState.value = it.copy(error = null) }
+    }
+
+    private fun refreshPlanAfterMutation(eventId: String) {
+        viewModelScope.launch {
+            val cachedPlan = eventRepository.getCachedInventoryPlan(eventId)
+            (_uiState.value as? EventPlanUiState.Success)?.let {
+                _uiState.value = it.copy(
+                    inventoryPlan = cachedPlan ?: it.inventoryPlan,
+                    isWorking = false,
+                    error = null
+                )
+            }
+            val refreshedPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
+            (_uiState.value as? EventPlanUiState.Success)?.let {
+                _uiState.value = it.copy(inventoryPlan = refreshedPlan ?: it.inventoryPlan)
+            }
+        }
     }
 }

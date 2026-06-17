@@ -83,6 +83,11 @@ class EventNeedsViewModel @Inject constructor(
             if (_uiState.value !is EventNeedsUiState.Success) {
                 _uiState.value = EventNeedsUiState.Loading
             }
+            eventRepository.getCachedInventoryPlan(eventId)?.let { cachedPlan ->
+                (_uiState.value as? EventNeedsUiState.Success)?.let {
+                    _uiState.value = it.copy(inventoryPlan = cachedPlan)
+                }
+            }
             eventRepository.getEvent(eventId)
                 .onFailure { error ->
                     if (_uiState.value !is EventNeedsUiState.Success) {
@@ -111,6 +116,12 @@ class EventNeedsViewModel @Inject constructor(
         val current = _uiState.value as? EventNeedsUiState.Success ?: return
         if (current.items.isNotEmpty()) return
         viewModelScope.launch {
+            val cachedItems = itemRepository.getCachedItems(status = "ACTIVE")
+            if (cachedItems.isNotEmpty()) {
+                (_uiState.value as? EventNeedsUiState.Success)?.let {
+                    _uiState.value = it.copy(items = cachedItems)
+                }
+            }
             val items = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
             (_uiState.value as? EventNeedsUiState.Success)?.let {
                 _uiState.value = it.copy(items = items)
@@ -128,6 +139,7 @@ class EventNeedsViewModel @Inject constructor(
         notes: String
     ) {
         val current = _uiState.value as? EventNeedsUiState.Success ?: return
+        if (current.isWorking) return
         val quantity = quantityText.toIntOrNull()
         val selectedItem = current.items.firstOrNull { it.id == itemId }
         val finalName = name.ifBlank { selectedItem?.name.orEmpty() }
@@ -165,6 +177,7 @@ class EventNeedsViewModel @Inject constructor(
         notes: String
     ) {
         val current = _uiState.value as? EventNeedsUiState.Success ?: return
+        if (current.isWorking) return
         val selectedItems = selectedQuantities
             .filterValues { it > 0 }
             .mapNotNull { (itemId, quantity) ->
@@ -200,6 +213,7 @@ class EventNeedsViewModel @Inject constructor(
 
     fun createManualNeedsBulk(eventId: String, needs: List<ManualEventNeedInput>) {
         val current = _uiState.value as? EventNeedsUiState.Success ?: return
+        if (current.isWorking) return
         val validNeeds = needs
             .map { it.copy(name = it.name.trim(), notes = it.notes.trim()) }
             .filter { it.name.isNotBlank() && it.quantity > 0 }
@@ -238,14 +252,25 @@ class EventNeedsViewModel @Inject constructor(
     }
 
     private fun refreshAfterSuccessfulMutation(eventId: String) {
-        (_uiState.value as? EventNeedsUiState.Success)?.let {
-            _uiState.value = it.copy(isWorking = false, error = null)
+        viewModelScope.launch {
+            val cachedPlan = eventRepository.getCachedInventoryPlan(eventId)
+            (_uiState.value as? EventNeedsUiState.Success)?.let {
+                _uiState.value = it.copy(
+                    inventoryPlan = cachedPlan ?: it.inventoryPlan,
+                    isWorking = false,
+                    error = null
+                )
+            }
+            val refreshedPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
+            (_uiState.value as? EventNeedsUiState.Success)?.let {
+                _uiState.value = it.copy(inventoryPlan = refreshedPlan ?: it.inventoryPlan)
+            }
         }
-        load(eventId)
     }
 
     fun createPurchaseFromSelected(eventId: String, selectedInventoryItemIds: Set<String>) {
         val current = _uiState.value as? EventNeedsUiState.Success ?: return
+        if (current.isWorking) return
         val selected = current.inventoryPlan?.items.orEmpty()
             .filter { it.id in selectedInventoryItemIds && it.shortageQuantity > 0 }
         if (selected.isEmpty()) {

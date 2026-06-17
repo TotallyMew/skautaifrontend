@@ -49,13 +49,25 @@ class RequestCreateViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            val cachedUnits = orgUnitRepository.getCachedUnits()
+            val cachedSharedItems = itemRepository.getCachedItems(sharedOnly = true, status = "ACTIVE")
+            if (cachedUnits.isNotEmpty() || cachedSharedItems.isNotEmpty()) {
+                _uiState.value = _uiState.value.copy(
+                    isLoadingItems = false,
+                    orgUnits = cachedUnits,
+                    sharedItems = cachedSharedItems
+                        .filter { it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 }
+                        .sortedBy { it.name.lowercase() }
+                )
+            }
             val unitsResult = orgUnitRepository.getUnits()
             val sharedItemsResult = itemRepository.getItems(sharedOnly = true, status = "ACTIVE")
             val currentUserId = tokenManager.userId.first()
+            val cachedMember = currentUserId?.let { memberRepository.getCachedMember(it) }
             val currentMemberResult = currentUserId?.let { memberRepository.getMember(it) }
             val units = unitsResult.getOrDefault(emptyList())
             val ownUnit = currentUserId?.let { userId ->
-                findOwnUnit(userId, currentMemberResult?.getOrNull(), units)
+                findOwnUnit(userId, currentMemberResult?.getOrNull() ?: cachedMember, units)
             }
 
             _uiState.value = _uiState.value.copy(
@@ -139,6 +151,7 @@ class RequestCreateViewModel @Inject constructor(
 
     fun createRequest() {
         val state = _uiState.value
+        if (state.isSaving) return
 
         if (state.selectedOrgUnitId.isNullOrBlank()) {
             _uiState.value = state.copy(error = "Pasirink vienetą, kuriam kuriamas prašymas")
@@ -208,6 +221,13 @@ class RequestCreateViewModel @Inject constructor(
 
         if (leadershipUnitId != null) {
             return units.find { it.id == leadershipUnitId }
+        }
+
+        val assignedUnitId = currentMember?.unitAssignments
+            ?.firstOrNull()
+            ?.organizationalUnitId
+        if (assignedUnitId != null) {
+            return units.find { it.id == assignedUnitId }
         }
 
         units.forEach { unit ->

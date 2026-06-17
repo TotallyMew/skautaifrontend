@@ -192,7 +192,7 @@ class MemberDetailViewModel @Inject constructor(
                         showMoveMemberDialog = false,
                         selectedMoveUnitId = ""
                     )
-                    loadMember(userId)
+                    refreshMemberFromCache(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
@@ -271,7 +271,7 @@ class MemberDetailViewModel @Inject constructor(
                     refreshPermissionsIfCurrentUser(userId)
                     _uiState.value = _uiState.value.copy(isSaving = false, showAssignRoleDialog = false,
                         selectedRoleId = "", selectedUnitId = null)
-                    loadMember(userId)
+                    refreshMemberFromCache(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
@@ -287,7 +287,7 @@ class MemberDetailViewModel @Inject constructor(
                 .onSuccess {
                     refreshPermissionsIfCurrentUser(userId)
                     _uiState.value = _uiState.value.copy(isSaving = false)
-                    loadMember(userId)
+                    refreshMemberFromCache(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
@@ -314,7 +314,7 @@ class MemberDetailViewModel @Inject constructor(
                 refreshPermissionsIfCurrentUser(userId)
                 _uiState.value = _uiState.value.copy(isSaving = false)
                 hideEditRoleDialog()
-                loadMember(userId)
+                refreshMemberFromCache(userId)
             }.onFailure { e ->
                 _uiState.value = _uiState.value.copy(
                     isSaving = false,
@@ -331,7 +331,7 @@ class MemberDetailViewModel @Inject constructor(
                 .onSuccess {
                     refreshPermissions()
                     _uiState.value = _uiState.value.copy(isSaving = false)
-                    loadMember(userId)
+                    refreshMemberFromCache(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
@@ -405,7 +405,7 @@ class MemberDetailViewModel @Inject constructor(
                     refreshPermissions()
                     _uiState.value = _uiState.value.copy(isSaving = false)
                     hideTransferTuntininkasDialog()
-                    loadMember(currentUserId)
+                    refreshMemberFromCache(currentUserId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(
@@ -447,7 +447,7 @@ class MemberDetailViewModel @Inject constructor(
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isSaving = false, showAssignRankDialog = false,
                         selectedRankRoleId = "")
-                    loadMember(userId)
+                    refreshMemberFromCache(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
@@ -462,7 +462,7 @@ class MemberDetailViewModel @Inject constructor(
             memberRepository.removeRank(userId, rankId)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isSaving = false)
-                    loadMember(userId)
+                    refreshMemberFromCache(userId)
                 }
                 .onFailure { e ->
                     _uiState.value = _uiState.value.copy(isSaving = false,
@@ -484,5 +484,14 @@ class MemberDetailViewModel @Inject constructor(
 
     private suspend fun refreshPermissionsIfCurrentUser(userId: String) {
         if (tokenManager.userId.first() == userId) refreshPermissions()
+    }
+
+    private suspend fun refreshMemberFromCache(userId: String) {
+        val updated = memberRepository.getCachedMember(userId) ?: memberRepository.getMember(userId).getOrNull()
+        _uiState.value = _uiState.value.copy(
+            member = updated ?: _uiState.value.member,
+            isSaving = false,
+            actionError = null
+        )
     }
 }

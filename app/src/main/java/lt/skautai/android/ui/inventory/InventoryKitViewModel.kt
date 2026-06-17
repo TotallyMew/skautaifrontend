@@ -45,15 +45,29 @@ class InventoryKitViewModel @Inject constructor(
 
     fun refresh() {
         viewModelScope.launch {
-            _uiState.value = InventoryKitUiState.Loading
+            val existing = _uiState.value as? InventoryKitUiState.Success
+            if (existing == null) {
+                _uiState.value = InventoryKitUiState.Loading
+            }
             repository.getKits()
                 .onSuccess { list ->
                     val assignedItemIds = list.kits
                         .filter { it.status == "ACTIVE" }
                         .flatMap { kit -> kit.items.map { it.itemId } }
                         .toSet()
-                    val items = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty()
-                    val locations = locationRepository.getLocations().getOrNull().orEmpty()
+                    val cachedItems = itemRepository.getCachedItems(status = "ACTIVE")
+                    val cachedLocations = locationRepository.getCachedLocations()
+                    if (existing != null && (cachedItems.isNotEmpty() || cachedLocations.isNotEmpty())) {
+                        _uiState.value = existing.copy(
+                            kits = list.kits,
+                            selectedKit = existing.selectedKit?.let { selected -> list.kits.firstOrNull { it.id == selected.id } } ?: list.kits.firstOrNull(),
+                            availableItems = cachedItems.filter { item -> item.id !in assignedItemIds && item.kitId == null },
+                            locations = if (cachedLocations.isNotEmpty()) cachedLocations else existing.locations,
+                            isCreating = false
+                        )
+                    }
+                    val items = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty().ifEmpty { cachedItems }
+                    val locations = locationRepository.getLocations().getOrNull().orEmpty().ifEmpty { cachedLocations }
                     _uiState.value = InventoryKitUiState.Success(
                         kits = list.kits,
                         selectedKit = list.kits.firstOrNull(),
@@ -80,6 +94,7 @@ class InventoryKitViewModel @Inject constructor(
         selectedItems: Map<String, Int>
     ) {
         val current = _uiState.value as? InventoryKitUiState.Success ?: return
+        if (current.isCreating) return
         if (name.isBlank()) {
             _uiState.value = current.copy(actionError = "Įvesk komplekto pavadinimą")
             return

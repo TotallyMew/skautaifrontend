@@ -88,7 +88,7 @@ class HomeViewModel @Inject constructor(
     private fun observeLiveRefreshes() {
         viewModelScope.launch {
             liveRefreshBus.events.collect {
-                refresh(force = true)
+                refresh(force = false)
             }
         }
     }

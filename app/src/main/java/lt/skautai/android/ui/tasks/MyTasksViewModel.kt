@@ -77,10 +77,19 @@ class MyTasksViewModel @Inject constructor(
 
     private fun reviewLeadershipChange(requestId: String, action: String, successorUserId: String?) {
         val current = _uiState.value as? MyTasksUiState.Success ?: return
+        if (current.isSaving) return
         viewModelScope.launch {
             _uiState.value = current.copy(isSaving = true, actionError = null)
             memberRepository.reviewLeadershipChangeRequest(requestId, action, successorUserId)
-                .onSuccess { refresh() }
+                .onSuccess {
+                    val updatedRequests = current.leadershipChangeRequests.filterNot { it.id == requestId }
+                    _uiState.value = current.copy(
+                        leadershipChangeRequests = updatedRequests,
+                        isSaving = false,
+                        actionError = null
+                    )
+                    refresh()
+                }
                 .onFailure { error ->
                     _uiState.value = current.copy(
                         isSaving = false,

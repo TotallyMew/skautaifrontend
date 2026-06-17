@@ -194,8 +194,9 @@ class InventoryDetailViewModel @Inject constructor(
 
             _isUpdatingStatus.value = true
             itemRepository.updateItem(itemId, UpdateItemRequestDto(condition = condition))
-                .onSuccess {
-                    loadItem(itemId)
+                .onSuccess { item ->
+                    applyUpdatedItem(item)
+                    loadItemHistory(itemId)
                 }
                 .onFailure { error ->
                     _actionError.value = error.message ?: "Nepavyko pakeisti būklės"
@@ -232,7 +233,7 @@ class InventoryDetailViewModel @Inject constructor(
                 )
             ).onSuccess {
                 _shareMessage.value = "Daiktas perduotas vienetui."
-                loadItem(itemId)
+                refreshItemSnapshot(itemId)
             }.onFailure { error ->
                 _actionError.value = error.message ?: "Nepavyko perduoti daikto"
             }
@@ -252,7 +253,7 @@ class InventoryDetailViewModel @Inject constructor(
                 )
             ).onSuccess {
                 _shareMessage.value = "Daiktas grąžintas į bendrą inventorių."
-                loadItem(itemId)
+                refreshItemSnapshot(itemId)
             }.onFailure { error ->
                 _actionError.value = error.message ?: "Nepavyko grąžinti daikto"
             }
@@ -274,7 +275,7 @@ class InventoryDetailViewModel @Inject constructor(
                 )
             ).onSuccess {
                 _shareMessage.value = "Daiktas papildytas."
-                loadItem(itemId)
+                refreshItemSnapshot(itemId)
             }.onFailure { error ->
                 _actionError.value = error.message ?: "Nepavyko papildyti daikto"
             }
@@ -289,7 +290,7 @@ class InventoryDetailViewModel @Inject constructor(
             itemRepository.consumeItem(itemId, quantity, notes)
                 .onSuccess {
                     _shareMessage.value = "Kiekis sunaudotas."
-                    loadItem(itemId)
+                    refreshItemSnapshot(itemId)
                 }
                 .onFailure { error ->
                     _actionError.value = error.message ?: "Nepavyko sunaudoti kiekio"
@@ -418,6 +419,25 @@ class InventoryDetailViewModel @Inject constructor(
                 transfers = transfers ?: current.transfers
             )
         }
+    }
+
+    private suspend fun refreshItemSnapshot(itemId: String) {
+        val item = itemRepository.getCachedItem(itemId) ?: itemRepository.getItem(itemId).getOrNull()
+        if (item != null) applyUpdatedItem(item)
+        loadItemReservations(itemId)
+        loadItemHistory(itemId)
+    }
+
+    private fun applyUpdatedItem(item: ItemDto) {
+        val current = _uiState.value as? InventoryDetailUiState.Success
+        _uiState.value = InventoryDetailUiState.Success(
+            item = item,
+            reservations = current?.reservations.orEmpty(),
+            assignments = current?.assignments.orEmpty(),
+            conditionLog = current?.conditionLog.orEmpty(),
+            itemHistory = current?.itemHistory.orEmpty(),
+            transfers = current?.transfers.orEmpty()
+        )
     }
 
     fun onActionErrorShown() {

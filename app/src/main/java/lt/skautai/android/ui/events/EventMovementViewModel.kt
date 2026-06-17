@@ -88,12 +88,14 @@ class EventMovementViewModel @Inject constructor(
                     }
                     return@launch
                 }
+            applyCachedMovementSnapshot(eventId)
             refreshMovementSnapshot(eventId)
         }
     }
 
     fun createPastovykle(eventId: String, name: String, responsibleUserId: String?, notes: String) {
         val current = _uiState.value as? EventMovementUiState.Success ?: return
+        if (current.isWorking) return
         if (name.isBlank()) {
             _uiState.value = current.copy(error = "Įveskite pastovyklės pavadinimą.")
             return
@@ -124,6 +126,7 @@ class EventMovementViewModel @Inject constructor(
         notes: String
     ) {
         val current = _uiState.value as? EventMovementUiState.Success ?: return
+        if (current.isWorking) return
         val quantity = quantityText.toIntOrNull()
         if (eventInventoryItemId.isBlank() || quantity == null || quantity <= 0) {
             _uiState.value = current.copy(error = "Pasirinkite daiktą ir teigiamą kiekį.")
@@ -156,8 +159,25 @@ class EventMovementViewModel @Inject constructor(
     fun clearError() {
         (_uiState.value as? EventMovementUiState.Success)?.let { _uiState.value = it.copy(error = null) }
     }
+    private suspend fun applyCachedMovementSnapshot(eventId: String) {
+        val current = _uiState.value as? EventMovementUiState.Success ?: return
+        val inventoryPlan = eventRepository.getCachedInventoryPlan(eventId) ?: current.inventoryPlan
+        val pastovykles = eventRepository.getCachedPastovykles(eventId)?.pastovykles ?: current.pastovykles
+        val inventoryItems = itemRepository.getCachedItems(status = "ACTIVE").ifEmpty { current.inventoryItems }
+        val custody = eventRepository.getCachedInventoryCustody(eventId)?.custody ?: current.custody
+        val movements = eventRepository.getCachedInventoryMovements(eventId)?.movements ?: current.movements
+        _uiState.value = current.copy(
+            inventoryPlan = inventoryPlan,
+            pastovykles = pastovykles,
+            inventoryItems = inventoryItems,
+            custody = custody,
+            movements = movements
+        )
+    }
+
     private suspend fun refreshMovementSnapshot(eventId: String) {
         val current = _uiState.value as? EventMovementUiState.Success ?: return
+        applyCachedMovementSnapshot(eventId)
         val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull() ?: current.inventoryPlan
         val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles ?: current.pastovykles
         val members = eventRepository.getCandidateMembers(eventId).getOrNull()?.members ?: current.members

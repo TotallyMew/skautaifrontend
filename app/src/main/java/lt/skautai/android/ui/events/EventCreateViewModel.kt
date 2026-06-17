@@ -132,6 +132,7 @@ class EventCreateViewModel @Inject constructor(
 
     fun saveEvent() {
         val state = _uiState.value
+        if (state.isSaving) return
 
         if (state.name.isBlank()) {
             _uiState.value = state.copy(error = "Įveskite renginio pavadinimą.")
@@ -247,27 +248,35 @@ class EventCreateViewModel @Inject constructor(
 
             _uiState.value = _uiState.value.copy(isAudienceLoading = true)
 
+            val cachedUnits = organizationalUnitRepository.getCachedUnits()
+            val cachedMember = memberRepository.getCachedMember(currentUserId)
+            applyAudienceOptions(cachedMember, cachedUnits)
+
             val unitsDeferred = async { organizationalUnitRepository.getUnits() }
             val memberDeferred = async { memberRepository.getMember(currentUserId) }
 
             val units = unitsDeferred.await().getOrNull().orEmpty()
             val member = memberDeferred.await().getOrNull()
-            val options = buildAudienceOptions(member, units)
-
-            val selectedAudienceId = when {
-                _uiState.value.isEditMode -> _uiState.value.selectedAudienceId
-                options.any { it.organizationalUnitId == _uiState.value.selectedAudienceId } -> _uiState.value.selectedAudienceId
-                options.any { it.organizationalUnitId == null } -> null
-                else -> options.firstOrNull()?.organizationalUnitId
-            }
-
-            _uiState.value = _uiState.value.copy(
-                isAudienceLoading = false,
-                audienceOptions = options,
-                selectedAudienceId = selectedAudienceId,
-                selectedAudienceLabel = resolveAudienceLabel(selectedAudienceId, options)
-            )
+            applyAudienceOptions(member, units)
         }
+    }
+
+    private fun applyAudienceOptions(member: MemberDto?, units: List<OrganizationalUnitDto>) {
+        val options = buildAudienceOptions(member, units)
+        if (options.isEmpty() && units.isEmpty() && member == null) return
+        val selectedAudienceId = when {
+            _uiState.value.isEditMode -> _uiState.value.selectedAudienceId
+            options.any { it.organizationalUnitId == _uiState.value.selectedAudienceId } -> _uiState.value.selectedAudienceId
+            options.any { it.organizationalUnitId == null } -> null
+            else -> options.firstOrNull()?.organizationalUnitId
+        }
+
+        _uiState.value = _uiState.value.copy(
+            isAudienceLoading = false,
+            audienceOptions = options,
+            selectedAudienceId = selectedAudienceId,
+            selectedAudienceLabel = resolveAudienceLabel(selectedAudienceId, options)
+        )
     }
 
     private fun buildAudienceOptions(
@@ -312,15 +321,9 @@ class EventCreateViewModel @Inject constructor(
                     }
                 }
             }
-
         return options.distinctBy { it.organizationalUnitId }
     }
 
-    private fun resolveAudienceLabel(
-        organizationalUnitId: String?,
-        options: List<EventAudienceOption>
-    ): String {
-        return options.firstOrNull { it.organizationalUnitId == organizationalUnitId }?.label
-            ?: if (organizationalUnitId == null) "Bendras renginys" else "Pasirinktas vienetas"
-    }
+    private fun resolveAudienceLabel(value: String?, options: List<EventAudienceOption>): String =
+        options.firstOrNull { it.organizationalUnitId == value }?.label ?: "Bendras renginys"
 }

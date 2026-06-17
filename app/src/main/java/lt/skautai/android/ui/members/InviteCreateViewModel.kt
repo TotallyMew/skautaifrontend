@@ -63,10 +63,21 @@ class InviteCreateViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingRoles = true, error = null)
 
+            val cachedRoles = roleRepository.getCachedRoles()
+            val cachedUnits = orgUnitRepository.getCachedUnits()
+            if (cachedRoles.isNotEmpty() || cachedUnits.isNotEmpty()) {
+                allOrgUnits = cachedUnits
+                _uiState.value = _uiState.value.copy(
+                    roles = deduplicateDisplayRoles(cachedRoles),
+                    orgUnits = sortOrgUnits(filterOrgUnitsForRole(cachedUnits, null)),
+                    isLoadingRoles = cachedRoles.isEmpty()
+                )
+            }
             val rolesResult = roleRepository.getRoles()
             val orgUnitsResult = orgUnitRepository.getUnits()
             val currentUserId = tokenManager.userId.first()
             val permissions = tokenManager.permissions.first()
+            val cachedCurrentUser = currentUserId?.let { memberRepository.getCachedMember(it) }
             val currentUserResult = currentUserId?.let { memberRepository.getMember(it) }
 
             rolesResult.onSuccess { roles ->
@@ -77,8 +88,7 @@ class InviteCreateViewModel @Inject constructor(
                 val restrictedConfig = if (hasGlobalInviteScope) {
                     null
                 } else {
-                    currentUserResult
-                        ?.getOrNull()
+                    (currentUserResult?.getOrNull() ?: cachedCurrentUser)
                         ?.let { deriveRestrictedInviteConfig(it, units, roles, assignedUnitId) }
                 }
 
@@ -142,6 +152,7 @@ class InviteCreateViewModel @Inject constructor(
 
     fun createInvitation() {
         val state = _uiState.value
+        if (state.isSaving) return
         val selectedRole = state.roles.find { it.id == state.selectedRoleId }
 
         if (state.selectedRoleId.isBlank()) {

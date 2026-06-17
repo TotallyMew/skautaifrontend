@@ -15,6 +15,13 @@ class RoleRepository @Inject constructor(
     private val roleApiService: RoleApiService,
     private val tokenManager: TokenManager
 ) {
+    private var cachedTuntasId: String? = null
+    private var cachedRoles: List<RoleDto> = emptyList()
+
+    suspend fun getCachedRoles(): List<RoleDto> {
+        val tuntasId = tokenManager.activeTuntasId.first() ?: return emptyList()
+        return if (cachedTuntasId == tuntasId) cachedRoles else emptyList()
+    }
 
     suspend fun getRoles(): Result<List<RoleDto>> {
         return try {
@@ -27,12 +34,24 @@ class RoleRepository @Inject constructor(
                 tuntasId = tuntasId
             )
             if (response.isSuccessful) {
-                Result.success(response.body()!!.roles)
+                val roles = response.body()!!.roles
+                cachedTuntasId = tuntasId
+                cachedRoles = roles
+                Result.success(roles)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida gaunant roles")))
+                if (cachedTuntasId == tuntasId && cachedRoles.isNotEmpty()) {
+                    Result.success(cachedRoles)
+                } else {
+                    Result.failure(Exception(response.errorMessage("Klaida gaunant roles")))
+                }
             }
         } catch (e: Exception) {
-            Result.failure(e.userFacingException())
+            val tuntasId = tokenManager.activeTuntasId.first()
+            if (cachedTuntasId == tuntasId && cachedRoles.isNotEmpty()) {
+                Result.success(cachedRoles)
+            } else {
+                Result.failure(e.userFacingException())
+            }
         }
     }
 }
