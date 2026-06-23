@@ -9,6 +9,7 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.live.LiveEventService
 import lt.skautai.android.data.notifications.FcmTokenRegistrar
 import lt.skautai.android.data.repository.UserRepository
+import lt.skautai.android.data.repository.AuthRepository
 import lt.skautai.android.data.sync.PendingSyncScheduler
 import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
@@ -16,6 +17,7 @@ import javax.inject.Inject
 @HiltViewModel
 class MainViewModel @Inject constructor(
     private val tokenManager: TokenManager,
+    private val authRepository: AuthRepository,
     private val userRepository: UserRepository,
     private val pendingSyncScheduler: PendingSyncScheduler,
     private val liveEventService: LiveEventService,
@@ -55,7 +57,7 @@ class MainViewModel @Inject constructor(
     fun logout(onComplete: () -> Unit) {
         fcmTokenRegistrar.unregisterCurrentToken {
             viewModelScope.launch {
-                tokenManager.clearAll()
+                authRepository.logout()
                 onComplete()
             }
         }

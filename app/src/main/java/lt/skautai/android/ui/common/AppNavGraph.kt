@@ -28,6 +28,8 @@ import lt.skautai.android.MainViewModel
 import lt.skautai.android.ui.auth.LoginScreen
 import lt.skautai.android.ui.auth.RegisterInviteScreen
 import lt.skautai.android.ui.auth.RegisterScreen
+import lt.skautai.android.ui.auth.ForgotPasswordScreen
+import lt.skautai.android.ui.auth.ResetPasswordScreen
 import lt.skautai.android.ui.calendar.CalendarScreen
 import lt.skautai.android.ui.events.EventCreateScreen
 import lt.skautai.android.ui.events.EventDetailScreen
@@ -93,10 +95,21 @@ fun AppNavGraph(
     navController: NavHostController,
     tokenManager: TokenManager,
     startDestination: String = NavRoutes.Login.route,
-    notificationRoute: String? = null
+    notificationRoute: String? = null,
+    passwordResetToken: String? = null,
+    onPasswordResetTokenConsumed: () -> Unit = {}
 ) {
     val mainViewModel: MainViewModel = hiltViewModel()
     val permissions by tokenManager.permissions.collectAsState(initial = emptySet())
+
+    LaunchedEffect(passwordResetToken) {
+        passwordResetToken?.takeIf(String::isNotBlank)?.let { token ->
+            navController.navigate(NavRoutes.ResetPassword.createRoute(token)) {
+                launchSingleTop = true
+            }
+            onPasswordResetTokenConsumed()
+        }
+    }
 
     val onLogout = {
         mainViewModel.logout {
@@ -130,6 +143,23 @@ fun AppNavGraph(
         }
         composable(NavRoutes.RegisterInvite.route) {
             RegisterInviteScreen(navController)
+        }
+        composable(NavRoutes.ForgotPassword.route) {
+            ForgotPasswordScreen(navController)
+        }
+        composable(
+            route = NavRoutes.ResetPassword.route,
+            arguments = listOf(
+                navArgument("token") {
+                    type = NavType.StringType
+                    defaultValue = ""
+                }
+            )
+        ) { backStackEntry ->
+            ResetPasswordScreen(
+                token = backStackEntry.arguments?.getString("token").orEmpty(),
+                navController = navController
+            )
         }
 
         composable(NavRoutes.SuperAdminDashboard.route) {

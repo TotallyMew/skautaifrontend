@@ -13,6 +13,7 @@ import lt.skautai.android.data.notifications.FcmTokenRegistrar
 import lt.skautai.android.data.remote.InvitationResponseDto
 import lt.skautai.android.data.remote.UserTuntasDto
 import lt.skautai.android.data.repository.InvitationRepository
+import lt.skautai.android.data.repository.AuthRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
 
@@ -34,6 +35,7 @@ sealed interface TuntasSelectUiState {
 @HiltViewModel
 class TuntasSelectViewModel @Inject constructor(
     private val userRepository: UserRepository,
+    private val authRepository: AuthRepository,
     private val invitationRepository: InvitationRepository,
     private val tokenManager: TokenManager,
     private val fcmTokenRegistrar: FcmTokenRegistrar
@@ -171,7 +173,7 @@ class TuntasSelectViewModel @Inject constructor(
     fun logout() {
         fcmTokenRegistrar.unregisterCurrentToken {
             viewModelScope.launch {
-                tokenManager.clearAll()
+                authRepository.logout()
                 _navigateLogin.value = true
             }
         }

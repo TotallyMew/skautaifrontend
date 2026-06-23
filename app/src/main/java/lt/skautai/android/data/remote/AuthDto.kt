@@ -38,6 +38,15 @@ data class RefreshTokenRequestDto(
     val refreshToken: String
 )
 
+data class ForgotPasswordRequestDto(
+    val email: String
+)
+
+data class ResetPasswordRequestDto(
+    val token: String,
+    val newPassword: String
+)
+
 data class ErrorResponseDto(
     val error: String
 )

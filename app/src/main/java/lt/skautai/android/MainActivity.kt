@@ -3,6 +3,7 @@ package lt.skautai.android
 import android.Manifest
 import android.os.Bundle
 import android.os.Build
+import android.content.Intent
 import android.content.pm.PackageManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
@@ -12,7 +13,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -29,6 +32,7 @@ import kotlinx.coroutines.flow.first
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+    private var passwordResetToken by mutableStateOf<String?>(null)
     private val requestNotificationPermission = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) {}
@@ -43,6 +47,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         askNotificationPermission()
+        passwordResetToken = passwordResetToken(intent)
 
         val notificationRoute = notificationRoute(intent)
 
@@ -140,11 +145,19 @@ class MainActivity : ComponentActivity() {
                         navController = navController,
                         tokenManager = tokenManager,
                         startDestination = startDestination!!,
-                        notificationRoute = notificationRoute
+                        notificationRoute = notificationRoute,
+                        passwordResetToken = passwordResetToken,
+                        onPasswordResetTokenConsumed = { passwordResetToken = null }
                     )
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        passwordResetToken = passwordResetToken(intent)
     }
 
     private fun askNotificationPermission() {
@@ -163,6 +176,11 @@ class MainActivity : ComponentActivity() {
                     else -> null
                 }
             }
+
+    private fun passwordResetToken(intent: Intent?): String? =
+        intent?.data
+            ?.takeIf { it.scheme == "skautai" && it.host == "reset-password" }
+            ?.getQueryParameter("token")
 
     private companion object {
         const val EXTRA_NOTIFICATION_ROUTE = "notification_route"

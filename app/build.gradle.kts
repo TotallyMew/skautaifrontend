@@ -7,6 +7,8 @@ plugins {
     alias(libs.plugins.hilt)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
+    alias(libs.plugins.room)
 
 }
 
@@ -90,6 +92,10 @@ android {
     }
 }
 
+room {
+    schemaDirectory("$projectDir/schemas")
+}
+
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)
@@ -133,6 +139,7 @@ dependencies {
     implementation(libs.zxing.embedded)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.crashlytics)
 
     // Testing
     testImplementation(libs.junit)

@@ -5,6 +5,8 @@ import lt.skautai.android.util.userFacingException
 import lt.skautai.android.data.remote.AuthApiService
 import lt.skautai.android.data.remote.LoginRequestDto
 import lt.skautai.android.data.remote.RefreshTokenRequestDto
+import lt.skautai.android.data.remote.ForgotPasswordRequestDto
+import lt.skautai.android.data.remote.ResetPasswordRequestDto
 import lt.skautai.android.data.remote.RegisterTuntininkasRequestDto
 import lt.skautai.android.data.remote.RegisterWithInviteRequestDto
 import lt.skautai.android.data.remote.TokenResponseDto
@@ -142,7 +144,16 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun logout() {
-        tokenManager.clearAll()
+        val refreshToken = tokenManager.refreshToken.first()
+        try {
+            if (!refreshToken.isNullOrBlank()) {
+                authApiService.logout(RefreshTokenRequestDto(refreshToken))
+            }
+        } catch (_: Exception) {
+            // Local logout must still succeed when the device is offline.
+        } finally {
+            tokenManager.clearAll()
+        }
     }
 
     suspend fun refreshSession(refreshToken: String): Result<TokenResponseDto> {
@@ -158,6 +169,30 @@ class AuthRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
+    }
+
+    suspend fun requestPasswordReset(email: String): Result<String> = try {
+        val response = authApiService.forgotPassword(ForgotPasswordRequestDto(email.trim()))
+        if (response.isSuccessful) {
+            Result.success(response.body()?.message ?: "Patikrinkite savo el. paštą.")
+        } else {
+            Result.failure(Exception(response.errorMessage("Prašymo išsiųsti nepavyko")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun resetPassword(token: String, newPassword: String): Result<String> = try {
+        val response = authApiService.resetPassword(
+            ResetPasswordRequestDto(token = token, newPassword = newPassword)
+        )
+        if (response.isSuccessful) {
+            Result.success(response.body()?.message ?: "Slaptažodis pakeistas.")
+        } else {
+            Result.failure(Exception(response.errorMessage("Slaptažodžio pakeisti nepavyko")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
     }
 
     fun getToken() = tokenManager.token

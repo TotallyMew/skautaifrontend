@@ -16,6 +16,10 @@ sealed class NavRoutes(val route: String) {
     object Login : NavRoutes("login")
     object Register : NavRoutes("register")
     object RegisterInvite : NavRoutes("register_invite")
+    object ForgotPassword : NavRoutes("forgot_password")
+    object ResetPassword : NavRoutes("reset_password?token={token}") {
+        fun createRoute(token: String) = "reset_password?${queryParam("token", token)}"
+    }
     object Home : NavRoutes("home")
     object MyTasks : NavRoutes("my_tasks")
     object Notifications : NavRoutes("notifications")

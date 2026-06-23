@@ -37,7 +37,7 @@ import lt.skautai.android.data.local.entity.ReservationEntity
         CacheMetadataEntity::class
     ],
     version = 18,
-    exportSchema = false
+    exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun itemDao(): ItemDao

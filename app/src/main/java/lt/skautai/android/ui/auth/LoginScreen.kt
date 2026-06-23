@@ -165,6 +165,13 @@ fun LoginScreen(
                         errorText = uiState.passwordError
                     )
 
+                    TextButton(
+                        onClick = { navController.navigate(NavRoutes.ForgotPassword.route) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Pamiršote slaptažodį?")
+                    }
+
                     Button(
                         onClick = viewModel::login,
                         enabled = !uiState.isLoading,
