@@ -50,6 +50,14 @@ class ItemRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository,
     private val refreshCoordinator: RefreshCoordinator
 ) {
+    data class ItemPage(
+        val items: List<ItemDto>,
+        val total: Int,
+        val limit: Int,
+        val offset: Int,
+        val hasMore: Boolean
+    )
+
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeItems(
         custodianId: String? = null,
@@ -100,30 +108,64 @@ class ItemRepository @Inject constructor(
             } else {
                 null
             }
-            val response = itemApiService.getItems(
-                token = "Bearer $token",
-                tuntasId = tuntasId,
-                custodianId = custodianId,
-                type = type,
-                category = category,
-                status = status,
-                sharedOnly = sharedOnly,
-                createdByUserId = createdByUserId,
-                updatedAfter = updatedAfter
-            )
-            if (response.isSuccessful) {
-                val items = response.body()?.items.orEmpty().map { it.withSafeCollections() }
-                if (updatedAfter == null) {
-                    itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
+            val items = if (updatedAfter == null) {
+                val allItems = mutableListOf<ItemDto>()
+                var offset = 0
+                var total = Int.MAX_VALUE
+                while (offset < total) {
+                    val response = itemApiService.getItems(
+                        token = "Bearer $token",
+                        tuntasId = tuntasId,
+                        custodianId = custodianId,
+                        type = type,
+                        category = category,
+                        status = status,
+                        sharedOnly = sharedOnly,
+                        createdByUserId = createdByUserId,
+                        updatedAfter = null,
+                        searchQuery = null,
+                        limit = ITEM_REFRESH_PAGE_SIZE,
+                        offset = offset
+                    )
+                    if (!response.isSuccessful) {
+                        val error = response.errorMessage("Klaida gaunant inventoriu")
+                        refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = error)
+                        return Result.failure(Exception(error))
+                    }
+                    val page = response.body()
+                    val pageItems = page?.items.orEmpty().map { it.withSafeCollections() }
+                    allItems += pageItems
+                    total = page?.total ?: allItems.size
+                    offset += pageItems.size
+                    if (pageItems.isEmpty() || page?.hasMore == false) break
                 }
-                itemDao.upsertAll(items.toItemEntities())
-                refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = true)
-                Result.success(Unit)
+                allItems
             } else {
-                val error = response.errorMessage("Klaida gaunant inventoriu")
-                refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = error)
-                Result.failure(Exception(error))
+                val response = itemApiService.getItems(
+                    token = "Bearer $token",
+                    tuntasId = tuntasId,
+                    custodianId = custodianId,
+                    type = type,
+                    category = category,
+                    status = status,
+                    sharedOnly = sharedOnly,
+                    createdByUserId = createdByUserId,
+                    updatedAfter = updatedAfter,
+                    searchQuery = null
+                )
+                if (!response.isSuccessful) {
+                    val error = response.errorMessage("Klaida gaunant inventoriu")
+                    refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = error)
+                    return Result.failure(Exception(error))
+                }
+                response.body()?.items.orEmpty().map { it.withSafeCollections() }
             }
+            if (updatedAfter == null) {
+                itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
+            }
+            itemDao.upsertAll(items.toItemEntities())
+            refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = true)
+            Result.success(Unit)
         } catch (e: Exception) {
             refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = e.message)
             Result.failure(e.userFacingException())
@@ -755,6 +797,59 @@ class ItemRepository @Inject constructor(
         Result.failure(e.userFacingException())
     }
 
+    suspend fun refreshItemsPage(
+        custodianId: String? = null,
+        status: String? = "ACTIVE",
+        type: String? = null,
+        category: String? = null,
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null,
+        searchQuery: String? = null,
+        limit: Int,
+        offset: Int,
+        replaceCache: Boolean = false
+    ): Result<ItemPage> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getItems(
+            token = "Bearer $token",
+            tuntasId = tuntasId,
+            custodianId = custodianId,
+            type = type,
+            category = category,
+            status = status,
+            sharedOnly = sharedOnly,
+            createdByUserId = createdByUserId,
+            updatedAfter = null,
+            searchQuery = searchQuery,
+            limit = limit,
+            offset = offset
+        )
+        if (response.isSuccessful) {
+            val body = response.body()
+            val items = body?.items.orEmpty().map { it.withSafeCollections() }
+            if (replaceCache) {
+                itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
+            }
+            itemDao.upsertAll(items.toItemEntities())
+            Result.success(
+                ItemPage(
+                    items = items,
+                    total = body?.total ?: items.size,
+                    limit = body?.limit ?: limit,
+                    offset = body?.offset ?: offset,
+                    hasMore = body?.hasMore ?: false
+                )
+            )
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant inventoriu")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
     suspend fun consumeItem(
         itemId: String,
         quantity: Int,
@@ -893,6 +988,7 @@ class ItemRepository @Inject constructor(
     companion object {
         private const val ITEMS_RESOURCE = "items"
         private const val ITEM_RESOURCE = "item"
+        private const val ITEM_REFRESH_PAGE_SIZE = 200
         private const val DEFAULT_UNIT_OF_MEASURE = "vnt."
     }
 }

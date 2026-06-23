@@ -11,7 +11,9 @@ interface ReservationApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Query("itemId") itemId: String? = null,
         @Query("status") status: String? = null,
-        @Query("updatedAfter") updatedAfter: String? = null
+        @Query("updatedAfter") updatedAfter: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
     ): Response<ReservationListDto>
 
     @GET("api/reservations/availability")

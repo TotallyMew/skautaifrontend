@@ -39,6 +39,7 @@ import lt.skautai.android.data.remote.CreateEventInventoryBucketRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryItemsBulkRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryTransferRequestDto
 import lt.skautai.android.data.remote.CreateEventPackingContainerRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.CreateEventInventoryRequestRequestDto
@@ -65,6 +66,8 @@ import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.EventInventoryItemListDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryMovementListDto
+import lt.skautai.android.data.remote.EventInventoryTransferRequestDto
+import lt.skautai.android.data.remote.EventInventoryTransferRequestListDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
 import lt.skautai.android.data.remote.EventPackingListDto
@@ -87,6 +90,7 @@ import lt.skautai.android.data.remote.PastovykleMemberDto
 import lt.skautai.android.data.remote.PastovykleMemberListDto
 import lt.skautai.android.data.remote.ReconcileEventPurchasesRequestDto
 import lt.skautai.android.data.remote.ReconcileEventReturnsRequestDto
+import lt.skautai.android.data.remote.RespondEventInventoryTransferRequestDto
 import lt.skautai.android.data.remote.FulfillPastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.MarkPastovykleInventoryRequestSelfProvidedRequestDto
 import lt.skautai.android.data.remote.UpdateEventRequestDto
@@ -178,23 +182,50 @@ class EventRepository @Inject constructor(
             } else {
                 null
             }
-            val response = eventApiService.getEvents("Bearer ${token()}", currentTuntasId, type, status, updatedAfter)
-            if (response.isSuccessful) {
-                val events = response.body()?.events.orEmpty()
-                if (updatedAfter == null) {
-                    eventDao.deleteForQuery(currentTuntasId, type, status)
-                }
-                eventDao.upsertAll(events.toEventEntities())
-                refreshCoordinator.recordAttempt(EVENTS_RESOURCE, queryKey, success = true)
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception(response.errorMessage("Nepavyko gauti renginių.")))
+            val events = fetchEventPages(currentTuntasId, type, status, updatedAfter)
+                .getOrElse { return Result.failure(it) }
+            if (updatedAfter == null) {
+                eventDao.deleteForQuery(currentTuntasId, type, status)
             }
+            eventDao.upsertAll(events.toEventEntities())
+            refreshCoordinator.recordAttempt(EVENTS_RESOURCE, queryKey, success = true)
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
     }
 
+    private suspend fun fetchEventPages(
+        tuntasId: String,
+        type: String?,
+        status: String?,
+        updatedAfter: String?
+    ): Result<List<EventDto>> {
+        val authToken = "Bearer ${token()}"
+        val events = mutableListOf<EventDto>()
+        var offset = 0
+        var hasMore: Boolean
+        do {
+            val response = eventApiService.getEvents(
+                token = authToken,
+                tuntasId = tuntasId,
+                type = type,
+                status = status,
+                updatedAfter = updatedAfter,
+                limit = EVENT_REFRESH_PAGE_SIZE,
+                offset = offset
+            )
+            if (!response.isSuccessful) {
+                return Result.failure(Exception(response.errorMessage("Failed to fetch events.")))
+            }
+            val page = response.body()
+            val pageEvents = page?.events.orEmpty()
+            events += pageEvents
+            hasMore = page?.hasMore == true && pageEvents.isNotEmpty() && events.size < page.total
+            offset += pageEvents.size
+        } while (hasMore)
+        return Result.success(events)
+    }
     suspend fun refreshEvent(id: String): Result<Unit> {
         if (id.startsWith("local-")) return Result.success(Unit)
         return try {
@@ -974,14 +1005,9 @@ class EventRepository @Inject constructor(
 
     suspend fun getPurchases(eventId: String): Result<EventPurchaseListDto> {
         return try {
-            val response = eventApiService.getPurchases("Bearer ${token()}", tuntasId(), eventId)
-            if (response.isSuccessful) {
-                val purchases = response.body()?.purchases.orEmpty()
-                cachePurchases(eventId, purchases)
-                Result.success(EventPurchaseListDto(purchases, purchases.size))
-            } else {
-                Result.failure(Exception(response.errorMessage("Klaida")))
-            }
+            val purchases = fetchPurchasePages(eventId).getOrElse { return Result.failure(it) }
+            cachePurchases(eventId, purchases)
+            Result.success(EventPurchaseListDto(purchases, purchases.size))
         } catch (e: IOException) {
             cachedPurchases(eventId)?.let { Result.success(EventPurchaseListDto(it, it.size)) }
                 ?: Result.failure(e.userFacingException())
@@ -990,6 +1016,31 @@ class EventRepository @Inject constructor(
         }
     }
 
+    private suspend fun fetchPurchasePages(eventId: String): Result<List<EventPurchaseDto>> {
+        val authToken = "Bearer ${token()}"
+        val currentTuntasId = tuntasId()
+        val purchases = mutableListOf<EventPurchaseDto>()
+        var offset = 0
+        var hasMore: Boolean
+        do {
+            val response = eventApiService.getPurchases(
+                token = authToken,
+                tuntasId = currentTuntasId,
+                id = eventId,
+                limit = EVENT_REFRESH_PAGE_SIZE,
+                offset = offset
+            )
+            if (!response.isSuccessful) {
+                return Result.failure(Exception(response.errorMessage("Failed to fetch purchases.")))
+            }
+            val page = response.body()
+            val pagePurchases = page?.purchases.orEmpty()
+            purchases += pagePurchases
+            hasMore = page?.hasMore == true && pagePurchases.isNotEmpty() && purchases.size < page.total
+            offset += pagePurchases.size
+        } while (hasMore)
+        return Result.success(purchases)
+    }
     suspend fun createPurchase(eventId: String, request: CreateEventPurchaseRequestDto): Result<EventPurchaseDto> {
         return try {
             val response = eventApiService.createPurchase("Bearer ${token()}", tuntasId(), eventId, request)
@@ -1686,6 +1737,7 @@ class EventRepository @Inject constructor(
                 requestedByUserId = tokenManager.userId.first().orEmpty(),
                 requestedByName = null,
                 quantity = request.quantity,
+                provider = request.provider,
                 status = "PENDING",
                 notes = request.notes,
                 createdAt = Instant.now().toString(),
@@ -1699,6 +1751,46 @@ class EventRepository @Inject constructor(
             upsertCachedPastovykleRequest(eventId, pastovykleId, row)
             pendingOperationRepository.enqueue(currentTuntasId, PendingEntityType.EVENT, row.id, PendingOperationType.EVENT_CREATE_PASTOVYKLE_REQUEST, EventPastovykleRequestCreatePayload(eventId, pastovykleId, request))
             Result.success(row)
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getInventoryReadiness(eventId: String): Result<lt.skautai.android.data.remote.EventInventoryReadinessDto> {
+        return try {
+            val response = eventApiService.getInventoryReadiness("Bearer ${token()}", tuntasId(), eventId)
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant renginio pasirengimo suvestine")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun updatePastovykleRequest(
+        eventId: String,
+        pastovykleId: String,
+        requestId: String,
+        request: lt.skautai.android.data.remote.UpdateEventInventoryRequestRequestDto
+    ): Result<EventInventoryRequestDto> {
+        return try {
+            val response = eventApiService.updatePastovykleRequest(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                pastovykleId,
+                requestId,
+                request
+            )
+            if (response.isSuccessful) {
+                val updated = response.body()!!
+                upsertCachedPastovykleRequest(eventId, pastovykleId, updated)
+                Result.success(updated)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida atnaujinant pastovykles poreiki")))
+            }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
@@ -1905,6 +1997,69 @@ class EventRepository @Inject constructor(
         } catch (e: IOException) {
             cachedInventoryMovements(eventId)?.let { Result.success(EventInventoryMovementListDto(it, it.size)) }
                 ?: Result.failure(e.userFacingException())
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun getInventoryTransferRequests(
+        eventId: String
+    ): Result<EventInventoryTransferRequestListDto> {
+        return try {
+            val response = eventApiService.getInventoryTransferRequests(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body() ?: EventInventoryTransferRequestListDto(emptyList(), 0))
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti perdavimo prašymų.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun createInventoryTransferRequest(
+        eventId: String,
+        request: CreateEventInventoryTransferRequestDto
+    ): Result<EventInventoryTransferRequestDto> {
+        return try {
+            val response = eventApiService.createInventoryTransferRequest(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                request
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko pateikti perdavimo prašymo.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun respondToInventoryTransferRequest(
+        eventId: String,
+        requestId: String,
+        approve: Boolean
+    ): Result<EventInventoryTransferRequestDto> {
+        return try {
+            val response = eventApiService.respondToInventoryTransferRequest(
+                "Bearer ${token()}",
+                tuntasId(),
+                eventId,
+                requestId,
+                RespondEventInventoryTransferRequestDto(approve)
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko atsakyti į perdavimo prašymą.")))
+            }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
@@ -2342,5 +2497,6 @@ class EventRepository @Inject constructor(
     companion object {
         private const val EVENTS_RESOURCE = "events"
         private const val EVENT_RESOURCE = "event"
+        private const val EVENT_REFRESH_PAGE_SIZE = 200
     }
 }

@@ -209,7 +209,11 @@ fun UnitDetailScreen(
                                 membership = membership,
                                 member = uiState.memberDetails[membership.userId],
                                 canManageMembers = canManageMembers,
-                                onOpen = { onMemberClick(membership.userId) },
+                                canManageCandidateVisibility = false,
+                                onCandidateVisibilityChange = {},
+                                onOpen = {
+                                    if (!membership.isIdentityHidden) onMemberClick(membership.userId)
+                                },
                                 onRemove = { memberPendingRemoval = membership },
                                 isRemoving = uiState.isSaving
                             )
@@ -233,10 +237,51 @@ fun UnitDetailScreen(
                                 membership = membership,
                                 member = uiState.memberDetails[membership.userId],
                                 canManageMembers = canManageMembers,
-                                onOpen = { onMemberClick(membership.userId) },
+                                canManageCandidateVisibility =
+                                    uiState.canCurrentUserManageThisUnit &&
+                                        unit.type in setOf("VYR_SKAUTU_VIENETAS", "VYR_SKAUCIU_VIENETAS") &&
+                                        uiState.memberDetails[membership.userId]
+                                            ?.ranks
+                                            ?.any { it.roleName == "Vyr. skautas kandidatas" } == true,
+                                onCandidateVisibilityChange = { visible ->
+                                    viewModel.updateCandidateVisibility(unitId, membership.userId, visible)
+                                },
+                                onOpen = {
+                                    if (!membership.isIdentityHidden) onMemberClick(membership.userId)
+                                },
                                 onRemove = { memberPendingRemoval = membership },
                                 isRemoving = uiState.isSaving
                             )
+                        }
+                    }
+                    if (
+                        uiState.canCurrentUserManageThisUnit &&
+                        unit.type in setOf("VYR_SKAUTU_VIENETAS", "VYR_SKAUCIU_VIENETAS")
+                    ) {
+                        item {
+                            SkautaiSectionHeader(
+                                title = "Privatumo prieigų žurnalas",
+                                subtitle = "Kas peržiūrėjo vieneto narių sąrašą"
+                            )
+                        }
+                        if (uiState.privacyAudit.isEmpty()) {
+                            item { EmptyMembersCard("Prieigų dar neužfiksuota") }
+                        } else {
+                            items(uiState.privacyAudit, key = { "audit-${it.id}" }) { entry ->
+                                SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+                                    Column(
+                                        modifier = Modifier.padding(14.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(entry.actorUserName, fontWeight = FontWeight.SemiBold)
+                                        Text(
+                                            if (entry.accessMode == "INTERNAL") "Vidinė prieiga" else "Vieša prieiga",
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(entry.createdAt.take(16).replace('T', ' '))
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -379,13 +424,15 @@ private fun UnitMemberCard(
     membership: UnitMembershipDto,
     member: MemberDto?,
     canManageMembers: Boolean,
+    canManageCandidateVisibility: Boolean,
+    onCandidateVisibilityChange: (Boolean) -> Unit,
     onOpen: () -> Unit,
     onRemove: () -> Unit,
     isRemoving: Boolean
 ) {
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
-        onClick = onOpen,
+        onClick = if (membership.isIdentityHidden) null else onOpen,
         tonal = MaterialTheme.colorScheme.surfaceContainerLow
     ) {
         Row(
@@ -422,6 +469,24 @@ private fun UnitMemberCard(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                if (canManageCandidateVisibility) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Matomas tunto nariams",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Switch(
+                            checked = membership.isPubliclyVisible,
+                            onCheckedChange = onCandidateVisibilityChange,
+                            enabled = !isRemoving
+                        )
+                    }
+                }
             }
             if (canManageMembers) {
                 IconButton(onClick = onRemove, enabled = !isRemoving) {

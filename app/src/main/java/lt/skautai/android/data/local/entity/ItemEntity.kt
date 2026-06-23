@@ -1,9 +1,26 @@
 package lt.skautai.android.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "items")
+@Entity(
+    tableName = "items",
+    indices = [
+        Index(
+            value = ["tuntasId", "status", "type", "category", "custodianId"],
+            name = "index_items_list_filters"
+        ),
+        Index(
+            value = ["tuntasId", "createdByUserId", "status"],
+            name = "index_items_created_by"
+        ),
+        Index(
+            value = ["tuntasId", "custodianId", "type"],
+            name = "index_items_shared_query"
+        )
+    ]
+)
 data class ItemEntity(
     @PrimaryKey val id: String,
     val qrToken: String,

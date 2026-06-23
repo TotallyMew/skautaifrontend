@@ -3,6 +3,9 @@ package lt.skautai.android.util
 import lt.skautai.android.data.remote.CreateEventInventoryItemRequestDto
 import lt.skautai.android.data.remote.CreateItemRequestDto
 import lt.skautai.android.data.remote.EventInventoryItemDto
+import lt.skautai.android.data.remote.EventInventoryReadinessDto
+import lt.skautai.android.data.remote.EventInventoryRequestDto
+import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.ItemCustomFieldDto
 import lt.skautai.android.data.remote.ItemDto
 import java.io.ByteArrayInputStream
@@ -188,6 +191,70 @@ object InventoryCsv {
             )
         }
         return toCsv(listOf(eventHeaders + listOf("availableQuantity", "shortageQuantity", "responsibleUserName")) + rows)
+    }
+
+    fun exportEventCompletion(
+        items: List<EventInventoryItemDto>,
+        requests: List<EventInventoryRequestDto>,
+        purchases: List<EventPurchaseDto>,
+        readiness: EventInventoryReadinessDto?
+    ): String {
+        val rows = mutableListOf<List<String>>()
+        rows += listOf("RENGINIO UZDARYMO SUVESTINE")
+        rows += listOf(
+            "Pasirengimas",
+            "${readiness?.readinessPercent ?: 0}%",
+            "Atviras kiekis",
+            (readiness?.openQuantity ?: 0).toString(),
+            "Veluojancios eilutes",
+            (readiness?.overdueCount ?: 0).toString()
+        )
+        rows.add(emptyList())
+        rows += listOf("INVENTORIAUS PLANAS")
+        rows += listOf("Daiktas", "Planuota", "Turima", "Truksta", "Atsakingas")
+        rows.addAll(items.map {
+            listOf(
+                it.name,
+                it.plannedQuantity.toString(),
+                it.availableQuantity.toString(),
+                it.shortageQuantity.toString(),
+                it.responsibleUserName.orEmpty()
+            )
+        })
+        rows.add(emptyList())
+        rows += listOf("PASTOVYKLIU PRASYMAI")
+        rows += listOf("Daiktas", "Kiekis", "Tiekejas", "Busena", "Atsakingas", "Terminas", "Pastovyklė")
+        rows.addAll(requests.map {
+            listOf(
+                it.itemName,
+                it.quantity.toString(),
+                it.provider,
+                it.status,
+                it.responsibleUserName.orEmpty(),
+                it.dueAt.orEmpty(),
+                it.pastovykleName
+            )
+        })
+        rows.add(emptyList())
+        rows += listOf("PIRKIMAI")
+        rows += listOf("Busena", "Suma", "Eiluciu skaicius")
+        rows.addAll(purchases.map {
+            listOf(it.status, it.totalAmount?.toString().orEmpty(), it.items.size.toString())
+        })
+        readiness?.conflicts?.takeIf { it.isNotEmpty() }?.let { conflicts ->
+            rows.add(emptyList())
+            rows += listOf("KONFLIKTAI")
+            rows += listOf("Daiktas", "Reikia", "Turima", "Persidengiantys renginiai")
+            rows.addAll(conflicts.map {
+                listOf(
+                    it.itemName,
+                    it.requestedQuantity.toString(),
+                    it.availableQuantity.toString(),
+                    it.overlappingEvents.joinToString()
+                )
+            })
+        }
+        return toCsv(rows)
     }
 
     fun parseTextTable(text: String): List<List<String>> = parse(text)

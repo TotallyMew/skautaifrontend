@@ -35,7 +35,10 @@ data class EventDto(
 
 data class EventListDto(
     @SerializedName("events") val events: List<EventDto>,
-    @SerializedName("total") val total: Int
+    @SerializedName("total") val total: Int,
+    @SerializedName("limit") val limit: Int? = null,
+    @SerializedName("offset") val offset: Int = 0,
+    @SerializedName("hasMore") val hasMore: Boolean = false
 )
 
 data class CreateEventRequestDto(
@@ -398,7 +401,10 @@ data class EventPurchaseDto(
 
 data class EventPurchaseListDto(
     @SerializedName("purchases") val purchases: List<EventPurchaseDto>,
-    @SerializedName("total") val total: Int
+    @SerializedName("total") val total: Int,
+    @SerializedName("limit") val limit: Int? = null,
+    @SerializedName("offset") val offset: Int = 0,
+    @SerializedName("hasMore") val hasMore: Boolean = false
 )
 
 data class CreateEventPurchaseItemRequestDto(
@@ -627,7 +633,22 @@ data class EventInventoryRequestDto(
     @SerializedName("reviewedByUserName") val reviewedByUserName: String?,
     @SerializedName("fulfilledAt") val fulfilledAt: String?,
     @SerializedName("resolvedByUserId") val resolvedByUserId: String?,
-    @SerializedName("resolvedByUserName") val resolvedByUserName: String?
+    @SerializedName("resolvedByUserName") val resolvedByUserName: String?,
+    @SerializedName("provider") val provider: String = "UKVEDYS",
+    @SerializedName("dueAt") val dueAt: String? = null,
+    @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
+    @SerializedName("responsibleUserName") val responsibleUserName: String? = null,
+    @SerializedName("providerHistory") val providerHistory: List<EventInventoryRequestProviderHistoryDto> = emptyList()
+)
+
+data class EventInventoryRequestProviderHistoryDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("fromProvider") val fromProvider: String?,
+    @SerializedName("toProvider") val toProvider: String,
+    @SerializedName("changedByUserId") val changedByUserId: String,
+    @SerializedName("changedByUserName") val changedByUserName: String?,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("createdAt") val createdAt: String
 )
 
 data class EventInventoryRequestListDto(
@@ -638,7 +659,37 @@ data class EventInventoryRequestListDto(
 data class CreatePastovykleInventoryRequestRequestDto(
     @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
     @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null,
+    @SerializedName("provider") val provider: String = "UKVEDYS",
+    @SerializedName("dueAt") val dueAt: String? = null,
+    @SerializedName("responsibleUserId") val responsibleUserId: String? = null
+)
+
+data class UpdateEventInventoryRequestRequestDto(
+    @SerializedName("provider") val provider: String? = null,
+    @SerializedName("dueAt") val dueAt: String? = null,
+    @SerializedName("clearDueAt") val clearDueAt: Boolean = false,
+    @SerializedName("responsibleUserId") val responsibleUserId: String? = null,
+    @SerializedName("clearResponsibleUserId") val clearResponsibleUserId: Boolean = false,
     @SerializedName("notes") val notes: String? = null
+)
+
+data class EventInventoryConflictDto(
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("availableQuantity") val availableQuantity: Int,
+    @SerializedName("requestedQuantity") val requestedQuantity: Int,
+    @SerializedName("overlappingEvents") val overlappingEvents: List<String>
+)
+
+data class EventInventoryReadinessDto(
+    @SerializedName("readinessPercent") val readinessPercent: Int,
+    @SerializedName("totalQuantity") val totalQuantity: Int,
+    @SerializedName("completedQuantity") val completedQuantity: Int,
+    @SerializedName("openQuantity") val openQuantity: Int,
+    @SerializedName("overdueCount") val overdueCount: Int,
+    @SerializedName("unassignedCount") val unassignedCount: Int,
+    @SerializedName("conflicts") val conflicts: List<EventInventoryConflictDto>
 )
 
 data class CreateEventInventoryRequestRequestDto(
@@ -711,6 +762,41 @@ data class EventInventoryCustodyListDto(
 data class EventInventoryMovementListDto(
     @SerializedName("movements") val movements: List<EventInventoryMovementDto>,
     @SerializedName("total") val total: Int
+)
+
+data class EventInventoryTransferRequestDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("eventId") val eventId: String,
+    @SerializedName("sourceCustodyId") val sourceCustodyId: String,
+    @SerializedName("eventInventoryItemId") val eventInventoryItemId: String,
+    @SerializedName("itemName") val itemName: String,
+    @SerializedName("requestedByUserId") val requestedByUserId: String,
+    @SerializedName("requestedByUserName") val requestedByUserName: String?,
+    @SerializedName("requestedFromUserId") val requestedFromUserId: String,
+    @SerializedName("requestedFromUserName") val requestedFromUserName: String?,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("status") val status: String,
+    @SerializedName("notes") val notes: String?,
+    @SerializedName("createdAt") val createdAt: String,
+    @SerializedName("respondedAt") val respondedAt: String?,
+    @SerializedName("respondedByUserId") val respondedByUserId: String?,
+    @SerializedName("movementId") val movementId: String?
+)
+
+data class EventInventoryTransferRequestListDto(
+    @SerializedName("requests") val requests: List<EventInventoryTransferRequestDto>,
+    @SerializedName("total") val total: Int
+)
+
+data class CreateEventInventoryTransferRequestDto(
+    @SerializedName("sourceCustodyId") val sourceCustodyId: String,
+    @SerializedName("quantity") val quantity: Int,
+    @SerializedName("notes") val notes: String? = null
+)
+
+data class RespondEventInventoryTransferRequestDto(
+    @SerializedName("approve") val approve: Boolean,
+    @SerializedName("notes") val notes: String? = null
 )
 
 data class CreateEventInventoryMovementRequestDto(

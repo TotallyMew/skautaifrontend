@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
@@ -67,6 +68,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -137,6 +139,8 @@ private enum class InventoryCatalogViewMode {
     Gallery
 }
 
+private const val INVENTORY_LOAD_MORE_PREFETCH_DISTANCE = 4
+
 private val KnownInventoryCategories = listOf(
     "CAMPING",
     "TOOLS",
@@ -170,6 +174,8 @@ fun InventoryListScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val isLoadingMore by viewModel.isLoadingMore.collectAsStateWithLifecycle()
+    val hasMoreItems by viewModel.hasMoreItems.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val selectionMode by viewModel.selectionMode.collectAsStateWithLifecycle()
@@ -357,6 +363,8 @@ fun InventoryListScreen(
                 canExportCsv = canExportCsv,
                 canImportCsv = canImportCsv,
                 canGenerateQrPdf = canGenerateQrPdf,
+                isLoadingMore = isLoadingMore,
+                hasMoreItems = hasMoreItems,
                 selectionMode = selectionMode,
                 selectionPurpose = selectionPurpose,
                 selectedItemIds = selectedItemIds,
@@ -376,6 +384,7 @@ fun InventoryListScreen(
                 },
                 onStartQrSelection = viewModel::enterSelectionMode,
                 onStartBulkSelection = viewModel::enterBulkSelectionMode,
+                onLoadMore = viewModel::loadNextPage,
                 viewModel = viewModel,
                 navController = navController
             )
@@ -830,6 +839,8 @@ private fun InventoryBody(
     canExportCsv: Boolean,
     canImportCsv: Boolean,
     canGenerateQrPdf: Boolean,
+    isLoadingMore: Boolean,
+    hasMoreItems: Boolean,
     selectionMode: Boolean,
     selectionPurpose: InventorySelectionPurpose?,
     selectedItemIds: Set<String>,
@@ -837,6 +848,7 @@ private fun InventoryBody(
     onImportCsv: () -> Unit,
     onStartQrSelection: () -> Unit,
     onStartBulkSelection: () -> Unit,
+    onLoadMore: () -> Unit,
     viewModel: InventoryListViewModel,
     navController: NavController
 ) {
@@ -933,12 +945,15 @@ private fun InventoryBody(
                 canExportCsv = canExportCsv,
                 canImportCsv = canImportCsv,
                 canGenerateQrPdf = canGenerateQrPdf,
+                isLoadingMore = isLoadingMore,
+                hasMoreItems = hasMoreItems,
                 selectionMode = selectionMode,
                 selectionPurpose = selectionPurpose,
                 selectedItemIds = selectedItemIds,
                 onExportCsv = onExportCsv,
                 onImportCsv = onImportCsv,
                 onStartQrSelection = onStartQrSelection,
+                onLoadMore = onLoadMore,
                 onStartAudit = {
                     navController.navigate(
                         NavRoutes.InventoryAudit.createRoute(
@@ -993,12 +1008,15 @@ private fun InventoryCatalogContent(
     canExportCsv: Boolean,
     canImportCsv: Boolean,
     canGenerateQrPdf: Boolean,
+    isLoadingMore: Boolean,
+    hasMoreItems: Boolean,
     selectionMode: Boolean,
     selectionPurpose: InventorySelectionPurpose?,
     selectedItemIds: Set<String>,
     onExportCsv: () -> Unit,
     onImportCsv: () -> Unit,
     onStartQrSelection: () -> Unit,
+    onLoadMore: () -> Unit,
     onStartAudit: () -> Unit,
     onOpenAuditHistory: () -> Unit,
     onStartBulkSelection: () -> Unit,
@@ -1050,8 +1068,27 @@ private fun InventoryCatalogContent(
     val hasBulkEditableItems = filteredItems.any(canBulkManage)
     val canShowTools = canExportCsv || canImportCsv || canGenerateQrPdf || hasBulkEditableItems || allItems.isNotEmpty()
     val hasPrintableItems = filteredItems.any { it.toPrintableQrItemOrNull() != null }
+    val listState = rememberLazyListState()
+    val shouldLoadMore by remember(listState, hasMoreItems, isLoadingMore) {
+        derivedStateOf {
+            if (!hasMoreItems || isLoadingMore) {
+                false
+            } else {
+                val layoutInfo = listState.layoutInfo
+                val lastVisibleIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                lastVisibleIndex >= layoutInfo.totalItemsCount - INVENTORY_LOAD_MORE_PREFETCH_DISTANCE
+            }
+        }
+    }
+
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            onLoadMore()
+        }
+    }
 
     LazyColumn(
+        state = listState,
         verticalArrangement = Arrangement.spacedBy(0.dp),
         contentPadding = PaddingValues(bottom = 140.dp)
     ) {
@@ -1346,6 +1383,18 @@ private fun InventoryCatalogContent(
                             }
                         }
                     }
+                }
+            }
+        }
+        if (hasMoreItems) {
+            item(key = "load_more_inventory") {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 18.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.size(28.dp))
                 }
             }
         }

@@ -152,24 +152,44 @@ fun PastovykleLeaderScreen(
                                 item {
                                     EventDetailMetricRow(
                                         metrics = listOf(
+                                            "Pasirengta" to "${state.readiness?.readinessPercent ?: 0}%",
                                             "Paskirta" to allocations.sumOf { it.quantity }.toString(),
-                                            "Inventorius" to inventory.sumOf { it.quantityAssigned - it.quantityReturned }.toString(),
-                                            "Poreikiai" to requests.size.toString()
+                                            "Vėluoja" to (state.readiness?.overdueCount ?: 0).toString()
                                         )
                                     )
+                                }
+                                state.readiness?.conflicts?.takeIf { it.isNotEmpty() }?.let { conflicts ->
+                                    item {
+                                        EventDetailSection(
+                                            title = "Inventoriaus konfliktai",
+                                            subtitle = "Tas pats fizinis inventorius suplanuotas persidengiantiems renginiams."
+                                        ) {
+                                            conflicts.forEach { conflict ->
+                                                CompactInventoryRow(
+                                                    title = conflict.itemName,
+                                                    subtitle = conflict.overlappingEvents.joinToString(),
+                                                    trailing = "${conflict.requestedQuantity}/${conflict.availableQuantity}"
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                                 item {
                                     RequestNeedCard(
                                         items = sharedItems,
+                                        members = state.candidateMembers,
                                         isWorking = state.isWorking || readOnly,
-                                        onCreateRequest = { itemId, customName, quantity, notes ->
+                                        onCreateRequest = { itemId, customName, quantity, notes, provider, dueAt, responsibleUserId ->
                                             viewModel.createPastovykleRequest(
                                                 eventId = eventId,
                                                 pastovykleId = selectedPastovykle.id,
                                                 itemId = itemId,
                                                 customName = customName,
                                                 quantityText = quantity,
-                                                notes = notes
+                                                notes = notes,
+                                                provider = provider,
+                                                dueAt = dueAt,
+                                                responsibleUserId = responsibleUserId
                                             )
                                         }
                                     )
@@ -224,8 +244,50 @@ fun PastovykleLeaderScreen(
                                 }
                                 item {
                                     PastovykleRequestsCard(
-                                        requests = requests,
+                                        title = "Vienetas parūpins",
+                                        subtitle = "Daiktai, už kuriuos atsakingas pats vienetas.",
+                                        requests = requests.filter { it.provider == "UNIT" },
+                                        members = state.candidateMembers,
                                         isWorking = state.isWorking || readOnly,
+                                        emptyText = "Vienetui priskirtų poreikių nėra.",
+                                        actionText = "Pažymėti parūpinta",
+                                        onSwitchProvider = { requestId ->
+                                            viewModel.switchRequestProvider(eventId, selectedPastovykle.id, requestId, "UKVEDYS")
+                                        },
+                                        onUpdate = { requestId, provider, dueDate, responsibleUserId, notes ->
+                                            viewModel.updatePastovykleRequest(
+                                                eventId, selectedPastovykle.id, requestId,
+                                                provider, dueDate, responsibleUserId, notes
+                                            )
+                                        },
+                                        onSelfProvide = { requestId ->
+                                            viewModel.selfProvidePastovykleRequest(
+                                                eventId,
+                                                selectedPastovykle.id,
+                                                requestId,
+                                                "Pasirūpinta savo jėgomis"
+                                            )
+                                        }
+                                    )
+                                }
+                                item {
+                                    PastovykleRequestsCard(
+                                        title = "Prašymai ūkvedžiui",
+                                        subtitle = "Tik tai, ką turi parūpinti renginio ūkvedys.",
+                                        requests = requests.filter { it.provider == "UKVEDYS" },
+                                        members = state.candidateMembers,
+                                        isWorking = state.isWorking || readOnly,
+                                        emptyText = "Prašymų ūkvedžiui nėra.",
+                                        actionText = "Pasirūpinome patys",
+                                        onSwitchProvider = { requestId ->
+                                            viewModel.switchRequestProvider(eventId, selectedPastovykle.id, requestId, "UNIT")
+                                        },
+                                        onUpdate = { requestId, provider, dueDate, responsibleUserId, notes ->
+                                            viewModel.updatePastovykleRequest(
+                                                eventId, selectedPastovykle.id, requestId,
+                                                provider, dueDate, responsibleUserId, notes
+                                            )
+                                        },
                                         onSelfProvide = { requestId ->
                                             viewModel.selfProvidePastovykleRequest(
                                                 eventId,
@@ -248,18 +310,41 @@ fun PastovykleLeaderScreen(
 @Composable
 private fun RequestNeedCard(
     items: List<ItemDto>,
+    members: List<MemberDto>,
     isWorking: Boolean,
-    onCreateRequest: (String?, String?, String, String) -> Unit
+    onCreateRequest: (String?, String?, String, String, String, String?, String?) -> Unit
 ) {
     var selectedItemId by remember { mutableStateOf<String?>(null) }
     var customItemName by remember { mutableStateOf("") }
     var quantity by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var provider by remember { mutableStateOf("UNIT") }
+    var dueDate by remember { mutableStateOf("") }
+    var responsibleUserId by remember { mutableStateOf<String?>(null) }
 
     EventDetailSection(
         title = "Ko reikia pastovyklei",
-        subtitle = "Prašymas keliauja ūkvedžiui, kad daiktas būtų suplanuotas arba nupirktas."
+        subtitle = "Pasirink, ar daiktą parūpins vienetas, ar renginio ūkvedys."
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            OutlinedButton(
+                onClick = { provider = "UNIT" },
+                modifier = Modifier.weight(1f),
+                enabled = !isWorking
+            ) {
+                Text(if (provider == "UNIT") "✓ Vienetas" else "Vienetas")
+            }
+            OutlinedButton(
+                onClick = { provider = "UKVEDYS" },
+                modifier = Modifier.weight(1f),
+                enabled = !isWorking
+            ) {
+                Text(if (provider == "UKVEDYS") "✓ Ūkvedys" else "Ūkvedys")
+            }
+        }
         DropdownField(
             label = "Daiktas",
             value = items.firstOrNull { it.id == selectedItemId }?.name ?: "Pasirinkti",
@@ -281,18 +366,41 @@ private fun RequestNeedCard(
             singleLine = true
         )
         SkautaiTextField(
+            value = dueDate,
+            onValueChange = { dueDate = it },
+            label = "Terminas (YYYY-MM-DD)",
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true
+        )
+        DropdownField(
+            label = "Atsakingas žmogus",
+            value = members.firstOrNull { it.userId == responsibleUserId }?.fullName() ?: "Nepasirinkta",
+            options = listOf("" to "Nepasirinkta") + members.map { it.userId to it.fullName() },
+            onSelect = { responsibleUserId = it.ifBlank { null } }
+        )
+        SkautaiTextField(
             value = notes,
             onValueChange = { notes = it },
             label = "Pastabos",
             modifier = Modifier.fillMaxWidth()
         )
         EventPrimaryButton(
-            text = "Prašyti iš ūkvedžio",
+            text = if (provider == "UNIT") "Pridėti prie vieneto plano" else "Siųsti prašymą ūkvedžiui",
             onClick = {
-                onCreateRequest(selectedItemId, customItemName.ifBlank { null }, quantity, notes)
+                onCreateRequest(
+                    selectedItemId,
+                    customItemName.ifBlank { null },
+                    quantity,
+                    notes,
+                    provider,
+                    dueDate.takeIf { it.isNotBlank() }?.let { "${it}T23:59:59Z" },
+                    responsibleUserId
+                )
                 quantity = ""
                 notes = ""
                 customItemName = ""
+                dueDate = ""
+                responsibleUserId = null
             },
             enabled = !isWorking && (selectedItemId != null || customItemName.isNotBlank())
         )
@@ -525,16 +633,28 @@ private fun PastovykleInventoryCard(
 
 @Composable
 private fun PastovykleRequestsCard(
+    title: String,
+    subtitle: String,
     requests: List<EventInventoryRequestDto>,
+    members: List<MemberDto>,
     isWorking: Boolean,
+    emptyText: String,
+    actionText: String,
+    onSwitchProvider: (String) -> Unit,
+    onUpdate: (String, String, String, String?, String) -> Unit,
     onSelfProvide: (String) -> Unit
 ) {
+    var editingRequestId by remember { mutableStateOf<String?>(null) }
+    var editProvider by remember { mutableStateOf("UNIT") }
+    var editDueDate by remember { mutableStateOf("") }
+    var editResponsibleUserId by remember { mutableStateOf<String?>(null) }
+    var editNotes by remember { mutableStateOf("") }
     EventDetailSection(
-        title = "Poreikiai",
-        subtitle = "Pastovyklės prašymai ir jų būsena."
+        title = title,
+        subtitle = subtitle
     ) {
         if (requests.isEmpty()) {
-            EmptyStateText("Poreikių dar nėra.")
+            EmptyStateText(emptyText)
         } else {
             requests.forEach { request ->
                 SkautaiCard(
@@ -573,9 +693,106 @@ private fun PastovykleRequestsCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
+                        Text(
+                            text = listOfNotNull(
+                                request.responsibleUserName?.let { "Atsakingas: $it" },
+                                request.dueAt?.take(10)?.let { "Terminas: $it" }
+                            ).joinToString(" | ").ifBlank { "Atsakingas ir terminas nenustatyti" },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        if (editingRequestId == request.id) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { editProvider = "UNIT" },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !isWorking
+                                ) {
+                                    Text(if (editProvider == "UNIT") "✓ Vienetas" else "Vienetas")
+                                }
+                                OutlinedButton(
+                                    onClick = { editProvider = "UKVEDYS" },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = !isWorking
+                                ) {
+                                    Text(if (editProvider == "UKVEDYS") "✓ Ūkvedys" else "Ūkvedys")
+                                }
+                            }
+                            SkautaiTextField(
+                                value = editDueDate,
+                                onValueChange = { editDueDate = it },
+                                label = "Terminas (YYYY-MM-DD)",
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true
+                            )
+                            DropdownField(
+                                label = "Atsakingas žmogus",
+                                value = members.firstOrNull { it.userId == editResponsibleUserId }?.fullName() ?: "Nepasirinkta",
+                                options = listOf("" to "Nepasirinkta") + members.map { it.userId to it.fullName() },
+                                onSelect = { editResponsibleUserId = it.ifBlank { null } }
+                            )
+                            SkautaiTextField(
+                                value = editNotes,
+                                onValueChange = { editNotes = it },
+                                label = "Pastabos",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                OutlinedButton(
+                                    onClick = { editingRequestId = null },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    Text("Atšaukti")
+                                }
+                                EventPrimaryButton(
+                                    text = "Išsaugoti",
+                                    onClick = {
+                                        onUpdate(
+                                            request.id,
+                                            editProvider,
+                                            editDueDate,
+                                            editResponsibleUserId,
+                                            editNotes
+                                        )
+                                        editingRequestId = null
+                                    },
+                                    enabled = !isWorking,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        } else {
+                            OutlinedButton(
+                                onClick = {
+                                    editingRequestId = request.id
+                                    editProvider = request.provider
+                                    editDueDate = request.dueAt?.take(10).orEmpty()
+                                    editResponsibleUserId = request.responsibleUserId
+                                    editNotes = request.notes.orEmpty()
+                                },
+                                enabled = !isWorking,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Redaguoti")
+                            }
+                        }
+                        if (request.status in listOf("PENDING", "APPROVED")) {
+                            OutlinedButton(
+                                onClick = { onSwitchProvider(request.id) },
+                                enabled = !isWorking,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(if (request.provider == "UNIT") "Perduoti ūkvedžiui" else "Perimti vienetui")
+                            }
+                        }
                         if (request.status in listOf("PENDING", "APPROVED")) {
                             EventPrimaryButton(
-                                text = "Pasirūpinau pats",
+                                text = actionText,
                                 onClick = { onSelfProvide(request.id) },
                                 enabled = !isWorking
                             )

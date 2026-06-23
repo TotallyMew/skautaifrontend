@@ -23,6 +23,7 @@ import lt.skautai.android.data.remote.CreatePastovykleInventoryRequestRequestDto
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.EventInventoryRequestDto
+import lt.skautai.android.data.remote.EventInventoryReadinessDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.data.remote.PastovykleDto
 import lt.skautai.android.data.remote.PastovykleInventoryDto
@@ -40,6 +41,7 @@ sealed interface EventUkvedysUiState {
     data class Success(
         val event: EventDto,
         val inventoryPlan: EventInventoryPlanDto? = null,
+        val readiness: EventInventoryReadinessDto? = null,
         val pastovykles: List<PastovykleDto> = emptyList(),
         val purchases: List<EventPurchaseDto> = emptyList(),
         val createdPurchase: EventPurchaseDto? = null,
@@ -79,6 +81,7 @@ class EventUkvedysViewModel @Inject constructor(
                     _uiState.value = EventUkvedysUiState.Success(
                         event = event,
                         inventoryPlan = current?.inventoryPlan,
+                        readiness = current?.readiness,
                         pastovykles = current?.pastovykles.orEmpty(),
                         purchases = current?.purchases.orEmpty(),
                         createdPurchase = current?.createdPurchase,
@@ -107,12 +110,14 @@ class EventUkvedysViewModel @Inject constructor(
                 }
             applyCachedEventData(eventId)
             val inventoryPlan = eventRepository.getInventoryPlan(eventId).getOrNull()
+            val readiness = eventRepository.getInventoryReadiness(eventId).getOrNull()
             val pastovykles = eventRepository.getPastovyklės(eventId).getOrNull()?.pastovykles.orEmpty()
             val purchases = eventRepository.getPurchases(eventId).getOrNull()?.purchases.orEmpty()
             val current = _uiState.value as? EventUkvedysUiState.Success ?: return@launch
             val firstId = current.selectedPastovykleId ?: pastovykles.firstOrNull()?.id
             _uiState.value = current.copy(
                 inventoryPlan = inventoryPlan,
+                readiness = readiness,
                 pastovykles = pastovykles,
                 purchases = purchases,
                 selectedPastovykleId = firstId
@@ -133,7 +138,8 @@ class EventUkvedysViewModel @Inject constructor(
         }
         viewModelScope.launch {
             val cachedInventory = eventRepository.getCachedPastovykleInventory(eventId, pastovykleId)?.inventory.orEmpty()
-            val cachedRequests = eventRepository.getCachedPastovykleRequests(eventId, pastovykleId)?.requests.orEmpty()
+            val cachedRequests = eventRepository.getCachedPastovykleRequests(eventId, pastovykleId)
+                ?.requests.orEmpty().filter { it.provider == "UKVEDYS" }
             if (cachedInventory.isNotEmpty() || cachedRequests.isNotEmpty()) {
                 inventoryCache[pastovykleId] = cachedInventory
                 requestsCache[pastovykleId] = cachedRequests
@@ -146,7 +152,8 @@ class EventUkvedysViewModel @Inject constructor(
                 _uiState.value = current.copy(selectedPastovykleId = pastovykleId, isWorking = true)
             }
             val inventory = eventRepository.getPastovykleInventory(eventId, pastovykleId).getOrNull()?.inventory.orEmpty()
-            val requests = eventRepository.getPastovykleRequests(eventId, pastovykleId).getOrNull()?.requests.orEmpty()
+            val requests = eventRepository.getPastovykleRequests(eventId, pastovykleId)
+                .getOrNull()?.requests.orEmpty().filter { it.provider == "UKVEDYS" }
             inventoryCache[pastovykleId] = inventory
             requestsCache[pastovykleId] = requests
             (_uiState.value as? EventUkvedysUiState.Success)?.let {
@@ -172,7 +179,8 @@ class EventUkvedysViewModel @Inject constructor(
             _uiState.value = current.copy(selectedPastovykleId = null, isWorking = true)
             missingPastovyklės.forEach { pastovykle ->
                 val inventory = eventRepository.getPastovykleInventory(eventId, pastovykle.id).getOrNull()?.inventory.orEmpty()
-                val requests = eventRepository.getPastovykleRequests(eventId, pastovykle.id).getOrNull()?.requests.orEmpty()
+                val requests = eventRepository.getPastovykleRequests(eventId, pastovykle.id)
+                    .getOrNull()?.requests.orEmpty().filter { it.provider == "UKVEDYS" }
                 inventoryCache[pastovykle.id] = inventory
                 requestsCache[pastovykle.id] = requests
             }
@@ -283,6 +291,16 @@ class EventUkvedysViewModel @Inject constructor(
     fun eventInventoryExportCsv(): String {
         val current = _uiState.value as? EventUkvedysUiState.Success
         return InventoryCsv.exportEventPlan(current?.inventoryPlan?.items.orEmpty())
+    }
+
+    fun eventCompletionExportCsv(): String {
+        val current = _uiState.value as? EventUkvedysUiState.Success
+        return InventoryCsv.exportEventCompletion(
+            items = current?.inventoryPlan?.items.orEmpty(),
+            requests = current?.pastovykleRequestsById.orEmpty().values.flatten(),
+            purchases = current?.purchases.orEmpty(),
+            readiness = current?.readiness
+        )
     }
 
     fun eventInventoryImportTemplateCsv(): String = InventoryCsv.eventTemplate()
@@ -562,7 +580,8 @@ class EventUkvedysViewModel @Inject constructor(
 
     private suspend fun refreshPastovykleAfterMutation(eventId: String, pastovykleId: String) {
         val cachedInventory = eventRepository.getCachedPastovykleInventory(eventId, pastovykleId)?.inventory.orEmpty()
-        val cachedRequests = eventRepository.getCachedPastovykleRequests(eventId, pastovykleId)?.requests.orEmpty()
+        val cachedRequests = eventRepository.getCachedPastovykleRequests(eventId, pastovykleId)
+            ?.requests.orEmpty().filter { it.provider == "UKVEDYS" }
         if (cachedInventory.isNotEmpty() || cachedRequests.isNotEmpty()) {
             inventoryCache[pastovykleId] = cachedInventory
             requestsCache[pastovykleId] = cachedRequests
@@ -574,7 +593,8 @@ class EventUkvedysViewModel @Inject constructor(
             }
         }
         val inventory = eventRepository.getPastovykleInventory(eventId, pastovykleId).getOrNull()?.inventory.orEmpty()
-        val requests = eventRepository.getPastovykleRequests(eventId, pastovykleId).getOrNull()?.requests.orEmpty()
+        val requests = eventRepository.getPastovykleRequests(eventId, pastovykleId)
+            .getOrNull()?.requests.orEmpty().filter { it.provider == "UKVEDYS" }
         inventoryCache[pastovykleId] = inventory
         requestsCache[pastovykleId] = requests
         (_uiState.value as? EventUkvedysUiState.Success)?.let {

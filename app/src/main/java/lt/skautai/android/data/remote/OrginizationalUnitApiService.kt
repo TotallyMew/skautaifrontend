@@ -48,12 +48,28 @@ interface OrganizationalUnitApiService {
         @Path("id") unitId: String
     ): Response<UnitMembershipListResponseDto>
 
+    @GET("api/organizational-units/{id}/privacy-audit")
+    suspend fun getPrivacyAudit(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") unitId: String
+    ): Response<SeniorUnitAccessAuditListDto>
+
     @POST("api/organizational-units/{id}/members")
     suspend fun assignUnitMember(
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String,
         @Path("id") unitId: String,
         @Body request: AssignUnitMemberRequestDto
+    ): Response<UnitMembershipDto>
+
+    @PUT("api/organizational-units/{id}/members/{userId}/visibility")
+    suspend fun updateUnitMemberVisibility(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") unitId: String,
+        @Path("userId") userId: String,
+        @Body request: UpdateUnitMemberVisibilityRequestDto
     ): Response<UnitMembershipDto>
 
     @DELETE("api/organizational-units/{id}/members/{userId}")

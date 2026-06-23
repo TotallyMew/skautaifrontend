@@ -19,7 +19,7 @@ interface ItemDao {
             AND (:status IS NULL OR status = :status)
             AND (:type IS NULL OR type = :type)
             AND (:category IS NULL OR category = :category)
-        ORDER BY LOWER(name)
+        ORDER BY name COLLATE NOCASE
         """
     )
     fun observeItems(
@@ -42,7 +42,7 @@ interface ItemDao {
             AND (:status IS NULL OR status = :status)
             AND (:type IS NULL OR type = :type)
             AND (:category IS NULL OR category = :category)
-        ORDER BY LOWER(name)
+        ORDER BY name COLLATE NOCASE
         """
     )
     suspend fun getItems(

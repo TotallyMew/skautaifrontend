@@ -9,13 +9,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.CreateEventInventoryMovementRequestDto
+import lt.skautai.android.data.remote.CreateEventInventoryTransferRequestDto
 import lt.skautai.android.data.remote.CreatePastovykleRequestDto
 import lt.skautai.android.data.remote.EventDto
 import lt.skautai.android.data.remote.EventInventoryCustodyDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
+import lt.skautai.android.data.remote.EventInventoryTransferRequestDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.MemberDto
@@ -35,6 +38,8 @@ sealed interface EventMovementUiState {
         val inventoryItems: List<ItemDto> = emptyList(),
         val custody: List<EventInventoryCustodyDto> = emptyList(),
         val movements: List<EventInventoryMovementDto> = emptyList(),
+        val transferRequests: List<EventInventoryTransferRequestDto> = emptyList(),
+        val currentUserId: String? = null,
         val isWorking: Boolean = false,
         val error: String? = null
     ) : EventMovementUiState
@@ -69,6 +74,8 @@ class EventMovementViewModel @Inject constructor(
                         inventoryItems = current?.inventoryItems.orEmpty(),
                         custody = current?.custody.orEmpty(),
                         movements = current?.movements.orEmpty(),
+                        transferRequests = current?.transferRequests.orEmpty(),
+                        currentUserId = current?.currentUserId,
                         isWorking = current?.isWorking == true,
                         error = current?.error
                     )
@@ -156,6 +163,49 @@ class EventMovementViewModel @Inject constructor(
         }
     }
 
+    fun requestTransfer(
+        eventId: String,
+        custodyId: String,
+        quantity: Int
+    ) {
+        val current = _uiState.value as? EventMovementUiState.Success ?: return
+        if (current.isWorking || quantity < 1) return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.createInventoryTransferRequest(
+                eventId,
+                CreateEventInventoryTransferRequestDto(custodyId, quantity)
+            )
+                .onSuccess { refreshMovementSnapshot(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? EventMovementUiState.Success)?.let {
+                        _uiState.value = it.copy(
+                            isWorking = false,
+                            error = error.message ?: "Nepavyko pateikti perdavimo prašymo."
+                        )
+                    }
+                }
+        }
+    }
+
+    fun respondToTransferRequest(eventId: String, requestId: String, approve: Boolean) {
+        val current = _uiState.value as? EventMovementUiState.Success ?: return
+        if (current.isWorking) return
+        viewModelScope.launch {
+            _uiState.value = current.copy(isWorking = true, error = null)
+            eventRepository.respondToInventoryTransferRequest(eventId, requestId, approve)
+                .onSuccess { refreshMovementSnapshot(eventId) }
+                .onFailure { error ->
+                    (_uiState.value as? EventMovementUiState.Success)?.let {
+                        _uiState.value = it.copy(
+                            isWorking = false,
+                            error = error.message ?: "Nepavyko atsakyti į perdavimo prašymą."
+                        )
+                    }
+                }
+        }
+    }
+
     fun clearError() {
         (_uiState.value as? EventMovementUiState.Success)?.let { _uiState.value = it.copy(error = null) }
     }
@@ -166,12 +216,14 @@ class EventMovementViewModel @Inject constructor(
         val inventoryItems = itemRepository.getCachedItems(status = "ACTIVE").ifEmpty { current.inventoryItems }
         val custody = eventRepository.getCachedInventoryCustody(eventId)?.custody ?: current.custody
         val movements = eventRepository.getCachedInventoryMovements(eventId)?.movements ?: current.movements
+        val currentUserId = tokenManager.userId.first() ?: current.currentUserId
         _uiState.value = current.copy(
             inventoryPlan = inventoryPlan,
             pastovykles = pastovykles,
             inventoryItems = inventoryItems,
             custody = custody,
-            movements = movements
+            movements = movements,
+            currentUserId = currentUserId
         )
     }
 
@@ -184,6 +236,9 @@ class EventMovementViewModel @Inject constructor(
         val inventoryItems = itemRepository.getItems(status = "ACTIVE").getOrNull().orEmpty().ifEmpty { current.inventoryItems }
         val custody = eventRepository.getInventoryCustody(eventId).getOrNull()?.custody ?: current.custody
         val movements = eventRepository.getInventoryMovements(eventId).getOrNull()?.movements ?: current.movements
+        val transferRequests = eventRepository.getInventoryTransferRequests(eventId).getOrNull()?.requests
+            ?: current.transferRequests
+        val currentUserId = tokenManager.userId.first() ?: current.currentUserId
         (_uiState.value as? EventMovementUiState.Success)?.let {
             _uiState.value = it.copy(
                 inventoryPlan = inventoryPlan,
@@ -192,6 +247,8 @@ class EventMovementViewModel @Inject constructor(
                 inventoryItems = inventoryItems,
                 custody = custody,
                 movements = movements,
+                transferRequests = transferRequests,
+                currentUserId = currentUserId,
                 isWorking = false
             )
         }

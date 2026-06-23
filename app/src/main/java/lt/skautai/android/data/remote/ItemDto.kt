@@ -63,7 +63,10 @@ data class ItemDistributionDto(
 
 data class ItemListResponseDto(
     val items: List<ItemDto>,
-    val total: Int
+    val total: Int,
+    val limit: Int? = null,
+    val offset: Int = 0,
+    val hasMore: Boolean = false
 )
 
 data class ItemQrResolveResponseDto(

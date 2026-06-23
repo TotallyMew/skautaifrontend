@@ -174,7 +174,11 @@ fun MemberListScreen(
                                 items(members, key = { it.userId }) { member ->
                                 MemberRow(
                                     member = member,
-                                    onClick = if (state.isReadOnly) null else ({ onMemberClick(member.userId) })
+                                    onClick = if (state.isReadOnly || member.isIdentityHidden) {
+                                        null
+                                    } else {
+                                        ({ onMemberClick(member.userId) })
+                                    }
                                 )
                                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 }

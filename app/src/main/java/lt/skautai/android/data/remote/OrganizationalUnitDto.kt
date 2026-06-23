@@ -45,7 +45,9 @@ data class UnitMembershipDto(
     val assignmentType: String,
     val assignedByUserId: String?,
     val joinedAt: String,
-    val leftAt: String?
+    val leftAt: String?,
+    val isPubliclyVisible: Boolean = false,
+    val isIdentityHidden: Boolean = false
 )
 
 data class UnitMembershipListResponseDto(
@@ -56,4 +58,22 @@ data class UnitMembershipListResponseDto(
 data class AssignUnitMemberRequestDto(
     val userId: String,
     val assignmentType: String
+)
+
+data class UpdateUnitMemberVisibilityRequestDto(
+    val isPubliclyVisible: Boolean
+)
+
+data class SeniorUnitAccessAuditDto(
+    val id: String,
+    val actorUserId: String,
+    val actorUserName: String,
+    val action: String,
+    val accessMode: String,
+    val createdAt: String
+)
+
+data class SeniorUnitAccessAuditListDto(
+    val entries: List<SeniorUnitAccessAuditDto>,
+    val total: Int
 )

@@ -23,8 +23,10 @@ import lt.skautai.android.data.remote.AssignUnitMemberRequestDto
 import lt.skautai.android.data.remote.CreateOrganizationalUnitRequestDto
 import lt.skautai.android.data.remote.OrganizationalUnitApiService
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.remote.SeniorUnitAccessAuditDto
 import lt.skautai.android.data.remote.UnitMembershipDto
 import lt.skautai.android.data.remote.UpdateOrganizationalUnitRequestDto
+import lt.skautai.android.data.remote.UpdateUnitMemberVisibilityRequestDto
 import lt.skautai.android.data.sync.PendingEntityType
 import lt.skautai.android.data.sync.PendingOperationRepository
 import lt.skautai.android.data.sync.PendingOperationType
@@ -245,6 +247,36 @@ class OrganizationalUnitRepository @Inject constructor(
         return cachedUnitMembers(currentTuntasId, unitId)
     }
 
+    suspend fun getPrivacyAudit(unitId: String): Result<List<SeniorUnitAccessAuditDto>> {
+        return try {
+            val response = orgUnitApiService.getPrivacyAudit("Bearer ${token()}", tuntasId(), unitId)
+            if (response.isSuccessful) Result.success(response.body()?.entries.orEmpty())
+            else Result.failure(Exception(response.errorMessage("Klaida gaunant privatumo prieigu zurnala")))
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun updateUnitMemberVisibility(
+        unitId: String,
+        userId: String,
+        isPubliclyVisible: Boolean
+    ): Result<UnitMembershipDto> {
+        return try {
+            val response = orgUnitApiService.updateUnitMemberVisibility(
+                token = "Bearer ${token()}",
+                tuntasId = tuntasId(),
+                unitId = unitId,
+                userId = userId,
+                request = UpdateUnitMemberVisibilityRequestDto(isPubliclyVisible)
+            )
+            if (response.isSuccessful) Result.success(response.body()!!)
+            else Result.failure(Exception(response.errorMessage("Klaida keičiant kandidato matomumą")))
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
     suspend fun assignUnitMember(unitId: String, request: AssignUnitMemberRequestDto): Result<UnitMembershipDto> {
         return try {
             val currentTuntasId = tuntasId()
@@ -350,9 +382,11 @@ class OrganizationalUnitRepository @Inject constructor(
             organizationalUnitName = unit?.name.orEmpty(),
             tuntasId = currentTuntasId,
             assignmentType = assignmentType,
+            isPubliclyVisible = false,
             assignedByUserId = null,
             joinedAt = Instant.now().toString(),
-            leftAt = null
+            leftAt = null,
+            isIdentityHidden = false
         )
     }
 
@@ -373,9 +407,11 @@ class OrganizationalUnitRepository @Inject constructor(
                             organizationalUnitName = assignment.organizationalUnitName.ifBlank { unitName },
                             tuntasId = currentTuntasId,
                             assignmentType = assignment.assignmentType,
+                            isPubliclyVisible = assignment.isPubliclyVisible,
                             assignedByUserId = null,
                             joinedAt = assignment.joinedAt,
-                            leftAt = null
+                            leftAt = null,
+                            isIdentityHidden = false
                         )
                     }
             }

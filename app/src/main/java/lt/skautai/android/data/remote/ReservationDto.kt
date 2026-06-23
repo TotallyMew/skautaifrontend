@@ -63,7 +63,10 @@ data class ReservationItemDto(
 
 data class ReservationListDto(
     @SerializedName("reservations") val reservations: List<ReservationDto>,
-    @SerializedName("total") val total: Int
+    @SerializedName("total") val total: Int,
+    @SerializedName("limit") val limit: Int? = null,
+    @SerializedName("offset") val offset: Int = 0,
+    @SerializedName("hasMore") val hasMore: Boolean = false
 )
 
 data class ReservationAvailabilityItemDto(

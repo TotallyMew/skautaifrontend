@@ -1,4 +1,4 @@
-package lt.skautai.android.data.repository
+﻿package lt.skautai.android.data.repository
 
 import lt.skautai.android.util.userFacingException
 
@@ -85,27 +85,59 @@ class ReservationRepository @Inject constructor(
             } else {
                 null
             }
-            val response = reservationApiService.getReservations(
-                token = "Bearer ${token()}",
+            val reservations = fetchReservationPages(
                 tuntasId = currentTuntasId,
                 itemId = itemId,
                 status = status,
                 updatedAfter = updatedAfter
-            )
-            if (response.isSuccessful) {
-                val reservations = response.body()?.reservations.orEmpty()
-                if (itemId == null && updatedAfter == null) {
-                    reservationDao.deleteForQuery(currentTuntasId, status)
-                }
-                reservationDao.upsertAll(reservations.toReservationEntities())
-                refreshCoordinator.recordAttempt(RESERVATIONS_RESOURCE, queryKey, success = true)
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijų.")))
+            ).getOrElse { return Result.failure(it) }
+            if (itemId == null && updatedAfter == null) {
+                reservationDao.deleteForQuery(currentTuntasId, status)
             }
+            reservationDao.upsertAll(reservations.toReservationEntities())
+            refreshCoordinator.recordAttempt(RESERVATIONS_RESOURCE, queryKey, success = true)
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
+    }
+
+    private suspend fun fetchReservationPages(
+        tuntasId: String,
+        itemId: String?,
+        status: String?,
+        updatedAfter: String?
+    ): Result<List<ReservationDto>> {
+        val authToken = "Bearer ${token()}"
+        val reservations = mutableListOf<ReservationDto>()
+        var offset = 0
+        var hasMore: Boolean
+
+        do {
+            val response = reservationApiService.getReservations(
+                token = authToken,
+                tuntasId = tuntasId,
+                itemId = itemId,
+                status = status,
+                updatedAfter = updatedAfter,
+                limit = RESERVATION_REFRESH_PAGE_SIZE,
+                offset = offset
+            )
+            if (!response.isSuccessful) {
+                return Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijų.")))
+            }
+
+            val page = response.body()
+            val pageReservations = page?.reservations.orEmpty()
+            reservations += pageReservations
+            hasMore = updatedAfter == null &&
+                page?.hasMore == true &&
+                pageReservations.isNotEmpty() &&
+                reservations.size < page.total
+            offset += pageReservations.size
+        } while (hasMore)
+
+        return Result.success(reservations)
     }
 
     suspend fun refreshReservation(id: String): Result<Unit> {
@@ -143,7 +175,7 @@ class ReservationRepository @Inject constructor(
         return if (refreshResult.isSuccess || cachedReservations.isNotEmpty()) {
             Result.success(ReservationListDto(cachedReservations, cachedReservations.size))
         } else {
-            Result.failure(Exception("Nepavyko atnaujinti rezervacijų. Prisijunkite prie interneto bent kartą, kad jos būtų išsaugotos naudoti neprisijungus."))
+            Result.failure(Exception("Nepavyko atnaujinti rezervacijÅ³. Prisijunkite prie interneto bent kartÄ…, kad jos bÅ«tÅ³ iÅ¡saugotos naudoti neprisijungus."))
         }
     }
 
@@ -159,7 +191,7 @@ class ReservationRepository @Inject constructor(
         return if (cachedReservation != null) {
             Result.success(cachedReservation)
         } else {
-            Result.failure(Exception("Nepavyko atnaujinti rezervacijos. Prisijunkite prie interneto bent kartą, kad ji būtų išsaugota naudoti neprisijungus."))
+            Result.failure(Exception("Nepavyko atnaujinti rezervacijos. Prisijunkite prie interneto bent kartÄ…, kad ji bÅ«tÅ³ iÅ¡saugota naudoti neprisijungus."))
         }
     }
 
@@ -241,7 +273,7 @@ class ReservationRepository @Inject constructor(
         return try {
             val response = reservationApiService.getAvailability("Bearer ${token()}", tuntasId(), startDate, endDate)
             if (response.isSuccessful) Result.success(response.body()!!)
-            else Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervavimo likučių.")))
+            else Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervavimo likuÄiÅ³.")))
         } catch (e: Exception) { Result.failure(e.userFacingException()) }
     }
 
@@ -251,12 +283,12 @@ class ReservationRepository @Inject constructor(
         }
 
     suspend fun updateReservationPickupTime(id: String, request: UpdateReservationPickupRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_PICKUP, request, "Nepavyko atnaujinti atsiėmimo laiko.") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_PICKUP, request, "Nepavyko atnaujinti atsiÄ—mimo laiko.") {
             reservationApiService.updateReservationPickupTime("Bearer ${token()}", tuntasId(), id, request)
         }
 
     suspend fun updateReservationReturnTime(id: String, request: UpdateReservationReturnTimeRequestDto): Result<ReservationDto> =
-        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_RETURN, request, "Nepavyko atnaujinti grąžinimo laiko.") {
+        updateOnlineOnly(id, PendingOperationType.RESERVATION_UPDATE_RETURN, request, "Nepavyko atnaujinti grÄ…Å¾inimo laiko.") {
             reservationApiService.updateReservationReturnTime("Bearer ${token()}", tuntasId(), id, request)
         }
 
@@ -268,7 +300,7 @@ class ReservationRepository @Inject constructor(
                 reservationDao.deleteReservation(id, currentTuntasId)
                 Result.success(Unit)
             } else {
-                Result.failure(Exception(response.errorMessage("Klaida atšaukiant rezervacija")))
+                Result.failure(Exception(response.errorMessage("Klaida atÅ¡aukiant rezervacija")))
             }
         } catch (e: IOException) {
             val currentTuntasId = tokenManager.activeTuntasId.first()
@@ -279,7 +311,7 @@ class ReservationRepository @Inject constructor(
                     createOperationType = PendingOperationType.RESERVATION_CREATE
                 )
             ) {
-                return Result.failure(Exception("Rezervacija dabar sinchronizuojama. Pabandykite dar kartą vėliau."))
+                return Result.failure(Exception("Rezervacija dabar sinchronizuojama. Pabandykite dar kartÄ… vÄ—liau."))
             }
             if (id.startsWith("local-") && pendingOperationRepository.deletePendingCreateIfExists(
                     entityType = PendingEntityType.RESERVATION,
@@ -339,7 +371,7 @@ class ReservationRepository @Inject constructor(
         id,
         PendingOperationType.RESERVATION_MOVEMENT,
         ReservationMovementSyncPayload(movement, gson.toJson(request)),
-        "Klaida registruojant judėjimą"
+        "Klaida registruojant judÄ—jimÄ…"
     ) {
         when (movement) {
             "return" -> reservationApiService.returnReservationItems("Bearer ${token()}", tuntasId(), id, request)
@@ -368,7 +400,7 @@ class ReservationRepository @Inject constructor(
             val currentTuntasId = tokenManager.activeTuntasId.first()
                 ?: return Result.failure(Exception("Tuntas nepasirinktas"))
             val cached = reservationDao.getReservation(id, currentTuntasId)?.toDto()
-                ?: return Result.failure(Exception("Rezervacija nerasta vietinėje saugykloje"))
+                ?: return Result.failure(Exception("Rezervacija nerasta vietinÄ—je saugykloje"))
             val updated = when (payload) {
                 is ReviewReservationRequestDto -> cached.copy(
                     unitReviewStatus = if (operationType == PendingOperationType.RESERVATION_REVIEW_UNIT) payload.status else cached.unitReviewStatus,
@@ -404,5 +436,6 @@ class ReservationRepository @Inject constructor(
     companion object {
         private const val RESERVATIONS_RESOURCE = "reservations"
         private const val RESERVATION_RESOURCE = "reservation"
+        private const val RESERVATION_REFRESH_PAGE_SIZE = 200
     }
 }

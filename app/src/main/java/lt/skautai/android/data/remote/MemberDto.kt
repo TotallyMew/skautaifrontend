@@ -30,7 +30,8 @@ data class MemberUnitAssignmentDto(
     @SerializedName("organizationalUnitId") val organizationalUnitId: String,
     @SerializedName("organizationalUnitName") val organizationalUnitName: String,
     @SerializedName("assignmentType") val assignmentType: String,
-    @SerializedName("joinedAt") val joinedAt: String
+    @SerializedName("joinedAt") val joinedAt: String,
+    @SerializedName("isPubliclyVisible") val isPubliclyVisible: Boolean = false
 )
 
 data class MemberDto(
@@ -43,7 +44,8 @@ data class MemberDto(
     @SerializedName("unitAssignments") val unitAssignments: List<MemberUnitAssignmentDto>? = emptyList(),
     @SerializedName("leadershipRoles") val leadershipRoles: List<MemberLeadershipRoleDto>,
     @SerializedName("leadershipRoleHistory") val leadershipRoleHistory: List<MemberLeadershipRoleDto> = emptyList(),
-    @SerializedName("ranks") val ranks: List<MemberRankDto>
+    @SerializedName("ranks") val ranks: List<MemberRankDto>,
+    @SerializedName("isIdentityHidden") val isIdentityHidden: Boolean = false
 )
 
 data class MemberListDto(

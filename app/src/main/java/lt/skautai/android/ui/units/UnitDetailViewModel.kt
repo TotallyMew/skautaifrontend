@@ -29,6 +29,7 @@ data class UnitDetailUiState(
     val isLoading: Boolean = true,
     val unit: OrganizationalUnitDto? = null,
     val members: List<UnitMembershipDto> = emptyList(),
+    val privacyAudit: List<SeniorUnitAccessAuditDto> = emptyList(),
     val memberDetails: Map<String, MemberDto> = emptyMap(),
     val canCurrentUserManageThisUnit: Boolean = false,
     val canCurrentUserLeaveThisUnit: Boolean = false,
@@ -133,10 +134,19 @@ class UnitDetailViewModel @Inject constructor(
                 .orEmpty()
             unitResult
                 .onSuccess { unit ->
+                    val privacyAudit = if (
+                        canManageThisUnit &&
+                        unit.type in setOf("VYR_SKAUTU_VIENETAS", "VYR_SKAUCIU_VIENETAS")
+                    ) {
+                        orgUnitRepository.getPrivacyAudit(unitId).getOrDefault(emptyList<SeniorUnitAccessAuditDto>())
+                    } else {
+                        emptyList<SeniorUnitAccessAuditDto>()
+                    }
                     _uiState.value = _uiState.value.copy(
                         isLoading = false,
                         unit = unit,
                         members = membersResult.getOrDefault(emptyList()),
+                        privacyAudit = privacyAudit,
                         memberDetails = memberDetails,
                         canCurrentUserManageThisUnit = canManageThisUnit,
                         canCurrentUserLeaveThisUnit = hasCurrentUserAssignment && !hasCurrentUserLeadership,
@@ -275,6 +285,32 @@ class UnitDetailViewModel @Inject constructor(
     }
 
     fun clearActionError() { _uiState.value = _uiState.value.copy(actionError = null) }
+
+    fun updateCandidateVisibility(
+        unitId: String,
+        userId: String,
+        isPubliclyVisible: Boolean
+    ) {
+        if (_uiState.value.isSaving || !_uiState.value.canCurrentUserManageThisUnit) return
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
+            orgUnitRepository.updateUnitMemberVisibility(unitId, userId, isPubliclyVisible)
+                .onSuccess { updated ->
+                    _uiState.value = _uiState.value.copy(
+                        members = _uiState.value.members.map { membership ->
+                            if (membership.userId == userId) updated else membership
+                        },
+                        isSaving = false
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isSaving = false,
+                        actionError = error.message ?: "Klaida keičiant kandidato matomumą"
+                    )
+                }
+        }
+    }
 
     private suspend fun refreshPermissions() {
         val tuntasId = tokenManager.activeTuntasId.first() ?: return

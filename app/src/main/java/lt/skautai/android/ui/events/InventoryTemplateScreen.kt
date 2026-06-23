@@ -373,7 +373,10 @@ private fun InventoryTemplateEditorFullScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                items(selectedRows, key = { (index, _) -> "selected_template_item_$index" }) { (index, item) ->
+                items(
+                    selectedRows,
+                    key = { (index, item) -> "selected_${templateEditorItemKey(index, item)}" }
+                ) { (index, item) ->
                     InventoryTemplateItemSummaryCard(
                         index = index,
                         item = item,
@@ -568,10 +571,13 @@ private fun InventoryTemplateEditorSheetLegacy(
                     }
                 }
             }
-            items(editor.items.size, key = { index -> "template_sheet_item_$index" }) { index ->
+            items(
+                editor.items.mapIndexed { index, item -> index to item },
+                key = { (index, item) -> "template_sheet_${templateEditorItemKey(index, item)}" }
+            ) { (index, item) ->
                 InventoryTemplateItemEditorModern(
                     index = index,
-                    item = editor.items[index],
+                    item = item,
                     inventoryItems = inventoryItems,
                     canRemove = editor.items.size > 1,
                     onChange = { onItemChange(index, it) },
@@ -659,10 +665,13 @@ private fun InventoryTemplateEditorSheet(
                     }
                 }
             }
-            items(editor.items.size, key = { index -> "template_sheet_item_$index" }) { index ->
+            items(
+                editor.items.mapIndexed { index, item -> index to item },
+                key = { (index, item) -> "template_sheet_${templateEditorItemKey(index, item)}" }
+            ) { (index, item) ->
                 InventoryTemplateItemEditorModern(
                     index = index,
-                    item = editor.items[index],
+                    item = item,
                     inventoryItems = inventoryItems,
                     canRemove = editor.items.size > 1,
                     onChange = { onItemChange(index, it) },
@@ -785,14 +794,17 @@ private fun InventoryTemplateEditorSheetV2(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                items(editor.items.size, key = { index -> "template_sheet_v2_item_$index" }) { index ->
+                items(
+                    editor.items.mapIndexed { index, item -> index to item },
+                    key = { (index, item) -> "template_sheet_v2_${templateEditorItemKey(index, item)}" }
+                ) { (index, item) ->
                     InventoryTemplateItemSummaryCard(
                         index = index,
-                        item = editor.items[index],
+                        item = item,
                         canRemove = editor.items.size > 1,
                         onEdit = {
                             editingIndex = index
-                            editingItem = editor.items[index]
+                            editingItem = item
                         },
                         onRemove = { onRemoveItem(index) }
                     )
@@ -1774,6 +1786,16 @@ private fun inventoryTemplateCategoryOptions(): List<Pair<String, String>> = lis
     "BOOKS" to "Knygos",
     "PERSONAL_LOANS" to "Asmeninis skolinimas"
 )
+
+private fun templateEditorItemKey(index: Int, item: InventoryTemplateEditorItem): String {
+    val stablePart = item.itemId?.takeIf { it.isNotBlank() }
+        ?: listOf(item.itemName, item.category)
+            .joinToString("_")
+            .replace(Regex("\\s+"), "_")
+            .takeIf { it.isNotBlank() }
+        ?: "draft"
+    return "${stablePart}_$index"
+}
 
 private fun templateCategoryLabel(category: String): String =
     if (inventoryTemplateCategoryOptions().any { it.first == category }) {

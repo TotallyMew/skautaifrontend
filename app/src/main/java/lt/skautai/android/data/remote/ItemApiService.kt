@@ -22,7 +22,10 @@ interface ItemApiService {
         @Query("status") status: String? = null,
         @Query("sharedOnly") sharedOnly: Boolean = false,
         @Query("createdByUserId") createdByUserId: String? = null,
-        @Query("updatedAfter") updatedAfter: String? = null
+        @Query("updatedAfter") updatedAfter: String? = null,
+        @Query("q") searchQuery: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
     ): Response<ItemListResponseDto>
 
     @GET("api/items/{itemId}")

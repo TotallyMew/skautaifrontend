@@ -81,6 +81,8 @@ fun EventMovementScreen(
                                 inventoryItems = state.inventoryItems,
                                 custody = state.custody,
                                 movements = state.movements,
+                                transferRequests = state.transferRequests,
+                                currentUserId = state.currentUserId,
                                 isWorking = state.isWorking,
                                 onOpenItemQr = { onOpenItemQr(eventId) },
                                 onOpenCustodyQr = { onOpenCustodyQr(eventId) },
@@ -95,6 +97,12 @@ fun EventMovementScreen(
                                         fromCustodyId = fromCustodyId,
                                         notes = notes
                                     )
+                                },
+                                onRequestTransfer = { custodyId, quantity ->
+                                    viewModel.requestTransfer(eventId, custodyId, quantity)
+                                },
+                                onRespondTransfer = { requestId, approve ->
+                                    viewModel.respondToTransferRequest(eventId, requestId, approve)
                                 }
                             )
                         }

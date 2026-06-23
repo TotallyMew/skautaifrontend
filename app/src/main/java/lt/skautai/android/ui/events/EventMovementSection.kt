@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SwapHoriz
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -53,6 +54,7 @@ import lt.skautai.android.data.remote.EventInventoryCustodyDto
 import lt.skautai.android.data.remote.EventInventoryItemDto
 import lt.skautai.android.data.remote.EventInventoryMovementDto
 import lt.skautai.android.data.remote.EventInventoryPlanDto
+import lt.skautai.android.data.remote.EventInventoryTransferRequestDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.codeLabel
@@ -69,10 +71,14 @@ fun EventMovementCard(
     inventoryItems: List<ItemDto>,
     custody: List<EventInventoryCustodyDto>,
     movements: List<EventInventoryMovementDto>,
+    transferRequests: List<EventInventoryTransferRequestDto>,
+    currentUserId: String?,
     isWorking: Boolean,
     onOpenItemQr: () -> Unit,
     onOpenCustodyQr: () -> Unit,
-    onCreateMovement: (String, String, String, String?, String?, String?, String) -> Unit
+    onCreateMovement: (String, String, String, String?, String?, String?, String) -> Unit,
+    onRequestTransfer: (String, Int) -> Unit,
+    onRespondTransfer: (String, Boolean) -> Unit
 ) {
     val plannedItems = inventoryPlan?.items.orEmpty()
     val movementItemOptions = remember(plannedItems, movements, custody) {
@@ -98,6 +104,8 @@ fun EventMovementCard(
     var peopleCollapsed by rememberSaveable { mutableStateOf(true) }
     var campCollapsed by rememberSaveable { mutableStateOf(true) }
     var historyCollapsed by rememberSaveable { mutableStateOf(true) }
+    var requestedCustody by remember { mutableStateOf<EventInventoryCustodyDto?>(null) }
+    var requestedQuantity by remember { mutableStateOf("1") }
 
     SkautaiCard(modifier = Modifier.fillMaxWidth(), tonal = MaterialTheme.colorScheme.surfaceBright) {
         Column(
@@ -172,6 +180,15 @@ fun EventMovementCard(
                 isWorking = isWorking,
                 collapsed = peopleCollapsed,
                 onToggleCollapsed = { peopleCollapsed = !peopleCollapsed },
+                currentUserId = currentUserId,
+                pendingTransferCustodyIds = transferRequests
+                    .filter { it.status == "PENDING" && it.requestedByUserId == currentUserId }
+                    .map { it.sourceCustodyId }
+                    .toSet(),
+                onRequest = { row ->
+                    requestedCustody = row
+                    requestedQuantity = "1"
+                },
                 onReturn = { row ->
                     onCreateMovement(
                         if (row.pastovykleId != null) "RETURN_TO_PASTOVYKLE" else "RETURN_TO_EVENT_STORAGE",
@@ -184,6 +201,12 @@ fun EventMovementCard(
                     )
                 }
             )
+            TransferRequestsSection(
+                requests = transferRequests,
+                currentUserId = currentUserId,
+                isWorking = isWorking,
+                onRespond = onRespondTransfer
+            )
             CustodySection(
                 title = "Pastovyklės",
                 subtitle = "${campCustody.size} įrašai",
@@ -194,6 +217,7 @@ fun EventMovementCard(
                 isWorking = isWorking,
                 collapsed = campCollapsed,
                 onToggleCollapsed = { campCollapsed = !campCollapsed },
+                currentUserId = currentUserId,
                 onReturn = { row ->
                     onCreateMovement(
                         "RETURN_TO_EVENT_STORAGE",
@@ -214,6 +238,41 @@ fun EventMovementCard(
                 onToggleCollapsed = { historyCollapsed = !historyCollapsed }
             )
         }
+    }
+
+    requestedCustody?.let { row ->
+        val quantity = requestedQuantity.toIntOrNull()
+        AlertDialog(
+            onDismissRequest = { requestedCustody = null },
+            title = { Text("Prašyti perduoti ${row.itemName}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Pas ${row.holderUserName ?: "turėtoją"} yra ${row.remainingQuantity} vnt.")
+                    OutlinedTextField(
+                        value = requestedQuantity,
+                        onValueChange = { requestedQuantity = it.filter(Char::isDigit) },
+                        label = { Text("Kiekis") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        onRequestTransfer(row.id, quantity ?: 0)
+                        requestedCustody = null
+                    },
+                    enabled = quantity != null && quantity in 1..row.remainingQuantity && !isWorking
+                ) {
+                    Text("Pateikti")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { requestedCustody = null }) {
+                    Text("Atšaukti")
+                }
+            }
+        )
     }
 }
 
@@ -540,6 +599,65 @@ private fun MovementStatusCard(
 }
 
 @Composable
+private fun TransferRequestsSection(
+    requests: List<EventInventoryTransferRequestDto>,
+    currentUserId: String?,
+    isWorking: Boolean,
+    onRespond: (String, Boolean) -> Unit
+) {
+    val pending = remember(requests) { requests.filter { it.status == "PENDING" } }
+    if (pending.isEmpty()) return
+
+    CollapsibleMovementSection(
+        title = "Perdavimo prašymai",
+        subtitle = "${pending.size} laukiantys",
+        collapsed = false,
+        onToggleCollapsed = {}
+    ) {
+        pending.forEachIndexed { index, request ->
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(5.dp)
+            ) {
+                Text(request.itemName, fontWeight = FontWeight.SemiBold)
+                Text(
+                    if (request.requestedFromUserId == currentUserId) {
+                        "${request.requestedByUserName ?: "Dalyvis"} prašo ${request.quantity} vnt."
+                    } else {
+                        "Prašote iš ${request.requestedFromUserName ?: "turėtojo"}: ${request.quantity} vnt."
+                    },
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                request.notes?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall)
+                }
+                if (request.requestedFromUserId == currentUserId) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { onRespond(request.id, true) },
+                            enabled = !isWorking
+                        ) {
+                            Text("Patvirtinti")
+                        }
+                        TextButton(
+                            onClick = { onRespond(request.id, false) },
+                            enabled = !isWorking
+                        ) {
+                            Text("Atmesti")
+                        }
+                    }
+                }
+            }
+            if (index != pending.lastIndex) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+        }
+    }
+}
+
+@Composable
 private fun CustodySection(
     title: String,
     subtitle: String,
@@ -550,6 +668,9 @@ private fun CustodySection(
     isWorking: Boolean,
     collapsed: Boolean,
     onToggleCollapsed: () -> Unit,
+    currentUserId: String?,
+    pendingTransferCustodyIds: Set<String> = emptySet(),
+    onRequest: ((EventInventoryCustodyDto) -> Unit)? = null,
     onReturn: (EventInventoryCustodyDto) -> Unit
 ) {
     CollapsibleMovementSection(
@@ -587,12 +708,24 @@ private fun CustodySection(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         EventMetricPill("${row.remainingQuantity}/${row.quantity}")
+                        if (row.holderUserId != null && row.holderUserId != currentUserId && onRequest != null) {
+                            TextButton(
+                                onClick = { onRequest(row) },
+                                enabled = !isWorking &&
+                                    row.remainingQuantity > 0 &&
+                                    row.id !in pendingTransferCustodyIds,
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text(if (row.id in pendingTransferCustodyIds) "Paprašyta" else "Prašyti")
+                            }
+                        } else {
                         TextButton(
                             onClick = { onReturn(row) },
                             enabled = !isWorking && row.remainingQuantity > 0,
                             contentPadding = PaddingValues(0.dp)
                         ) {
                             Text("Grąžinti")
+                        }
                         }
                     }
                 }

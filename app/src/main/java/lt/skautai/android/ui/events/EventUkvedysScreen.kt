@@ -138,6 +138,34 @@ fun EventUkvedysScreen(
                                 subtitle = "Ūkvedžio suvestinė / ${state.inventoryPlan?.items?.size ?: 0} plano eil."
                             )
                         }
+                        state.readiness?.let { readiness ->
+                            item {
+                                EventDetailMetricRow(
+                                    metrics = listOf(
+                                        "Pasirengta" to "${readiness.readinessPercent}%",
+                                        "Atvira" to readiness.openQuantity.toString(),
+                                        "Vėluoja" to readiness.overdueCount.toString()
+                                    )
+                                )
+                            }
+                            if (readiness.conflicts.isNotEmpty()) {
+                                item {
+                                    EventDetailSection(
+                                        title = "Inventoriaus konfliktai",
+                                        subtitle = "Persidengiančiuose renginiuose suplanuotas tas pats fizinis inventorius."
+                                    ) {
+                                        readiness.conflicts.forEach { conflict ->
+                                            Text(
+                                                "${conflict.itemName}: reikia ${conflict.requestedQuantity}, turima ${conflict.availableQuantity}"
+                                            )
+                                            conflict.overlappingEvents.takeIf { it.isNotEmpty() }?.let {
+                                                Text(it.joinToString(), modifier = Modifier.padding(bottom = 8.dp))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
                         item {
                             if (state.pastovykles.isNotEmpty()) {
                                 LazyRow(
@@ -182,6 +210,15 @@ fun EventUkvedysScreen(
                                 ) {
                                     Text("Importuoti CSV")
                                 }
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    pendingExportCsv = viewModel.eventCompletionExportCsv()
+                                    exportCsvLauncher.launch("renginio-uzdarymo-suvestine-${LocalDate.now()}.csv")
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Uždarymo suvestinė CSV")
                             }
                         }
                         item {

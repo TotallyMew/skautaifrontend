@@ -4,7 +4,24 @@ import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "reservations", indices = [Index("eventId")])
+@Entity(
+    tableName = "reservations",
+    indices = [
+        Index("eventId"),
+        Index(
+            value = ["tuntasId", "startDate", "endDate", "status"],
+            name = "index_reservations_calendar"
+        ),
+        Index(
+            value = ["tuntasId", "status", "startDate", "createdAt"],
+            name = "index_reservations_list_order"
+        ),
+        Index(
+            value = ["tuntasId", "eventId", "startDate"],
+            name = "index_reservations_event_order"
+        )
+    ]
+)
 data class ReservationEntity(
     @PrimaryKey val id: String,
     val title: String,

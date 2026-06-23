@@ -11,7 +11,9 @@ interface EventApiService {
         @Header("X-Tuntas-Id") tuntasId: String,
         @Query("type") type: String? = null,
         @Query("status") status: String? = null,
-        @Query("updatedAfter") updatedAfter: String? = null
+        @Query("updatedAfter") updatedAfter: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
     ): Response<EventListDto>
 
     @GET("api/events/{id}")
@@ -262,7 +264,9 @@ interface EventApiService {
     suspend fun getPurchases(
         @Header("Authorization") token: String,
         @Header("X-Tuntas-Id") tuntasId: String,
-        @Path("id") id: String
+        @Path("id") id: String,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
     ): Response<EventPurchaseListDto>
 
     @POST("api/events/{id}/purchases")
@@ -539,6 +543,23 @@ interface EventApiService {
         @Body request: CreatePastovykleInventoryRequestRequestDto
     ): Response<EventInventoryRequestDto>
 
+    @PUT("api/events/{id}/pastovykles/{pid}/requests/{requestId}")
+    suspend fun updatePastovykleRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("pid") pastovykleId: String,
+        @Path("requestId") requestId: String,
+        @Body request: UpdateEventInventoryRequestRequestDto
+    ): Response<EventInventoryRequestDto>
+
+    @GET("api/events/{id}/inventory-readiness")
+    suspend fun getInventoryReadiness(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventInventoryReadinessDto>
+
     @GET("api/events/{id}/inventory-requests")
     suspend fun getEventInventoryRequests(
         @Header("Authorization") token: String,
@@ -622,4 +643,28 @@ interface EventApiService {
         @Path("id") id: String,
         @Body request: CreateEventInventoryMovementRequestDto
     ): Response<EventInventoryMovementDto>
+
+    @GET("api/events/{id}/inventory-transfer-requests")
+    suspend fun getInventoryTransferRequests(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String
+    ): Response<EventInventoryTransferRequestListDto>
+
+    @POST("api/events/{id}/inventory-transfer-requests")
+    suspend fun createInventoryTransferRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Body request: CreateEventInventoryTransferRequestDto
+    ): Response<EventInventoryTransferRequestDto>
+
+    @POST("api/events/{id}/inventory-transfer-requests/{requestId}/respond")
+    suspend fun respondToInventoryTransferRequest(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("id") id: String,
+        @Path("requestId") requestId: String,
+        @Body request: RespondEventInventoryTransferRequestDto
+    ): Response<EventInventoryTransferRequestDto>
 }

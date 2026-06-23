@@ -1346,14 +1346,16 @@ private fun ReturnInventoryList(
         val sortedItems = remember(items) {
             items.sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
         }
+        val bucketCounts = remember(sortedItems) {
+            sortedItems.groupingBy { it.bucketName ?: "Be paskirties" }.eachCount()
+        }
         LazyColumn(modifier = Modifier.heightIn(max = 560.dp)) {
             var lastBucket: String? = null
             sortedItems.forEach { item ->
                 val bucketName = item.bucketName ?: "Be paskirties"
                 if (bucketName != lastBucket) {
-                    val count = sortedItems.count { (it.bucketName ?: "Be paskirties") == bucketName }
                     item(key = "return_bucket_$bucketName") {
-                        EventListGroupHeader(bucketName, count)
+                        EventListGroupHeader(bucketName, bucketCounts[bucketName] ?: 0)
                     }
                     lastBucket = bucketName
                 }
@@ -1391,14 +1393,16 @@ private fun ShortageInventoryList(
     val sortedItems = remember(items) {
         items.sortedWith(compareBy<EventInventoryItemDto>({ it.bucketName ?: "Be paskirties" }, { it.name.lowercase() }))
     }
+    val bucketCounts = remember(sortedItems) {
+        sortedItems.groupingBy { it.bucketName ?: "Be paskirties" }.eachCount()
+    }
     LazyColumn(modifier = Modifier.heightIn(max = 520.dp)) {
         var lastBucket: String? = null
         sortedItems.forEach { item ->
             val bucketName = item.bucketName ?: "Be paskirties"
             if (bucketName != lastBucket) {
-                val count = sortedItems.count { (it.bucketName ?: "Be paskirties") == bucketName }
                 item(key = "shortage_bucket_$bucketName") {
-                    EventListGroupHeader(bucketName, count)
+                    EventListGroupHeader(bucketName, bucketCounts[bucketName] ?: 0)
                 }
                 lastBucket = bucketName
             }

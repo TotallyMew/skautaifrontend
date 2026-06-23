@@ -5,6 +5,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,7 +64,8 @@ private data class InventoryListMeta(
     val kits: List<InventoryKitDto>,
     val kitsLoaded: Boolean,
     val selectedStatus: String,
-    val permissions: Set<String>
+    val permissions: Set<String>,
+    val pagedItems: List<ItemDto>?
 )
 
 private fun ItemDto.effectiveInventoryType(): String =
@@ -110,6 +112,12 @@ class InventoryListViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private val _hasMoreItems = MutableStateFlow(false)
+    val hasMoreItems: StateFlow<Boolean> = _hasMoreItems.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -127,7 +135,9 @@ class InventoryListViewModel @Inject constructor(
 
     private val _kits = MutableStateFlow<List<InventoryKitDto>>(emptyList())
     private val _kitsLoaded = MutableStateFlow(false)
+    private val _pagedItems = MutableStateFlow<List<ItemDto>?>(null)
     private var loadJob: Job? = null
+    private var searchLoadJob: Job? = null
 
     private val _importDraft = MutableStateFlow<InventoryImportDraft?>(null)
     val importDraft: StateFlow<InventoryImportDraft?> = _importDraft.asStateFlow()
@@ -197,8 +207,8 @@ class InventoryListViewModel @Inject constructor(
                     createdByUserId = personalOwnerId
                 ),
                 itemRepository.observeItems(status = "PENDING_APPROVAL"),
-                combine(_kits, _kitsLoaded, selectedStatus, permissions) { kits, kitsLoaded, status, userPermissions ->
-                    InventoryListMeta(kits, kitsLoaded, status, userPermissions)
+                combine(_kits, _kitsLoaded, selectedStatus, permissions, _pagedItems) { kits, kitsLoaded, status, userPermissions, pagedItems ->
+                    InventoryListMeta(kits, kitsLoaded, status, userPermissions, pagedItems)
                 }
             ) { activeItems, inactiveItems, pendingItems, meta ->
                 if (!meta.kitsLoaded && _uiState.value !is InventoryListUiState.Success) {
@@ -215,10 +225,12 @@ class InventoryListViewModel @Inject constructor(
                     "PENDING_APPROVAL" -> visiblePendingItems
                     else -> activeItems
                 }
-                if (selectedStatus == "ACTIVE" && activeItems.isEmpty() && visiblePendingItems.isEmpty()) {
+                val pagedItems = meta.pagedItems
+                val shownItems = pagedItems ?: visibleItems
+                if (selectedStatus == "ACTIVE" && shownItems.isEmpty() && visiblePendingItems.isEmpty()) {
                     InventoryListUiState.Empty
                 } else {
-                    InventoryListUiState.Success(visibleItems, visiblePendingItems, kits)
+                    InventoryListUiState.Success(shownItems, visiblePendingItems, kits)
                 }
             }.collect { state ->
                 if (!_isRefreshing.value ||
@@ -243,21 +255,34 @@ class InventoryListViewModel @Inject constructor(
                 val currentPermissions = permissions.value
                 val canSeePending = currentPermissions.canReviewItemAdditions() || currentPermissions.canSubmitItemAddition()
                 val selectedStatus = _selectedStatus.value
-                val itemsResult = when {
-                    selectedStatus == "PENDING_APPROVAL" && canSeePending ->
-                        itemRepository.refreshItems(status = "PENDING_APPROVAL")
-                    selectedStatus == "INACTIVE" && currentPermissions.canManageAllItems() ->
-                        itemRepository.refreshItems(
-                            custodianId = initialCustodianId,
-                            status = "INACTIVE",
-                            sharedOnly = initialSharedOnly,
-                            createdByUserId = personalOwnerId
-                        )
-                    else -> itemRepository.refreshItems(
+                val targetStatus = targetStatusForLoad(selectedStatus, canSeePending, currentPermissions)
+                val serverType = _selectedTypes.value.singleOrNull()
+                val serverCategory = _selectedCategories.value.singleOrNull()
+                val serverSearchQuery = _searchQuery.value.trim().takeIf { it.isNotBlank() }
+                val canLoadTarget = targetStatus != null
+                val itemsResult = if (canLoadTarget) {
+                    itemRepository.refreshItemsPage(
                         custodianId = initialCustodianId,
+                        status = targetStatus,
+                        type = serverType,
+                        category = serverCategory,
                         sharedOnly = initialSharedOnly,
-                        createdByUserId = personalOwnerId
-                    )
+                        createdByUserId = personalOwnerId,
+                        searchQuery = serverSearchQuery,
+                        limit = INVENTORY_PAGE_SIZE,
+                        offset = 0,
+                        replaceCache = true
+                    ).also { result ->
+                        result.onSuccess { page ->
+                            _pagedItems.value = page.items
+                            _hasMoreItems.value = page.hasMore
+                        }
+                            .onFailure { _hasMoreItems.value = false }
+                    }.map { Unit }
+                } else {
+                    _pagedItems.value = emptyList()
+                    _hasMoreItems.value = false
+                    Result.success(Unit)
                 }
 
                 inventoryKitRepository.getKits()
@@ -297,6 +322,55 @@ class InventoryListViewModel @Inject constructor(
                 _isRefreshing.value = false
             }
         }
+    }
+
+    fun loadNextPage() {
+        if (_isRefreshing.value || _isLoadingMore.value || !_hasMoreItems.value) return
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            try {
+                val currentUserId = tokenManager.userId.first()
+                val personalOwnerId = personalOwnerFilterId(currentUserId)
+                val currentPermissions = permissions.value
+                val canSeePending = currentPermissions.canReviewItemAdditions() || currentPermissions.canSubmitItemAddition()
+                val targetStatus = targetStatusForLoad(_selectedStatus.value, canSeePending, currentPermissions)
+                    ?: return@launch
+                val currentOffset = _pagedItems.value.orEmpty().size
+                val serverType = _selectedTypes.value.singleOrNull()
+                val serverCategory = _selectedCategories.value.singleOrNull()
+                val serverSearchQuery = _searchQuery.value.trim().takeIf { it.isNotBlank() }
+                itemRepository.refreshItemsPage(
+                    custodianId = initialCustodianId,
+                    status = targetStatus,
+                    type = serverType,
+                    category = serverCategory,
+                    sharedOnly = initialSharedOnly,
+                    createdByUserId = personalOwnerId,
+                    searchQuery = serverSearchQuery,
+                    limit = INVENTORY_PAGE_SIZE,
+                    offset = currentOffset,
+                    replaceCache = false
+                ).onSuccess { page ->
+                    _pagedItems.value = (_pagedItems.value.orEmpty() + page.items).distinctBy { it.id }
+                    _hasMoreItems.value = page.hasMore
+                }.onFailure { error ->
+                    _actionMessage.value = error.message ?: "Nepavyko pakrauti daugiau inventoriaus"
+                }
+            } finally {
+                _isLoadingMore.value = false
+            }
+        }
+    }
+
+    private fun targetStatusForLoad(
+        selectedStatus: String,
+        canSeePending: Boolean,
+        currentPermissions: Set<String>
+    ): String? = when {
+        selectedStatus == "PENDING_APPROVAL" && canSeePending -> "PENDING_APPROVAL"
+        selectedStatus == "INACTIVE" && currentPermissions.canManageAllItems() -> "INACTIVE"
+        selectedStatus == "ACTIVE" -> "ACTIVE"
+        else -> null
     }
 
     private fun personalOwnerFilterId(currentUserId: String?): String? = when {
@@ -376,28 +450,35 @@ class InventoryListViewModel @Inject constructor(
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
         clearSelection()
+        searchLoadJob?.cancel()
+        searchLoadJob = viewModelScope.launch {
+            delay(SEARCH_DEBOUNCE_MS)
+            loadItems()
+        }
     }
 
     fun onTypeSelected(type: String) {
         _selectedTypes.value = _selectedTypes.value.toggle(type)
         clearSelection()
+        loadItemsImmediately()
     }
 
     fun onCategorySelected(category: String) {
         _selectedCategories.value = _selectedCategories.value.toggle(category)
         clearSelection()
+        loadItemsImmediately()
     }
 
     fun onLocationSelected(locationId: String) {
         _selectedLocationIds.value = _selectedLocationIds.value.toggle(locationId)
         clearSelection()
-        loadItems()
+        loadItemsImmediately()
     }
 
     fun onStatusSelected(status: String) {
         _selectedStatus.value = status
         clearSelection()
-        loadItems()
+        loadItemsImmediately()
     }
 
     fun onAssignedOnlyChange(enabled: Boolean) {
@@ -423,11 +504,13 @@ class InventoryListViewModel @Inject constructor(
         _consumablesOnly.value = false
         _lowStockOnly.value = false
         clearSelection()
+        loadItemsImmediately()
     }
 
     fun clearTypeFilters() {
         _selectedTypes.value = emptySet()
         clearSelection()
+        loadItemsImmediately()
     }
 
     fun enterSelectionMode() {
@@ -693,6 +776,11 @@ class InventoryListViewModel @Inject constructor(
         _selectedItemIds.value = emptySet()
     }
 
+    private fun loadItemsImmediately() {
+        searchLoadJob?.cancel()
+        loadItems()
+    }
+
     fun selectedLocationTreeIds(locationId: String): Set<String> {
         val allLocations = locations.value
         val result = mutableSetOf(locationId)
@@ -757,4 +845,9 @@ class InventoryListViewModel @Inject constructor(
             .replace("ž", "z")
             .replace(Regex("[^a-z0-9]+"), " ")
             .trim()
+
+    companion object {
+        private const val INVENTORY_PAGE_SIZE = 50
+        private const val SEARCH_DEBOUNCE_MS = 300L
+    }
 }

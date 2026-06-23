@@ -167,6 +167,22 @@ object DatabaseModule {
                 db.execSQL("ALTER TABLE `items` ADD COLUMN `isLowStock` INTEGER NOT NULL DEFAULT 0")
             }
         }
+        val migration16To17 = object : Migration(16, 17) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_items_list_filters` ON `items`(`tuntasId`, `status`, `type`, `category`, `custodianId`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_items_created_by` ON `items`(`tuntasId`, `createdByUserId`, `status`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_items_shared_query` ON `items`(`tuntasId`, `custodianId`, `type`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_calendar` ON `events`(`tuntasId`, `startDate`, `endDate`, `status`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reservations_calendar` ON `reservations`(`tuntasId`, `startDate`, `endDate`, `status`)")
+            }
+        }
+        val migration17To18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reservations_list_order` ON `reservations`(`tuntasId`, `status`, `startDate`, `createdAt`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reservations_event_order` ON `reservations`(`tuntasId`, `eventId`, `startDate`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_events_list_filters` ON `events`(`tuntasId`, `status`, `type`, `startDate`)")
+            }
+        }
 
         return Room.databaseBuilder(
             context,
@@ -188,7 +204,9 @@ object DatabaseModule {
                 migration12To13,
                 migration13To14,
                 migration14To15,
-                migration15To16
+                migration15To16,
+                migration16To17,
+                migration17To18
             )
             .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()

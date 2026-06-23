@@ -70,11 +70,8 @@ fun CalendarScreen(
         CalendarUiState.Loading -> LoadingCalendar()
         is CalendarUiState.Error -> SkautaiErrorState(message = state.message, onRetry = viewModel::refresh)
         is CalendarUiState.Success -> {
-            val allEntries = remember(state.events, state.reservations) {
-                buildCalendarEntries(state.events, state.reservations)
-            }
-            val monthEntries = remember(allEntries, selectedMonth) {
-                allEntries.filter { YearMonth.from(it.date) == selectedMonth }
+            val monthEntries = remember(state.events, state.reservations, selectedMonth) {
+                buildCalendarEntriesForMonth(state.events, state.reservations, selectedMonth)
             }
             CalendarContent(
                 selectedMonth = selectedMonth,
@@ -444,12 +441,20 @@ private fun CalendarEntry.blockContentTone(): Color =
         MaterialTheme.colorScheme.onTertiaryContainer
     }
 
-private fun buildCalendarEntries(
+private fun buildCalendarEntriesForMonth(
     events: List<lt.skautai.android.data.remote.EventDto>,
-    reservations: List<lt.skautai.android.data.remote.ReservationDto>
+    reservations: List<lt.skautai.android.data.remote.ReservationDto>,
+    month: YearMonth
 ): List<CalendarEntry> {
+    val monthStart = month.atDay(1)
+    val monthEnd = month.atEndOfMonth()
     val eventEntries = events.flatMap { event ->
-        datesBetween(event.startDate.toLocalDateOrNull(), event.endDate.toLocalDateOrNull()).map { date ->
+        datesBetween(
+            start = event.startDate.toLocalDateOrNull(),
+            end = event.endDate.toLocalDateOrNull(),
+            rangeStart = monthStart,
+            rangeEnd = monthEnd
+        ).map { date ->
             CalendarEntry(
                 id = event.id,
                 type = CalendarEntryType.Event,
@@ -463,7 +468,12 @@ private fun buildCalendarEntries(
         }
     }
     val reservationEntries = reservations.filter { it.eventId == null }.flatMap { reservation ->
-        datesBetween(reservation.startDate.toLocalDateOrNull(), reservation.endDate.toLocalDateOrNull()).map { date ->
+        datesBetween(
+            start = reservation.startDate.toLocalDateOrNull(),
+            end = reservation.endDate.toLocalDateOrNull(),
+            rangeStart = monthStart,
+            rangeEnd = monthEnd
+        ).map { date ->
             CalendarEntry(
                 id = reservation.id,
                 type = CalendarEntryType.Reservation,
@@ -519,10 +529,18 @@ private fun YearMonth.calendarCells(): List<LocalDate?> {
 private fun String.toLocalDateOrNull(): LocalDate? =
     runCatching { LocalDate.parse(take(10)) }.getOrNull()
 
-private fun datesBetween(start: LocalDate?, end: LocalDate?): List<LocalDate> {
+private fun datesBetween(
+    start: LocalDate?,
+    end: LocalDate?,
+    rangeStart: LocalDate,
+    rangeEnd: LocalDate
+): List<LocalDate> {
     if (start == null) return emptyList()
     val safeEnd = end ?: start
-    return generateSequence(start) { it.plusDays(1) }
-        .takeWhile { !it.isAfter(safeEnd) }
+    val clampedStart = maxOf(start, rangeStart)
+    val clampedEnd = minOf(safeEnd, rangeEnd)
+    if (clampedStart.isAfter(clampedEnd)) return emptyList()
+    return generateSequence(clampedStart) { it.plusDays(1) }
+        .takeWhile { !it.isAfter(clampedEnd) }
         .toList()
 }
