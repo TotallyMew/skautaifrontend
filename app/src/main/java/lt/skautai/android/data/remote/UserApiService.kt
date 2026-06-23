@@ -48,4 +48,10 @@ interface UserApiService {
         @Header("Authorization") token: String,
         @Body request: ChangeMyPasswordRequestDto
     ): Response<MessageResponseDto>
+
+    @POST("api/users/me/account-deletion")
+    suspend fun requestAccountDeletion(
+        @Header("Authorization") token: String,
+        @Body request: RequestAccountDeletionDto
+    ): Response<MessageResponseDto>
 }

@@ -11,6 +11,7 @@ import lt.skautai.android.data.remote.PermissionsResponseDto
 import lt.skautai.android.data.remote.UpdateMyProfileRequestDto
 import lt.skautai.android.data.remote.UserApiService
 import lt.skautai.android.data.remote.UserTuntasDto
+import lt.skautai.android.data.remote.RequestAccountDeletionDto
 import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.errorMessage
@@ -131,6 +132,24 @@ class UserRepository @Inject constructor(
                 Result.success(response.body()?.message ?: "Slaptažodis pakeistas.")
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko pakeisti slaptažodžio.")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
+
+    suspend fun requestAccountDeletion(password: String): Result<String> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception(SESSION_EXPIRED_MESSAGE))
+            val response = userApiService.requestAccountDeletion(
+                "Bearer $token",
+                RequestAccountDeletionDto(password)
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()?.message ?: "Patvirtinimo nuoroda išsiųsta.")
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko pateikti paskyros ištrynimo prašymo.")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())

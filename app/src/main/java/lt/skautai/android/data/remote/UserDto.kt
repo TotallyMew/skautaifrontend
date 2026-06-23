@@ -29,3 +29,7 @@ data class ChangeMyPasswordRequestDto(
     val currentPassword: String,
     val newPassword: String
 )
+
+data class RequestAccountDeletionDto(
+    val password: String
+)

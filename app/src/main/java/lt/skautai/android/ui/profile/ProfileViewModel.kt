@@ -24,6 +24,9 @@ data class ProfileUiState(
     val currentPassword: String = "",
     val newPassword: String = "",
     val repeatPassword: String = "",
+    val showAccountDeletionDialog: Boolean = false,
+    val accountDeletionPassword: String = "",
+    val isRequestingAccountDeletion: Boolean = false,
     val error: String? = null,
     val message: String? = null
 )
@@ -67,6 +70,17 @@ class ProfileViewModel @Inject constructor(
     fun onCurrentPasswordChange(value: String) { update { copy(currentPassword = value, error = null) } }
     fun onNewPasswordChange(value: String) { update { copy(newPassword = value, error = null) } }
     fun onRepeatPasswordChange(value: String) { update { copy(repeatPassword = value, error = null) } }
+    fun showAccountDeletionDialog() {
+        update { copy(showAccountDeletionDialog = true, accountDeletionPassword = "", error = null) }
+    }
+    fun hideAccountDeletionDialog() {
+        if (!_uiState.value.isRequestingAccountDeletion) {
+            update { copy(showAccountDeletionDialog = false, accountDeletionPassword = "") }
+        }
+    }
+    fun onAccountDeletionPasswordChange(value: String) {
+        update { copy(accountDeletionPassword = value, error = null) }
+    }
 
     fun saveProfile() {
         val state = _uiState.value
@@ -144,6 +158,31 @@ class ProfileViewModel @Inject constructor(
 
     fun clearError() {
         update { copy(error = null) }
+    }
+
+    fun requestAccountDeletion() {
+        val state = _uiState.value
+        if (state.accountDeletionPassword.isBlank()) {
+            return setError("Įveskite dabartinį slaptažodį.")
+        }
+        viewModelScope.launch {
+            _uiState.value = state.copy(isRequestingAccountDeletion = true, error = null, message = null)
+            userRepository.requestAccountDeletion(state.accountDeletionPassword)
+                .onSuccess { message ->
+                    _uiState.value = _uiState.value.copy(
+                        isRequestingAccountDeletion = false,
+                        showAccountDeletionDialog = false,
+                        accountDeletionPassword = "",
+                        message = message
+                    )
+                }
+                .onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isRequestingAccountDeletion = false,
+                        error = error.message ?: "Nepavyko pateikti paskyros ištrynimo prašymo."
+                    )
+                }
+        }
     }
 
     private fun setError(message: String) {

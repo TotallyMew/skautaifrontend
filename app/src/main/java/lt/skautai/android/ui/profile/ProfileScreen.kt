@@ -12,6 +12,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -46,6 +48,55 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
+
+    if (uiState.showAccountDeletionDialog) {
+        AlertDialog(
+            onDismissRequest = viewModel::hideAccountDeletionDialog,
+            title = { Text("Ištrinti paskyrą?") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        "El. paštu atsiųsime vienkartinę patvirtinimo nuorodą. " +
+                            "Paskyra nebus ištrinta, kol nepatvirtinsite ištrynimo puslapyje."
+                    )
+                    Text(
+                        "Šio veiksmo atšaukti negalima.",
+                        color = MaterialTheme.colorScheme.error,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    SkautaiTextField(
+                        value = uiState.accountDeletionPassword,
+                        onValueChange = viewModel::onAccountDeletionPasswordChange,
+                        label = "Dabartinis slaptažodis",
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = viewModel::requestAccountDeletion,
+                    enabled = !uiState.isRequestingAccountDeletion &&
+                        uiState.accountDeletionPassword.isNotBlank()
+                ) {
+                    Text(
+                        if (uiState.isRequestingAccountDeletion) "Siunčiama..." else "Siųsti patvirtinimą",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = viewModel::hideAccountDeletionDialog,
+                    enabled = !uiState.isRequestingAccountDeletion
+                ) {
+                    Text("Atšaukti")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(Unit) {
         viewModel.loadProfile()
@@ -188,6 +239,29 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(if (uiState.isSavingPassword) "Keičiama..." else "Keisti slaptažodį")
+                            }
+                        }
+                    }
+
+                    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            SkautaiSectionHeader(title = "Paskyros ištrynimas")
+                            HorizontalDivider()
+                            Text(
+                                "Ištrynus paskyrą bus panaikinti prisijungimo ir asmeniniai duomenys, " +
+                                    "aktyvios narystės bei rolės. Anonimizuoti veiksmų įrašai gali likti " +
+                                    "bendro inventoriaus apskaitos vientisumui.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = viewModel::showAccountDeletionDialog,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Ištrinti paskyrą", color = MaterialTheme.colorScheme.error)
                             }
                         }
                     }
