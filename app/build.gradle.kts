@@ -43,6 +43,21 @@ val apiCertPin = configValue(
     localPropertyName = "api.certPin",
     defaultValue = ""
 )
+val privacyPolicyUrl = configValue(
+    name = "PRIVACY_POLICY_URL",
+    localPropertyName = "privacy.policyUrl",
+    defaultValue = "https://skautaibackend-production.up.railway.app/privacy.html"
+)
+val supportEmail = configValue(
+    name = "SUPPORT_EMAIL",
+    localPropertyName = "support.email",
+    defaultValue = "support@skautuinventorius.lt"
+)
+val privacyEmail = configValue(
+    name = "PRIVACY_EMAIL",
+    localPropertyName = "privacy.email",
+    defaultValue = "privacy@skautuinventorius.lt"
+)
 
 android {
     namespace = "lt.skautai.android"
@@ -58,6 +73,9 @@ android {
         buildConfigField("String", "API_BASE_URL", apiBaseUrl.asBuildConfigString())
         buildConfigField("String", "API_HOST", apiHost.asBuildConfigString())
         buildConfigField("String", "API_CERT_PIN", apiCertPin.asBuildConfigString())
+        buildConfigField("String", "PRIVACY_POLICY_URL", privacyPolicyUrl.asBuildConfigString())
+        buildConfigField("String", "SUPPORT_EMAIL", supportEmail.asBuildConfigString())
+        buildConfigField("String", "PRIVACY_EMAIL", privacyEmail.asBuildConfigString())
     }
 
     buildTypes {

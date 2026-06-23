@@ -1,5 +1,7 @@
 package lt.skautai.android.ui.profile
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +27,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -41,6 +44,7 @@ import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.skautaiOverlayTone
 import lt.skautai.android.ui.common.skautaiSupportingTone
 import lt.skautai.android.ui.common.skautaiSurfaceTone
+import lt.skautai.android.BuildConfig
 
 @Composable
 fun ProfileScreen(
@@ -48,6 +52,7 @@ fun ProfileScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = androidx.compose.runtime.remember { SnackbarHostState() }
+    val context = LocalContext.current
 
     if (uiState.showAccountDeletionDialog) {
         AlertDialog(
@@ -239,6 +244,58 @@ fun ProfileScreen(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(if (uiState.isSavingPassword) "Keičiama..." else "Keisti slaptažodį")
+                            }
+                        }
+                    }
+
+                    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            SkautaiSectionHeader(title = "Privatumas ir duomenys")
+                            HorizontalDivider()
+                            Text(
+                                "Sužinokite, kokius duomenis programėlė tvarko, kodėl jie reikalingi, " +
+                                    "kiek laiko saugomi ir kokias teises turite.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            OutlinedButton(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(BuildConfig.PRIVACY_POLICY_URL))
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Privatumo politika")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_SENDTO,
+                                            Uri.parse("mailto:${BuildConfig.PRIVACY_EMAIL}")
+                                        ).putExtra(Intent.EXTRA_SUBJECT, "Privatumo klausimas")
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Kreiptis dėl privatumo")
+                            }
+                            OutlinedButton(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_SENDTO,
+                                            Uri.parse("mailto:${BuildConfig.SUPPORT_EMAIL}")
+                                        ).putExtra(Intent.EXTRA_SUBJECT, "Skautų inventoriaus pagalba")
+                                    )
+                                },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Susisiekti su pagalba")
                             }
                         }
                     }
