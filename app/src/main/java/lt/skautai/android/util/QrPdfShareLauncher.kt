@@ -5,8 +5,12 @@ import android.content.Intent
 import androidx.core.content.FileProvider
 
 object QrPdfShareLauncher {
-    fun share(context: Context, items: List<PrintableQrItem>) {
-        val pdfFile = QrPdfDocumentGenerator.createPdf(context.cacheDir, items)
+    fun share(
+        context: Context,
+        items: List<PrintableQrItem>,
+        layout: QrPdfLayout = QrPdfLayout.Standard
+    ) {
+        val pdfFile = QrPdfDocumentGenerator.createPdf(context.cacheDir, items, layout)
         val pdfUri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",

@@ -17,26 +17,27 @@ import kotlin.math.min
 object QrPdfDocumentGenerator {
     private const val pageWidth = 595
     private const val pageHeight = 842
-    private const val columns = 2
-    private const val rows = 4
     private const val pagePadding = 24
     private const val gutter = 16
-    private const val cellPadding = 14
-    private const val maxItemsPerPage = columns * rows
     private val fileNameFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmm")
 
-    fun createPdf(cacheDir: File, items: List<PrintableQrItem>): File {
+    fun createPdf(
+        cacheDir: File,
+        items: List<PrintableQrItem>,
+        layout: QrPdfLayout = QrPdfLayout.Standard
+    ): File {
         require(items.isNotEmpty()) { "Bent vienas QR elementas yra privalomas" }
 
         val outputDir = File(cacheDir, "shared-qr-pdfs").apply { mkdirs() }
         val outputFile = File(
             outputDir,
-            "inventorius-qr-${LocalDateTime.now().format(fileNameFormatter)}.pdf"
+            "inventorius-qr-${layout.fileSuffix}-${LocalDateTime.now().format(fileNameFormatter)}.pdf"
         )
 
         val document = PdfDocument()
-        val cellWidth = (pageWidth - (pagePadding * 2) - (gutter * (columns - 1))) / columns
-        val cellHeight = (pageHeight - (pagePadding * 2) - (gutter * (rows - 1))) / rows
+        val cellWidth = (pageWidth - (pagePadding * 2) - (gutter * (layout.columns - 1))) / layout.columns
+        val cellHeight = (pageHeight - (pagePadding * 2) - (gutter * (layout.rows - 1))) / layout.rows
+        val maxItemsPerPage = layout.columns * layout.rows
 
         val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(205, 214, 224)
@@ -60,8 +61,8 @@ object QrPdfDocumentGenerator {
                 val canvas = page.canvas
 
                 pageItems.forEachIndexed { index, item ->
-                    val column = index % columns
-                    val row = index / columns
+                    val column = index % layout.columns
+                    val row = index / layout.columns
                     val left = pagePadding + column * (cellWidth + gutter)
                     val top = pagePadding + row * (cellHeight + gutter)
                     val right = left + cellWidth
@@ -77,10 +78,13 @@ object QrPdfDocumentGenerator {
                         borderPaint
                     )
 
-                    val contentLeft = left + cellPadding
-                    val contentTop = top + cellPadding
-                    val contentWidth = cellWidth - (cellPadding * 2)
-                    val qrSize = min(contentWidth, max(92, cellHeight / 2))
+                    val contentLeft = left + layout.cellPadding
+                    val contentTop = top + layout.cellPadding
+                    val contentWidth = cellWidth - (layout.cellPadding * 2)
+                    val qrSize = min(
+                        contentWidth,
+                        max(layout.minQrSize, (cellHeight * layout.qrHeightFraction).toInt())
+                    )
                     val qrBitmap = QrCodeBitmap.create(item.payload, 640)
                     canvas.drawBitmap(qrBitmap, null, android.graphics.Rect(
                         contentLeft,
@@ -143,4 +147,50 @@ object QrPdfDocumentGenerator {
             .setEllipsize(android.text.TextUtils.TruncateAt.END)
             .build()
     }
+}
+
+enum class QrPdfLayout(
+    val label: String,
+    val description: String,
+    val qrSizeLabel: String,
+    val fileSuffix: String,
+    val columns: Int,
+    val rows: Int,
+    val cellPadding: Int,
+    val minQrSize: Int,
+    val qrHeightFraction: Float
+) {
+    Small(
+        label = "Maži (~2 cm QR)",
+        description = "Smulkiems įrankiams ir mažoms etiketėms",
+        qrSizeLabel = "QR apie 2 cm, etiketė apie 4,4 x 3 cm",
+        fileSuffix = "mazi",
+        columns = 4,
+        rows = 8,
+        cellPadding = 8,
+        minQrSize = 58,
+        qrHeightFraction = 0.62f
+    ),
+    Standard(
+        label = "Standartiniai (~3,3 cm QR)",
+        description = "Bendram inventoriui",
+        qrSizeLabel = "QR apie 3,3 cm, etiketė apie 9,4 x 6,6 cm",
+        fileSuffix = "standartiniai",
+        columns = 2,
+        rows = 4,
+        cellPadding = 14,
+        minQrSize = 92,
+        qrHeightFraction = 0.5f
+    ),
+    Large(
+        label = "Dideli (~8,9 cm QR)",
+        description = "Palapinėms, dėžėms ir didesniems daiktams",
+        qrSizeLabel = "QR apie 8,9 cm, etiketė apie 19,3 x 13,7 cm",
+        fileSuffix = "dideli",
+        columns = 1,
+        rows = 2,
+        cellPadding = 22,
+        minQrSize = 180,
+        qrHeightFraction = 0.65f
+    )
 }

@@ -24,6 +24,7 @@ import dagger.hilt.android.AndroidEntryPoint
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.ui.common.AppNavGraph
 import lt.skautai.android.ui.theme.SkautuInventoriusTheme
+import lt.skautai.android.util.Constants
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.SESSION_EXPIRED_MESSAGE
 import lt.skautai.android.util.TokenManager
@@ -179,7 +180,12 @@ class MainActivity : ComponentActivity() {
 
     private fun passwordResetToken(intent: Intent?): String? =
         intent?.data
-            ?.takeIf { it.scheme == "skautai" && it.host == "reset-password" }
+            ?.takeIf { uri ->
+                (uri.scheme == "skautai" && uri.host == "reset-password") ||
+                    (uri.scheme == "https" &&
+                        uri.host == Constants.BASE_URL.removePrefix("https://").removePrefix("http://").substringBefore('/').substringBefore(':') &&
+                        uri.path == "/password-reset/open")
+            }
             ?.getQueryParameter("token")
 
     private companion object {

@@ -30,13 +30,15 @@ sealed class NavRoutes(val route: String) {
     object Profile : NavRoutes("profile")
 
     // Inventory
-    object InventoryList : NavRoutes("inventory_list?type={type}&category={category}&custodianId={custodianId}&sharedOnly={sharedOnly}&personalOwner={personalOwner}") {
+    object InventoryList : NavRoutes("inventory_list?type={type}&category={category}&custodianId={custodianId}&sharedOnly={sharedOnly}&personalOwner={personalOwner}&assignLocationId={assignLocationId}&assignLocationName={assignLocationName}") {
         fun createRoute(
             type: String? = null,
             category: String? = null,
             custodianId: String? = null,
             sharedOnly: Boolean? = null,
-            personalOwner: String? = null
+            personalOwner: String? = null,
+            assignLocationId: String? = null,
+            assignLocationName: String? = null
         ): String {
             val params = buildList {
                 if (type != null) add(queryParam("type", type))
@@ -44,6 +46,8 @@ sealed class NavRoutes(val route: String) {
                 if (custodianId != null) add(queryParam("custodianId", custodianId))
                 if (sharedOnly != null) add(queryParam("sharedOnly", sharedOnly.toString()))
                 if (personalOwner != null) add(queryParam("personalOwner", personalOwner))
+                if (assignLocationId != null) add(queryParam("assignLocationId", assignLocationId))
+                if (assignLocationName != null) add(queryParam("assignLocationName", assignLocationName))
             }
             return if (params.isEmpty()) {
                 "inventory_list"

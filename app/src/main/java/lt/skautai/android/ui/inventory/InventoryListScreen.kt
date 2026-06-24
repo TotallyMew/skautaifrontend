@@ -107,6 +107,7 @@ import lt.skautai.android.ui.common.skautaiConditionAccentTone
 import lt.skautai.android.ui.common.skautaiDividerTone
 import lt.skautai.android.ui.common.skautaiSurfaceTone
 import lt.skautai.android.util.NavRoutes
+import lt.skautai.android.util.QrPdfLayout
 import lt.skautai.android.util.QrPdfShareLauncher
 import lt.skautai.android.util.InventoryCsv
 import lt.skautai.android.util.InventoryImportDraft
@@ -243,13 +244,17 @@ fun InventoryListScreen(
             .mapNotNull { it.toPrintableQrItemOrNull() }
     }
     val selectedBulkItems = remember(filteredVisibleItems, selectedItemIds, selectionPurpose) {
-        if (selectionPurpose != InventorySelectionPurpose.BULK_EDIT) {
+        if (
+            selectionPurpose != InventorySelectionPurpose.BULK_EDIT &&
+            selectionPurpose != InventorySelectionPurpose.LOCATION_ASSIGN
+        ) {
             emptyList()
         } else {
             filteredVisibleItems.filter { it.id in selectedItemIds && viewModel.canBulkManage(it) }
         }
     }
     var showBulkActionDialog by remember { mutableStateOf(false) }
+    var showQrSizeDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(actionMessage) {
         actionMessage?.let {
@@ -276,6 +281,24 @@ fun InventoryListScreen(
             onApply = { action ->
                 showBulkActionDialog = false
                 viewModel.applyBulkAction(action)
+            }
+        )
+    }
+
+    if (showQrSizeDialog) {
+        QrPdfLayoutDialog(
+            onDismiss = { showQrSizeDialog = false },
+            onLayoutSelected = { layout ->
+                showQrSizeDialog = false
+                runCatching {
+                    QrPdfShareLauncher.share(context, selectedPrintableItems, layout)
+                }.onSuccess {
+                    viewModel.onPdfShared()
+                }.onFailure {
+                    viewModel.onPdfShareFailed(
+                        it.message ?: "Nepavyko sugeneruoti QR PDF"
+                    )
+                }
             }
         )
     }
@@ -309,6 +332,14 @@ fun InventoryListScreen(
                             onCancel = viewModel::exitSelectionMode
                         )
                     }
+                    InventorySelectionPurpose.LOCATION_ASSIGN -> {
+                        LocationAssignmentSelectionBar(
+                            selectedCount = selectedBulkItems.size,
+                            locationName = viewModel.assignLocationName ?: "pasirinktai lokacijai",
+                            onApply = viewModel::applyLocationAssignment,
+                            onCancel = viewModel::exitSelectionMode
+                        )
+                    }
                     else -> {
                         QrSelectionBar(
                             selectedCount = selectedPrintableItems.size,
@@ -316,15 +347,7 @@ fun InventoryListScreen(
                                 if (selectedPrintableItems.isEmpty()) {
                                     viewModel.onPdfShareFailed("Pasirink bent vieną daiktą QR PDF generavimui.")
                                 } else {
-                                    runCatching {
-                                        QrPdfShareLauncher.share(context, selectedPrintableItems)
-                                    }.onSuccess {
-                                        viewModel.onPdfShared()
-                                    }.onFailure {
-                                        viewModel.onPdfShareFailed(
-                                            it.message ?: "Nepavyko sugeneruoti QR PDF"
-                                        )
-                                    }
+                                    showQrSizeDialog = true
                                 }
                             },
                             onCancel = viewModel::exitSelectionMode
@@ -1309,6 +1332,7 @@ private fun InventoryCatalogContent(
                         if (searchQuery.isNotBlank() || kit.id in expandedKitIds) {
                             items(kitItems, key = { "kit_${kit.id}_${it.id}" }) { item ->
                                 val isSelectable = when (selectionPurpose) {
+                                    InventorySelectionPurpose.LOCATION_ASSIGN,
                                     InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
                                     else -> item.toPrintableQrItemOrNull() != null
                                 }
@@ -1337,6 +1361,7 @@ private fun InventoryCatalogContent(
                     }
                     items(group.items, key = { it.id }) { item ->
                         val isSelectable = when (selectionPurpose) {
+                            InventorySelectionPurpose.LOCATION_ASSIGN,
                             InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
                             else -> item.toPrintableQrItemOrNull() != null
                         }
@@ -1365,6 +1390,7 @@ private fun InventoryCatalogContent(
                         ) {
                             rowItems.forEach { item ->
                                 val isSelectable = when (selectionPurpose) {
+                                    InventorySelectionPurpose.LOCATION_ASSIGN,
                                     InventorySelectionPurpose.BULK_EDIT -> canBulkManage(item)
                                     else -> item.toPrintableQrItemOrNull() != null
                                 }
@@ -2067,6 +2093,108 @@ private fun BulkSelectionBar(
             }
         }
     }
+}
+
+@Composable
+private fun LocationAssignmentSelectionBar(
+    selectedCount: Int,
+    locationName: String,
+    onApply: () -> Unit,
+    onCancel: () -> Unit
+) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Identity)
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(
+                text = "Priskirti lokacijai: $selectedCount",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Text(
+                text = locationName,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                FilledTonalButton(
+                    onClick = onApply,
+                    enabled = selectedCount > 0,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Priskirti")
+                }
+                OutlinedButton(
+                    onClick = onCancel,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Atšaukti")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QrPdfLayoutDialog(
+    onDismiss: () -> Unit,
+    onLayoutSelected: (QrPdfLayout) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("QR etikečių dydis") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                QrPdfLayout.values().forEach { layout ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onLayoutSelected(layout) }
+                            .padding(vertical = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = layout == QrPdfLayout.Standard,
+                            onClick = { onLayoutSelected(layout) }
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(
+                                text = layout.label,
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = layout.description,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = layout.qrSizeLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Atšaukti")
+            }
+        }
+    )
 }
 
 @Composable

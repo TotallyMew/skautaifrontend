@@ -1,10 +1,12 @@
 package lt.skautai.android.ui.inventory
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
@@ -81,6 +84,7 @@ import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.skautaiOverlayTone
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrCodeBitmap
+import lt.skautai.android.util.QrPdfLayout
 import lt.skautai.android.util.QrPdfShareLauncher
 import lt.skautai.android.util.QrPayload
 import lt.skautai.android.util.canCreateRequisitions
@@ -310,11 +314,11 @@ fun InventoryDetailScreen(
         ItemQrDialog(
             item = currentItem,
             onDismiss = { showQrDialog = false },
-            onSharePdf = {
+            onSharePdf = { layout ->
                 runCatching {
                     val printableItem = currentItem.toPrintableQrItemOrNull()
                         ?: error("Šio daikto QR PDF sugeneruoti negalima.")
-                    QrPdfShareLauncher.share(context, listOf(printableItem))
+                    QrPdfShareLauncher.share(context, listOf(printableItem), layout)
                 }.onSuccess {
                     viewModel.onQrPdfShared()
                 }.onFailure {
@@ -1607,16 +1611,17 @@ private val managedCustomFieldNames = setOf("Mato vienetas", "Žymos", "Priežas
 private fun ItemQrDialog(
     item: ItemDto,
     onDismiss: () -> Unit,
-    onSharePdf: () -> Unit
+    onSharePdf: (QrPdfLayout) -> Unit
 ) {
     val qrBitmap = remember(item.id) {
         QrCodeBitmap.create(QrPayload.forScanToken(item.qrToken))
     }
+    var selectedLayout by remember { mutableStateOf(QrPdfLayout.Standard) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onSharePdf) { Text("Dalintis PDF") }
+            TextButton(onClick = { onSharePdf(selectedLayout) }) { Text("Dalintis PDF") }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) { Text("Uždaryti") }
@@ -1646,6 +1651,44 @@ private fun ItemQrDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "PDF etiketės dydis",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    QrPdfLayout.values().forEach { layout ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedLayout = layout }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedLayout == layout,
+                                onClick = { selectedLayout = layout }
+                            )
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Column {
+                                Text(layout.label, style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    text = layout.description,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = layout.qrSizeLabel,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                }
             }
         }
     )

@@ -47,7 +47,8 @@ sealed interface InventoryListUiState {
 
 enum class InventorySelectionPurpose {
     QR_PDF,
-    BULK_EDIT
+    BULK_EDIT,
+    LOCATION_ASSIGN
 }
 
 data class InventoryBulkAction(
@@ -167,6 +168,8 @@ class InventoryListViewModel @Inject constructor(
     private val initialType = savedStateHandle.get<String?>("type")
     private val initialSharedOnly = savedStateHandle.get<Boolean>("sharedOnly") ?: false
     private val initialPersonalOwner = savedStateHandle.get<String?>("personalOwner")
+    val assignLocationId: String? = savedStateHandle.get<String?>("assignLocationId")
+    val assignLocationName: String? = savedStateHandle.get<String?>("assignLocationName")
     private val personalOwnerOnly = !initialPersonalOwner.isNullOrBlank()
     val openedType: String? = initialType
     val openedCustodianId: String? = initialCustodianId
@@ -186,6 +189,9 @@ class InventoryListViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        if (!assignLocationId.isNullOrBlank()) {
+            enterLocationAssignmentMode()
+        }
         observeCachedItems()
         loadItems()
     }
@@ -529,6 +535,12 @@ class InventoryListViewModel @Inject constructor(
         _selectedItemIds.value = emptySet()
     }
 
+    private fun enterLocationAssignmentMode() {
+        _selectionMode.value = true
+        _selectionPurpose.value = InventorySelectionPurpose.LOCATION_ASSIGN
+        _selectedItemIds.value = emptySet()
+    }
+
     fun exitSelectionMode() {
         clearSelection()
     }
@@ -536,7 +548,11 @@ class InventoryListViewModel @Inject constructor(
     fun toggleSelectedItem(itemId: String, isEligible: Boolean) {
         if (!_selectionMode.value) return
         if (!isEligible) {
-            _actionMessage.value = "Šio daikto QR PDF sugeneruoti negalima."
+            _actionMessage.value = when (_selectionPurpose.value) {
+                InventorySelectionPurpose.BULK_EDIT,
+                InventorySelectionPurpose.LOCATION_ASSIGN -> "Šio daikto redaguoti negalima."
+                else -> "Šio daikto QR PDF sugeneruoti negalima."
+            }
             return
         }
         _selectedItemIds.value = _selectedItemIds.value.toMutableSet().apply {
@@ -585,6 +601,15 @@ class InventoryListViewModel @Inject constructor(
                 if (failedCount > 0) append(". Nepavyko: $failedCount.")
             }
         }
+    }
+
+    fun applyLocationAssignment() {
+        val locationId = assignLocationId
+        if (locationId.isNullOrBlank()) {
+            _actionMessage.value = "Lokacija nepasirinkta."
+            return
+        }
+        applyBulkAction(InventoryBulkAction(locationId = locationId))
     }
 
     fun onPdfShareFailed(message: String) {

@@ -62,9 +62,13 @@ fun RemoteImage(
                 } else {
                     val absoluteUrl = url.toAbsoluteImageUrl()
                     val token = tokenManager.token.first()
+                    val tuntasId = tokenManager.activeTuntasId.first()
                     val connection = (URL(absoluteUrl).openConnection() as HttpURLConnection).apply {
                         if (absoluteUrl.startsWith(Constants.BASE_URL.trimEnd('/') + "/uploads/") && !token.isNullOrBlank()) {
                             setRequestProperty("Authorization", "Bearer $token")
+                            if (!tuntasId.isNullOrBlank()) {
+                                setRequestProperty("X-Tuntas-Id", tuntasId)
+                            }
                         }
                     }
                     connection.inputStream.use(BitmapFactory::decodeStream)

@@ -302,6 +302,16 @@ fun AppNavGraph(
                     type = NavType.StringType
                     defaultValue = null
                     nullable = true
+                },
+                navArgument("assignLocationId") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
+                },
+                navArgument("assignLocationName") {
+                    type = NavType.StringType
+                    defaultValue = null
+                    nullable = true
                 }
             )
         ) {
@@ -511,6 +521,14 @@ fun AppNavGraph(
                 },
                 onEdit = { id -> navController.navigate(NavRoutes.LocationAddEdit.createRoute(locationId = id)) },
                 onCreateChild = { parentId -> navController.navigate(NavRoutes.LocationAddEdit.createRoute(parentLocationId = parentId)) },
+                onAssignItems = { location ->
+                    navController.navigate(
+                        NavRoutes.InventoryList.createRoute(
+                            assignLocationId = location.id,
+                            assignLocationName = location.fullPath
+                        )
+                    )
+                },
                 refreshSignal = refreshLocationDetail,
                 onRefreshHandled = {
                     backStackEntry.savedStateHandle["refreshLocationDetail"] = false

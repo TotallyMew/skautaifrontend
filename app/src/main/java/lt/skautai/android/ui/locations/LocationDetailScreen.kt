@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Place
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.Button
@@ -72,6 +73,7 @@ fun LocationDetailScreen(
     onBack: () -> Unit,
     onEdit: (String) -> Unit,
     onCreateChild: (String) -> Unit,
+    onAssignItems: (LocationDto) -> Unit,
     refreshSignal: Boolean,
     onRefreshHandled: () -> Unit,
     viewModel: LocationDetailViewModel = hiltViewModel()
@@ -277,6 +279,18 @@ fun LocationDetailScreen(
                                     Spacer(modifier = Modifier.size(8.dp))
                                     Text("Pridėti sublokaciją")
                                 }
+                            }
+                        }
+
+                        item {
+                            Button(
+                                onClick = { onAssignItems(location) },
+                                enabled = !uiState.isDeleting,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(Icons.Default.Inventory2, contentDescription = null)
+                                Spacer(modifier = Modifier.size(8.dp))
+                                Text("Priskirti daiktus šiai lokacijai")
                             }
                         }
 

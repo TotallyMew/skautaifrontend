@@ -43,6 +43,26 @@ val apiCertPin = configValue(
     localPropertyName = "api.certPin",
     defaultValue = ""
 )
+val releaseApiBaseUrl = configValue(
+    name = "RELEASE_API_BASE_URL",
+    localPropertyName = "release.apiBaseUrl",
+    defaultValue = "https://skautaibackend-production.up.railway.app/"
+)
+val releaseApiHost = configValue(
+    name = "RELEASE_API_HOST",
+    localPropertyName = "release.apiHost",
+    defaultValue = "skautaibackend-production.up.railway.app"
+)
+val passwordResetHost = configValue(
+    name = "PASSWORD_RESET_HOST",
+    localPropertyName = "passwordReset.host",
+    defaultValue = releaseApiHost
+)
+val releaseApiCertPin = configValue(
+    name = "RELEASE_API_CERT_PIN",
+    localPropertyName = "release.apiCertPin",
+    defaultValue = ""
+)
 val privacyPolicyUrl = configValue(
     name = "PRIVACY_POLICY_URL",
     localPropertyName = "privacy.policyUrl",
@@ -70,6 +90,7 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["passwordResetHost"] = passwordResetHost
         buildConfigField("String", "API_BASE_URL", apiBaseUrl.asBuildConfigString())
         buildConfigField("String", "API_HOST", apiHost.asBuildConfigString())
         buildConfigField("String", "API_CERT_PIN", apiCertPin.asBuildConfigString())
@@ -86,6 +107,9 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             manifestPlaceholders["usesCleartextTraffic"] = "false"
+            buildConfigField("String", "API_BASE_URL", releaseApiBaseUrl.asBuildConfigString())
+            buildConfigField("String", "API_HOST", releaseApiHost.asBuildConfigString())
+            buildConfigField("String", "API_CERT_PIN", releaseApiCertPin.asBuildConfigString())
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

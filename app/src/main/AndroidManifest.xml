@@ -31,13 +31,14 @@
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter>
+            <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
-                    android:scheme="skautai"
-                    android:host="reset-password" />
+                    android:scheme="https"
+                    android:host="${passwordResetHost}"
+                    android:pathPrefix="/password-reset/open" />
             </intent-filter>
         </activity>
         <provider
