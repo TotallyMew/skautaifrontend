@@ -193,7 +193,7 @@ class InventoryListViewModel @Inject constructor(
             enterLocationAssignmentMode()
         }
         observeCachedItems()
-        loadItems()
+        loadItems(forceRefresh = false)
     }
 
     private fun observeCachedItems() {
@@ -248,7 +248,11 @@ class InventoryListViewModel @Inject constructor(
         }
     }
 
-    fun loadItems() {
+    fun refreshItems() {
+        loadItems(forceRefresh = true)
+    }
+
+    fun loadItems(forceRefresh: Boolean = true) {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             _isRefreshing.value = true
@@ -267,7 +271,7 @@ class InventoryListViewModel @Inject constructor(
                 val serverSearchQuery = _searchQuery.value.trim().takeIf { it.isNotBlank() }
                 val canLoadTarget = targetStatus != null
                 val itemsResult = if (canLoadTarget) {
-                    itemRepository.refreshItemsPage(
+                    itemRepository.getItemsPage(
                         custodianId = initialCustodianId,
                         status = targetStatus,
                         type = serverType,
@@ -277,6 +281,7 @@ class InventoryListViewModel @Inject constructor(
                         searchQuery = serverSearchQuery,
                         limit = INVENTORY_PAGE_SIZE,
                         offset = 0,
+                        forceRefresh = forceRefresh,
                         replaceCache = true
                     ).also { result ->
                         result.onSuccess { page ->
@@ -803,7 +808,7 @@ class InventoryListViewModel @Inject constructor(
 
     private fun loadItemsImmediately() {
         searchLoadJob?.cancel()
-        loadItems()
+        loadItems(forceRefresh = true)
     }
 
     fun selectedLocationTreeIds(locationId: String): Set<String> {

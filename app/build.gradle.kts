@@ -182,6 +182,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.coil.compose)
 
     // Testing
     testImplementation(libs.junit)

@@ -48,7 +48,8 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         askNotificationPermission()
-        passwordResetToken = passwordResetToken(intent)
+        passwordResetToken = savedInstanceState?.getString(STATE_PASSWORD_RESET_TOKEN)
+            ?: passwordResetToken(intent)
 
         val notificationRoute = notificationRoute(intent)
 
@@ -161,6 +162,11 @@ class MainActivity : ComponentActivity() {
         passwordResetToken = passwordResetToken(intent)
     }
 
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        passwordResetToken?.let { outState.putString(STATE_PASSWORD_RESET_TOKEN, it) }
+    }
+
     private fun askNotificationPermission() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         val permission = Manifest.permission.POST_NOTIFICATIONS
@@ -190,5 +196,6 @@ class MainActivity : ComponentActivity() {
 
     private companion object {
         const val EXTRA_NOTIFICATION_ROUTE = "notification_route"
+        const val STATE_PASSWORD_RESET_TOKEN = "password_reset_token"
     }
 }

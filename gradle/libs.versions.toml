@@ -21,6 +21,7 @@ zxingEmbedded = "4.3.0"
 firebaseBom = "34.15.0"
 googleServices = "4.5.0"
 firebaseCrashlyticsPlugin = "3.0.7"
+coil = "2.7.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -58,6 +59,7 @@ zxing-embedded = { group = "com.journeyapps", name = "zxing-android-embedded", v
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { group = "com.google.firebase", name = "firebase-messaging" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 
 
 

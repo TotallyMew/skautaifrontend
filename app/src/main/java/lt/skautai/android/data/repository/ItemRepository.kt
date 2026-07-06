@@ -850,6 +850,77 @@ class ItemRepository @Inject constructor(
         Result.failure(e.userFacingException())
     }
 
+    suspend fun getItemsPage(
+        custodianId: String? = null,
+        status: String? = "ACTIVE",
+        type: String? = null,
+        category: String? = null,
+        sharedOnly: Boolean = false,
+        createdByUserId: String? = null,
+        searchQuery: String? = null,
+        limit: Int,
+        offset: Int,
+        forceRefresh: Boolean = false,
+        replaceCache: Boolean = false
+    ): Result<ItemPage> {
+        val queryKey = itemQueryKey(custodianId, status, type, category, sharedOnly, createdByUserId) +
+            "|search=${searchQuery.orEmpty()}|limit=$limit|offset=$offset"
+        val shouldRefresh = refreshCoordinator.shouldRefresh(
+            resource = ITEMS_RESOURCE,
+            queryKey = queryKey,
+            ttl = CacheTtl.LIST,
+            force = forceRefresh
+        )
+        val refreshResult: Result<ItemPage?> = if (shouldRefresh) {
+            refreshItemsPage(
+                custodianId = custodianId,
+                status = status,
+                type = type,
+                category = category,
+                sharedOnly = sharedOnly,
+                createdByUserId = createdByUserId,
+                searchQuery = searchQuery,
+                limit = limit,
+                offset = offset,
+                replaceCache = replaceCache
+            ).fold(
+                onSuccess = { page ->
+                    refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = true)
+                    Result.success(page)
+                },
+                onFailure = { error ->
+                    refreshCoordinator.recordAttempt(ITEMS_RESOURCE, queryKey, success = false, error = error.message)
+                    Result.failure(error)
+                }
+            )
+        } else {
+            Result.success(null)
+        }
+
+        refreshResult.getOrNull()?.let { return Result.success(it) }
+
+        val tuntasId = tokenManager.activeTuntasId.first()
+        val cachedItems = tuntasId
+            ?.let { itemDao.getItems(it, custodianId, sharedOnly, createdByUserId, status, type, category).toItemDtos() }
+            .orEmpty()
+            .filterBySearchQuery(searchQuery)
+        val pageItems = cachedItems.drop(offset).take(limit)
+
+        return if (refreshResult.isSuccess || pageItems.isNotEmpty()) {
+            Result.success(
+                ItemPage(
+                    items = pageItems,
+                    total = cachedItems.size,
+                    limit = limit,
+                    offset = offset,
+                    hasMore = offset + pageItems.size < cachedItems.size
+                )
+            )
+        } else {
+            Result.failure(refreshResult.exceptionOrNull() ?: Exception("Klaida gaunant inventoriu"))
+        }
+    }
+
     suspend fun consumeItem(
         itemId: String,
         quantity: Int,
@@ -984,6 +1055,23 @@ class ItemRepository @Inject constructor(
         "shared=$sharedOnly",
         "createdBy=${createdByUserId.orEmpty()}"
     ).joinToString("|")
+
+    private fun List<ItemDto>.filterBySearchQuery(searchQuery: String?): List<ItemDto> {
+        val query = searchQuery?.trim().orEmpty()
+        if (query.isBlank()) return this
+        return filter { item ->
+            item.name.contains(query, ignoreCase = true) ||
+                item.notes?.contains(query, ignoreCase = true) == true ||
+                item.custodianName?.contains(query, ignoreCase = true) == true ||
+                item.locationPath?.contains(query, ignoreCase = true) == true ||
+                item.locationName?.contains(query, ignoreCase = true) == true ||
+                item.condition.contains(query, ignoreCase = true) ||
+                item.customFields.orEmpty().any { field ->
+                    field.fieldName.contains(query, ignoreCase = true) ||
+                        field.fieldValue?.contains(query, ignoreCase = true) == true
+                }
+        }
+    }
 
     companion object {
         private const val ITEMS_RESOURCE = "items"

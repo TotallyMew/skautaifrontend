@@ -18,6 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.ui.common.SkautaiCard
+import lt.skautai.android.ui.common.SkautaiFormSkeleton
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.skautaiSurfaceTone
@@ -62,7 +63,7 @@ fun InviteCreateScreen(
         ) {
             when {
                 uiState.isLoadingRoles -> {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    SkautaiFormSkeleton(fields = 2)
                 }
 
                 uiState.isSuccess && uiState.generatedCode != null -> {

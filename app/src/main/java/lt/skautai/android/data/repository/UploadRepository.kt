@@ -18,7 +18,9 @@ import lt.skautai.android.data.remote.UploadApiService
 import lt.skautai.android.util.TokenManager
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType
+import okhttp3.RequestBody
+import okio.BufferedSink
 import lt.skautai.android.util.Constants
 import lt.skautai.android.util.errorMessage
 
@@ -40,9 +42,9 @@ class UploadRepository @Inject constructor(
                 ?: return Result.failure(Exception("Nav prisijungta"))
             val resolver = context.contentResolver
             val mimeType = resolver.getType(uri) ?: "image/jpeg"
-            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+            resolver.openInputStream(uri)?.close()
                 ?: return Result.failure(Exception("Nepavyko perskaityti nuotraukos"))
-            val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+            val requestBody = ContentUriRequestBody(context, uri, mimeType)
             val filePart = MultipartBody.Part.createFormData(
                 name = "file",
                 filename = "inventory-photo.${mimeType.substringAfter('/', "jpg")}",
@@ -68,9 +70,9 @@ class UploadRepository @Inject constructor(
             val mimeType = resolver.getType(uri) ?: "application/pdf"
             val extension = extensionForMimeType(mimeType)
             val displayName = displayName(uri) ?: "invoice.$extension"
-            val bytes = resolver.openInputStream(uri)?.use { it.readBytes() }
+            resolver.openInputStream(uri)?.close()
                 ?: return Result.failure(Exception("Nepavyko perskaityti dokumento"))
-            val requestBody = bytes.toRequestBody(mimeType.toMediaTypeOrNull())
+            val requestBody = ContentUriRequestBody(context, uri, mimeType)
             val filePart = MultipartBody.Part.createFormData(
                 name = "file",
                 filename = displayName,
@@ -163,5 +165,31 @@ class UploadRepository @Inject constructor(
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
         }
+    }
+}
+
+private class ContentUriRequestBody(
+    private val context: Context,
+    private val uri: Uri,
+    mimeType: String
+) : RequestBody() {
+    private val mediaType = mimeType.toMediaTypeOrNull()
+
+    override fun contentType(): MediaType? = mediaType
+
+    override fun contentLength(): Long = context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+        val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+        if (sizeIndex >= 0 && cursor.moveToFirst()) cursor.getLong(sizeIndex) else -1L
+    } ?: -1L
+
+    override fun writeTo(sink: BufferedSink) {
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val read = input.read(buffer)
+                if (read == -1) break
+                sink.write(buffer, 0, read)
+            }
+        } ?: throw IOException("Unable to open upload stream")
     }
 }

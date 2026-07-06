@@ -24,6 +24,9 @@
 
 # Keep DTO / response model classes used with Gson
 -keep class lt.skautai.android.data.remote.** { *; }
+-keep class lt.skautai.android.data.sync.**Payload { *; }
+-keep class lt.skautai.android.data.sync.PendingEntityType { *; }
+-keep class lt.skautai.android.data.sync.PendingOperationType { *; }
 
 # Room
 -keep class * extends androidx.room.RoomDatabase

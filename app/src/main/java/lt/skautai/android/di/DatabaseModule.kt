@@ -208,7 +208,6 @@ object DatabaseModule {
                 migration16To17,
                 migration17To18
             )
-            .fallbackToDestructiveMigrationOnDowngrade(dropAllTables = true)
             .build()
     }
 

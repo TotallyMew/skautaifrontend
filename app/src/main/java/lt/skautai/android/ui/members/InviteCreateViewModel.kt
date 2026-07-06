@@ -78,18 +78,17 @@ class InviteCreateViewModel @Inject constructor(
             val currentUserId = tokenManager.userId.first()
             val permissions = tokenManager.permissions.first()
             val cachedCurrentUser = currentUserId?.let { memberRepository.getCachedMember(it) }
-            val currentUserResult = currentUserId?.let { memberRepository.getMember(it) }
+            val currentUser = cachedCurrentUser ?: currentUserId?.let { memberRepository.getMember(it).getOrNull() }
 
             rolesResult.onSuccess { roles ->
                 val units = orgUnitsResult.getOrDefault(emptyList())
                 allOrgUnits = units
-                val assignedUnitId = currentUserId?.let { findAssignedUnitId(it, units) }
+                val assignedUnitId = currentUser?.let { findAssignedUnitId(it, units) }
                 val hasGlobalInviteScope = "invitations.create:ALL" in permissions
                 val restrictedConfig = if (hasGlobalInviteScope) {
                     null
                 } else {
-                    (currentUserResult?.getOrNull() ?: cachedCurrentUser)
-                        ?.let { deriveRestrictedInviteConfig(it, units, roles, assignedUnitId) }
+                    currentUser?.let { deriveRestrictedInviteConfig(it, units, roles, assignedUnitId) }
                 }
 
                 val visibleRoles = restrictedConfig?.let { config ->
@@ -270,17 +269,15 @@ class InviteCreateViewModel @Inject constructor(
         return setOf(childRoleId)
     }
 
-    private suspend fun findAssignedUnitId(
-        currentUserId: String,
+    private fun findAssignedUnitId(
+        currentMember: MemberDto,
         units: List<OrganizationalUnitDto>
     ): String? {
-        units.forEach { unit ->
-            val hasMember = orgUnitRepository.getUnitMembers(unit.id)
-                .getOrDefault(emptyList())
-                .any { it.userId == currentUserId && it.leftAt == null }
-            if (hasMember) return unit.id
-        }
-        return null
+        val unitIds = currentMember.unitAssignments
+            .orEmpty()
+            .map { it.organizationalUnitId }
+            .toSet()
+        return units.firstOrNull { unit -> unit.id in unitIds }?.id
     }
 
     private fun resolveAllowedRankRoleId(

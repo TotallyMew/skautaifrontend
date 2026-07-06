@@ -33,11 +33,13 @@ import lt.skautai.android.util.NetworkErrorInterceptor
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.TokenRefreshAuthenticator
 import okhttp3.CertificatePinner
+import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Module
@@ -81,11 +83,55 @@ object NetworkModule {
             .readTimeout(300, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
             .callTimeout(300, TimeUnit.SECONDS)
+            .addInterceptor(apiVersionInterceptor())
             .addInterceptor(connectivityInterceptor)
             .addInterceptor(networkErrorInterceptor)
             .addInterceptor(authHeaderInterceptor)
             .addInterceptor(loggingInterceptor)
 
+        applyEndpointSecurity(builder)
+
+        return builder.build()
+    }
+
+    @Provides
+    @Singleton
+    @Named("refreshOkHttpClient")
+    fun provideRefreshOkHttpClient(
+        loggingInterceptor: HttpLoggingInterceptor
+    ): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .callTimeout(30, TimeUnit.SECONDS)
+            .addInterceptor(apiVersionInterceptor())
+            .addInterceptor(loggingInterceptor)
+
+        applyEndpointSecurity(builder)
+
+        return builder.build()
+    }
+
+    @Provides
+    @Singleton
+    @Named("liveEventOkHttpClient")
+    fun provideLiveEventOkHttpClient(
+        loggingInterceptor: HttpLoggingInterceptor
+    ): OkHttpClient {
+        val builder = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .addInterceptor(apiVersionInterceptor())
+            .addInterceptor(loggingInterceptor)
+
+        applyEndpointSecurity(builder)
+
+        return builder.build()
+    }
+
+    private fun applyEndpointSecurity(builder: OkHttpClient.Builder) {
         val apiHost = BuildConfig.API_HOST.trim()
         val apiCertPin = BuildConfig.API_CERT_PIN.trim()
         if (Constants.BASE_URL.startsWith("https://") && apiHost.isNotEmpty() && apiCertPin.startsWith("sha256/")) {
@@ -106,8 +152,32 @@ object NetworkModule {
                 )
             }
         }
+    }
 
-        return builder.build()
+    private fun apiVersionInterceptor(): Interceptor = Interceptor { chain ->
+        val request = chain.request()
+        val segments = request.url.pathSegments
+        val apiIndex = segments.indexOf("api")
+        if (apiIndex == -1 || segments.getOrNull(apiIndex + 1) == "v1") {
+            return@Interceptor chain.proceed(request)
+        }
+
+        val versionedSegments = segments.toMutableList().apply {
+            add(apiIndex + 1, "v1")
+        }
+        val urlBuilder = request.url.newBuilder()
+            .encodedPath("/")
+        versionedSegments.forEach { segment ->
+            if (segment.isNotEmpty()) {
+                urlBuilder.addPathSegment(segment)
+            }
+        }
+
+        chain.proceed(
+            request.newBuilder()
+                .url(urlBuilder.build())
+                .build()
+        )
     }
 
     @Provides

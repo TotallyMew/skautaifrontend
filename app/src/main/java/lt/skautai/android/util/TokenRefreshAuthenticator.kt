@@ -12,15 +12,16 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import javax.inject.Inject
+import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
 class TokenRefreshAuthenticator @Inject constructor(
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    @Named("refreshOkHttpClient") private val refreshClient: OkHttpClient
 ) : Authenticator {
 
     private val gson = Gson()
-    private val refreshClient = OkHttpClient()
 
     @Synchronized
     override fun authenticate(route: okhttp3.Route?, response: Response): Request? {

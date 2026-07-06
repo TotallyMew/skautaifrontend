@@ -2,12 +2,14 @@
 <data-extraction-rules>
     <cloud-backup>
         <exclude domain="file" path="datastore"/>
+        <exclude domain="file" path="staged-documents"/>
         <exclude domain="database" path="skautai_inventory.db"/>
         <exclude domain="database" path="skautai_inventory.db-shm"/>
         <exclude domain="database" path="skautai_inventory.db-wal"/>
     </cloud-backup>
     <device-transfer>
         <exclude domain="file" path="datastore"/>
+        <exclude domain="file" path="staged-documents"/>
         <exclude domain="database" path="skautai_inventory.db"/>
         <exclude domain="database" path="skautai_inventory.db-shm"/>
         <exclude domain="database" path="skautai_inventory.db-wal"/>

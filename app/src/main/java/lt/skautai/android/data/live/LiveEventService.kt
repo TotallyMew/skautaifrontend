@@ -1,7 +1,6 @@
 package lt.skautai.android.data.live
 
 import com.google.gson.Gson
-import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +27,7 @@ import lt.skautai.android.util.Constants
 import lt.skautai.android.util.TokenManager
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import javax.inject.Named
 
 @Singleton
 class LiveEventService @Inject constructor(
@@ -40,15 +40,11 @@ class LiveEventService @Inject constructor(
     private val locationRepository: LocationRepository,
     private val memberRepository: MemberRepository,
     private val organizationalUnitRepository: OrganizationalUnitRepository,
-    private val liveRefreshBus: LiveRefreshBus
+    private val liveRefreshBus: LiveRefreshBus,
+    @Named("liveEventOkHttpClient") private val client: OkHttpClient
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val gson = Gson()
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(0, TimeUnit.MILLISECONDS)
-        .writeTimeout(10, TimeUnit.SECONDS)
-        .build()
 
     private var connectionJob: Job? = null
     private var networkRefreshJob: Job? = null

@@ -59,6 +59,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
@@ -94,6 +95,7 @@ import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiEmptyState
 import lt.skautai.android.ui.common.SkautaiErrorSnackbarHost
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.ui.common.SkautaiListSkeleton
 import lt.skautai.android.ui.common.SkautaiSearchBar
 import lt.skautai.android.ui.common.SkautaiSectionHeader
 import lt.skautai.android.ui.common.SkautaiAlpha
@@ -200,7 +202,7 @@ fun InventoryListScreen(
     val canCreateSharedDirectly = permissions.hasPermissionAll("items.create")
     val openedCustodianId = viewModel.openedCustodianId
     val openedPersonalOwnerOnly = viewModel.openedPersonalOwnerOnly
-    val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::loadItems)
+    val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::refreshItems)
     val snackbarHostState = remember { SnackbarHostState() }
     var pendingExportCsv by remember { mutableStateOf("") }
     val exportCsvLauncher = rememberLauncherForActivityResult(
@@ -322,6 +324,10 @@ fun InventoryListScreen(
                 trailingIcon = Icons.Default.QrCodeScanner,
                 onTrailingIconClick = { navController.navigate(NavRoutes.InventoryQrScanner.route) }
             )
+
+            if (isRefreshing && uiState is InventoryListUiState.Success) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
 
             if (selectionMode) {
                 when (selectionPurpose) {
@@ -877,9 +883,7 @@ private fun InventoryBody(
 ) {
     when (state) {
         is InventoryListUiState.Loading -> {
-            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            SkautaiListSkeleton(showHeader = false)
         }
 
         is InventoryListUiState.Empty -> {

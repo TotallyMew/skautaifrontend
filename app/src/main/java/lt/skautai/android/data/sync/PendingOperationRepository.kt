@@ -237,7 +237,7 @@ class PendingOperationRepository @Inject constructor(
                 pendingOperationDao.markSynced(operation.id)
             } catch (e: IOException) {
                 pendingOperationDao.markPendingError(operation.id, e.message ?: "Tinklo klaida")
-                return Result.failure(e.userFacingException())
+                return@forEach
             } catch (e: Exception) {
                 pendingOperationDao.markFailed(operation.id, e.message ?: "Sync klaida")
             }
