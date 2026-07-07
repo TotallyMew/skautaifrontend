@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.units
+package lt.skautai.android.ui.units
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn

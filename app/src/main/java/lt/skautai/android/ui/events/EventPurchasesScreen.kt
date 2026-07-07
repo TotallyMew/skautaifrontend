@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.events
+package lt.skautai.android.ui.events
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box

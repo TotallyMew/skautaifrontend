@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.ui.events
+package lt.skautai.android.ui.events
 
 import android.net.Uri
 import androidx.lifecycle.ViewModel

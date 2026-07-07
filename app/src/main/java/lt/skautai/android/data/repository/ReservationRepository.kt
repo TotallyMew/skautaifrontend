@@ -1,4 +1,4 @@
-﻿package lt.skautai.android.data.repository
+package lt.skautai.android.data.repository
 
 import lt.skautai.android.util.userFacingException
 
