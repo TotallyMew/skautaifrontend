@@ -9,7 +9,7 @@ fun canManageEventSections(
     permissions: Set<String>,
     eventRoles: Set<String>,
     isReadOnly: Boolean
-): Boolean = !isReadOnly && ("events.manage:ALL" in permissions || "VIRSININKAS" in eventRoles)
+): Boolean = !isReadOnly && "VIRSININKAS" in eventRoles
 
 fun canManageEventInventorySections(
     permissions: Set<String>,
@@ -17,8 +17,6 @@ fun canManageEventInventorySections(
     isReadOnly: Boolean
 ): Boolean {
     if (isReadOnly) return false
-    if (canManageEventSections(permissions, eventRoles, isReadOnly)) return true
-    if ("events.inventory.distribute:ALL" in permissions) return true
     return eventRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
 }
 
@@ -28,15 +26,27 @@ fun canManageEventFinanceSections(
     isReadOnly: Boolean
 ): Boolean {
     if (isReadOnly) return false
-    if (canManageEventInventorySections(permissions, eventRoles, isReadOnly)) return true
-    return eventRoles.any { it == "FINANSININKAS" }
+    return eventRoles.any { it in setOf("VIRSININKAS", "FINANSININKAS") }
+}
+
+fun canManageEventPurchaseSections(
+    eventRoles: Set<String>,
+    isReadOnly: Boolean
+): Boolean = !isReadOnly && eventRoles.any {
+    it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS", "FINANSININKAS")
+}
+
+fun canViewEventFinanceSections(
+    permissions: Set<String>,
+    eventRoles: Set<String>
+): Boolean = "event_purchases.invoice.download:ALL" in permissions || eventRoles.any {
+    it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS", "FINANSININKAS")
 }
 
 fun canViewEventPlan(
     permissions: Set<String>,
     eventRoles: Set<String>
 ): Boolean {
-    if ("events.manage:ALL" in permissions || "events.inventory.distribute:ALL" in permissions) return true
     return eventRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS", "PROGRAMERIS") }
 }
 

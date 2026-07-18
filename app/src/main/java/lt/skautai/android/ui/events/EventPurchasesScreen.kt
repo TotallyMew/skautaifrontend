@@ -36,6 +36,9 @@ import lt.skautai.android.data.remote.EventFinanceDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiErrorState
+import lt.skautai.android.util.canManageEventFinanceSections
+import lt.skautai.android.util.canManageEventPurchaseSections
+import lt.skautai.android.util.eventRolesForUser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,12 +62,12 @@ fun EventPurchasesScreen(
     }
 
     val state = uiState
-    val canInventory = "events.inventory.distribute:ALL" in permissions ||
-        (state as? EventPurchasesUiState.Success)?.event?.eventRoles
-            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
-    val canFinance = canInventory ||
-        (state as? EventPurchasesUiState.Success)?.event?.eventRoles
-            ?.any { it.userId == state.currentUserId && it.role == "FINANSININKAS" } == true
+    val myRoles = (state as? EventPurchasesUiState.Success)?.let {
+        eventRolesForUser(it.event.eventRoles, it.currentUserId)
+    }.orEmpty()
+    val canInventory = myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
+    val canPurchases = canManageEventPurchaseSections(myRoles, isReadOnly = false)
+    val canFinance = canManageEventFinanceSections(permissions, myRoles, isReadOnly = false)
 
     EventScreenScaffold(
         title = "Pirkimai",
@@ -171,7 +174,7 @@ fun EventPurchasesScreen(
                                 PurchaseRowCard(
                                     purchase = purchase,
                                     expanded = purchase.id in expandedIds,
-                                    canManage = canFinance && !readOnly,
+                                    canManage = canPurchases && !readOnly,
                                     canReconcile = canInventory && !readOnly,
                                     isWorking = state.isWorking,
                                     onToggle = {

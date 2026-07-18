@@ -51,6 +51,14 @@ class SuperAdminRepository @Inject constructor(
         response.body()?.message ?: "Tuntas atmestas"
     }
 
+    suspend fun deleteTuntas(id: String): Result<String> = runCatching {
+        val response = superAdminApiService.deleteTuntas("Bearer ${token()}", id)
+        if (!response.isSuccessful) {
+            throw Exception(response.errorMessage("Klaida trinant tunta"))
+        }
+        response.body()?.message ?: "Tuntas istrintas"
+    }
+
     suspend fun sendNotification(title: String, body: String, tuntasId: String?): Result<String> = runCatching {
         val response = superAdminApiService.sendNotification(
             "Bearer ${token()}",

@@ -117,7 +117,7 @@ fun EventMovementQrScreen(
                     if (result.contents.isNullOrBlank()) {
                         "Skenavimas nutrauktas."
                     } else {
-                        "Šis QR kodas neatpažintas."
+                        "Šis kodas neatpažintas. Skenuok inventoriaus QR arba barkodą."
                     }
                 )
             }
@@ -130,7 +130,7 @@ fun EventMovementQrScreen(
         if (granted) {
             launchScan = true
         } else {
-            viewModel.showMessage("Be kameros leidimo QR kodo nuskenuoti nepavyks.")
+            viewModel.showMessage("Be kameros leidimo kodo nuskenuoti nepavyks.")
         }
     }
 
@@ -138,12 +138,11 @@ fun EventMovementQrScreen(
         if (!launchScan) return@LaunchedEffect
         launchScan = false
         val options = ScanOptions().apply {
-            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
             setPrompt(
                 if (qrMode == EventQrMode.Item) {
-                    "Skenuok daikto QR kodą paėmimui arba išdavimui"
+                    "Skenuok daikto QR arba barkodą paėmimui arba išdavimui"
                 } else {
-                    "Skenuok daikto QR kodą perdavimui arba grąžinimui"
+                    "Skenuok daikto QR arba barkodą perdavimui arba grąžinimui"
                 }
             )
             setBeepEnabled(false)
@@ -184,8 +183,7 @@ fun EventMovementQrScreen(
                         .toSet()
                     val movementClosed = state.event.status != "ACTIVE"
                     val canManage = !movementClosed &&
-                        ("events.inventory.distribute:ALL" in permissions ||
-                            myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") })
+                        myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
                     val coLeaderPastovykleIds = state.event.eventRoles
                         .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
                         .mapNotNull { it.pastovykleId }

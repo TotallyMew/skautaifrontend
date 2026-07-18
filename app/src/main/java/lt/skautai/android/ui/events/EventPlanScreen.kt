@@ -72,8 +72,7 @@ fun EventPlanScreen(
     }
 
     val state = uiState
-    val canInventory = "events.inventory.distribute:ALL" in permissions ||
-        (state as? EventPlanUiState.Success)?.event?.eventRoles
+    val canInventory = (state as? EventPlanUiState.Success)?.event?.eventRoles
             ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
     EventScreenScaffold(

@@ -103,7 +103,7 @@ fun InventoryAuditScreen(
                     if (result.contents.isNullOrBlank()) {
                         "Skenavimas nutrauktas. Gali bandyti dar karta."
                     } else {
-                        "Šis QR kodas neatpažintas. Tikimasi formato ${QrPayload.forScanToken("token")}."
+                        "Šis kodas neatpažintas. Skenuok inventoriaus QR arba barkodą."
                     }
                 )
             }
@@ -116,7 +116,7 @@ fun InventoryAuditScreen(
         if (granted) {
             launchScan = true
         } else {
-            viewModel.showMessage("Be kameros leidimo QR kodo nuskenuoti nepavyks.")
+            viewModel.showMessage("Be kameros leidimo kodo nuskenuoti nepavyks.")
         }
     }
 
@@ -124,8 +124,7 @@ fun InventoryAuditScreen(
         if (!launchScan) return@LaunchedEffect
         launchScan = false
         val options = ScanOptions().apply {
-            setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-            setPrompt("Skenuok inventoriaus QR kodą inventorizacijai")
+            setPrompt("Skenuok inventoriaus QR arba barkodą inventorizacijai")
             setBeepEnabled(false)
             setOrientationLocked(true)
         }

@@ -62,9 +62,8 @@ fun EventUkvedysScreen(
 
     val state = uiState
     val readOnly = (state as? EventUkvedysUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
-    val canInventory = !readOnly && ("events.inventory.distribute:ALL" in permissions ||
-        (state as? EventUkvedysUiState.Success)?.event?.eventRoles
-            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true)
+    val canInventory = !readOnly && (state as? EventUkvedysUiState.Success)?.event?.eventRoles
+        ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
     var pendingExportCsv by remember { mutableStateOf("") }
     val exportCsvLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv")

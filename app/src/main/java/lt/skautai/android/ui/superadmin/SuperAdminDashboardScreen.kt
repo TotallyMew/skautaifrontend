@@ -13,6 +13,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
@@ -51,6 +52,7 @@ fun SuperAdminDashboardScreen(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    var deleteTarget by remember { mutableStateOf<TuntasDto?>(null) }
 
     LaunchedEffect(uiState.error, uiState.actionSuccess) {
         uiState.error?.let {
@@ -108,7 +110,7 @@ fun SuperAdminDashboardScreen(
                 val selectedTuntas = uiState.tuntai.find { it.id == uiState.selectedTuntasId }
                 val pendingTuntai = uiState.tuntai.filter { it.status == "PENDING" }
                 val activeTuntai = uiState.tuntai.filter { it.status == "ACTIVE" }
-                val inactiveTuntai = uiState.tuntai.filter { it.status == "REJECTED" }
+                val inactiveTuntai = uiState.tuntai.filter { it.status !in listOf("ACTIVE", "PENDING") }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -143,7 +145,8 @@ fun SuperAdminDashboardScreen(
                             tuntas = tuntas,
                             isSaving = uiState.isSaving,
                             onApprove = { viewModel.approveTuntas(tuntas.id) },
-                            onReject = { viewModel.rejectTuntas(tuntas.id) }
+                            onReject = { viewModel.rejectTuntas(tuntas.id) },
+                            onDelete = { deleteTarget = tuntas }
                         )
                     }
 
@@ -181,6 +184,32 @@ fun SuperAdminDashboardScreen(
                 }
             }
         }
+    }
+
+    deleteTarget?.let { tuntas ->
+        AlertDialog(
+            onDismissRequest = { if (!uiState.isSaving) deleteTarget = null },
+            title = { Text("Istrinti tunta?") },
+            text = {
+                Text("Tuntas \"${tuntas.name}\" bus pazymetas kaip istrintas. Duomenys nebus fiziskai salinami, bet tuntas nebebus aktyvus.")
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = !uiState.isSaving,
+                    onClick = {
+                        deleteTarget = null
+                        viewModel.deleteTuntas(tuntas.id)
+                    }
+                ) {
+                    Text("Istrinti")
+                }
+            },
+            dismissButton = {
+                TextButton(enabled = !uiState.isSaving, onClick = { deleteTarget = null }) {
+                    Text("Atsaukti")
+                }
+            }
+        )
     }
 }
 
@@ -375,6 +404,7 @@ private fun TuntasSelectorCard(
             }
         }
     }
+
 }
 
 @Composable
@@ -413,7 +443,8 @@ private fun SelectedTuntasCard(
     tuntas: TuntasDto,
     isSaving: Boolean,
     onApprove: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onDelete: () -> Unit
 ) {
     SectionCard(title = "Tunto informacija") {
         if (tuntas.status == "PENDING") {
@@ -430,6 +461,16 @@ private fun SelectedTuntasCard(
             onApprove = onApprove,
             onReject = onReject
         )
+        if (tuntas.status != "DELETED") {
+            OutlinedButton(
+                onClick = onDelete,
+                enabled = !isSaving,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Default.Delete, contentDescription = null)
+                Text("Istrinti tunta", modifier = Modifier.padding(start = 8.dp))
+            }
+        }
     }
 }
 
@@ -761,6 +802,7 @@ private fun StatusChip(status: String) {
         "ACTIVE" -> "Aktyvus" to MaterialTheme.colorScheme.primary
         "REJECTED" -> "Atmestas" to MaterialTheme.colorScheme.error
         "SUSPENDED" -> "Sustabdytas" to MaterialTheme.colorScheme.error
+        "DELETED" -> "Istrintas" to MaterialTheme.colorScheme.error
         else -> codeLabel(status) to MaterialTheme.colorScheme.onSurfaceVariant
     }
     Text(
@@ -776,6 +818,7 @@ private fun statusText(status: String): String = when (status) {
     "ACTIVE" -> "Aktyvus"
     "REJECTED" -> "Atmestas"
     "SUSPENDED" -> "Sustabdytas"
+    "DELETED" -> "Istrintas"
     else -> codeLabel(status)
 }
 

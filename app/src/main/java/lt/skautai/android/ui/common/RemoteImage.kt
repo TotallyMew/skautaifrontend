@@ -22,8 +22,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import coil.request.ImageRequest
+import dagger.hilt.android.EntryPointAccessors
+import lt.skautai.android.di.TokenManagerEntryPoint
 import lt.skautai.android.util.Constants
-import lt.skautai.android.util.TokenManager
 
 @Composable
 fun RemoteImage(
@@ -33,7 +34,12 @@ fun RemoteImage(
     contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
-    val tokenManager = remember(context) { TokenManager(context.applicationContext) }
+    val tokenManager = remember(context) {
+        EntryPointAccessors.fromApplication(
+            context.applicationContext,
+            TokenManagerEntryPoint::class.java
+        ).tokenManager()
+    }
     val token by tokenManager.token.collectAsState(initial = null)
     val tuntasId by tokenManager.activeTuntasId.collectAsState(initial = null)
     val resolvedUrl = imageUrl?.takeIf { it.isNotBlank() }?.toAbsoluteImageUrl()

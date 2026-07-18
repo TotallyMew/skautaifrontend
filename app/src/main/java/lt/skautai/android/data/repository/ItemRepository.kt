@@ -21,6 +21,9 @@ import lt.skautai.android.data.local.mapper.toItemEntities
 import lt.skautai.android.data.remote.CreateItemRequestDto
 import lt.skautai.android.data.remote.CreateStorageAuditSessionRequestDto
 import lt.skautai.android.data.remote.ConsumeItemRequestDto
+import lt.skautai.android.data.remote.DirectItemLoanDto
+import lt.skautai.android.data.remote.DirectItemLoanListResponseDto
+import lt.skautai.android.data.remote.DirectItemLoanRequestDto
 import lt.skautai.android.data.remote.ItemApiService
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.StorageAuditSessionDto
@@ -28,6 +31,7 @@ import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ItemHistoryDto
 import lt.skautai.android.data.remote.ItemTransferDto
+import lt.skautai.android.data.remote.ReturnDirectItemLoanRequestDto
 import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
 import lt.skautai.android.data.remote.RestockItemRequestDto
 import lt.skautai.android.data.remote.ReviewItemAdditionRequestDto
@@ -284,7 +288,7 @@ class ItemRepository @Inject constructor(
             if (response.isSuccessful) {
                 Result.success(response.body()!!.itemId)
             } else {
-                Result.failure(Exception(response.errorMessage("Nepavyko atpazinti QR kodo")))
+                Result.failure(Exception(response.errorMessage("Nepavyko atpazinti kodo")))
             }
         } catch (e: Exception) {
             Result.failure(e.userFacingException())
@@ -416,6 +420,70 @@ class ItemRepository @Inject constructor(
             Result.success(response.body()?.assignments.orEmpty())
         } else {
             Result.failure(Exception(response.errorMessage("Klaida gaunant priskyrimo istorija")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun getDirectItemLoans(itemId: String): Result<DirectItemLoanListResponseDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getDirectItemLoans("Bearer $token", tuntasId, itemId)
+        if (response.isSuccessful) {
+            Result.success(response.body() ?: DirectItemLoanListResponseDto(emptyList(), 0, 0))
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant tiesioginius isdavimus")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun getTuntasDirectItemLoans(activeOnly: Boolean = true): Result<DirectItemLoanListResponseDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.getTuntasDirectItemLoans("Bearer $token", tuntasId, activeOnly)
+        if (response.isSuccessful) {
+            Result.success(response.body() ?: DirectItemLoanListResponseDto(emptyList(), 0, 0))
+        } else {
+            Result.failure(Exception(response.errorMessage("Klaida gaunant aktyvius isdavimus")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun issueDirectItemLoan(itemId: String, request: DirectItemLoanRequestDto): Result<DirectItemLoanDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.issueDirectItemLoan("Bearer $token", tuntasId, itemId, request)
+        if (response.isSuccessful) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko isduoti daikto")))
+        }
+    } catch (e: Exception) {
+        Result.failure(e.userFacingException())
+    }
+
+    suspend fun returnDirectItemLoan(
+        itemId: String,
+        loanId: String,
+        request: ReturnDirectItemLoanRequestDto
+    ): Result<DirectItemLoanDto> = try {
+        val token = tokenManager.token.first()
+            ?: return Result.failure(Exception("Nav prisijungta"))
+        val tuntasId = tokenManager.activeTuntasId.first()
+            ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+        val response = itemApiService.returnDirectItemLoan("Bearer $token", tuntasId, itemId, loanId, request)
+        if (response.isSuccessful) {
+            Result.success(response.body()!!)
+        } else {
+            Result.failure(Exception(response.errorMessage("Nepavyko grazinti daikto")))
         }
     } catch (e: Exception) {
         Result.failure(e.userFacingException())

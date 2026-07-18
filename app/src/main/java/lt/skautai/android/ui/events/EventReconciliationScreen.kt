@@ -159,6 +159,14 @@ fun EventReconciliationScreen(
                         }
 
                         item {
+                            EventReconciliationReportCard(
+                                openReturns = openReturns,
+                                returnedRows = returnedToEventStorage,
+                                unresolvedPurchases = unresolvedPurchases
+                            )
+                        }
+
+                        item {
                             ReconciliationReturnSection(
                                 title = "Negrąžinti daiktai",
                                 rows = visibleReturns,
@@ -718,6 +726,82 @@ private fun DecisionButtons(
                 }
                 if (row.size == 1) {
                     Box(modifier = Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EventReconciliationReportCard(
+    openReturns: List<EventReconciliationReturnLineDto>,
+    returnedRows: List<EventReconciliationReturnLineDto>,
+    unresolvedPurchases: List<EventReconciliationPurchaseLineDto>
+) {
+    val returnedQuantity = returnedRows
+        .filter { it.returnDecision == "RETURNED" }
+        .sumOf { it.reconciledQuantity }
+    val damagedQuantity = returnedRows
+        .filter { it.returnDecision == "DAMAGED" }
+        .sumOf { it.reconciledQuantity }
+    val missingQuantity = returnedRows
+        .filter { it.returnDecision == "MISSING" }
+        .sumOf { it.reconciledQuantity }
+    val consumedQuantity = returnedRows
+        .filter { it.returnDecision == "CONSUMED" }
+        .sumOf { it.reconciledQuantity }
+    val openQuantity = openReturns.sumOf { it.remainingQuantity }
+    val incidentRows = returnedRows.filter {
+        it.returnDecision in listOf("DAMAGED", "MISSING", "CONSUMED") ||
+            it.auditLog.any { audit -> audit.actualLocationNote?.isNotBlank() == true || audit.notes?.isNotBlank() == true }
+    }
+
+    SkautaiCard(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text("Kas nutiko po renginio", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
+            Text(
+                "Greita ataskaita is grąžinimų, inventorizacijos ir pirkimų suvedimo.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (returnedQuantity > 0) SkautaiStatusPill("Grizo: $returnedQuantity", SkautaiStatusTone.Success)
+                if (damagedQuantity > 0) SkautaiStatusPill("Sugadinta: $damagedQuantity", SkautaiStatusTone.Info)
+                if (missingQuantity > 0) SkautaiStatusPill("Dingo: $missingQuantity", SkautaiStatusTone.Danger)
+                if (consumedQuantity > 0) SkautaiStatusPill("Sunaudota: $consumedQuantity", SkautaiStatusTone.Neutral)
+            }
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (openQuantity > 0) SkautaiStatusPill("Dar negrizo: $openQuantity", SkautaiStatusTone.Warning)
+                if (unresolvedPurchases.isNotEmpty()) SkautaiStatusPill("Pirkimai: ${unresolvedPurchases.size}", SkautaiStatusTone.Warning)
+                if (openQuantity == 0 && unresolvedPurchases.isEmpty()) {
+                    SkautaiStatusPill("Suvedimas uzbaigtas", SkautaiStatusTone.Success)
+                }
+            }
+            if (incidentRows.isNotEmpty()) {
+                HorizontalDivider()
+                incidentRows.take(6).forEach { row ->
+                    val latestAudit = row.auditLog.lastOrNull()
+                    ReconciliationLine(
+                        title = row.itemName,
+                        subtitle = listOfNotNull(
+                            row.pastovykleName ?: row.holderUserName,
+                            row.returnDecision?.let(::returnDecisionLabel),
+                            latestAudit?.actualLocationNote?.takeIf { it.isNotBlank() },
+                            latestAudit?.notes?.takeIf { it.isNotBlank() },
+                            row.notes?.takeIf { it.isNotBlank() }
+                        ).joinToString(" · "),
+                        trailing = "${row.reconciledQuantity} vnt."
+                    )
+                }
+                if (incidentRows.size > 6) {
+                    Text(
+                        "Dar ${incidentRows.size - 6} įrašai žemiau suvestinės sąrašuose.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

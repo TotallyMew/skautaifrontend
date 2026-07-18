@@ -56,8 +56,7 @@ fun EventNeedsScreen(
     }
 
     val state = uiState
-    val canInventory = "events.inventory.distribute:ALL" in permissions ||
-        (state as? EventNeedsUiState.Success)?.event?.eventRoles
+    val canInventory = (state as? EventNeedsUiState.Success)?.event?.eventRoles
             ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
 
     if (showInventoryPicker && state is EventNeedsUiState.Success && !isEventReadOnlyStatus(state.event.status)) {

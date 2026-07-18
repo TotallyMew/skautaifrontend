@@ -15,18 +15,23 @@ import lt.skautai.android.data.remote.CreateBendrasRequestDto
 import lt.skautai.android.data.remote.CreateBendrasRequestItemDto
 import lt.skautai.android.data.remote.CreateRequisitionDto
 import lt.skautai.android.data.remote.CreateRequisitionItemDto
+import lt.skautai.android.data.remote.DirectItemLoanDto
+import lt.skautai.android.data.remote.DirectItemLoanRequestDto
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ItemHistoryDto
 import lt.skautai.android.data.remote.ItemTransferDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.remote.ReturnDirectItemLoanRequestDto
 import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.RestockItemRequestDto
 import lt.skautai.android.data.remote.TransferItemToUnitRequestDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.ItemRepository
+import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.RequisitionRepository
@@ -43,7 +48,9 @@ sealed interface InventoryDetailUiState {
         val assignments: List<ItemAssignmentDto> = emptyList(),
         val conditionLog: List<ItemConditionLogDto> = emptyList(),
         val itemHistory: List<ItemHistoryDto> = emptyList(),
-        val transfers: List<ItemTransferDto> = emptyList()
+        val transfers: List<ItemTransferDto> = emptyList(),
+        val directLoans: List<DirectItemLoanDto> = emptyList(),
+        val activeDirectLoanQuantity: Int = 0
     ) : InventoryDetailUiState
     data class Error(val message: String) : InventoryDetailUiState
 }
@@ -55,6 +62,7 @@ class InventoryDetailViewModel @Inject constructor(
     private val requisitionRepository: RequisitionRepository,
     private val reservationRepository: ReservationRepository,
     private val orgUnitRepository: OrganizationalUnitRepository,
+    private val memberRepository: MemberRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
 
@@ -97,6 +105,9 @@ class InventoryDetailViewModel @Inject constructor(
     private val _orgUnits = MutableStateFlow<List<OrganizationalUnitDto>>(emptyList())
     val orgUnits: StateFlow<List<OrganizationalUnitDto>> = _orgUnits.asStateFlow()
 
+    private val _members = MutableStateFlow<List<MemberDto>>(emptyList())
+    val members: StateFlow<List<MemberDto>> = _members.asStateFlow()
+
     private val _isTransferring = MutableStateFlow(false)
     val isTransferring: StateFlow<Boolean> = _isTransferring.asStateFlow()
 
@@ -114,7 +125,9 @@ class InventoryDetailViewModel @Inject constructor(
                         assignments = current?.assignments.orEmpty(),
                         conditionLog = current?.conditionLog.orEmpty(),
                         itemHistory = current?.itemHistory.orEmpty(),
-                        transfers = current?.transfers.orEmpty()
+                        transfers = current?.transfers.orEmpty(),
+                        directLoans = current?.directLoans.orEmpty(),
+                        activeDirectLoanQuantity = current?.activeDirectLoanQuantity ?: 0
                     )
                 }
             }
@@ -128,6 +141,7 @@ class InventoryDetailViewModel @Inject constructor(
                 .onSuccess {
                     loadItemReservations(itemId)
                     loadItemHistory(itemId)
+                    loadDirectItemLoans(itemId)
                 }
                 .onFailure { error ->
                     if (_uiState.value !is InventoryDetailUiState.Success) {
@@ -144,6 +158,10 @@ class InventoryDetailViewModel @Inject constructor(
         viewModelScope.launch {
             orgUnitRepository.getUnits()
                 .onSuccess { units -> _orgUnits.value = units }
+            memberRepository.getMembers()
+                .onSuccess { result ->
+                    _members.value = result.members.sortedWith(compareBy<MemberDto> { it.name }.thenBy { it.surname })
+                }
         }
     }
 
@@ -176,10 +194,13 @@ class InventoryDetailViewModel @Inject constructor(
                         assignments = current?.assignments.orEmpty(),
                         conditionLog = current?.conditionLog.orEmpty(),
                         itemHistory = current?.itemHistory.orEmpty(),
-                        transfers = current?.transfers.orEmpty()
+                        transfers = current?.transfers.orEmpty(),
+                        directLoans = current?.directLoans.orEmpty(),
+                        activeDirectLoanQuantity = current?.activeDirectLoanQuantity ?: 0
                     )
                     loadItemReservations(itemId)
                     loadItemHistory(itemId)
+                    loadDirectItemLoans(itemId)
                 }
                 .onFailure { error ->
                     _actionError.value = error.message ?: "Nepavyko pakeisti būsenos"
@@ -299,6 +320,59 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    fun issueDirectLoan(itemId: String, userId: String, quantity: Int, dueAt: String?, notes: String?) {
+        viewModelScope.launch {
+            if (_isTransferring.value) return@launch
+            if (quantity < 1) {
+                _actionError.value = "Kiekis turi buti teigiamas skaicius"
+                return@launch
+            }
+            _isTransferring.value = true
+            itemRepository.issueDirectItemLoan(
+                itemId,
+                DirectItemLoanRequestDto(
+                    issuedToUserId = userId,
+                    quantity = quantity,
+                    dueAt = dueAt?.ifBlank { null }?.let { "${it}T23:59:59Z" },
+                    notes = notes?.ifBlank { null }
+                )
+            ).onSuccess {
+                _shareMessage.value = "Daiktas isduotas zmogui."
+                loadDirectItemLoans(itemId)
+                loadItemHistory(itemId)
+            }.onFailure { error ->
+                _actionError.value = error.message ?: "Nepavyko isduoti daikto"
+            }
+            _isTransferring.value = false
+        }
+    }
+
+    fun returnDirectLoan(itemId: String, loanId: String, quantity: Int, notes: String?) {
+        viewModelScope.launch {
+            if (_isTransferring.value) return@launch
+            if (quantity < 1) {
+                _actionError.value = "Kiekis turi buti teigiamas skaicius"
+                return@launch
+            }
+            _isTransferring.value = true
+            itemRepository.returnDirectItemLoan(
+                itemId,
+                loanId,
+                ReturnDirectItemLoanRequestDto(
+                    quantity = quantity,
+                    notes = notes?.ifBlank { null }
+                )
+            ).onSuccess {
+                _shareMessage.value = "Daiktas grazintas."
+                loadDirectItemLoans(itemId)
+                loadItemHistory(itemId)
+            }.onFailure { error ->
+                _actionError.value = error.message ?: "Nepavyko grazinti daikto"
+            }
+            _isTransferring.value = false
+        }
+    }
+
     fun reviewItemAddition(itemId: String, decision: String, rejectionReason: String? = null) {
         viewModelScope.launch {
             itemRepository.reviewItemAddition(itemId, decision, rejectionReason)
@@ -310,9 +384,12 @@ class InventoryDetailViewModel @Inject constructor(
                         assignments = current?.assignments.orEmpty(),
                         conditionLog = current?.conditionLog.orEmpty(),
                         itemHistory = current?.itemHistory.orEmpty(),
-                        transfers = current?.transfers.orEmpty()
+                        transfers = current?.transfers.orEmpty(),
+                        directLoans = current?.directLoans.orEmpty(),
+                        activeDirectLoanQuantity = current?.activeDirectLoanQuantity ?: 0
                     )
                     loadItemHistory(itemId)
+                    loadDirectItemLoans(itemId)
                 }
                 .onFailure { error ->
                     _actionError.value = error.message ?: "Nepavyko atlikti veiksmo"
@@ -421,11 +498,25 @@ class InventoryDetailViewModel @Inject constructor(
         }
     }
 
+    private fun loadDirectItemLoans(itemId: String) {
+        viewModelScope.launch {
+            itemRepository.getDirectItemLoans(itemId)
+                .onSuccess { response ->
+                    val current = _uiState.value as? InventoryDetailUiState.Success ?: return@onSuccess
+                    _uiState.value = current.copy(
+                        directLoans = response.loans,
+                        activeDirectLoanQuantity = response.activeOutstandingQuantity
+                    )
+                }
+        }
+    }
+
     private suspend fun refreshItemSnapshot(itemId: String) {
         val item = itemRepository.getCachedItem(itemId) ?: itemRepository.getItem(itemId).getOrNull()
         if (item != null) applyUpdatedItem(item)
         loadItemReservations(itemId)
         loadItemHistory(itemId)
+        loadDirectItemLoans(itemId)
     }
 
     private fun applyUpdatedItem(item: ItemDto) {
@@ -436,7 +527,9 @@ class InventoryDetailViewModel @Inject constructor(
             assignments = current?.assignments.orEmpty(),
             conditionLog = current?.conditionLog.orEmpty(),
             itemHistory = current?.itemHistory.orEmpty(),
-            transfers = current?.transfers.orEmpty()
+            transfers = current?.transfers.orEmpty(),
+            directLoans = current?.directLoans.orEmpty(),
+            activeDirectLoanQuantity = current?.activeDirectLoanQuantity ?: 0
         )
     }
 
@@ -453,7 +546,7 @@ class InventoryDetailViewModel @Inject constructor(
     }
 
     fun onQrPdfShared() {
-        _shareMessage.value = "QR PDF paruostas bendrinimui."
+        _shareMessage.value = "Kodų PDF paruostas bendrinimui."
     }
 
     fun onQrPdfShareFailed(message: String) {

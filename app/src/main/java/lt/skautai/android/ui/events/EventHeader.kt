@@ -126,21 +126,23 @@ private fun HeaderActions(
             ) {
                 Text("Redaguoti")
             }
-            OutlinedButton(
-                onClick = onCancel,
-                enabled = !isCancelling,
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                    contentColor = MaterialTheme.colorScheme.error
-                ),
-                modifier = Modifier.weight(1f)
-            ) {
-                if (isCancelling) {
-                    CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-                } else {
-                    Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+            if (event.status == "PLANNING") {
+                OutlinedButton(
+                    onClick = onCancel,
+                    enabled = !isCancelling,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                        contentColor = MaterialTheme.colorScheme.error
+                    ),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isCancelling) {
+                        CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
+                    } else {
+                        Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                    }
+                    Text("Atšaukti")
                 }
-                Text("Atšaukti")
             }
         }
     }

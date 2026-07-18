@@ -632,22 +632,8 @@ private fun eligiblePastovykleLeaderMembers(
     pastovykle: PastovykleDto?,
     ageGroup: String?
 ): List<MemberDto> {
-    val currentLeaderRoleId = event.eventRoles.firstOrNull {
-        it.role == "PASTOVYKLES_GURU" && it.userId == pastovykle?.responsibleUserId && it.pastovykleId == null
-    }?.id
-    val currentSlot = EventStaffSlotUiModel(
-        id = pastovykle?.id ?: "new_pastovykle",
-        title = pastovykle?.name.orEmpty(),
-        subtitle = "Pastovyklės pagrindinis vadovas",
-        role = "PASTOVYKLES_GURU",
-        pastovykleId = pastovykle?.id,
-        pastovykleAgeGroup = ageGroup,
-        assignedUserId = pastovykle?.responsibleUserId,
-        linkedRoleId = currentLeaderRoleId
-    )
     return members.filter { member ->
-        !memberHasAnotherStaffRole(member.userId, event, pastovykles, excludingSlot = currentSlot) &&
-            memberEligibleForPastovykleAgeGroup(member, ageGroup)
+        memberEligibleForPastovykleAgeGroup(member, ageGroup)
     }
 }
 

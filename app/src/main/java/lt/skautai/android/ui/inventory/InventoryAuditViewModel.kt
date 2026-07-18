@@ -251,7 +251,7 @@ class InventoryAuditViewModel @Inject constructor(
                     }
                 }
                 .onFailure {
-                    _message.value = it.message ?: "Nepavyko atpazinti QR kodo"
+                    _message.value = it.message ?: "Nepavyko atpazinti kodo"
                 }
             _isResolving.value = false
         }

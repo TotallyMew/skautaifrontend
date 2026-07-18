@@ -61,11 +61,13 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import lt.skautai.android.data.remote.DirectItemLoanDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ItemAssignmentDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemHistoryDto
 import lt.skautai.android.data.remote.ItemTransferDto
+import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.ui.common.MetadataRow
@@ -82,6 +84,8 @@ import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.itemStatusLabel
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.skautaiOverlayTone
+import lt.skautai.android.util.BarcodeBitmap
+import lt.skautai.android.util.InventoryCodeType
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrCodeBitmap
 import lt.skautai.android.util.QrPdfLayout
@@ -113,6 +117,7 @@ fun InventoryDetailScreen(
     val isUpdatingStatus by viewModel.isUpdatingStatus.collectAsStateWithLifecycle()
     val isTransferring by viewModel.isTransferring.collectAsStateWithLifecycle()
     val orgUnits by viewModel.orgUnits.collectAsStateWithLifecycle()
+    val members by viewModel.members.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val leadershipUnitIds by viewModel.leadershipUnitIds.collectAsStateWithLifecycle()
@@ -125,6 +130,8 @@ fun InventoryDetailScreen(
     var showReturnDialog by remember { mutableStateOf(false) }
     var showRestockDialog by remember { mutableStateOf(false) }
     var showConsumeDialog by remember { mutableStateOf(false) }
+    var showDirectIssueDialog by remember { mutableStateOf(false) }
+    var returningDirectLoan by remember { mutableStateOf<DirectItemLoanDto?>(null) }
     var showApproveDialog by remember { mutableStateOf(false) }
     var showRejectDialog by remember { mutableStateOf(false) }
     var rejectionReasonText by remember { mutableStateOf("") }
@@ -188,6 +195,13 @@ fun InventoryDetailScreen(
         (!isTransferredFromTuntas || canManageShared)
     val canRestock = canEdit && currentItem?.status == "ACTIVE"
     val canConsume = canEdit && currentItem?.isConsumable == true && currentItem.status == "ACTIVE" && currentItem.quantity > 0
+    val activeDirectLoanQuantity = (uiState as? InventoryDetailUiState.Success)?.activeDirectLoanQuantity ?: 0
+    val availableDirectLoanQuantity = ((currentItem?.quantity ?: 0) - activeDirectLoanQuantity).coerceAtLeast(0)
+    val canDirectIssue = canEdit &&
+        currentItem?.status == "ACTIVE" &&
+        currentItem?.type != "INDIVIDUAL" &&
+        availableDirectLoanQuantity > 0 &&
+        (!isTransferredFromTuntas || canManageShared)
     val canCreateRestockRequest = currentItem?.isLowStock == true && permissions.canCreateRequisitions()
     val canDirectTransfer = currentItem?.let {
         canManageShared && it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 && it.type != "INDIVIDUAL"
@@ -269,6 +283,8 @@ fun InventoryDetailScreen(
                         conditionLog = state.conditionLog,
                         itemHistory = state.itemHistory,
                         transfers = state.transfers,
+                        directLoans = state.directLoans,
+                        activeDirectLoanQuantity = state.activeDirectLoanQuantity,
                         canChangeStatus = canChangeStatus,
                         canDelete = canDelete,
                         isCreatingSharedRequest = isCreatingSharedRequest,
@@ -280,6 +296,7 @@ fun InventoryDetailScreen(
                         canReturnToShared = canReturnToShared,
                         canRestock = canRestock,
                         canConsume = canConsume,
+                        canDirectIssue = canDirectIssue,
                         canCreateRestockRequest = canCreateRestockRequest,
                         canReviewAddition = canReviewAddition,
                         isTransferring = isTransferring,
@@ -294,6 +311,8 @@ fun InventoryDetailScreen(
                         onReturnToShared = { showReturnDialog = true },
                         onRestock = { showRestockDialog = true },
                         onConsume = { showConsumeDialog = true },
+                        onDirectIssue = { showDirectIssueDialog = true },
+                        onReturnDirectLoan = { returningDirectLoan = it },
                         onCreateRestockRequest = { viewModel.createRestockRequisitionForItem(itemId) },
                         onDelete = { showDeleteDialog = true },
                         onWriteOff = {
@@ -314,16 +333,16 @@ fun InventoryDetailScreen(
         ItemQrDialog(
             item = currentItem,
             onDismiss = { showQrDialog = false },
-            onSharePdf = { layout ->
+            onSharePdf = { layout, codeType ->
                 runCatching {
                     val printableItem = currentItem.toPrintableQrItemOrNull()
-                        ?: error("Šio daikto QR PDF sugeneruoti negalima.")
-                    QrPdfShareLauncher.share(context, listOf(printableItem), layout)
+                        ?: error("Šio daikto kodų PDF sugeneruoti negalima.")
+                    QrPdfShareLauncher.share(context, listOf(printableItem), layout, codeType)
                 }.onSuccess {
                     viewModel.onQrPdfShared()
                 }.onFailure {
                     viewModel.onQrPdfShareFailed(
-                        it.message ?: "Nepavyko sugeneruoti QR PDF"
+                        it.message ?: "Nepavyko sugeneruoti kodų PDF"
                     )
                 }
             }
@@ -438,6 +457,34 @@ fun InventoryDetailScreen(
             onConfirm = { quantity, notes ->
                 showConsumeDialog = false
                 viewModel.consumeItem(currentItem.id, quantity, notes)
+            }
+        )
+    }
+
+    if (showDirectIssueDialog && currentItem != null) {
+        DirectIssueDialog(
+            members = members,
+            maxQuantity = availableDirectLoanQuantity,
+            isSubmitting = isTransferring,
+            onDismiss = { if (!isTransferring) showDirectIssueDialog = false },
+            onConfirm = { userId, quantity, dueDate, notes ->
+                showDirectIssueDialog = false
+                viewModel.issueDirectLoan(currentItem.id, userId, quantity, dueDate, notes)
+            }
+        )
+    }
+
+    returningDirectLoan?.let { loan ->
+        QuantityNotesDialog(
+            title = "Grazinti is zmogaus",
+            description = "Nurodyk, kiek vienetu grizo is ${loan.issuedToUserName ?: loan.issuedToUserId}.",
+            maxQuantity = loan.outstandingQuantity,
+            confirmLabel = "Grazinti",
+            isSubmitting = isTransferring,
+            onDismiss = { if (!isTransferring) returningDirectLoan = null },
+            onConfirm = { quantity, notes ->
+                returningDirectLoan = null
+                viewModel.returnDirectLoan(loan.itemId, loan.id, quantity, notes)
             }
         )
     }
@@ -805,6 +852,113 @@ private fun QuantityNotesDialog(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DirectIssueDialog(
+    members: List<MemberDto>,
+    maxQuantity: Int,
+    isSubmitting: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (String, Int, String?, String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    var selectedMember by remember { mutableStateOf<MemberDto?>(members.firstOrNull()) }
+    var quantityText by remember { mutableStateOf("1") }
+    var dueDate by remember { mutableStateOf("") }
+    var notes by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Isduoti zmogui") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Greitas isdavimas be rezervacijos. Veliau ta pati irasa galima pazymeti kaip grazinta.")
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = !expanded }
+                ) {
+                    OutlinedTextField(
+                        value = selectedMember?.let { "${it.name} ${it.surname}".trim() }.orEmpty(),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Narys") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        modifier = Modifier
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .fillMaxWidth()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        members.forEach { member ->
+                            DropdownMenuItem(
+                                text = { Text("${member.name} ${member.surname}".trim()) },
+                                onClick = {
+                                    selectedMember = member
+                                    expanded = false
+                                    error = null
+                                }
+                            )
+                        }
+                    }
+                }
+                SkautaiTextField(
+                    value = quantityText,
+                    onValueChange = {
+                        quantityText = it.filter(Char::isDigit)
+                        error = null
+                    },
+                    label = "Kiekis",
+                    supportingText = error ?: "Galimas kiekis: $maxQuantity vnt.",
+                    isError = error != null,
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = dueDate,
+                    onValueChange = { dueDate = it.take(10) },
+                    label = "Grazinti iki (YYYY-MM-DD)",
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SkautaiTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    label = "Pastabos",
+                    minLines = 2,
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = !isSubmitting,
+                onClick = {
+                    val member = selectedMember
+                    val quantity = quantityText.toIntOrNull()
+                    when {
+                        member == null -> error = "Pasirink nari"
+                        quantity == null || quantity < 1 -> error = "Iveskite teigiama kieki"
+                        quantity > maxQuantity -> error = "Kiekis negali virsyti turimo kiekio"
+                        else -> onConfirm(member.userId, quantity, dueDate.ifBlank { null }, notes.ifBlank { null })
+                    }
+                }
+            ) {
+                Text("Isduoti")
+            }
+        },
+        dismissButton = {
+            TextButton(enabled = !isSubmitting, onClick = onDismiss) {
+                Text("Atsaukti")
+            }
+        }
+    )
+}
+
 @Composable
 private fun ItemDetailContent(
     item: ItemDto,
@@ -813,6 +967,8 @@ private fun ItemDetailContent(
     conditionLog: List<ItemConditionLogDto>,
     itemHistory: List<ItemHistoryDto>,
     transfers: List<ItemTransferDto>,
+    directLoans: List<DirectItemLoanDto>,
+    activeDirectLoanQuantity: Int,
     canChangeStatus: Boolean,
     canDelete: Boolean,
     isCreatingSharedRequest: Boolean,
@@ -824,6 +980,7 @@ private fun ItemDetailContent(
     canReturnToShared: Boolean,
     canRestock: Boolean,
     canConsume: Boolean,
+    canDirectIssue: Boolean,
     canCreateRestockRequest: Boolean,
     canReviewAddition: Boolean,
     isTransferring: Boolean,
@@ -834,6 +991,8 @@ private fun ItemDetailContent(
     onReturnToShared: () -> Unit,
     onRestock: () -> Unit,
     onConsume: () -> Unit,
+    onDirectIssue: () -> Unit,
+    onReturnDirectLoan: (DirectItemLoanDto) -> Unit,
     onCreateRestockRequest: () -> Unit,
     onDelete: () -> Unit,
     onWriteOff: () -> Unit,
@@ -937,6 +1096,13 @@ private fun ItemDetailContent(
                         text = "${item.quantity} ${item.unitLabel()}",
                         style = MaterialTheme.typography.headlineSmall
                     )
+                    if (activeDirectLoanQuantity > 0) {
+                        Text(
+                            text = "Isduota: $activeDirectLoanQuantity ${item.unitLabel()}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             SkautaiCard(
@@ -1021,7 +1187,7 @@ private fun ItemDetailContent(
                     contentDescription = null,
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("Rodyti daikto QR kodą")
+                Text("Rodyti daikto kodus")
             }
         }
 
@@ -1065,6 +1231,15 @@ private fun ItemDetailContent(
 
         if (reservations.isNotEmpty()) {
             ItemReservationsCard(reservations = reservations)
+        }
+
+        val activeDirectLoans = directLoans.filter { it.outstandingQuantity > 0 }
+        if (activeDirectLoans.isNotEmpty()) {
+            DirectItemLoansCard(
+                loans = activeDirectLoans,
+                onReturn = onReturnDirectLoan,
+                isSubmitting = isTransferring
+            )
         }
 
         if (assignments.isNotEmpty()) {
@@ -1200,6 +1375,21 @@ private fun ItemDetailContent(
               modifier = Modifier.fillMaxWidth()
           ) {
               Text(if (isTransferring) "Sunaudojama..." else "Sunaudoti kiekį")
+          }
+      }
+
+      if (canDirectIssue) {
+          Button(
+              onClick = onDirectIssue,
+              enabled = !isTransferring && !isUpdatingStatus && !isCreatingSharedRequest,
+              modifier = Modifier.fillMaxWidth()
+          ) {
+              Icon(
+                  imageVector = Icons.Default.Person,
+                  contentDescription = null,
+                  modifier = Modifier.padding(end = 8.dp)
+              )
+              Text(if (isTransferring) "Isduodama..." else "Isduoti zmogui be rezervacijos")
           }
       }
 
@@ -1381,6 +1571,8 @@ private fun itemHistoryLabel(entry: ItemHistoryDto): String {
         "RECEIVED_FROM_SHARED" -> "Gauta iš bendro inventoriaus$quantity"
         "RETURNED_TO_SHARED" -> "Grąžinta į bendrą inventorių$quantity"
         "RECEIVED_FROM_UNIT" -> "Gauta atgal iš vieneto$quantity"
+        "DIRECT_ISSUED" -> "Isduota zmogui be rezervacijos$quantity"
+        "DIRECT_RETURNED" -> "Grazinta is zmogaus$quantity"
         "RESERVATION_ISSUED" -> "Išduota rezervacijai$quantity"
         "RESERVATION_RETURN_MARKED" -> "Pažymėta kaip grąžinama$quantity"
         "RESERVATION_RETURNED" -> "Grąžinta iš rezervacijos$quantity"
@@ -1459,6 +1651,71 @@ private fun ItemReservationsCard(reservations: List<ReservationDto>) {
             }
         }
 
+    }
+}
+
+@Composable
+private fun DirectItemLoansCard(
+    loans: List<DirectItemLoanDto>,
+    onReturn: (DirectItemLoanDto) -> Unit,
+    isSubmitting: Boolean
+) {
+    SkautaiCard(
+        modifier = Modifier.fillMaxWidth(),
+        tonal = MaterialTheme.colorScheme.surfaceContainerLow
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = "Tiesiogiai isduota",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            loans.forEach { loan ->
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = loan.issuedToUserName ?: loan.issuedToUserId,
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Text(
+                                text = listOfNotNull(
+                                    "Nuo ${loan.issuedAt.take(10)}",
+                                    "liko ${loan.outstandingQuantity} is ${loan.quantity}",
+                                    loan.notes?.takeIf { it.isNotBlank() }
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        TextButton(
+                            enabled = !isSubmitting,
+                            onClick = { onReturn(loan) }
+                        ) {
+                            Text("Grazinti")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -1611,23 +1868,27 @@ private val managedCustomFieldNames = setOf("Mato vienetas", "Žymos", "Priežas
 private fun ItemQrDialog(
     item: ItemDto,
     onDismiss: () -> Unit,
-    onSharePdf: (QrPdfLayout) -> Unit
+    onSharePdf: (QrPdfLayout, InventoryCodeType) -> Unit
 ) {
     val qrBitmap = remember(item.id) {
         QrCodeBitmap.create(QrPayload.forScanToken(item.qrToken))
     }
+    val barcodeBitmap = remember(item.id) {
+        BarcodeBitmap.create(item.qrToken)
+    }
     var selectedLayout by remember { mutableStateOf(QrPdfLayout.Standard) }
+    var selectedCodeType by remember { mutableStateOf(InventoryCodeType.Qr) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = { onSharePdf(selectedLayout) }) { Text("Dalintis PDF") }
+            TextButton(onClick = { onSharePdf(selectedLayout, selectedCodeType) }) { Text("Dalintis PDF") }
         },
         dismissButton = {
             OutlinedButton(onClick = onDismiss) { Text("Uždaryti") }
         },
         title = {
-            Text("Inventoriaus QR kodas")
+            Text("Inventoriaus kodai")
         },
         text = {
             Column(
@@ -1640,6 +1901,14 @@ private fun ItemQrDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
+                )
+                Image(
+                    bitmap = barcodeBitmap.asImageBitmap(),
+                    contentDescription = "Barkodas daiktui ${item.name}",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(3.4f),
+                    contentScale = ContentScale.FillBounds
                 )
                 Text(
                     text = item.name,
@@ -1655,6 +1924,27 @@ private fun ItemQrDialog(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    Text(
+                        text = "PDF kodo tipas",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    InventoryCodeType.values().forEach { codeType ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedCodeType = codeType }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedCodeType == codeType,
+                                onClick = { selectedCodeType = codeType }
+                            )
+                            Spacer(modifier = Modifier.size(8.dp))
+                            Text(codeType.label, style = MaterialTheme.typography.bodyMedium)
+                        }
+                    }
                     Text(
                         text = "PDF etiketės dydis",
                         style = MaterialTheme.typography.titleSmall,

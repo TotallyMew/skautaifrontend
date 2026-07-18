@@ -556,7 +556,7 @@ class InventoryListViewModel @Inject constructor(
             _actionMessage.value = when (_selectionPurpose.value) {
                 InventorySelectionPurpose.BULK_EDIT,
                 InventorySelectionPurpose.LOCATION_ASSIGN -> "Šio daikto redaguoti negalima."
-                else -> "Šio daikto QR PDF sugeneruoti negalima."
+                else -> "Šio daikto kodų PDF sugeneruoti negalima."
             }
             return
         }

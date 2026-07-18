@@ -41,11 +41,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
-import lt.skautai.android.util.canManageEventFinanceSections
 import lt.skautai.android.util.canManageEventInventorySections
 import lt.skautai.android.util.canManageEventSections
 import lt.skautai.android.util.canRequestEventInventory
 import lt.skautai.android.util.canViewEventPlan
+import lt.skautai.android.util.canViewEventFinanceSections
 import lt.skautai.android.util.eventRolesForUser
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -134,7 +134,7 @@ fun EventDetailScreen(
                     val canManage = canManageEventSections(permissions, myRoles, readOnly)
                     val canStart = !readOnly && (canManage || "KOMENDANTAS" in myRoles)
                     val canInventory = canManageEventInventorySections(permissions, myRoles, readOnly)
-                    val canFinance = canManageEventFinanceSections(permissions, myRoles, readOnly)
+                    val canFinance = canViewEventFinanceSections(permissions, myRoles)
                     val canPlanView = canViewEventPlan(permissions, myRoles)
                     val canInventoryRequest = canRequestEventInventory(myRoles, readOnly)
                     val canOpenMovement = !readOnly && state.event.status == "ACTIVE"

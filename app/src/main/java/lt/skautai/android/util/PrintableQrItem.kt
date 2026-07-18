@@ -6,7 +6,8 @@ data class PrintableQrItem(
     val itemId: String,
     val title: String,
     val subtitle: String,
-    val payload: String
+    val payload: String,
+    val barcodePayload: String
 )
 
 fun ItemDto.toPrintableQrItemOrNull(): PrintableQrItem? {
@@ -20,6 +21,7 @@ fun ItemDto.toPrintableQrItemOrNull(): PrintableQrItem? {
         itemId = id,
         title = name,
         subtitle = subtitle,
-        payload = QrPayload.forScanToken(qrToken)
+        payload = QrPayload.forScanToken(qrToken),
+        barcodePayload = qrToken
     )
 }

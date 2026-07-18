@@ -42,6 +42,20 @@ interface ItemApiService {
         @Path("itemId") itemId: String
     ): Response<ItemAssignmentListResponseDto>
 
+    @GET("api/items/{itemId}/direct-loans")
+    suspend fun getDirectItemLoans(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String
+    ): Response<DirectItemLoanListResponseDto>
+
+    @GET("api/items/direct-loans")
+    suspend fun getTuntasDirectItemLoans(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Query("activeOnly") activeOnly: Boolean = true
+    ): Response<DirectItemLoanListResponseDto>
+
     @GET("api/items/{itemId}/condition-log")
     suspend fun getItemConditionLog(
         @Header("Authorization") token: String,
@@ -143,6 +157,23 @@ interface ItemApiService {
         @Path("itemId") itemId: String,
         @Body request: ReturnItemToSharedRequestDto
     ): Response<ItemDto>
+
+    @POST("api/items/{itemId}/direct-loans")
+    suspend fun issueDirectItemLoan(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Body request: DirectItemLoanRequestDto
+    ): Response<DirectItemLoanDto>
+
+    @POST("api/items/{itemId}/direct-loans/{loanId}/return")
+    suspend fun returnDirectItemLoan(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String,
+        @Path("itemId") itemId: String,
+        @Path("loanId") loanId: String,
+        @Body request: ReturnDirectItemLoanRequestDto
+    ): Response<DirectItemLoanDto>
 
     @POST("api/items/{itemId}/restock")
     suspend fun restockItem(

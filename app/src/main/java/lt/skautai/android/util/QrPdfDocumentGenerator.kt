@@ -24,14 +24,15 @@ object QrPdfDocumentGenerator {
     fun createPdf(
         cacheDir: File,
         items: List<PrintableQrItem>,
-        layout: QrPdfLayout = QrPdfLayout.Standard
+        layout: QrPdfLayout = QrPdfLayout.Standard,
+        codeType: InventoryCodeType = InventoryCodeType.Qr
     ): File {
-        require(items.isNotEmpty()) { "Bent vienas QR elementas yra privalomas" }
+        require(items.isNotEmpty()) { "Bent vienas kodo elementas yra privalomas" }
 
-        val outputDir = File(cacheDir, "shared-qr-pdfs").apply { mkdirs() }
+        val outputDir = File(cacheDir, "shared-inventory-code-pdfs").apply { mkdirs() }
         val outputFile = File(
             outputDir,
-            "inventorius-qr-${layout.fileSuffix}-${LocalDateTime.now().format(fileNameFormatter)}.pdf"
+            "inventorius-${codeType.fileSuffix}-${layout.fileSuffix}-${LocalDateTime.now().format(fileNameFormatter)}.pdf"
         )
 
         val document = PdfDocument()
@@ -81,19 +82,35 @@ object QrPdfDocumentGenerator {
                     val contentLeft = left + layout.cellPadding
                     val contentTop = top + layout.cellPadding
                     val contentWidth = cellWidth - (layout.cellPadding * 2)
-                    val qrSize = min(
-                        contentWidth,
-                        max(layout.minQrSize, (cellHeight * layout.qrHeightFraction).toInt())
-                    )
-                    val qrBitmap = QrCodeBitmap.create(item.payload, 640)
-                    canvas.drawBitmap(qrBitmap, null, android.graphics.Rect(
-                        contentLeft,
-                        contentTop,
-                        contentLeft + qrSize,
-                        contentTop + qrSize
-                    ), null)
+                    val codeHeight = when (codeType) {
+                        InventoryCodeType.Qr -> {
+                            val qrSize = min(
+                                contentWidth,
+                                max(layout.minQrSize, (cellHeight * layout.qrHeightFraction).toInt())
+                            )
+                            val qrBitmap = QrCodeBitmap.create(item.payload, 640)
+                            canvas.drawBitmap(qrBitmap, null, android.graphics.Rect(
+                                contentLeft,
+                                contentTop,
+                                contentLeft + qrSize,
+                                contentTop + qrSize
+                            ), null)
+                            qrSize
+                        }
+                        InventoryCodeType.Barcode -> {
+                            val barcodeHeight = max(layout.minQrSize / 2, (cellHeight * 0.28f).toInt())
+                            val barcodeBitmap = BarcodeBitmap.create(item.barcodePayload, 1000, 260)
+                            canvas.drawBitmap(barcodeBitmap, null, android.graphics.Rect(
+                                contentLeft,
+                                contentTop,
+                                contentLeft + contentWidth,
+                                contentTop + barcodeHeight
+                            ), null)
+                            barcodeHeight
+                        }
+                    }
 
-                    val textTop = contentTop + qrSize + 10
+                    val textTop = contentTop + codeHeight + 10
                     val titleLayout = staticLayout(
                         text = item.title,
                         paint = titlePaint,
@@ -193,4 +210,12 @@ enum class QrPdfLayout(
         minQrSize = 180,
         qrHeightFraction = 0.65f
     )
+}
+
+enum class InventoryCodeType(
+    val label: String,
+    val fileSuffix: String
+) {
+    Qr("QR kodai", "qr"),
+    Barcode("Barkodai", "barkodai")
 }

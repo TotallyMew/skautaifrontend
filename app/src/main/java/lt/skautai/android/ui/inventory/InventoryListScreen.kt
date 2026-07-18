@@ -108,6 +108,7 @@ import lt.skautai.android.ui.common.itemConditionLabel
 import lt.skautai.android.ui.common.skautaiConditionAccentTone
 import lt.skautai.android.ui.common.skautaiDividerTone
 import lt.skautai.android.ui.common.skautaiSurfaceTone
+import lt.skautai.android.util.InventoryCodeType
 import lt.skautai.android.util.NavRoutes
 import lt.skautai.android.util.QrPdfLayout
 import lt.skautai.android.util.QrPdfShareLauncher
@@ -290,15 +291,15 @@ fun InventoryListScreen(
     if (showQrSizeDialog) {
         QrPdfLayoutDialog(
             onDismiss = { showQrSizeDialog = false },
-            onLayoutSelected = { layout ->
+            onLayoutSelected = { layout, codeType ->
                 showQrSizeDialog = false
                 runCatching {
-                    QrPdfShareLauncher.share(context, selectedPrintableItems, layout)
+                    QrPdfShareLauncher.share(context, selectedPrintableItems, layout, codeType)
                 }.onSuccess {
                     viewModel.onPdfShared()
                 }.onFailure {
                     viewModel.onPdfShareFailed(
-                        it.message ?: "Nepavyko sugeneruoti QR PDF"
+                        it.message ?: "Nepavyko sugeneruoti kodų PDF"
                     )
                 }
             }
@@ -351,7 +352,7 @@ fun InventoryListScreen(
                             selectedCount = selectedPrintableItems.size,
                             onGeneratePdf = {
                                 if (selectedPrintableItems.isEmpty()) {
-                                    viewModel.onPdfShareFailed("Pasirink bent vieną daiktą QR PDF generavimui.")
+                                    viewModel.onPdfShareFailed("Pasirink bent vieną daiktą kodų PDF generavimui.")
                                 } else {
                                     showQrSizeDialog = true
                                 }
@@ -1579,7 +1580,7 @@ private fun InventoryCatalogToolbar(
                 }
                 if (canGenerateQrPdf) {
                     DropdownMenuItem(
-                        text = { Text("Generuoti QR PDF") },
+                        text = { Text("Generuoti kodų PDF") },
                         leadingIcon = { Icon(Icons.Default.QrCode2, contentDescription = null) },
                         enabled = canGenerateQrPdfNow,
                         onClick = {
@@ -1735,7 +1736,7 @@ private fun InventoryToolsCard(
                 Column(modifier = Modifier.weight(1f)) {
                     SkautaiSectionHeader(
                         title = "Įrankiai",
-                        subtitle = "$availableCount veiksmai: eksportas, importas, QR, inventorizacija, istorija ir masinis tvarkymas"
+                        subtitle = "$availableCount veiksmai: eksportas, importas, QR/barkodai, inventorizacija, istorija ir masinis tvarkymas"
                     )
                 }
                 IconButton(onClick = { onExpandedChange(!expanded) }) {
@@ -1796,7 +1797,7 @@ private fun InventoryToolsCard(
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 8.dp)
                             )
-                            Text("Generuoti QR PDF", maxLines = 1)
+                            Text("Generuoti kodų PDF", maxLines = 1)
                         }
                     }
                     FilledTonalButton(
@@ -2032,7 +2033,7 @@ private fun QrSelectionBar(
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
-                text = "Pasirinkta QR PDF: $selectedCount",
+                text = "Pasirinkta kodų PDF: $selectedCount",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
@@ -2151,25 +2152,54 @@ private fun LocationAssignmentSelectionBar(
 @Composable
 private fun QrPdfLayoutDialog(
     onDismiss: () -> Unit,
-    onLayoutSelected: (QrPdfLayout) -> Unit
+    onLayoutSelected: (QrPdfLayout, InventoryCodeType) -> Unit
 ) {
+    var selectedCodeType by remember { mutableStateOf(InventoryCodeType.Qr) }
+    var selectedLayout by remember { mutableStateOf(QrPdfLayout.Standard) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("QR etikečių dydis") },
+        title = { Text("Inventoriaus kodų PDF") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Kodo tipas",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                InventoryCodeType.values().forEach { codeType ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { selectedCodeType = codeType }
+                            .padding(vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        RadioButton(
+                            selected = selectedCodeType == codeType,
+                            onClick = { selectedCodeType = codeType }
+                        )
+                        Text(codeType.label, style = MaterialTheme.typography.bodyMedium)
+                    }
+                }
+                Text(
+                    text = "Etiketės dydis",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
                 QrPdfLayout.values().forEach { layout ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onLayoutSelected(layout) }
+                            .clickable { selectedLayout = layout }
                             .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         RadioButton(
-                            selected = layout == QrPdfLayout.Standard,
-                            onClick = { onLayoutSelected(layout) }
+                            selected = layout == selectedLayout,
+                            onClick = { selectedLayout = layout }
                         )
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                             Text(
@@ -2192,7 +2222,11 @@ private fun QrPdfLayoutDialog(
                 }
             }
         },
-        confirmButton = {},
+        confirmButton = {
+            TextButton(onClick = { onLayoutSelected(selectedLayout, selectedCodeType) }) {
+                Text("Generuoti PDF")
+            }
+        },
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text("Atšaukti")

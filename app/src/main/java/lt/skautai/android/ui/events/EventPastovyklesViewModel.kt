@@ -111,25 +111,6 @@ class EventPastovyklėsViewModel @Inject constructor(
                 _uiState.value = current.copy(error = "Pasirinktas narys nerastas.")
                 return
             }
-            val currentLeaderRoleId = current.event.eventRoles.firstOrNull {
-                it.role == "PASTOVYKLES_GURU" && it.userId == previous?.responsibleUserId && it.pastovykleId == null
-            }?.id
-            val currentSlot = EventStaffSlotUiModel(
-                id = pastovykleId ?: "new_pastovykle",
-                title = cleanName,
-                subtitle = "Pastovyklės pagrindinis vadovas",
-                role = "PASTOVYKLES_GURU",
-                pastovykleId = pastovykleId,
-                pastovykleAgeGroup = ageGroup,
-                assignedUserId = previous?.responsibleUserId,
-                linkedRoleId = currentLeaderRoleId
-            )
-            activeStaffRoleForMember(responsibleUserId, current.event, excludingSlot = currentSlot)?.let { occupiedRole ->
-                _uiState.value = current.copy(
-                    error = "${member.fullName()} jau turi štabo pareigą \"${occupiedRole.role}\". Pirmiausia nuimkite nuo ankstesnės pareigos."
-                )
-                return
-            }
             if (!memberEligibleForPastovykleAgeGroup(member, ageGroup)) {
                 _uiState.value = current.copy(
                     error = when (normalizePastovykleAgeGroupCode(ageGroup)) {

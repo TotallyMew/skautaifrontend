@@ -28,6 +28,11 @@ fun configValue(name: String, localPropertyName: String, defaultValue: String): 
         ?: defaultValue
 }
 
+fun configIntValue(name: String, localPropertyName: String, defaultValue: Int): Int {
+    return configValue(name, localPropertyName, defaultValue.toString()).toIntOrNull()
+        ?: error("$name must be an integer")
+}
+
 val apiBaseUrl = configValue(
     name = "API_BASE_URL",
     localPropertyName = "api.baseUrl",
@@ -78,6 +83,36 @@ val privacyEmail = configValue(
     localPropertyName = "privacy.email",
     defaultValue = "privacy@skautuinventorius.lt"
 )
+val appVersionCode = configIntValue(
+    name = "VERSION_CODE",
+    localPropertyName = "version.code",
+    defaultValue = 1
+)
+val appVersionName = configValue(
+    name = "VERSION_NAME",
+    localPropertyName = "version.name",
+    defaultValue = "1.0"
+)
+val releaseStoreFile = configValue(
+    name = "RELEASE_STORE_FILE",
+    localPropertyName = "release.storeFile",
+    defaultValue = ""
+)
+val releaseStorePassword = configValue(
+    name = "RELEASE_STORE_PASSWORD",
+    localPropertyName = "release.storePassword",
+    defaultValue = ""
+)
+val releaseKeyAlias = configValue(
+    name = "RELEASE_KEY_ALIAS",
+    localPropertyName = "release.keyAlias",
+    defaultValue = ""
+)
+val releaseKeyPassword = configValue(
+    name = "RELEASE_KEY_PASSWORD",
+    localPropertyName = "release.keyPassword",
+    defaultValue = ""
+)
 
 android {
     namespace = "lt.skautai.android"
@@ -87,8 +122,8 @@ android {
         applicationId = "lt.skautai.android"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         manifestPlaceholders["passwordResetHost"] = passwordResetHost
         buildConfigField("String", "API_BASE_URL", apiBaseUrl.asBuildConfigString())
@@ -97,6 +132,22 @@ android {
         buildConfigField("String", "PRIVACY_POLICY_URL", privacyPolicyUrl.asBuildConfigString())
         buildConfigField("String", "SUPPORT_EMAIL", supportEmail.asBuildConfigString())
         buildConfigField("String", "PRIVACY_EMAIL", privacyEmail.asBuildConfigString())
+    }
+
+    signingConfigs {
+        if (
+            releaseStoreFile.isNotBlank() &&
+            releaseStorePassword.isNotBlank() &&
+            releaseKeyAlias.isNotBlank() &&
+            releaseKeyPassword.isNotBlank()
+        ) {
+            create("release") {
+                storeFile = file(releaseStoreFile)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -110,6 +161,9 @@ android {
             buildConfigField("String", "API_BASE_URL", releaseApiBaseUrl.asBuildConfigString())
             buildConfigField("String", "API_HOST", releaseApiHost.asBuildConfigString())
             buildConfigField("String", "API_CERT_PIN", releaseApiCertPin.asBuildConfigString())
+            signingConfigs.findByName("release")?.let {
+                signingConfig = it
+            }
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

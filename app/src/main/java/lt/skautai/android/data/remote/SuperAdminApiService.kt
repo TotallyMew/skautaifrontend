@@ -28,6 +28,12 @@ interface SuperAdminApiService {
         @Path("id") id: String
     ): Response<MessageResponseDto>
 
+    @DELETE("api/super-admin/tuntai/{id}")
+    suspend fun deleteTuntas(
+        @Header("Authorization") token: String,
+        @Path("id") id: String
+    ): Response<MessageResponseDto>
+
     @POST("api/super-admin/notifications")
     suspend fun sendNotification(
         @Header("Authorization") token: String,

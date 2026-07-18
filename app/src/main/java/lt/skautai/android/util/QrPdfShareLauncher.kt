@@ -8,9 +8,10 @@ object QrPdfShareLauncher {
     fun share(
         context: Context,
         items: List<PrintableQrItem>,
-        layout: QrPdfLayout = QrPdfLayout.Standard
+        layout: QrPdfLayout = QrPdfLayout.Standard,
+        codeType: InventoryCodeType = InventoryCodeType.Qr
     ) {
-        val pdfFile = QrPdfDocumentGenerator.createPdf(context.cacheDir, items, layout)
+        val pdfFile = QrPdfDocumentGenerator.createPdf(context.cacheDir, items, layout, codeType)
         val pdfUri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
@@ -24,7 +25,7 @@ object QrPdfShareLauncher {
         }
 
         context.startActivity(
-            Intent.createChooser(shareIntent, "Dalintis inventoriaus QR PDF")
+            Intent.createChooser(shareIntent, "Dalintis inventoriaus kodų PDF")
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         )
     }

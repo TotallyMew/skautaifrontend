@@ -91,6 +91,30 @@ data class ItemAssignmentListResponseDto(
     val total: Int
 )
 
+data class DirectItemLoanDto(
+    val id: String,
+    val itemId: String,
+    val itemName: String? = null,
+    val issuedToUserId: String,
+    val issuedToUserName: String? = null,
+    val issuedByUserId: String,
+    val issuedByUserName: String? = null,
+    val quantity: Int,
+    val returnedQuantity: Int,
+    val outstandingQuantity: Int,
+    val status: String,
+    val issuedAt: String,
+    val returnedAt: String? = null,
+    val dueAt: String? = null,
+    val notes: String? = null
+)
+
+data class DirectItemLoanListResponseDto(
+    val loans: List<DirectItemLoanDto>,
+    val total: Int,
+    val activeOutstandingQuantity: Int
+)
+
 data class ItemConditionLogDto(
     val id: String,
     val itemId: String,
@@ -304,6 +328,18 @@ data class TransferItemToUnitRequestDto(
 )
 
 data class ReturnItemToSharedRequestDto(
+    val quantity: Int,
+    val notes: String? = null
+)
+
+data class DirectItemLoanRequestDto(
+    val issuedToUserId: String,
+    val quantity: Int,
+    val dueAt: String? = null,
+    val notes: String? = null
+)
+
+data class ReturnDirectItemLoanRequestDto(
     val quantity: Int,
     val notes: String? = null
 )

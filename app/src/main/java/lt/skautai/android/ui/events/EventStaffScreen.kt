@@ -369,15 +369,12 @@ private fun eligibleStaffMembersForSlot(
     slot: EventStaffSlotUiModel
 ): List<MemberDto> {
     return eligibleStaffMembers(state.members).filter { member ->
-        !memberHasAnotherStaffRole(member.userId, state.event, state.pastovykles, excludingSlot = slot) &&
-            memberEligibleForPastovykleAgeGroup(member, slot.pastovykleAgeGroup)
+        memberEligibleForPastovykleAgeGroup(member, slot.pastovykleAgeGroup)
     }
 }
 
 private fun eligibleAdditionalRoleMembers(state: EventStaffUiState.Success): List<MemberDto> {
-    return eligibleStaffMembers(state.members).filter { member ->
-        !memberHasAnotherStaffRole(member.userId, state.event, state.pastovykles)
-    }
+    return eligibleStaffMembers(state.members)
 }
 
 @Composable

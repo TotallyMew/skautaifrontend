@@ -125,7 +125,7 @@ class EventMovementQrViewModel @Inject constructor(
                     (_uiState.value as? EventMovementQrUiState.Success)?.let {
                         _uiState.value = it.copy(
                             isResolving = false,
-                            message = error.message ?: "Nepavyko atpažinti QR kodo."
+                            message = error.message ?: "Nepavyko atpažinti kodo."
                         )
                     }
                 }

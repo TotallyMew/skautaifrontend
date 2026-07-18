@@ -132,12 +132,6 @@ class EventStaffViewModel @Inject constructor(
             _uiState.value = current.copy(error = "Pasirinktas narys nerastas.")
             return
         }
-        activeStaffAssignmentLabelForMember(userId, current.event, current.pastovykles, excludingSlot = slot)?.let { occupiedRole ->
-            _uiState.value = current.copy(
-                error = "${member.fullName()} jau turi štabo pareigą \"$occupiedRole\". Pirmiausia nuimkite nuo ankstesnės pareigos."
-            )
-            return
-        }
         if (!memberEligibleForPastovykleAgeGroup(member, slot.pastovykleAgeGroup)) {
             _uiState.value = current.copy(
                 error = when (normalizePastovykleAgeGroupCode(slot.pastovykleAgeGroup)) {
@@ -174,12 +168,6 @@ class EventStaffViewModel @Inject constructor(
         val member = current.members.firstOrNull { it.userId == userId }
         if (member == null) {
             _uiState.value = current.copy(error = "Pasirinktas narys nerastas.")
-            return
-        }
-        activeStaffAssignmentLabelForMember(userId, current.event, current.pastovykles)?.let { occupiedRole ->
-            _uiState.value = current.copy(
-                error = "${member.fullName()} jau turi štabo pareigą \"$occupiedRole\". Pirmiausia nuimkite nuo ankstesnės pareigos."
-            )
             return
         }
         viewModelScope.launch {

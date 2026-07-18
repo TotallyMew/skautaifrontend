@@ -207,6 +207,13 @@ class SuperAdminDashboardViewModel @Inject constructor(
         )
     }
 
+    fun deleteTuntas(id: String) {
+        performTuntasAction(
+            action = { superAdminRepository.deleteTuntas(id) },
+            successFallback = "Tuntas istrintas"
+        )
+    }
+
     fun openAssignRoleDialog() {
         _uiState.value = _uiState.value.copy(
             showAssignRoleDialog = true,
