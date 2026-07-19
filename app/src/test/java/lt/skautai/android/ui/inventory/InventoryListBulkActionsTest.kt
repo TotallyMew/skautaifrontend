@@ -5,47 +5,29 @@ import junit.framework.TestCase.assertNull
 import junit.framework.TestCase.assertTrue
 import org.junit.Assert.assertEquals
 import org.junit.Test
+import lt.skautai.android.data.remote.ItemCapabilitiesDto
 import lt.skautai.android.data.remote.ItemDto
 
 class InventoryListBulkActionsTest {
 
     @Test
-    fun `shared transfer requires shared inventory permissions`() {
-        val item = testItem(
+    fun `bulk management follows backend item capability`() {
+        val readOnlyItem = testItem(
             custodianId = "unit-1",
-            origin = "TRANSFERRED_FROM_TUNTAS"
+            origin = "TRANSFERRED_FROM_TUNTAS",
+            canEdit = false
         )
+        val editableItem = readOnlyItem.copy(capabilities = ItemCapabilitiesDto(canEdit = true))
 
-        assertFalse(
-            canManageInventoryItem(
-                item = item,
-                permissions = setOf("items.update:OWN_UNIT"),
-                leadershipUnitIds = listOf("unit-1"),
-                activeOrgUnitId = "unit-1"
-            )
-        )
-        assertTrue(
-            canManageInventoryItem(
-                item = item,
-                permissions = setOf("items.transfer:ALL"),
-                leadershipUnitIds = emptyList(),
-                activeOrgUnitId = null
-            )
-        )
+        assertFalse(canManageInventoryItem(readOnlyItem))
+        assertTrue(canManageInventoryItem(editableItem))
     }
 
     @Test
-    fun `own unit item can be managed by unit leader with own unit update permission`() {
-        val item = testItem(custodianId = "unit-1")
+    fun `missing backend capability fails closed`() {
+        val item = testItem(custodianId = "unit-1", canEdit = null)
 
-        assertTrue(
-            canManageInventoryItem(
-                item = item,
-                permissions = setOf("items.update:OWN_UNIT"),
-                leadershipUnitIds = listOf("unit-1"),
-                activeOrgUnitId = null
-            )
-        )
+        assertFalse(canManageInventoryItem(item))
     }
 
     @Test
@@ -71,7 +53,8 @@ class InventoryListBulkActionsTest {
 
     private fun testItem(
         custodianId: String? = null,
-        origin: String = "UNIT_ACQUIRED"
+        origin: String = "UNIT_ACQUIRED",
+        canEdit: Boolean? = true
     ): ItemDto = ItemDto(
         id = "item-1",
         qrToken = "qr",
@@ -108,6 +91,7 @@ class InventoryListBulkActionsTest {
         reviewedByUserId = null,
         rejectionReason = null,
         createdAt = "2026-01-01T00:00:00Z",
-        updatedAt = "2026-01-01T00:00:00Z"
+        updatedAt = "2026-01-01T00:00:00Z",
+        capabilities = canEdit?.let { ItemCapabilitiesDto(canEdit = it) }
     )
 }

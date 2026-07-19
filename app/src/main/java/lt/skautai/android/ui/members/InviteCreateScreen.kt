@@ -15,7 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import lt.skautai.android.data.remote.OrganizationalUnitDto
+import lt.skautai.android.data.remote.InvitationUnitOptionDto
 import lt.skautai.android.data.remote.RoleDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiFormSkeleton
@@ -99,8 +99,7 @@ private fun InviteFormContent(
     onOrgUnitSelected: (String?) -> Unit,
     onSubmit: () -> Unit
 ) {
-    val selectedRole = uiState.roles.find { it.id == uiState.selectedRoleId }
-    val requiresOrgUnit = selectedRole?.let(::roleRequiresOrgUnitSelection) == true
+    val requiresOrgUnit = uiState.selectedRoleRequiresOrgUnit
     val hasRequiredOrgUnit = !requiresOrgUnit || !uiState.lockedOrgUnitId.isNullOrBlank() || !uiState.selectedOrgUnitId.isNullOrBlank()
 
     Column(
@@ -127,10 +126,11 @@ private fun InviteFormContent(
             )
         }
 
-        if (uiState.canChooseOrgUnit && requiresOrgUnit && uiState.orgUnits.isNotEmpty()) {
-            RequiredOrgUnitDropdown(
+        if (uiState.canChooseOrgUnit && uiState.orgUnits.isNotEmpty()) {
+            OrgUnitDropdown(
                 orgUnits = uiState.orgUnits,
                 selectedOrgUnitId = uiState.selectedOrgUnitId,
+                isRequired = requiresOrgUnit,
                 onOrgUnitSelected = onOrgUnitSelected
             )
         }
@@ -153,24 +153,6 @@ private fun InviteFormContent(
             }
         }
     }
-}
-
-private fun roleRequiresOrgUnitSelection(role: RoleDto): Boolean {
-    if (role.roleType != "LEADERSHIP") return false
-    return role.name in setOf(
-        "Draugininkas",
-        "Draugininko pavaduotojas",
-        "Gildijos pirmininkas",
-        "Gildijos pirmininko pavaduotojas",
-        "Vyr. skautu draugoves draugininkas",
-        "Vyr. skautu draugoves draugininko pavaduotojas",
-        "Vyr. skautu burelio pirmininkas",
-        "Vyr. skautu burelio pirmininko pavaduotojas",
-        "Vyr. skauciu draugoves draugininkas",
-        "Vyr. skauciu draugoves draugininko pavaduotojas",
-        "Vyr. skauciu burelio pirmininkas",
-        "Vyr. skauciu burelio pirmininko pavaduotojas"
-    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -226,7 +208,7 @@ private fun RoleDropdown(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun OrgUnitDropdown(
-    orgUnits: List<OrganizationalUnitDto>,
+    orgUnits: List<InvitationUnitOptionDto>,
     selectedOrgUnitId: String?,
     isRequired: Boolean,
     onOrgUnitSelected: (String?) -> Unit
@@ -252,13 +234,15 @@ private fun OrgUnitDropdown(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {
-            DropdownMenuItem(
-                text = { Text("Nepriskirta") },
-                onClick = {
-                    onOrgUnitSelected(null)
-                    expanded = false
-                }
-            )
+            if (!isRequired) {
+                DropdownMenuItem(
+                    text = { Text("Nepriskirta") },
+                    onClick = {
+                        onOrgUnitSelected(null)
+                        expanded = false
+                    }
+                )
+            }
             orgUnits.forEach { unit ->
                 DropdownMenuItem(
                     text = { Text(unit.name) },
@@ -275,7 +259,7 @@ private fun OrgUnitDropdown(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun RequiredOrgUnitDropdown(
-    orgUnits: List<OrganizationalUnitDto>,
+    orgUnits: List<InvitationUnitOptionDto>,
     selectedOrgUnitId: String?,
     onOrgUnitSelected: (String?) -> Unit
 ) {

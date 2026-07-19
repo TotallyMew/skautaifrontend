@@ -13,6 +13,24 @@ data class EventRoleDto(
     @SerializedName("assignedAt") val assignedAt: String
 )
 
+data class EventCapabilitiesDto(
+    @SerializedName("isReadOnly") val isReadOnly: Boolean = true,
+    @SerializedName("canManage") val canManage: Boolean = false,
+    @SerializedName("canStart") val canStart: Boolean = false,
+    @SerializedName("canAdvanceToWrapUp") val canAdvanceToWrapUp: Boolean = false,
+    @SerializedName("canCancel") val canCancel: Boolean = false,
+    @SerializedName("canViewStaff") val canViewStaff: Boolean = false,
+    @SerializedName("canViewPlan") val canViewPlan: Boolean = false,
+    @SerializedName("canViewInventory") val canViewInventory: Boolean = false,
+    @SerializedName("canRequestInventory") val canRequestInventory: Boolean = false,
+    @SerializedName("canViewPastovykles") val canViewPastovykles: Boolean = false,
+    @SerializedName("canManageInventory") val canManageInventory: Boolean = false,
+    @SerializedName("canManagePurchases") val canManagePurchases: Boolean = false,
+    @SerializedName("canManageFinance") val canManageFinance: Boolean = false,
+    @SerializedName("canViewFinance") val canViewFinance: Boolean = false,
+    @SerializedName("canOpenMovement") val canOpenMovement: Boolean = false
+)
+
 data class EventDto(
     @SerializedName("id") val id: String,
     @SerializedName("tuntasId") val tuntasId: String,
@@ -30,7 +48,8 @@ data class EventDto(
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("eventRoles") val eventRoles: List<EventRoleDto>,
     @SerializedName("inventorySummary") val inventorySummary: EventInventorySummaryDto?,
-    @SerializedName("financeSummary") val financeSummary: EventFinanceSummaryDto? = null
+    @SerializedName("financeSummary") val financeSummary: EventFinanceSummaryDto? = null,
+    @SerializedName("capabilities") val capabilities: EventCapabilitiesDto? = null
 )
 
 data class EventListDto(

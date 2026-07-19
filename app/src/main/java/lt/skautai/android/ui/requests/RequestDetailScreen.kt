@@ -54,7 +54,6 @@ import lt.skautai.android.ui.common.SkautaiPrimaryButton
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.skautaiSurfaceTone
-import lt.skautai.android.util.hasPermission
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -64,9 +63,6 @@ fun RequestDetailScreen(
     viewModel: RequestDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
-    val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
-    val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCancelDialog by remember { mutableStateOf(false) }
     var showRejectDialog by remember { mutableStateOf(false) }
@@ -174,19 +170,14 @@ fun RequestDetailScreen(
 
                 is RequestDetailUiState.Success -> {
                     val request = state.request
-                    val isOwnRequest = request.requestedByUserId == currentUserId
-                    val isOwnUnitRequest = request.requestingUnitId != null &&
-                        request.requestingUnitId == activeOrgUnitId
-                    val canForwardReview = permissions.hasPermission("items.request.forward.bendras") && isOwnUnitRequest
-                    val canApproveReview = permissions.hasPermission("items.request.approve.bendras")
-                    val canCancel = isOwnRequest
+                    val capabilities = request.capabilities
 
                     RequestDetailContent(
                         request = request,
                         isActioning = state.isActioning,
-                        canForwardReview = canForwardReview,
-                        canApproveReview = canApproveReview,
-                        canCancel = canCancel,
+                        canForwardReview = capabilities?.canReviewUnit == true,
+                        canApproveReview = capabilities?.canReviewTopLevel == true,
+                        canCancel = capabilities?.canCancel == true,
                         onCancel = { showCancelDialog = true },
                         onDraugininkasForward = { viewModel.draugininkasForward(requestId) },
                         onDraugininkasReject = {

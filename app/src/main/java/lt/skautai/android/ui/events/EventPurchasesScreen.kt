@@ -36,9 +36,6 @@ import lt.skautai.android.data.remote.EventFinanceDto
 import lt.skautai.android.data.remote.EventPurchaseDto
 import lt.skautai.android.ui.common.SkautaiChip
 import lt.skautai.android.ui.common.SkautaiErrorState
-import lt.skautai.android.util.canManageEventFinanceSections
-import lt.skautai.android.util.canManageEventPurchaseSections
-import lt.skautai.android.util.eventRolesForUser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -49,7 +46,6 @@ fun EventPurchasesScreen(
     viewModel: EventPurchasesViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(eventId) { viewModel.load(eventId) }
@@ -62,12 +58,10 @@ fun EventPurchasesScreen(
     }
 
     val state = uiState
-    val myRoles = (state as? EventPurchasesUiState.Success)?.let {
-        eventRolesForUser(it.event.eventRoles, it.currentUserId)
-    }.orEmpty()
-    val canInventory = myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
-    val canPurchases = canManageEventPurchaseSections(myRoles, isReadOnly = false)
-    val canFinance = canManageEventFinanceSections(permissions, myRoles, isReadOnly = false)
+    val capabilities = (state as? EventPurchasesUiState.Success)?.event?.capabilities
+    val canInventory = capabilities?.canManageInventory == true
+    val canPurchases = capabilities?.canManagePurchases == true
+    val canFinance = capabilities?.canManageFinance == true
 
     EventScreenScaffold(
         title = "Pirkimai",
@@ -87,7 +81,6 @@ fun EventPurchasesScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 is EventPurchasesUiState.Success -> {
-                    val readOnly = isEventReadOnlyStatus(state.event.status)
                     var searchQuery by remember { mutableStateOf("") }
                     var statusFilter by remember { mutableStateOf<String?>(null) }
                     var expandedIds by rememberSaveable { mutableStateOf(emptySet<String>()) }
@@ -149,7 +142,7 @@ fun EventPurchasesScreen(
                                 item {
                                     FinanceDashboardSection(
                                         finance = finance,
-                                        canManage = canFinance && !readOnly,
+                                        canManage = canFinance,
                                         isWorking = state.isWorking,
                                         onUpdateBudget = { amount -> viewModel.updateBudget(eventId, amount) },
                                         onAddCost = { category, label, quantity, unit, unitPrice, totalAmount, notes ->
@@ -174,8 +167,8 @@ fun EventPurchasesScreen(
                                 PurchaseRowCard(
                                     purchase = purchase,
                                     expanded = purchase.id in expandedIds,
-                                    canManage = canPurchases && !readOnly,
-                                    canReconcile = canInventory && !readOnly,
+                                    canManage = canPurchases,
+                                    canReconcile = canInventory,
                                     isWorking = state.isWorking,
                                     onToggle = {
                                         expandedIds = if (purchase.id in expandedIds) {

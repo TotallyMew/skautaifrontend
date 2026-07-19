@@ -177,13 +177,8 @@ fun EventMovementQrScreen(
                 }
 
                 is EventMovementQrUiState.Success -> {
-                    val myRoles = state.event.eventRoles
-                        .filter { it.userId == state.currentUserId }
-                        .map { it.role }
-                        .toSet()
-                    val movementClosed = state.event.status != "ACTIVE"
-                    val canManage = !movementClosed &&
-                        myRoles.any { it in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") }
+                    val movementClosed = state.event.capabilities?.canOpenMovement != true
+                    val canManage = state.event.capabilities?.canManageInventory == true
                     val coLeaderPastovykleIds = state.event.eventRoles
                         .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
                         .mapNotNull { it.pastovykleId }

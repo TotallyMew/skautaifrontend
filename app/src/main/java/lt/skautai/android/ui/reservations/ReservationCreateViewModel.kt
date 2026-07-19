@@ -13,6 +13,9 @@ import lt.skautai.android.data.remote.CreateReservationItemRequestDto
 import lt.skautai.android.data.remote.CreateReservationRequestDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
+import lt.skautai.android.data.remote.ReservationCreateItemOptionDto
+import lt.skautai.android.data.remote.ReservationCreateLocationOptionDto
+import lt.skautai.android.data.remote.ReservationCreateUnitOptionDto
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.ReservationRepository
@@ -45,7 +48,11 @@ data class ReservationCreateUiState(
     val notes: String = "",
     val availabilityByItemId: Map<String, Int> = emptyMap(),
     val locations: List<LocationDto> = emptyList(),
-    val activeOrgUnitId: String? = null
+    val activeOrgUnitId: String? = null,
+    val requestingUnits: List<ReservationCreateUnitOptionDto> = emptyList(),
+    val requestingUnitId: String? = null,
+    val itemOptions: List<ReservationCreateItemOptionDto> = emptyList(),
+    val locationOptions: List<ReservationCreateLocationOptionDto> = emptyList()
 )
 
 @HiltViewModel
@@ -67,15 +74,30 @@ class ReservationCreateViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoadingItems = true, formError = null)
             val activeOrgUnitId = tokenManager.activeOrgUnitId.first()
+            val createOptions = reservationRepository.getCreateOptions().getOrElse { error ->
+                _uiState.value = _uiState.value.copy(
+                    isLoadingItems = false,
+                    formError = error.message ?: "Nepavyko gauti rezervacijos pasirinkimÅ³."
+                )
+                return@launch
+            }
+            val allowedItemIds = createOptions.items.mapTo(hashSetOf()) { it.itemId }
+            val allowedLocationIds = createOptions.locations.mapTo(hashSetOf()) { it.id }
+            val defaultRequestingUnitId = activeOrgUnitId
+                ?.takeIf { id -> createOptions.requestingUnits.any { it.id == id } }
             val cachedLocations = locationRepository.getCachedLocations()
             val cachedItems = itemRepository.getCachedItems(status = "ACTIVE")
             if (cachedItems.isNotEmpty() || cachedLocations.isNotEmpty()) {
                 _uiState.value = _uiState.value.copy(
                     isLoadingItems = false,
                     activeOrgUnitId = activeOrgUnitId,
-                    locations = cachedLocations,
+                    requestingUnits = createOptions.requestingUnits,
+                    requestingUnitId = defaultRequestingUnitId,
+                    itemOptions = createOptions.items,
+                    locationOptions = createOptions.locations,
+                    locations = cachedLocations.filter { it.id in allowedLocationIds },
                     items = cachedItems
-                        .filter { item -> item.custodianId == null || item.custodianId == activeOrgUnitId }
+                        .filter { it.id in allowedItemIds }
                         .sortedBy { it.name.lowercase() }
                 )
             }
@@ -85,9 +107,13 @@ class ReservationCreateViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         isLoadingItems = false,
                         activeOrgUnitId = activeOrgUnitId,
-                        locations = locations,
+                        requestingUnits = createOptions.requestingUnits,
+                        requestingUnitId = _uiState.value.requestingUnitId ?: defaultRequestingUnitId,
+                        itemOptions = createOptions.items,
+                        locationOptions = createOptions.locations,
+                        locations = locations.filter { it.id in allowedLocationIds },
                         items = items
-                            .filter { item -> item.custodianId == null || item.custodianId == activeOrgUnitId }
+                            .filter { it.id in allowedItemIds }
                             .sortedBy { it.name.lowercase() }
                     )
                 }
@@ -126,6 +152,10 @@ class ReservationCreateViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(returnLocationId = locationId)
     }
 
+    fun onRequestingUnitChange(unitId: String?) {
+        _uiState.value = _uiState.value.copy(requestingUnitId = unitId)
+    }
+
     fun onNotesChange(value: String) {
         _uiState.value = _uiState.value.copy(notes = value)
     }
@@ -162,7 +192,7 @@ class ReservationCreateViewModel @Inject constructor(
             updatedItems += ReservationDraftItem(itemId = item.id, itemName = item.name, quantity = 1)
         }
 
-        _uiState.value = state.copy(selectedItems = updatedItems, formError = null)
+        _uiState.value = state.withSelectedItems(updatedItems).copy(formError = null)
     }
 
     fun increaseItem(itemId: String) {
@@ -181,7 +211,7 @@ class ReservationCreateViewModel @Inject constructor(
             updatedItems[existingIndex] = existing.copy(quantity = existing.quantity - 1)
         }
 
-        _uiState.value = _uiState.value.copy(selectedItems = updatedItems)
+        _uiState.value = _uiState.value.withSelectedItems(updatedItems)
     }
 
     fun createReservation() {
@@ -283,10 +313,9 @@ class ReservationCreateViewModel @Inject constructor(
                     if (allowed <= 0) null else draftItem.copy(quantity = minOf(draftItem.quantity, allowed))
                 }
 
-                _uiState.value = _uiState.value.copy(
+                _uiState.value = _uiState.value.withSelectedItems(stillValidSelections).copy(
                     isLoadingAvailability = false,
-                    availabilityByItemId = availabilityMap,
-                    selectedItems = stillValidSelections
+                    availabilityByItemId = availabilityMap
                 )
             }.onFailure { error ->
                 _uiState.value = _uiState.value.copy(
@@ -305,6 +334,27 @@ class ReservationCreateViewModel @Inject constructor(
         return state.items
             .firstOrNull { it.id in selectedIds && it.custodianId != null }
             ?.custodianId
-            ?: state.activeOrgUnitId
+            ?: state.requestingUnitId
+    }
+
+    private fun ReservationCreateUiState.withSelectedItems(
+        updatedItems: List<ReservationDraftItem>
+    ): ReservationCreateUiState {
+        val selectedItemIds = updatedItems.mapTo(hashSetOf()) { it.itemId }
+        val selectedCustodianIds = itemOptions
+            .filter { it.itemId in selectedItemIds }
+            .mapNotNullTo(hashSetOf()) { it.custodianId }
+        fun validLocationId(locationId: String?): String? {
+            val option = locationOptions.find { it.id == locationId } ?: return null
+            return locationId.takeIf {
+                option.canUseWithAnyInventory ||
+                    option.requiredCustodianId?.let { id -> id in selectedCustodianIds } == true
+            }
+        }
+        return copy(
+            selectedItems = updatedItems,
+            pickupLocationId = validLocationId(pickupLocationId),
+            returnLocationId = validLocationId(returnLocationId)
+        )
     }
 }

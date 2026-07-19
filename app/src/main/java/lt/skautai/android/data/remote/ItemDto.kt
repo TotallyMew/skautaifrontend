@@ -1,5 +1,19 @@
 package lt.skautai.android.data.remote
 
+data class ItemCapabilitiesDto(
+    val canEdit: Boolean = false,
+    val canChangeStatus: Boolean = false,
+    val canDelete: Boolean = false,
+    val canRestock: Boolean = false,
+    val canConsume: Boolean = false,
+    val canLoan: Boolean = false,
+    val canReturnLoan: Boolean = false,
+    val canTransferToUnit: Boolean = false,
+    val canReturnToShared: Boolean = false,
+    val canReview: Boolean = false,
+    val canWriteOff: Boolean = false
+)
+
 data class ItemDto(
     val id: String,
     val qrToken: String,
@@ -42,7 +56,8 @@ data class ItemDto(
     val reviewedByUserId: String? = null,
     val rejectionReason: String? = null,
     val createdAt: String,
-    val updatedAt: String
+    val updatedAt: String,
+    val capabilities: ItemCapabilitiesDto? = null
 )
 
 data class ReviewItemAdditionRequestDto(
@@ -66,7 +81,19 @@ data class ItemListResponseDto(
     val total: Int,
     val limit: Int? = null,
     val offset: Int = 0,
-    val hasMore: Boolean = false
+    val hasMore: Boolean = false,
+    val capabilities: ItemListCapabilitiesDto = ItemListCapabilitiesDto()
+)
+
+data class ItemListCapabilitiesDto(
+    val canCreate: Boolean = false,
+    val canCreateSharedDirectly: Boolean = false,
+    val canViewInactive: Boolean = false,
+    val canViewPending: Boolean = false,
+    val canReviewPending: Boolean = false,
+    val canExport: Boolean = false,
+    val canImport: Boolean = false,
+    val canGenerateQrPdf: Boolean = false
 )
 
 data class ItemQrResolveResponseDto(

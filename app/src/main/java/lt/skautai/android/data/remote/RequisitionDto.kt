@@ -2,6 +2,14 @@ package lt.skautai.android.data.remote
 
 import com.google.gson.annotations.SerializedName
 
+data class RequisitionCapabilitiesDto(
+    @SerializedName("canReviewUnit") val canReviewUnit: Boolean = false,
+    @SerializedName("canReviewTopLevel") val canReviewTopLevel: Boolean = false,
+    @SerializedName("canCancel") val canCancel: Boolean = false,
+    @SerializedName("canMarkPurchased") val canMarkPurchased: Boolean = false,
+    @SerializedName("canAddToInventory") val canAddToInventory: Boolean = false
+)
+
 data class RequisitionItemDto(
     @SerializedName("id") val id: String,
     @SerializedName("itemId") val itemId: String?,
@@ -36,7 +44,8 @@ data class RequisitionDto(
     @SerializedName("notes") val notes: String?,
     @SerializedName("items") val items: List<RequisitionItemDto>,
     @SerializedName("createdAt") val createdAt: String,
-    @SerializedName("updatedAt") val updatedAt: String
+    @SerializedName("updatedAt") val updatedAt: String,
+    @SerializedName("capabilities") val capabilities: RequisitionCapabilitiesDto? = null
 )
 
 data class RequisitionListDto(

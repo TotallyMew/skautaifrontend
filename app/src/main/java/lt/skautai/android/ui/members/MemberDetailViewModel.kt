@@ -18,7 +18,6 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.RoleRepository
 import lt.skautai.android.data.repository.UserRepository
-import lt.skautai.android.ui.common.isScoutReadOnlyMember
 import lt.skautai.android.ui.common.isActiveRequestStatus
 import lt.skautai.android.ui.common.isActiveReservationStatus
 import lt.skautai.android.ui.common.isActiveSharedRequest
@@ -80,16 +79,6 @@ class MemberDetailViewModel @Inject constructor(
     fun loadMember(userId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
-            val currentUser = currentUserId.value?.let {
-                memberRepository.getCachedMember(it) ?: memberRepository.getMember(it).getOrNull()
-            }
-            if (currentUser != null && isScoutReadOnlyMember(currentUser) && currentUser.userId != userId) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    error = "Nario detalė prieinama tik vadovams."
-                )
-                return@launch
-            }
             val cachedMember = memberRepository.getCachedMember(userId)
             val reservationResult = reservationRepository.getCachedReservations()
             val requisitionResult = requisitionRepository.getCachedRequests()

@@ -93,7 +93,7 @@ fun PastovykleLeaderScreen(
                 }
 
                 is PastovykleLeaderUiState.Success -> {
-                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    val readOnly = state.event.capabilities?.isReadOnly != false
                     val coLeaderPastovykleIds = state.event.eventRoles
                         .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
                         .mapNotNull { it.pastovykleId }

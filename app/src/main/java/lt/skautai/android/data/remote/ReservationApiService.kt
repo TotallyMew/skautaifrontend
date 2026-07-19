@@ -24,6 +24,12 @@ interface ReservationApiService {
         @Query("endDate") endDate: String
     ): Response<ReservationAvailabilityDto>
 
+    @GET("api/reservations/create-options")
+    suspend fun getCreateOptions(
+        @Header("Authorization") token: String,
+        @Header("X-Tuntas-Id") tuntasId: String
+    ): Response<ReservationCreateOptionsDto>
+
     @GET("api/reservations/{id}")
     suspend fun getReservation(
         @Header("Authorization") token: String,

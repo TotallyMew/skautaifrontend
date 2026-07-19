@@ -38,15 +38,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import lt.skautai.android.data.remote.EventCapabilitiesDto
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiConfirmDialog
 import lt.skautai.android.ui.common.SkautaiErrorState
-import lt.skautai.android.util.canManageEventInventorySections
-import lt.skautai.android.util.canManageEventSections
-import lt.skautai.android.util.canRequestEventInventory
-import lt.skautai.android.util.canViewEventPlan
-import lt.skautai.android.util.canViewEventFinanceSections
-import lt.skautai.android.util.eventRolesForUser
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,7 +62,6 @@ fun EventDetailScreen(
     viewModel: EventDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCancelDialog by remember { mutableStateOf(false) }
 
@@ -121,9 +115,7 @@ fun EventDetailScreen(
                 }
 
                 is EventDetailUiState.Success -> {
-                    val readOnly = isEventReadOnlyStatus(state.event.status)
-                    val myRoles = state.event.eventRoles
-                        .let { eventRolesForUser(it, state.currentUserId) }
+                    val capabilities = state.event.capabilities ?: EventCapabilitiesDto()
                     val coLeaderPastovykleIds = state.event.eventRoles
                         .filter { it.role == "PASTOVYKLES_GURU" && it.userId == state.currentUserId && it.pastovykleId != null }
                         .mapNotNull { it.pastovykleId }
@@ -131,13 +123,13 @@ fun EventDetailScreen(
                     val myPastovyklės = state.pastovykles
                         .filter { it.responsibleUserId == state.currentUserId || it.id in coLeaderPastovykleIds }
                     val isPastovykleLeader = myPastovyklės.isNotEmpty()
-                    val canManage = canManageEventSections(permissions, myRoles, readOnly)
-                    val canStart = !readOnly && (canManage || "KOMENDANTAS" in myRoles)
-                    val canInventory = canManageEventInventorySections(permissions, myRoles, readOnly)
-                    val canFinance = canViewEventFinanceSections(permissions, myRoles)
-                    val canPlanView = canViewEventPlan(permissions, myRoles)
-                    val canInventoryRequest = canRequestEventInventory(myRoles, readOnly)
-                    val canOpenMovement = !readOnly && state.event.status == "ACTIVE"
+                    val canManage = capabilities.canManage
+                    val canStart = capabilities.canStart
+                    val canInventory = capabilities.canViewInventory
+                    val canFinance = capabilities.canViewFinance
+                    val canPlanView = capabilities.canViewPlan
+                    val canInventoryRequest = capabilities.canRequestInventory
+                    val canOpenMovement = capabilities.canOpenMovement
 
                     LazyColumn(
                         contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 24.dp),
@@ -206,13 +198,13 @@ fun EventDetailScreen(
                                     if (!canInventory && canPlanView) {
                                         add(EventWorkArea(Icons.AutoMirrored.Filled.Assignment, "Inventoriaus planas", "Peržiūra") { onOpenPlan(eventId) })
                                     }
-                                    if (canOpenMovement && (canInventory || canManage || isPastovykleLeader)) {
+                                    if (canOpenMovement) {
                                         add(EventWorkArea(Icons.Default.SwapHoriz, "Judėjimas", "Išdavimas ir grąžinimas") { onOpenMovement(eventId) })
                                     }
-                                    if (canManage || canInventory || isPastovykleLeader) {
+                                    if (capabilities.canViewPastovykles) {
                                         add(EventWorkArea(Icons.Default.Groups, "Pastovyklės", "Grupės ir vadovai") { onOpenPastovyklės(eventId) })
                                     }
-                                    if (canManage || isPastovykleLeader) {
+                                    if (capabilities.canViewStaff) {
                                         add(EventWorkArea(Icons.Default.Groups, "Štabas", "${state.event.eventRoles.size} nariai") { onOpenStaff(eventId) })
                                     }
                                 }

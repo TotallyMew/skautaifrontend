@@ -92,10 +92,7 @@ import lt.skautai.android.util.QrPdfLayout
 import lt.skautai.android.util.QrPdfShareLauncher
 import lt.skautai.android.util.QrPayload
 import lt.skautai.android.util.canCreateRequisitions
-import lt.skautai.android.util.canManageAllItems
 import lt.skautai.android.util.canManageSharedInventory
-import lt.skautai.android.util.hasPermission
-import lt.skautai.android.util.hasPermissionOwnUnit
 import lt.skautai.android.util.toPrintableQrItemOrNull
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -120,7 +117,6 @@ fun InventoryDetailScreen(
     val members by viewModel.members.collectAsStateWithLifecycle()
     val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
-    val leadershipUnitIds by viewModel.leadershipUnitIds.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showQrDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -180,39 +176,20 @@ fun InventoryDetailScreen(
 
     val currentItem = (uiState as? InventoryDetailUiState.Success)?.item
     val canManageShared = permissions.canManageSharedInventory()
-    val isTransferredFromTuntas = currentItem?.origin == "TRANSFERRED_FROM_TUNTAS"
+    val capabilities = currentItem?.capabilities
     val canShowQr = currentItem?.let { !it.id.startsWith("local-") && it.qrToken.isNotBlank() } ?: false
-    val canEdit = currentItem?.let { item ->
-        when {
-            item.custodianId == null -> permissions.canManageAllItems()
-            permissions.canManageAllItems() -> true
-            else -> permissions.hasPermissionOwnUnit("items.update") &&
-                (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
-        }
-    } ?: false
-    val canChangeStatus = canEdit
-    val canDelete = canEdit && currentItem?.status != "INACTIVE" &&
-        (!isTransferredFromTuntas || canManageShared)
-    val canRestock = canEdit && currentItem?.status == "ACTIVE"
-    val canConsume = canEdit && currentItem?.isConsumable == true && currentItem.status == "ACTIVE" && currentItem.quantity > 0
+    val canEdit = capabilities?.canEdit == true
+    val canChangeStatus = capabilities?.canChangeStatus == true
+    val canDelete = capabilities?.canDelete == true
+    val canRestock = capabilities?.canRestock == true
+    val canConsume = capabilities?.canConsume == true
     val activeDirectLoanQuantity = (uiState as? InventoryDetailUiState.Success)?.activeDirectLoanQuantity ?: 0
     val availableDirectLoanQuantity = ((currentItem?.quantity ?: 0) - activeDirectLoanQuantity).coerceAtLeast(0)
-    val canDirectIssue = canEdit &&
-        currentItem?.status == "ACTIVE" &&
-        currentItem?.type != "INDIVIDUAL" &&
-        availableDirectLoanQuantity > 0 &&
-        (!isTransferredFromTuntas || canManageShared)
+    val canDirectIssue = capabilities?.canLoan == true
+    val canReturnDirectLoan = capabilities?.canReturnLoan == true
     val canCreateRestockRequest = currentItem?.isLowStock == true && permissions.canCreateRequisitions()
-    val canDirectTransfer = currentItem?.let {
-        canManageShared && it.custodianId == null && it.status == "ACTIVE" && it.quantity > 0 && it.type != "INDIVIDUAL"
-    } ?: false
-    val canReturnToShared = currentItem?.let {
-        it.origin == "TRANSFERRED_FROM_TUNTAS" &&
-            it.status == "ACTIVE" &&
-            it.quantity > 0 &&
-            (canManageShared || (permissions.hasPermissionOwnUnit("items.update") &&
-                (it.custodianId in leadershipUnitIds || it.custodianId == activeOrgUnitId)))
-    } ?: false
+    val canDirectTransfer = capabilities?.canTransferToUnit == true
+    val canReturnToShared = capabilities?.canReturnToShared == true
     val canRequestForUnit = currentItem?.let {
         !canManageShared &&
             !activeOrgUnitId.isNullOrBlank() &&
@@ -220,15 +197,7 @@ fun InventoryDetailScreen(
             it.status == "ACTIVE" &&
             it.quantity > 0
     } ?: false
-    val canReviewAddition = currentItem?.let { item ->
-        if (item.status != "PENDING_APPROVAL") return@let false
-        when (item.targetScope) {
-            "SHARED" -> permissions.hasPermission("items.review:ALL")
-            "UNIT" -> permissions.hasPermissionOwnUnit("items.review") &&
-                (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
-            else -> permissions.hasPermission("items.review:ALL")
-        }
-    } ?: false
+    val canReviewAddition = capabilities?.canReview == true
 
     Scaffold(
         topBar = {
@@ -297,6 +266,7 @@ fun InventoryDetailScreen(
                         canRestock = canRestock,
                         canConsume = canConsume,
                         canDirectIssue = canDirectIssue,
+                        canReturnDirectLoan = canReturnDirectLoan,
                         canCreateRestockRequest = canCreateRestockRequest,
                         canReviewAddition = canReviewAddition,
                         isTransferring = isTransferring,
@@ -981,6 +951,7 @@ private fun ItemDetailContent(
     canRestock: Boolean,
     canConsume: Boolean,
     canDirectIssue: Boolean,
+    canReturnDirectLoan: Boolean,
     canCreateRestockRequest: Boolean,
     canReviewAddition: Boolean,
     isTransferring: Boolean,
@@ -1238,7 +1209,8 @@ private fun ItemDetailContent(
             DirectItemLoansCard(
                 loans = activeDirectLoans,
                 onReturn = onReturnDirectLoan,
-                isSubmitting = isTransferring
+                isSubmitting = isTransferring,
+                canReturn = canReturnDirectLoan
             )
         }
 
@@ -1658,7 +1630,8 @@ private fun ItemReservationsCard(reservations: List<ReservationDto>) {
 private fun DirectItemLoansCard(
     loans: List<DirectItemLoanDto>,
     onReturn: (DirectItemLoanDto) -> Unit,
-    isSubmitting: Boolean
+    isSubmitting: Boolean,
+    canReturn: Boolean
 ) {
     SkautaiCard(
         modifier = Modifier.fillMaxWidth(),
@@ -1706,11 +1679,13 @@ private fun DirectItemLoansCard(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        TextButton(
-                            enabled = !isSubmitting,
-                            onClick = { onReturn(loan) }
-                        ) {
-                            Text("Grazinti")
+                        if (canReturn) {
+                            TextButton(
+                                enabled = !isSubmitting,
+                                onClick = { onReturn(loan) }
+                            ) {
+                                Text("Grazinti")
+                            }
                         }
                     }
                 }

@@ -16,7 +16,6 @@ import lt.skautai.android.data.live.LiveRefreshBus
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.remote.MyTaskDto
 import lt.skautai.android.data.remote.OrganizationalUnitDto
-import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.repository.EventRepository
 import lt.skautai.android.data.repository.ItemRepository
 import lt.skautai.android.data.repository.MemberRepository
@@ -28,12 +27,6 @@ import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.UserRepository
 import lt.skautai.android.util.TokenManager
-import lt.skautai.android.util.canForwardUnitRequests
-import lt.skautai.android.util.canManageSharedInventory
-import lt.skautai.android.util.canReviewItemAdditions
-import lt.skautai.android.util.canReviewTopLevelRequisitions
-import lt.skautai.android.util.canSubmitItemAddition
-import lt.skautai.android.util.hasPermission
 
 data class HomeUiState(
     val isLoading: Boolean = true,
@@ -147,7 +140,6 @@ class HomeViewModel @Inject constructor(
 
             val userId = tokenManager.userId.first()
             val activeTuntasId = tokenManager.activeTuntasId.first()
-            val permissions = tokenManager.permissions.first()
             activeTuntasId?.let { tuntasId ->
                 userRepository.getMyPermissions(tuntasId)
                     .onSuccess {
@@ -184,11 +176,7 @@ class HomeViewModel @Inject constructor(
             }
 
             val itemsResult = itemRepository.getItems()
-            val pendingItemsResult = if (permissions.canReviewItemAdditions() || permissions.canSubmitItemAddition()) {
-                itemRepository.getItems(status = "PENDING_APPROVAL")
-            } else {
-                Result.success(emptyList())
-            }
+            val pendingItemsResult = itemRepository.getItems(status = "PENDING_APPROVAL")
             val reservationsResult = reservationRepository.getReservations()
             val sharedRequestsResult = requestRepository.getRequests()
             val requisitionsResult = requisitionRepository.getRequests()
@@ -211,17 +199,7 @@ class HomeViewModel @Inject constructor(
                 }
             } ?: 0
             val assignedRequisitions = requisitions.count { request ->
-                val waitsForActiveUnit = request.createdByUserId != userId &&
-                    request.requestingUnitId == resolvedUnit?.id &&
-                    request.unitReviewStatus == "PENDING" &&
-                    (
-                        permissions.hasPermission("items.request.approve.unit") ||
-                            permissions.canForwardUnitRequests()
-                        )
-                val waitsForTopLevel = request.createdByUserId != userId &&
-                    permissions.canReviewTopLevelRequisitions() &&
-                    request.topLevelReviewStatus == "PENDING"
-                waitsForActiveUnit || waitsForTopLevel
+                request.capabilities?.let { it.canReviewUnit || it.canReviewTopLevel } == true
             }
 
             val activeUnitItems = resolvedUnit?.id?.let { activeUnitId ->
@@ -231,24 +209,12 @@ class HomeViewModel @Inject constructor(
                 allReservations.count { it.reservedByUserId == currentUserId && it.status in listOf("APPROVED", "ACTIVE") }
             } ?: 0
             val assignedReservations = allReservations.count { reservation ->
-                reservation.status == "PENDING" &&
-                    (
-                        ("reservations.approve:ALL" in permissions &&
-                            reservation.topLevelReviewStatus == "PENDING" &&
-                            reservation.items.any { it.custodianId == null }) ||
-                            (("reservations.approve:OWN_UNIT" in permissions || "reservations.approve:ALL" in permissions) &&
-                                reservation.unitReviewStatus == "PENDING" &&
-                                reservation.items.any { it.custodianId != null && it.custodianId == resolvedUnit?.id })
-                        )
+                reservation.capabilities?.let { it.canReviewUnit || it.canReviewTopLevel } == true
             }
             val trackedReservations = allReservations.count { reservation ->
-                reservation.status in listOf("APPROVED", "ACTIVE") &&
-                    reservation.canBeManagedBy(permissions, resolvedUnit?.id) &&
-                    (
-                        reservation.items.any { it.remainingToIssue > 0 } ||
-                            reservation.items.any { it.remainingToReceive > 0 } ||
-                            reservation.items.any { it.remainingToReturn > 0 }
-                        )
+                reservation.capabilities?.let {
+                    it.canIssue || it.canConfirmReturn || it.canMarkReturned
+                } == true
             }
             val sharedItems = items.filter { it.custodianId == null && it.type != "INDIVIDUAL" }
             val personalItems = items.filter { it.type == "INDIVIDUAL" && it.createdByUserId == userId }
@@ -300,15 +266,6 @@ class HomeViewModel @Inject constructor(
         }
     }
 }
-
-private fun ReservationDto.canBeManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
-    items.any { item ->
-        when {
-            item.custodianId == null -> "reservations.approve:ALL" in permissions
-            "reservations.approve:ALL" in permissions -> true
-            else -> "reservations.approve:OWN_UNIT" in permissions && item.custodianId == activeUnitId
-        }
-    }
 
 private fun MemberDto.activeUnitIds(): Set<String> =
     (

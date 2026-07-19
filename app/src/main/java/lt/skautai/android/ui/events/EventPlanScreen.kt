@@ -72,8 +72,7 @@ fun EventPlanScreen(
     }
 
     val state = uiState
-    val canInventory = (state as? EventPlanUiState.Success)?.event?.eventRoles
-            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
+    val canInventory = (state as? EventPlanUiState.Success)?.event?.capabilities?.canManageInventory == true
 
     EventScreenScaffold(
         title = "Inventoriaus planas",
@@ -93,7 +92,7 @@ fun EventPlanScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 is EventPlanUiState.Success -> {
-                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    val readOnly = state.event.capabilities?.isReadOnly != false
                     var searchQuery by remember { mutableStateOf("") }
                     var selectedBucketId by remember { mutableStateOf<String?>(null) }
                     var editingItem by remember { mutableStateOf<EventInventoryItemDto?>(null) }

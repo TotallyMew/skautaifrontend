@@ -56,10 +56,9 @@ fun EventNeedsScreen(
     }
 
     val state = uiState
-    val canInventory = (state as? EventNeedsUiState.Success)?.event?.eventRoles
-            ?.any { it.userId == state.currentUserId && it.role in setOf("VIRSININKAS", "KOMENDANTAS", "UKVEDYS") } == true
+    val canInventory = (state as? EventNeedsUiState.Success)?.event?.capabilities?.canManageInventory == true
 
-    if (showInventoryPicker && state is EventNeedsUiState.Success && !isEventReadOnlyStatus(state.event.status)) {
+    if (showInventoryPicker && state is EventNeedsUiState.Success && state.event.capabilities?.isReadOnly == false) {
         LaunchedEffect(Unit) { viewModel.loadItemCatalog(eventId) }
         ModalBottomSheet(onDismissRequest = { showInventoryPicker = false }) {
             InventoryPickerSheet(
@@ -92,7 +91,7 @@ fun EventNeedsScreen(
                     modifier = Modifier.align(Alignment.Center)
                 )
                 is EventNeedsUiState.Success -> {
-                    val readOnly = isEventReadOnlyStatus(state.event.status)
+                    val readOnly = state.event.capabilities?.isReadOnly != false
                     Column(
                         modifier = Modifier
                             .fillMaxSize()

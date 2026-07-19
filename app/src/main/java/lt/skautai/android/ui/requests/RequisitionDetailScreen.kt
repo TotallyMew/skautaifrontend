@@ -56,10 +56,6 @@ import lt.skautai.android.ui.common.SkautaiSecondaryButton
 import lt.skautai.android.ui.common.SkautaiSurfaceRole
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.skautaiSurfaceTone
-import lt.skautai.android.util.canCreateItems
-import lt.skautai.android.util.canForwardUnitRequests
-import lt.skautai.android.util.canReviewTopLevelRequisitions
-import lt.skautai.android.util.hasPermission
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,9 +65,7 @@ fun RequisitionDetailScreen(
     viewModel: RequisitionDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val currentUserId by viewModel.currentUserId.collectAsStateWithLifecycle()
-    val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var rejectReason by remember { mutableStateOf("") }
     var rejectTarget by remember { mutableStateOf("") }
@@ -182,32 +176,18 @@ fun RequisitionDetailScreen(
                 }
                 is RequisitionDetailUiState.Success -> {
                     val request = state.request
-                    val canUnitReview = request.requestingUnitId != null &&
-                        request.requestingUnitId == activeOrgUnitId &&
-                        request.unitReviewStatus == "PENDING" &&
-                        (
-                            permissions.hasPermission("items.request.approve.unit") ||
-                                permissions.canForwardUnitRequests()
-                            )
-                    val canTopLevelReview = permissions.canReviewTopLevelRequisitions() &&
-                        request.topLevelReviewStatus == "PENDING"
-                    val canMarkPurchased = permissions.canReviewTopLevelRequisitions() &&
-                        request.status == "APPROVED"
-                    val canAddToInventory = permissions.canCreateItems() &&
-                        request.status == "PURCHASED"
+                    val capabilities = request.capabilities
                     val isOwnRequest = request.createdByUserId == currentUserId
-                    val canCancel = isOwnRequest &&
-                        request.status !in listOf("APPROVED", "REJECTED", "CANCELLED")
 
                     RequisitionDetailContent(
                         request = request,
                         isActioning = state.isActioning,
                         isOwnRequest = isOwnRequest,
-                        canCancel = canCancel,
-                        canUnitReview = canUnitReview,
-                        canTopLevelReview = canTopLevelReview,
-                        canMarkPurchased = canMarkPurchased,
-                        canAddToInventory = canAddToInventory,
+                        canCancel = capabilities?.canCancel == true,
+                        canUnitReview = capabilities?.canReviewUnit == true,
+                        canTopLevelReview = capabilities?.canReviewTopLevel == true,
+                        canMarkPurchased = capabilities?.canMarkPurchased == true,
+                        canAddToInventory = capabilities?.canAddToInventory == true,
                         onCancel = { showCancelDialog = true },
                         onApproveInUnit = { viewModel.approveInUnit(requestId) },
                         onForwardToTop = { viewModel.forwardToTop(requestId) },

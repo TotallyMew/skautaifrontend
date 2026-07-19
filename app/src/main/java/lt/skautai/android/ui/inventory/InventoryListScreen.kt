@@ -117,15 +117,6 @@ import lt.skautai.android.util.InventoryImportDraft
 import lt.skautai.android.util.InventoryImportDuplicateMode
 import lt.skautai.android.util.InventoryImportField
 import lt.skautai.android.util.InventoryImportPreview
-import lt.skautai.android.util.canCreateItems
-import lt.skautai.android.util.canExportInventory
-import lt.skautai.android.util.canGenerateInventoryQrPdf
-import lt.skautai.android.util.canImportInventory
-import lt.skautai.android.util.canManageAllItems
-import lt.skautai.android.util.canManageSharedInventory
-import lt.skautai.android.util.canReviewItemAdditions
-import lt.skautai.android.util.canSubmitItemAddition
-import lt.skautai.android.util.hasPermissionAll
 import lt.skautai.android.util.toPrintableQrItemOrNull
 import java.time.LocalDate
 
@@ -181,7 +172,7 @@ fun InventoryListScreen(
     val isLoadingMore by viewModel.isLoadingMore.collectAsStateWithLifecycle()
     val hasMoreItems by viewModel.hasMoreItems.collectAsStateWithLifecycle()
     val searchQuery by viewModel.searchQuery.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
+    val listCapabilities by viewModel.listCapabilities.collectAsStateWithLifecycle()
     val selectionMode by viewModel.selectionMode.collectAsStateWithLifecycle()
     val selectionPurpose by viewModel.selectionPurpose.collectAsStateWithLifecycle()
     val selectedItemIds by viewModel.selectedItemIds.collectAsStateWithLifecycle()
@@ -195,12 +186,12 @@ fun InventoryListScreen(
     val lowStockOnly by viewModel.lowStockOnly.collectAsStateWithLifecycle()
     val importDraft by viewModel.importDraft.collectAsStateWithLifecycle()
     val locations by viewModel.locations.collectAsStateWithLifecycle()
-    val canReviewAdditions = permissions.canReviewItemAdditions()
-    val canApprove = canReviewAdditions || permissions.canSubmitItemAddition()
-    val canExportCsv = permissions.canExportInventory()
-    val canImportCsv = permissions.canImportInventory()
-    val canGenerateQrPdf = permissions.canGenerateInventoryQrPdf()
-    val canCreateSharedDirectly = permissions.hasPermissionAll("items.create")
+    val canReviewAdditions = listCapabilities.canReviewPending
+    val canViewPending = listCapabilities.canViewPending
+    val canExportCsv = listCapabilities.canExport
+    val canImportCsv = listCapabilities.canImport
+    val canGenerateQrPdf = listCapabilities.canGenerateQrPdf
+    val canCreateSharedDirectly = listCapabilities.canCreateSharedDirectly
     val openedCustodianId = viewModel.openedCustodianId
     val openedPersonalOwnerOnly = viewModel.openedPersonalOwnerOnly
     val pullRefreshState = rememberPullRefreshState(isRefreshing, viewModel::refreshItems)
@@ -386,10 +377,10 @@ fun InventoryListScreen(
                 locations = locations,
                 openedCustodianId = openedCustodianId,
                 openedPersonalOwnerOnly = openedPersonalOwnerOnly,
-                canCreate = permissions.canCreateItems(),
+                canCreate = listCapabilities.canCreate,
                 canCreateSharedDirectly = canCreateSharedDirectly,
-                canViewInactive = permissions.canManageAllItems(),
-                canApprovePending = canApprove,
+                canViewInactive = listCapabilities.canViewInactive,
+                canApprovePending = canViewPending,
                 canExportCsv = canExportCsv,
                 canImportCsv = canImportCsv,
                 canGenerateQrPdf = canGenerateQrPdf,

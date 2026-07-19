@@ -47,6 +47,7 @@ data class UnitMembershipDto(
     val joinedAt: String,
     val leftAt: String?,
     val isPubliclyVisible: Boolean = false,
+    val canManageVisibility: Boolean = false,
     val isIdentityHidden: Boolean = false
 )
 

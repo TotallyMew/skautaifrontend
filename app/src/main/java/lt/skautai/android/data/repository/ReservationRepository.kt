@@ -6,6 +6,7 @@ import com.google.gson.Gson
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,9 +22,11 @@ import lt.skautai.android.data.local.mapper.toReservationDtos
 import lt.skautai.android.data.local.mapper.toReservationEntities
 import lt.skautai.android.data.remote.CreateReservationRequestDto
 import lt.skautai.android.data.remote.ReservationAvailabilityDto
+import lt.skautai.android.data.remote.ReservationCreateOptionsDto
 import lt.skautai.android.data.remote.ReservationApiService
 import lt.skautai.android.data.remote.ReservationDto
 import lt.skautai.android.data.remote.ReservationListDto
+import lt.skautai.android.data.remote.ReservationListCapabilitiesDto
 import lt.skautai.android.data.remote.ReservationMovementListDto
 import lt.skautai.android.data.remote.ReservationMovementRequestDto
 import lt.skautai.android.data.remote.ReviewReservationRequestDto
@@ -47,7 +50,41 @@ class ReservationRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository,
     private val refreshCoordinator: RefreshCoordinator
 ) {
+    private data class LiveReservationDetail(
+        val userId: String,
+        val tuntasId: String,
+        val reservation: ReservationDto
+    )
+
     private val gson = Gson()
+    private val liveReservationDetails = ConcurrentHashMap<String, LiveReservationDetail>()
+    private val liveListCapabilities = ConcurrentHashMap<String, ReservationListCapabilitiesDto>()
+
+    private fun listCapabilitiesKey(userId: String, tuntasId: String): String = "$userId|$tuntasId"
+
+    private fun ReservationDto.withLiveCapabilities(
+        reservationId: String,
+        currentUserId: String?,
+        currentTuntasId: String
+    ): ReservationDto {
+        val liveReservation = liveReservationDetails[reservationId]
+            ?.takeIf { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+            ?.reservation
+            ?: return this
+        val liveItems = liveReservation.items.associateBy { it.itemId }
+        return copy(
+            capabilities = liveReservation.capabilities,
+            items = items.map { item ->
+                liveItems[item.itemId]?.let { liveItem ->
+                    item.copy(
+                        canIssue = liveItem.canIssue,
+                        canConfirmReturn = liveItem.canConfirmReturn,
+                        canMarkReturned = liveItem.canMarkReturned
+                    )
+                } ?: item
+            }
+        )
+    }
 
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception(SESSION_EXPIRED_MESSAGE)
@@ -57,21 +94,35 @@ class ReservationRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeReservations(itemId: String? = null, status: String? = null): Flow<ReservationListDto> {
-        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
-            if (currentTuntasId == null) {
-                flowOf(ReservationListDto(emptyList(), 0))
-            } else {
-                reservationDao.observeReservations(currentTuntasId, itemId, status)
-                    .map { reservations -> ReservationListDto(reservations.toReservationDtos(), reservations.size) }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+                if (currentTuntasId == null) {
+                    flowOf(ReservationListDto(emptyList(), 0))
+                } else {
+                    reservationDao.observeReservations(currentTuntasId, itemId, status)
+                        .map { reservations ->
+                            val merged = reservations.toReservationDtos().map {
+                                it.withLiveCapabilities(it.id, currentUserId, currentTuntasId)
+                            }
+                            val capabilities = currentUserId?.let {
+                                liveListCapabilities[listCapabilitiesKey(it, currentTuntasId)]
+                            } ?: ReservationListCapabilitiesDto()
+                            ReservationListDto(merged, merged.size, capabilities = capabilities)
+                        }
+                }
             }
         }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeReservation(id: String): Flow<ReservationDto?> {
-        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
-            if (currentTuntasId == null) flowOf(null)
-            else reservationDao.observeReservation(id, currentTuntasId).map { it?.toDto() }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+                if (currentTuntasId == null) flowOf(null)
+                else reservationDao.observeReservation(id, currentTuntasId).map {
+                    it?.toDto()?.withLiveCapabilities(id, currentUserId, currentTuntasId)
+                }
+            }
         }
     }
 
@@ -85,12 +136,19 @@ class ReservationRepository @Inject constructor(
             } else {
                 null
             }
-            val reservations = fetchReservationPages(
+            val fetched = fetchReservationPages(
                 tuntasId = currentTuntasId,
                 itemId = itemId,
                 status = status,
                 updatedAfter = updatedAfter
             ).getOrElse { return Result.failure(it) }
+            val reservations = fetched.reservations
+            tokenManager.userId.first()?.let { currentUserId ->
+                liveListCapabilities[listCapabilitiesKey(currentUserId, currentTuntasId)] = fetched.capabilities
+                reservations.forEach { reservation ->
+                    liveReservationDetails[reservation.id] = LiveReservationDetail(currentUserId, currentTuntasId, reservation)
+                }
+            }
             if (itemId == null && updatedAfter == null) {
                 reservationDao.deleteForQuery(currentTuntasId, status)
             }
@@ -107,9 +165,10 @@ class ReservationRepository @Inject constructor(
         itemId: String?,
         status: String?,
         updatedAfter: String?
-    ): Result<List<ReservationDto>> {
+    ): Result<ReservationListDto> {
         val authToken = "Bearer ${token()}"
         val reservations = mutableListOf<ReservationDto>()
+        var capabilities = ReservationListCapabilitiesDto()
         var offset = 0
         var hasMore: Boolean
 
@@ -128,6 +187,7 @@ class ReservationRepository @Inject constructor(
             }
 
             val page = response.body()
+            capabilities = page?.capabilities ?: capabilities
             val pageReservations = page?.reservations.orEmpty()
             reservations += pageReservations
             hasMore = updatedAfter == null &&
@@ -137,7 +197,7 @@ class ReservationRepository @Inject constructor(
             offset += pageReservations.size
         } while (hasMore)
 
-        return Result.success(reservations)
+        return Result.success(ReservationListDto(reservations, reservations.size, capabilities = capabilities))
     }
 
     suspend fun refreshReservation(id: String): Result<Unit> {
@@ -149,7 +209,11 @@ class ReservationRepository @Inject constructor(
                 id = id
             )
             if (response.isSuccessful) {
-                reservationDao.upsert(response.body()!!.toEntity())
+                val reservation = response.body()!!
+                tokenManager.userId.first()?.let { currentUserId ->
+                    liveReservationDetails[id] = LiveReservationDetail(currentUserId, currentTuntasId, reservation)
+                }
+                reservationDao.upsert(reservation.toEntity())
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijos.")))
@@ -161,33 +225,48 @@ class ReservationRepository @Inject constructor(
 
     suspend fun getReservations(itemId: String? = null, status: String? = null, forceRefresh: Boolean = false): Result<ReservationListDto> {
         val queryKey = reservationQueryKey(itemId, status)
-        val shouldRefresh = refreshCoordinator.shouldRefresh(
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
+        val capabilitiesKey = if (currentUserId != null && currentTuntasId != null) {
+            listCapabilitiesKey(currentUserId, currentTuntasId)
+        } else null
+        val shouldRefresh = capabilitiesKey == null || liveListCapabilities[capabilitiesKey] == null || refreshCoordinator.shouldRefresh(
             resource = RESERVATIONS_RESOURCE,
             queryKey = queryKey,
             ttl = CacheTtl.LIST,
             force = forceRefresh
         )
         val refreshResult = if (shouldRefresh) refreshReservations(itemId, status) else Result.success(Unit)
-        val currentTuntasId = tokenManager.activeTuntasId.first()
         val cachedReservations = currentTuntasId
             ?.let { reservationDao.getReservations(it, itemId, status).toReservationDtos() }
             .orEmpty()
+            .map { it.withLiveCapabilities(it.id, currentUserId, currentTuntasId ?: it.tuntasId) }
         return if (refreshResult.isSuccess || cachedReservations.isNotEmpty()) {
-            Result.success(ReservationListDto(cachedReservations, cachedReservations.size))
+            Result.success(ReservationListDto(
+                cachedReservations,
+                cachedReservations.size,
+                capabilities = capabilitiesKey?.let { liveListCapabilities[it] } ?: ReservationListCapabilitiesDto()
+            ))
         } else {
             Result.failure(Exception("Nepavyko atnaujinti rezervacijÅ³. Prisijunkite prie interneto bent kartÄ…, kad jos bÅ«tÅ³ iÅ¡saugotos naudoti neprisijungus."))
         }
     }
 
     suspend fun getReservation(id: String): Result<ReservationDto> {
-        val shouldRefresh = refreshCoordinator.shouldRefresh(
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
+        val hasLiveCapabilities = liveReservationDetails[id]
+            ?.let { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+            ?: false
+        val shouldRefresh = !hasLiveCapabilities || refreshCoordinator.shouldRefresh(
             resource = RESERVATION_RESOURCE,
             queryKey = id,
             ttl = CacheTtl.DETAIL
         )
         val refreshResult = if (shouldRefresh) refreshReservation(id) else Result.success(Unit)
-        val currentTuntasId = tokenManager.activeTuntasId.first()
-        val cachedReservation = currentTuntasId?.let { reservationDao.getReservation(id, it)?.toDto() }
+        val cachedReservation = currentTuntasId?.let {
+            reservationDao.getReservation(id, it)?.toDto()?.withLiveCapabilities(id, currentUserId, it)
+        }
         return if (cachedReservation != null) {
             Result.success(cachedReservation)
         } else {
@@ -197,10 +276,19 @@ class ReservationRepository @Inject constructor(
 
     suspend fun getCachedReservations(itemId: String? = null, status: String? = null): ReservationListDto {
         val currentTuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
         val cachedReservations = currentTuntasId
             ?.let { reservationDao.getReservations(it, itemId, status).toReservationDtos() }
             .orEmpty()
-        return ReservationListDto(cachedReservations, cachedReservations.size)
+            .map { it.withLiveCapabilities(it.id, currentUserId, currentTuntasId ?: it.tuntasId) }
+        val capabilities = if (currentUserId != null && currentTuntasId != null) {
+            liveListCapabilities[listCapabilitiesKey(currentUserId, currentTuntasId)]
+        } else null
+        return ReservationListDto(
+            cachedReservations,
+            cachedReservations.size,
+            capabilities = capabilities ?: ReservationListCapabilitiesDto()
+        )
     }
 
     suspend fun getFreshReservations(itemId: String? = null, status: String? = null): Result<ReservationListDto> =
@@ -275,6 +363,19 @@ class ReservationRepository @Inject constructor(
             if (response.isSuccessful) Result.success(response.body()!!)
             else Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervavimo likuÄiÅ³.")))
         } catch (e: Exception) { Result.failure(e.userFacingException()) }
+    }
+
+    suspend fun getCreateOptions(): Result<ReservationCreateOptionsDto> {
+        return try {
+            val response = reservationApiService.getCreateOptions("Bearer ${token()}", tuntasId())
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Nepavyko gauti rezervacijos pasirinkimÅ³")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
     }
 
     suspend fun updateReservationStatus(id: String, request: UpdateReservationStatusRequestDto): Result<ReservationDto> =

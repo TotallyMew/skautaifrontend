@@ -5,6 +5,7 @@ import lt.skautai.android.util.userFacingException
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,6 +42,26 @@ class RequisitionRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository,
     private val refreshCoordinator: RefreshCoordinator
 ) {
+    private data class LiveRequisitionDetail(
+        val userId: String,
+        val tuntasId: String,
+        val requisition: RequisitionDto
+    )
+
+    private val liveRequisitionDetails = ConcurrentHashMap<String, LiveRequisitionDetail>()
+
+    private fun RequisitionDto.withLiveCapabilities(
+        requestId: String,
+        currentUserId: String?,
+        currentTuntasId: String
+    ): RequisitionDto {
+        val liveRequisition = liveRequisitionDetails[requestId]
+            ?.takeIf { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+            ?.requisition
+            ?: return this
+        return copy(capabilities = liveRequisition.capabilities)
+    }
+
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
 
@@ -49,21 +70,32 @@ class RequisitionRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeRequests(): Flow<RequisitionListDto> {
-        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
-            if (currentTuntasId == null) {
-                flowOf(RequisitionListDto(emptyList(), 0))
-            } else {
-                requisitionDao.observeRequests(currentTuntasId)
-                    .map { requests -> RequisitionListDto(requests.toRequisitionDtos(), requests.size) }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+                if (currentTuntasId == null) {
+                    flowOf(RequisitionListDto(emptyList(), 0))
+                } else {
+                    requisitionDao.observeRequests(currentTuntasId)
+                        .map { requests ->
+                            val merged = requests.toRequisitionDtos().map {
+                                it.withLiveCapabilities(it.id, currentUserId, currentTuntasId)
+                            }
+                            RequisitionListDto(merged, merged.size)
+                        }
+                }
             }
         }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeRequest(id: String): Flow<RequisitionDto?> {
-        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
-            if (currentTuntasId == null) flowOf(null)
-            else requisitionDao.observeRequest(id, currentTuntasId).map { it?.toDto() }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+                if (currentTuntasId == null) flowOf(null)
+                else requisitionDao.observeRequest(id, currentTuntasId).map {
+                    it?.toDto()?.withLiveCapabilities(id, currentUserId, currentTuntasId)
+                }
+            }
         }
     }
 
@@ -79,6 +111,12 @@ class RequisitionRepository @Inject constructor(
             val response = requisitionApiService.getRequests("Bearer ${token()}", currentTuntasId, updatedAfter)
             if (response.isSuccessful) {
                 val requests = response.body()?.requests.orEmpty()
+                tokenManager.userId.first()?.let { currentUserId ->
+                    requests.forEach { requisition ->
+                        liveRequisitionDetails[requisition.id] =
+                            LiveRequisitionDetail(currentUserId, currentTuntasId, requisition)
+                    }
+                }
                 val entities = requests.toRequisitionEntities()
                 if (updatedAfter == null) {
                     requisitionDao.deleteForTuntas(currentTuntasId)
@@ -99,7 +137,11 @@ class RequisitionRepository @Inject constructor(
             val currentTuntasId = tuntasId()
             val response = requisitionApiService.getRequest("Bearer ${token()}", currentTuntasId, id)
             if (response.isSuccessful) {
-                requisitionDao.upsert(response.body()!!.toEntity())
+                val requisition = response.body()!!
+                tokenManager.userId.first()?.let { currentUserId ->
+                    liveRequisitionDetails[id] = LiveRequisitionDetail(currentUserId, currentTuntasId, requisition)
+                }
+                requisitionDao.upsert(requisition.toEntity())
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
@@ -114,17 +156,21 @@ class RequisitionRepository @Inject constructor(
             refreshRequests()
         }
         val currentTuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
         val cachedRequests = currentTuntasId
             ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
             .orEmpty()
+            .map { it.withLiveCapabilities(it.id, currentUserId, currentTuntasId ?: it.tuntasId) }
         return Result.success(RequisitionListDto(cachedRequests, cachedRequests.size))
     }
 
     suspend fun getCachedRequests(): RequisitionListDto {
         val currentTuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
         val cachedRequests = currentTuntasId
             ?.let { requisitionDao.getRequests(it).toRequisitionDtos() }
             .orEmpty()
+            .map { it.withLiveCapabilities(it.id, currentUserId, currentTuntasId ?: it.tuntasId) }
         return RequisitionListDto(cachedRequests, cachedRequests.size)
     }
 
@@ -136,7 +182,10 @@ class RequisitionRepository @Inject constructor(
     suspend fun getRequest(id: String): Result<RequisitionDto> {
         refreshRequest(id)
         val currentTuntasId = tokenManager.activeTuntasId.first()
-        val cachedRequest = currentTuntasId?.let { requisitionDao.getRequest(id, it)?.toDto() }
+        val currentUserId = tokenManager.userId.first()
+        val cachedRequest = currentTuntasId?.let {
+            requisitionDao.getRequest(id, it)?.toDto()?.withLiveCapabilities(id, currentUserId, it)
+        }
         return if (cachedRequest != null) {
             Result.success(cachedRequest)
         } else {

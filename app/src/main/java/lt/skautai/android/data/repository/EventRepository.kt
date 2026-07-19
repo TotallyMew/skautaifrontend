@@ -5,6 +5,7 @@ import lt.skautai.android.util.userFacingException
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -144,6 +145,26 @@ class EventRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository,
     private val refreshCoordinator: RefreshCoordinator
 ) {
+    private data class LiveEventDetail(
+        val userId: String,
+        val tuntasId: String,
+        val event: EventDto
+    )
+
+    private val liveEventDetails = ConcurrentHashMap<String, LiveEventDetail>()
+
+    private fun EventDto.withLiveCapabilities(
+        eventId: String,
+        currentUserId: String?,
+        currentTuntasId: String
+    ): EventDto {
+        val liveEvent = liveEventDetails[eventId]
+            ?.takeIf { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+            ?.event
+            ?: return this
+        return copy(capabilities = liveEvent.capabilities)
+    }
+
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception(SESSION_EXPIRED_MESSAGE)
 
@@ -164,11 +185,13 @@ class EventRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeEvent(id: String): Flow<EventDto?> {
-        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
-            if (currentTuntasId == null) flowOf(null)
-            else eventDao.observeEvent(id, currentTuntasId)
-                .map { it?.toDto() }
-                .map { event -> event?.takeIf { it.tuntasId == currentTuntasId } }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+                if (currentTuntasId == null) flowOf(null)
+                else eventDao.observeEvent(id, currentTuntasId)
+                    .map { it?.toDto()?.withLiveCapabilities(id, currentUserId, currentTuntasId) }
+                    .map { event -> event?.takeIf { it.tuntasId == currentTuntasId } }
+            }
         }
     }
 
@@ -229,12 +252,16 @@ class EventRepository @Inject constructor(
     suspend fun refreshEvent(id: String): Result<Unit> {
         if (id.startsWith("local-")) return Result.success(Unit)
         return try {
-            val currentTuntasId = tuntasId()
-            val response = eventApiService.getEvent("Bearer ${token()}", currentTuntasId, id)
-            if (response.isSuccessful) {
-                eventDao.upsert(response.body()!!.toEntity())
-                refreshCoordinator.recordAttempt(EVENT_RESOURCE, id, success = true)
-                Result.success(Unit)
+        val currentTuntasId = tuntasId()
+        val response = eventApiService.getEvent("Bearer ${token()}", currentTuntasId, id)
+        if (response.isSuccessful) {
+            val event = response.body()!!
+            tokenManager.userId.first()?.let { currentUserId ->
+                liveEventDetails[id] = LiveEventDetail(currentUserId, currentTuntasId, event)
+            }
+            eventDao.upsert(event.toEntity())
+            refreshCoordinator.recordAttempt(EVENT_RESOURCE, id, success = true)
+            Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Nepavyko gauti renginio.")))
             }
@@ -272,10 +299,16 @@ class EventRepository @Inject constructor(
                 Result.failure(Exception("Renginys nerastas"))
             }
         }
-        val shouldRefresh = refreshCoordinator.shouldRefresh(EVENT_RESOURCE, id, CacheTtl.DETAIL)
-        val refreshResult = if (shouldRefresh) refreshEvent(id) else Result.success(Unit)
-        val currentTuntasId = tokenManager.activeTuntasId.first()
-        val cachedEvent = currentTuntasId?.let { eventDao.getEvent(id, it)?.toDto() }
+    val currentTuntasId = tokenManager.activeTuntasId.first()
+    val currentUserId = tokenManager.userId.first()
+    val hasLiveCapabilities = liveEventDetails[id]
+        ?.let { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+        ?: false
+    val shouldRefresh = !hasLiveCapabilities || refreshCoordinator.shouldRefresh(EVENT_RESOURCE, id, CacheTtl.DETAIL)
+    val refreshResult = if (shouldRefresh) refreshEvent(id) else Result.success(Unit)
+    val cachedEvent = currentTuntasId?.let {
+        eventDao.getEvent(id, it)?.toDto()?.withLiveCapabilities(id, currentUserId, it)
+    }
         return if (cachedEvent != null) {
             Result.success(cachedEvent)
         } else {

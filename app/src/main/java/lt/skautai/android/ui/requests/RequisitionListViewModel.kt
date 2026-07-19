@@ -14,9 +14,6 @@ import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.RequisitionDto
 import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.util.TokenManager
-import lt.skautai.android.util.canForwardUnitRequests
-import lt.skautai.android.util.canReviewTopLevelRequisitions
-import lt.skautai.android.util.hasPermission
 
 sealed interface RequisitionListUiState {
     data object Loading : RequisitionListUiState
@@ -48,10 +45,8 @@ class RequisitionListViewModel @Inject constructor(
         observeJob = viewModelScope.launch {
             requisitionRepository.observeRequests().collect { response ->
                 val userId = tokenManager.userId.first()
-                val permissions = tokenManager.permissions.first()
-                val activeUnitId = tokenManager.activeOrgUnitId.first()
                 _uiState.value = RequisitionListUiState.Success(
-                    response.requests.filterForMode(mode, userId, permissions, activeUnitId)
+                    response.requests.filterForMode(mode, userId)
                 )
             }
         }
@@ -68,12 +63,10 @@ class RequisitionListViewModel @Inject constructor(
                 requisitionRepository.refreshRequests()
                 .onSuccess {
                     val userId = tokenManager.userId.first()
-                    val permissions = tokenManager.permissions.first()
-                    val activeUnitId = tokenManager.activeOrgUnitId.first()
                     _uiState.value = RequisitionListUiState.Success(
                         requisitionRepository.getCachedRequests()
                             .requests
-                            .filterForMode(mode, userId, permissions, activeUnitId)
+                            .filterForMode(mode, userId)
                     )
                 }
                 .onFailure { error ->
@@ -90,35 +83,12 @@ class RequisitionListViewModel @Inject constructor(
 
 private fun List<RequisitionDto>.filterForMode(
     mode: String,
-    userId: String?,
-    permissions: Set<String>,
-    activeUnitId: String?
+    userId: String?
 ): List<RequisitionDto> =
     when (mode) {
         "my_active" -> filter { it.createdByUserId == userId }
-        "assigned" -> filter {
-            val waitsForActiveUnit = it.createdByUserId != userId &&
-                it.requestingUnitId == activeUnitId &&
-                it.unitReviewStatus == "PENDING" &&
-                (
-                    permissions.hasPermission("items.request.approve.unit") ||
-                        permissions.canForwardUnitRequests()
-                    )
-            val waitsForTopLevel = it.createdByUserId != userId &&
-                permissions.canReviewTopLevelRequisitions() &&
-                it.topLevelReviewStatus == "PENDING"
-            waitsForActiveUnit || waitsForTopLevel
+        "assigned" -> filter { request ->
+            request.capabilities?.let { it.canReviewUnit || it.canReviewTopLevel } == true
         }
-        else -> filter {
-            it.createdByUserId == userId ||
-                permissions.canReviewTopLevelRequisitions() ||
-                (
-                    it.requestingUnitId == activeUnitId &&
-                        (
-                            permissions.hasPermission("requisitions.create") ||
-                                permissions.hasPermission("requisitions.approve") ||
-                                permissions.canForwardUnitRequests()
-                            )
-                    )
-        }
+        else -> this
     }

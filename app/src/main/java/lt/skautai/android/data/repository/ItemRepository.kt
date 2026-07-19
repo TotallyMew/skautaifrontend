@@ -7,6 +7,7 @@ import javax.inject.Singleton
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -30,6 +31,7 @@ import lt.skautai.android.data.remote.StorageAuditSessionDto
 import lt.skautai.android.data.remote.ItemConditionLogDto
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.ItemHistoryDto
+import lt.skautai.android.data.remote.ItemListCapabilitiesDto
 import lt.skautai.android.data.remote.ItemTransferDto
 import lt.skautai.android.data.remote.ReturnDirectItemLoanRequestDto
 import lt.skautai.android.data.remote.ReturnItemToSharedRequestDto
@@ -54,12 +56,35 @@ class ItemRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository,
     private val refreshCoordinator: RefreshCoordinator
 ) {
+    private data class LiveItemDetail(
+        val userId: String,
+        val tuntasId: String,
+        val item: ItemDto
+    )
+
+    private val liveItemDetails = ConcurrentHashMap<String, LiveItemDetail>()
+    private val liveListCapabilities = ConcurrentHashMap<String, ItemListCapabilitiesDto>()
+
+    private fun listCapabilitiesKey(userId: String, tuntasId: String): String = "$userId|$tuntasId"
+
+    private fun ItemDto.withLiveCapabilities(
+        itemId: String,
+        currentUserId: String?,
+        currentTuntasId: String
+    ): ItemDto {
+        val liveDetail = liveItemDetails[itemId]
+            ?.takeIf { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+            ?: return this
+        return copy(capabilities = liveDetail.item.capabilities)
+    }
+
     data class ItemPage(
         val items: List<ItemDto>,
         val total: Int,
         val limit: Int,
         val offset: Int,
-        val hasMore: Boolean
+        val hasMore: Boolean,
+        val capabilities: ItemListCapabilitiesDto
     )
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -83,11 +108,15 @@ class ItemRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeItem(itemId: String): Flow<ItemDto?> {
-        return tokenManager.activeTuntasId.flatMapLatest { tuntasId ->
-            if (tuntasId == null) {
-                flowOf(null)
-            } else {
-                itemDao.observeItem(itemId, tuntasId).map { it?.toDto() }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { tuntasId ->
+                if (tuntasId == null) {
+                    flowOf(null)
+                } else {
+                    itemDao.observeItem(itemId, tuntasId).map {
+                        it?.toDto()?.withLiveCapabilities(itemId, currentUserId, tuntasId)
+                    }
+                }
             }
         }
     }
@@ -186,11 +215,15 @@ class ItemRepository @Inject constructor(
                 token = "Bearer $token",
                 tuntasId = tuntasId,
                 itemId = itemId
-            )
-            if (response.isSuccessful) {
-                itemDao.upsert(response.body()!!.withSafeCollections().toEntity())
-                refreshCoordinator.recordAttempt(ITEM_RESOURCE, itemId, success = true)
-                Result.success(Unit)
+        )
+        if (response.isSuccessful) {
+            val item = response.body()!!.withSafeCollections()
+            tokenManager.userId.first()?.let { currentUserId ->
+                liveItemDetails[itemId] = LiveItemDetail(currentUserId, tuntasId, item)
+            }
+            itemDao.upsert(item.toEntity())
+            refreshCoordinator.recordAttempt(ITEM_RESOURCE, itemId, success = true)
+            Result.success(Unit)
             } else {
                 if (response.code() == 404) {
                     itemDao.deleteItem(itemId, tuntasId)
@@ -259,14 +292,20 @@ class ItemRepository @Inject constructor(
     ): Result<List<ItemDto>> = getItems(custodianId, type, category, status, sharedOnly, createdByUserId, forceRefresh = true)
 
     suspend fun getItem(itemId: String): Result<ItemDto> {
-        val shouldRefresh = refreshCoordinator.shouldRefresh(
+        val tuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
+        val hasLiveCapabilities = liveItemDetails[itemId]
+            ?.let { it.userId == currentUserId && it.tuntasId == tuntasId }
+            ?: false
+        val shouldRefresh = !hasLiveCapabilities || refreshCoordinator.shouldRefresh(
             resource = ITEM_RESOURCE,
             queryKey = itemId,
             ttl = CacheTtl.DETAIL
         )
         val refreshResult = if (shouldRefresh) refreshItem(itemId) else Result.success(Unit)
-        val tuntasId = tokenManager.activeTuntasId.first()
-        val cachedItem = tuntasId?.let { itemDao.getItem(itemId, it)?.toDto() }
+        val cachedItem = tuntasId?.let {
+            itemDao.getItem(itemId, it)?.toDto()?.withLiveCapabilities(itemId, currentUserId, it)
+        }
         return if (cachedItem != null) {
             Result.success(cachedItem)
         } else {
@@ -898,6 +937,10 @@ class ItemRepository @Inject constructor(
         if (response.isSuccessful) {
             val body = response.body()
             val items = body?.items.orEmpty().map { it.withSafeCollections() }
+            tokenManager.userId.first()?.let { currentUserId ->
+                liveListCapabilities[listCapabilitiesKey(currentUserId, tuntasId)] =
+                    body?.capabilities ?: ItemListCapabilitiesDto()
+            }
             if (replaceCache) {
                 itemDao.deleteForQuery(tuntasId, custodianId, sharedOnly, createdByUserId, status, type, category)
             }
@@ -908,7 +951,8 @@ class ItemRepository @Inject constructor(
                     total = body?.total ?: items.size,
                     limit = body?.limit ?: limit,
                     offset = body?.offset ?: offset,
-                    hasMore = body?.hasMore ?: false
+                    hasMore = body?.hasMore ?: false,
+                    capabilities = body?.capabilities ?: ItemListCapabilitiesDto()
                 )
             )
         } else {
@@ -933,7 +977,14 @@ class ItemRepository @Inject constructor(
     ): Result<ItemPage> {
         val queryKey = itemQueryKey(custodianId, status, type, category, sharedOnly, createdByUserId) +
             "|search=${searchQuery.orEmpty()}|limit=$limit|offset=$offset"
-        val shouldRefresh = refreshCoordinator.shouldRefresh(
+        val currentTuntasId = tokenManager.activeTuntasId.first()
+        val currentUserId = tokenManager.userId.first()
+        val capabilitiesKey = if (currentUserId != null && currentTuntasId != null) {
+            listCapabilitiesKey(currentUserId, currentTuntasId)
+        } else {
+            null
+        }
+        val shouldRefresh = capabilitiesKey == null || liveListCapabilities[capabilitiesKey] == null || refreshCoordinator.shouldRefresh(
             resource = ITEMS_RESOURCE,
             queryKey = queryKey,
             ttl = CacheTtl.LIST,
@@ -967,8 +1018,7 @@ class ItemRepository @Inject constructor(
 
         refreshResult.getOrNull()?.let { return Result.success(it) }
 
-        val tuntasId = tokenManager.activeTuntasId.first()
-        val cachedItems = tuntasId
+        val cachedItems = currentTuntasId
             ?.let { itemDao.getItems(it, custodianId, sharedOnly, createdByUserId, status, type, category).toItemDtos() }
             .orEmpty()
             .filterBySearchQuery(searchQuery)
@@ -981,7 +1031,8 @@ class ItemRepository @Inject constructor(
                     total = cachedItems.size,
                     limit = limit,
                     offset = offset,
-                    hasMore = offset + pageItems.size < cachedItems.size
+                    hasMore = offset + pageItems.size < cachedItems.size,
+                    capabilities = capabilitiesKey?.let { liveListCapabilities[it] } ?: ItemListCapabilitiesDto()
                 )
             )
         } else {

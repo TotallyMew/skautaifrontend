@@ -2,6 +2,17 @@ package lt.skautai.android.data.remote
 
 import com.google.gson.annotations.SerializedName
 
+data class ReservationCapabilitiesDto(
+    @SerializedName("canReviewUnit") val canReviewUnit: Boolean = false,
+    @SerializedName("canReviewTopLevel") val canReviewTopLevel: Boolean = false,
+    @SerializedName("canCancel") val canCancel: Boolean = false,
+    @SerializedName("canIssue") val canIssue: Boolean = false,
+    @SerializedName("canConfirmReturn") val canConfirmReturn: Boolean = false,
+    @SerializedName("canMarkReturned") val canMarkReturned: Boolean = false,
+    @SerializedName("canManagePickup") val canManagePickup: Boolean = false,
+    @SerializedName("canManageReturn") val canManageReturn: Boolean = false
+)
+
 data class ReservationDto(
     @SerializedName("id") val id: String,
     @SerializedName("title") val title: String,
@@ -42,7 +53,8 @@ data class ReservationDto(
     @SerializedName("notes") val notes: String?,
     @SerializedName("createdAt") val createdAt: String,
     @SerializedName("updatedAt") val updatedAt: String,
-    @SerializedName("items") val items: List<ReservationItemDto>
+    @SerializedName("items") val items: List<ReservationItemDto>,
+    @SerializedName("capabilities") val capabilities: ReservationCapabilitiesDto? = null
 )
 
 data class ReservationItemDto(
@@ -58,7 +70,10 @@ data class ReservationItemDto(
     @SerializedName("remainingToIssue") val remainingToIssue: Int = quantity,
     @SerializedName("remainingToReturn") val remainingToReturn: Int = 0,
     @SerializedName("remainingToMarkReturned") val remainingToMarkReturned: Int = 0,
-    @SerializedName("remainingToReceive") val remainingToReceive: Int = 0
+    @SerializedName("remainingToReceive") val remainingToReceive: Int = 0,
+    @SerializedName("canIssue") val canIssue: Boolean = false,
+    @SerializedName("canConfirmReturn") val canConfirmReturn: Boolean = false,
+    @SerializedName("canMarkReturned") val canMarkReturned: Boolean = false
 )
 
 data class ReservationListDto(
@@ -66,7 +81,13 @@ data class ReservationListDto(
     @SerializedName("total") val total: Int,
     @SerializedName("limit") val limit: Int? = null,
     @SerializedName("offset") val offset: Int = 0,
-    @SerializedName("hasMore") val hasMore: Boolean = false
+    @SerializedName("hasMore") val hasMore: Boolean = false,
+    @SerializedName("capabilities") val capabilities: ReservationListCapabilitiesDto = ReservationListCapabilitiesDto()
+)
+
+data class ReservationListCapabilitiesDto(
+    @SerializedName("canCreate") val canCreate: Boolean = false,
+    @SerializedName("canUseReviewModes") val canUseReviewModes: Boolean = false
 )
 
 data class ReservationAvailabilityItemDto(
@@ -80,6 +101,28 @@ data class ReservationAvailabilityDto(
     @SerializedName("startDate") val startDate: String,
     @SerializedName("endDate") val endDate: String,
     @SerializedName("items") val items: List<ReservationAvailabilityItemDto>
+)
+
+data class ReservationCreateItemOptionDto(
+    @SerializedName("itemId") val itemId: String,
+    @SerializedName("custodianId") val custodianId: String? = null
+)
+
+data class ReservationCreateUnitOptionDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("name") val name: String
+)
+
+data class ReservationCreateLocationOptionDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("canUseWithAnyInventory") val canUseWithAnyInventory: Boolean,
+    @SerializedName("requiredCustodianId") val requiredCustodianId: String? = null
+)
+
+data class ReservationCreateOptionsDto(
+    @SerializedName("items") val items: List<ReservationCreateItemOptionDto>,
+    @SerializedName("requestingUnits") val requestingUnits: List<ReservationCreateUnitOptionDto>,
+    @SerializedName("locations") val locations: List<ReservationCreateLocationOptionDto>
 )
 
 data class CreateReservationItemRequestDto(

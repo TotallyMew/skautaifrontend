@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.first
 import lt.skautai.android.data.remote.AcceptInvitationRequestDto
 import lt.skautai.android.data.remote.CreateInvitationRequestDto
 import lt.skautai.android.data.remote.InvitationApiService
+import lt.skautai.android.data.remote.InvitationOptionsDto
 import lt.skautai.android.data.remote.InvitationResponseDto
 import lt.skautai.android.util.TokenManager
 import lt.skautai.android.util.errorMessage
@@ -17,6 +18,26 @@ class InvitationRepository @Inject constructor(
     private val invitationApiService: InvitationApiService,
     private val tokenManager: TokenManager
 ) {
+
+    suspend fun getInvitationOptions(): Result<InvitationOptionsDto> {
+        return try {
+            val token = tokenManager.token.first()
+                ?: return Result.failure(Exception("Nav prisijungta"))
+            val tuntasId = tokenManager.activeTuntasId.first()
+                ?: return Result.failure(Exception("Tuntas nepasirinktas"))
+            val response = invitationApiService.getInvitationOptions(
+                token = "Bearer $token",
+                tuntasId = tuntasId
+            )
+            if (response.isSuccessful) {
+                Result.success(response.body()!!)
+            } else {
+                Result.failure(Exception(response.errorMessage("Klaida gaunant pakvietimo pasirinkimus")))
+            }
+        } catch (e: Exception) {
+            Result.failure(e.userFacingException())
+        }
+    }
 
     suspend fun createInvitation(
         roleId: String,

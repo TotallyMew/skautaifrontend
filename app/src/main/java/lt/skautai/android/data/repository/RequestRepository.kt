@@ -5,6 +5,7 @@ import lt.skautai.android.util.userFacingException
 import java.io.IOException
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -38,6 +39,26 @@ class RequestRepository @Inject constructor(
     private val pendingOperationRepository: PendingOperationRepository,
     private val refreshCoordinator: RefreshCoordinator
 ) {
+    private data class LiveRequestDetail(
+        val userId: String,
+        val tuntasId: String,
+        val request: BendrasRequestDto
+    )
+
+    private val liveRequestDetails = ConcurrentHashMap<String, LiveRequestDetail>()
+
+    private fun BendrasRequestDto.withLiveCapabilities(
+        requestId: String,
+        currentUserId: String?,
+        currentTuntasId: String
+    ): BendrasRequestDto {
+        val liveRequest = liveRequestDetails[requestId]
+            ?.takeIf { it.userId == currentUserId && it.tuntasId == currentTuntasId }
+            ?.request
+            ?: return this
+        return copy(capabilities = liveRequest.capabilities)
+    }
+
     private suspend fun token() = tokenManager.token.first()
         ?: throw Exception("Nav prisijungta")
 
@@ -58,9 +79,13 @@ class RequestRepository @Inject constructor(
 
     @OptIn(ExperimentalCoroutinesApi::class)
     fun observeRequest(id: String): Flow<BendrasRequestDto?> {
-        return tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
-            if (currentTuntasId == null) flowOf(null)
-            else bendrasRequestDao.observeRequest(id, currentTuntasId).map { it?.toDto() }
+        return tokenManager.userId.flatMapLatest { currentUserId ->
+            tokenManager.activeTuntasId.flatMapLatest { currentTuntasId ->
+                if (currentTuntasId == null) flowOf(null)
+                else bendrasRequestDao.observeRequest(id, currentTuntasId).map {
+                    it?.toDto()?.withLiveCapabilities(id, currentUserId, currentTuntasId)
+                }
+            }
         }
     }
 
@@ -96,7 +121,11 @@ class RequestRepository @Inject constructor(
             val currentTuntasId = tuntasId()
             val response = requestApiService.getRequest("Bearer ${token()}", currentTuntasId, id)
             if (response.isSuccessful) {
-                bendrasRequestDao.upsert(response.body()!!.toEntity())
+                val request = response.body()!!
+                tokenManager.userId.first()?.let { currentUserId ->
+                    liveRequestDetails[id] = LiveRequestDetail(currentUserId, currentTuntasId, request)
+                }
+                bendrasRequestDao.upsert(request.toEntity())
                 Result.success(Unit)
             } else {
                 Result.failure(Exception(response.errorMessage("Klaida gaunant prašymą")))
@@ -133,7 +162,10 @@ class RequestRepository @Inject constructor(
     suspend fun getRequest(id: String): Result<BendrasRequestDto> {
         refreshRequest(id)
         val currentTuntasId = tokenManager.activeTuntasId.first()
-        val cachedRequest = currentTuntasId?.let { bendrasRequestDao.getRequest(id, it)?.toDto() }
+        val currentUserId = tokenManager.userId.first()
+        val cachedRequest = currentTuntasId?.let {
+            bendrasRequestDao.getRequest(id, it)?.toDto()?.withLiveCapabilities(id, currentUserId, it)
+        }
         return if (cachedRequest != null) {
             Result.success(cachedRequest)
         } else {

@@ -21,3 +21,19 @@ data class InvitationResponseDto(
     @SerializedName("organizationalUnitId") val organizationalUnitId: String? = null,
     @SerializedName("organizationalUnitName") val organizationalUnitName: String? = null
 )
+
+data class InvitationUnitOptionDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("name") val name: String,
+    @SerializedName("type") val type: String
+)
+
+data class InvitationRoleOptionDto(
+    @SerializedName("role") val role: RoleDto,
+    @SerializedName("organizationalUnits") val organizationalUnits: List<InvitationUnitOptionDto>,
+    @SerializedName("canInviteWithoutOrganizationalUnit") val canInviteWithoutOrganizationalUnit: Boolean
+)
+
+data class InvitationOptionsDto(
+    @SerializedName("roles") val roles: List<InvitationRoleOptionDto>
+)

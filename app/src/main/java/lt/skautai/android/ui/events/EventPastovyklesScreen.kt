@@ -69,8 +69,6 @@ import lt.skautai.android.ui.common.SkautaiStatusTone
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.theme.ScoutUnitColors
 import lt.skautai.android.ui.theme.ScoutUnitPalette
-import lt.skautai.android.util.canManageEventSections
-import lt.skautai.android.util.eventRolesForUser
 
 private data class PastovykleAgeGroupOption(
     val code: String,
@@ -94,7 +92,6 @@ fun EventPastovyklėsScreen(
     viewModel: EventPastovyklėsViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var editingPastovykle by remember { mutableStateOf<PastovykleDto?>(null) }
     var showEditor by remember { mutableStateOf(false) }
@@ -110,15 +107,8 @@ fun EventPastovyklėsScreen(
     }
 
     val state = uiState
-    val readOnly = (state as? EventPastovyklesUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
-    val eventRoles = (state as? EventPastovyklesUiState.Success)
-        ?.let { eventRolesForUser(it.event.eventRoles, it.currentUserId) }
-        .orEmpty()
-    val canManage = canManageEventSections(
-        permissions = permissions,
-        eventRoles = eventRoles,
-        isReadOnly = readOnly
-    )
+    val isReadOnly = (state as? EventPastovyklesUiState.Success)?.event?.capabilities?.isReadOnly != false
+    val canManage = (state as? EventPastovyklesUiState.Success)?.event?.capabilities?.canManage == true
 
     if (state is EventPastovyklesUiState.Success && showEditor && canManage) {
         PastovykleEditorScreen(
@@ -144,7 +134,7 @@ fun EventPastovyklėsScreen(
         return
     }
 
-    if (!readOnly) deletingPastovykle?.let { pastovykle ->
+    if (!isReadOnly) deletingPastovykle?.let { pastovykle ->
         SkautaiConfirmDialog(
             title = "Ištrinti pastovyklę?",
             message = "Pastovyklė \"${pastovykle.name}\" bus pašalinta iš šio renginio.",
@@ -268,19 +258,7 @@ fun EventPastovyklėsScreen(
 }
 
 private fun eligibleStaffMembers(members: List<MemberDto>): List<MemberDto> {
-    val vadovasOrHigherRanks = setOf(
-        "Vadovas",
-        "Tuntininkas",
-        "Tuntininko pavaduotojas",
-        "Inventorininkas",
-        "Draugininkas",
-        "Pirmininkas",
-        "Pavaduotojas"
-    )
-    return members.filter { member ->
-        member.ranks.any { it.roleName in vadovasOrHigherRanks } ||
-            member.leadershipRoles.any { it.termStatus == "ACTIVE" && it.leftAt == null }
-    }
+    return members
 }
 
 @Composable

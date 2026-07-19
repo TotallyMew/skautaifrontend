@@ -82,8 +82,6 @@ import lt.skautai.android.ui.common.SkautaiSummaryCard
 import lt.skautai.android.ui.common.SkautaiTopBarTitle
 import lt.skautai.android.ui.common.eventStatusTone
 
-fun isEventReadOnlyStatus(status: String): Boolean = status in setOf("COMPLETED", "CANCELLED")
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventScreenScaffold(

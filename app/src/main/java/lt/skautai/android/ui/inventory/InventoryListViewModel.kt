@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.InventoryKitDto
 import lt.skautai.android.data.remote.ItemDto
+import lt.skautai.android.data.remote.ItemListCapabilitiesDto
 import lt.skautai.android.data.remote.LocationDto
 import lt.skautai.android.data.remote.UpdateItemRequestDto
 import lt.skautai.android.data.repository.InventoryKitRepository
@@ -27,11 +28,6 @@ import lt.skautai.android.util.InventoryImportDuplicateMode
 import lt.skautai.android.util.InventoryImportField
 import lt.skautai.android.util.InventoryImportPreview
 import lt.skautai.android.util.TokenManager
-import lt.skautai.android.util.canManageAllItems
-import lt.skautai.android.util.canManageSharedInventory
-import lt.skautai.android.util.canReviewItemAdditions
-import lt.skautai.android.util.canSubmitItemAddition
-import lt.skautai.android.util.hasPermissionOwnUnit
 import javax.inject.Inject
 
 sealed interface InventoryListUiState {
@@ -65,7 +61,7 @@ private data class InventoryListMeta(
     val kits: List<InventoryKitDto>,
     val kitsLoaded: Boolean,
     val selectedStatus: String,
-    val permissions: Set<String>,
+    val capabilities: ItemListCapabilitiesDto,
     val pagedItems: List<ItemDto>?
 )
 
@@ -76,17 +72,8 @@ private fun ItemDto.isAssignedToPerson(): Boolean =
     effectiveInventoryType() == "ASSIGNED" || responsibleUserId != null
 
 internal fun canManageInventoryItem(
-    item: ItemDto,
-    permissions: Set<String>,
-    leadershipUnitIds: List<String>,
-    activeOrgUnitId: String?
-): Boolean = when {
-    item.custodianId == null -> permissions.canManageAllItems()
-    permissions.canManageAllItems() -> true
-    item.origin == "TRANSFERRED_FROM_TUNTAS" -> false
-    else -> permissions.hasPermissionOwnUnit("items.update") &&
-        (item.custodianId in leadershipUnitIds || item.custodianId == activeOrgUnitId)
-}
+    item: ItemDto
+): Boolean = item.capabilities?.canEdit == true
 
 internal fun buildBulkUpdateRequest(action: InventoryBulkAction): UpdateItemRequestDto? {
     if (action.isEmpty()) return null
@@ -176,14 +163,8 @@ class InventoryListViewModel @Inject constructor(
     val openedSharedOnly: Boolean = initialSharedOnly
     val openedPersonalOwnerOnly: Boolean = personalOwnerOnly
 
-    val permissions: StateFlow<Set<String>> = tokenManager.permissions
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
-
-    val activeOrgUnitId: StateFlow<String?> = tokenManager.activeOrgUnitId
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
-
-    val leadershipUnitIds: StateFlow<List<String>> = tokenManager.leadershipUnitIds
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _listCapabilities = MutableStateFlow(ItemListCapabilitiesDto())
+    val listCapabilities: StateFlow<ItemListCapabilitiesDto> = _listCapabilities.asStateFlow()
 
     val locations: StateFlow<List<LocationDto>> = locationRepository.observeLocations()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -213,8 +194,8 @@ class InventoryListViewModel @Inject constructor(
                     createdByUserId = personalOwnerId
                 ),
                 itemRepository.observeItems(status = "PENDING_APPROVAL"),
-                combine(_kits, _kitsLoaded, selectedStatus, permissions, _pagedItems) { kits, kitsLoaded, status, userPermissions, pagedItems ->
-                    InventoryListMeta(kits, kitsLoaded, status, userPermissions, pagedItems)
+                combine(_kits, _kitsLoaded, selectedStatus, _listCapabilities, _pagedItems) { kits, kitsLoaded, status, capabilities, pagedItems ->
+                    InventoryListMeta(kits, kitsLoaded, status, capabilities, pagedItems)
                 }
             ) { activeItems, inactiveItems, pendingItems, meta ->
                 if (!meta.kitsLoaded && _uiState.value !is InventoryListUiState.Success) {
@@ -222,9 +203,9 @@ class InventoryListViewModel @Inject constructor(
                 }
                 val kits = meta.kits
                 val selectedStatus = meta.selectedStatus
-                val permissions = meta.permissions
-                val visibleInactiveItems = if (permissions.canManageAllItems()) inactiveItems else emptyList()
-                val canSeePending = permissions.canReviewItemAdditions() || permissions.canSubmitItemAddition()
+                val capabilities = meta.capabilities
+                val visibleInactiveItems = if (capabilities.canViewInactive) inactiveItems else emptyList()
+                val canSeePending = capabilities.canViewPending
                 val visiblePendingItems = if (canSeePending) pendingItems else emptyList()
                 val visibleItems = when (selectedStatus) {
                     "INACTIVE" -> visibleInactiveItems
@@ -262,10 +243,10 @@ class InventoryListViewModel @Inject constructor(
             try {
                 val currentUserId = tokenManager.userId.first()
                 val personalOwnerId = personalOwnerFilterId(currentUserId)
-                val currentPermissions = permissions.value
-                val canSeePending = currentPermissions.canReviewItemAdditions() || currentPermissions.canSubmitItemAddition()
+                val capabilities = _listCapabilities.value
+                val canSeePending = capabilities.canViewPending
                 val selectedStatus = _selectedStatus.value
-                val targetStatus = targetStatusForLoad(selectedStatus, canSeePending, currentPermissions)
+                val targetStatus = targetStatusForLoad(selectedStatus, capabilities)
                 val serverType = _selectedTypes.value.singleOrNull()
                 val serverCategory = _selectedCategories.value.singleOrNull()
                 val serverSearchQuery = _searchQuery.value.trim().takeIf { it.isNotBlank() }
@@ -287,6 +268,7 @@ class InventoryListViewModel @Inject constructor(
                         result.onSuccess { page ->
                             _pagedItems.value = page.items
                             _hasMoreItems.value = page.hasMore
+                            _listCapabilities.value = page.capabilities
                         }
                             .onFailure { _hasMoreItems.value = false }
                     }.map { Unit }
@@ -313,7 +295,7 @@ class InventoryListViewModel @Inject constructor(
                         custodianId = initialCustodianId,
                         status = when {
                             selectedStatus == "PENDING_APPROVAL" && canSeePending -> "PENDING_APPROVAL"
-                            selectedStatus == "INACTIVE" && currentPermissions.canManageAllItems() -> "INACTIVE"
+                            selectedStatus == "INACTIVE" && capabilities.canViewInactive -> "INACTIVE"
                             else -> "ACTIVE"
                         },
                         sharedOnly = initialSharedOnly,
@@ -342,9 +324,7 @@ class InventoryListViewModel @Inject constructor(
             try {
                 val currentUserId = tokenManager.userId.first()
                 val personalOwnerId = personalOwnerFilterId(currentUserId)
-                val currentPermissions = permissions.value
-                val canSeePending = currentPermissions.canReviewItemAdditions() || currentPermissions.canSubmitItemAddition()
-                val targetStatus = targetStatusForLoad(_selectedStatus.value, canSeePending, currentPermissions)
+                val targetStatus = targetStatusForLoad(_selectedStatus.value, _listCapabilities.value)
                     ?: return@launch
                 val currentOffset = _pagedItems.value.orEmpty().size
                 val serverType = _selectedTypes.value.singleOrNull()
@@ -364,6 +344,7 @@ class InventoryListViewModel @Inject constructor(
                 ).onSuccess { page ->
                     _pagedItems.value = (_pagedItems.value.orEmpty() + page.items).distinctBy { it.id }
                     _hasMoreItems.value = page.hasMore
+                    _listCapabilities.value = page.capabilities
                 }.onFailure { error ->
                     _actionMessage.value = error.message ?: "Nepavyko pakrauti daugiau inventoriaus"
                 }
@@ -375,11 +356,10 @@ class InventoryListViewModel @Inject constructor(
 
     private fun targetStatusForLoad(
         selectedStatus: String,
-        canSeePending: Boolean,
-        currentPermissions: Set<String>
+        capabilities: ItemListCapabilitiesDto
     ): String? = when {
-        selectedStatus == "PENDING_APPROVAL" && canSeePending -> "PENDING_APPROVAL"
-        selectedStatus == "INACTIVE" && currentPermissions.canManageAllItems() -> "INACTIVE"
+        selectedStatus == "PENDING_APPROVAL" && capabilities.canViewPending -> "PENDING_APPROVAL"
+        selectedStatus == "INACTIVE" && capabilities.canViewInactive -> "INACTIVE"
         selectedStatus == "ACTIVE" -> "ACTIVE"
         else -> null
     }
@@ -570,12 +550,7 @@ class InventoryListViewModel @Inject constructor(
     }
 
     fun canBulkManage(item: ItemDto): Boolean =
-        canManageInventoryItem(
-            item = item,
-            permissions = permissions.value,
-            leadershipUnitIds = leadershipUnitIds.value,
-            activeOrgUnitId = activeOrgUnitId.value
-        ) && item.status != "PENDING_APPROVAL"
+        canManageInventoryItem(item) && item.status != "PENDING_APPROVAL"
 
     fun applyBulkAction(action: InventoryBulkAction) {
         val request = buildBulkUpdateRequest(action)

@@ -237,12 +237,7 @@ fun UnitDetailScreen(
                                 membership = membership,
                                 member = uiState.memberDetails[membership.userId],
                                 canManageMembers = canManageMembers,
-                                canManageCandidateVisibility =
-                                    uiState.canCurrentUserManageThisUnit &&
-                                        unit.type in setOf("VYR_SKAUTU_VIENETAS", "VYR_SKAUCIU_VIENETAS") &&
-                                        uiState.memberDetails[membership.userId]
-                                            ?.ranks
-                                            ?.any { it.roleName == "Vyr. skautas kandidatas" } == true,
+                                canManageCandidateVisibility = membership.canManageVisibility,
                                 onCandidateVisibilityChange = { visible ->
                                     viewModel.updateCandidateVisibility(unitId, membership.userId, visible)
                                 },

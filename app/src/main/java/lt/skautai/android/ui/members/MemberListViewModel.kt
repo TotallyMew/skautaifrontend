@@ -6,12 +6,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import lt.skautai.android.data.remote.MemberDto
 import lt.skautai.android.data.repository.MemberRepository
-import lt.skautai.android.ui.common.isScoutReadOnlyMember
-import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
 
 sealed interface MemberListUiState {
@@ -25,30 +22,16 @@ sealed interface MemberListUiState {
 
 @HiltViewModel
 class MemberListViewModel @Inject constructor(
-    private val memberRepository: MemberRepository,
-    private val tokenManager: TokenManager
+    private val memberRepository: MemberRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<MemberListUiState>(MemberListUiState.Loading)
     val uiState: StateFlow<MemberListUiState> = _uiState.asStateFlow()
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
-    private var isReadOnlyForCurrentUser: Boolean = false
-
     init {
-        loadCurrentUserAccessMode()
         observeCachedMembers()
         loadMembers()
-    }
-
-    private fun loadCurrentUserAccessMode() {
-        viewModelScope.launch {
-            val currentUserId = tokenManager.userId.first()
-            isReadOnlyForCurrentUser = currentUserId
-                ?.let { memberRepository.getMember(it).getOrNull() }
-                ?.let(::isScoutReadOnlyMember)
-                ?: false
-        }
     }
 
     private fun observeCachedMembers() {
@@ -57,12 +40,12 @@ class MemberListViewModel @Inject constructor(
                 if (memberList.members.isNotEmpty()) {
                     _uiState.value = MemberListUiState.Success(
                         members = memberList.members,
-                        isReadOnly = isReadOnlyForCurrentUser
+                        isReadOnly = false
                     )
                 } else if (_uiState.value !is MemberListUiState.Loading) {
                     _uiState.value = MemberListUiState.Success(
                         members = emptyList(),
-                        isReadOnly = isReadOnlyForCurrentUser
+                        isReadOnly = false
                     )
                 }
             }

@@ -66,8 +66,6 @@ import lt.skautai.android.ui.common.SkautaiSelectableCard
 import lt.skautai.android.ui.common.SkautaiStatusPill
 import lt.skautai.android.ui.common.SkautaiTextField
 import lt.skautai.android.ui.common.skautaiSelectionStyle
-import lt.skautai.android.util.canManageEventSections
-import lt.skautai.android.util.eventRolesForUser
 
 private enum class StaffPanelMode { Slot, Extra }
 
@@ -81,7 +79,6 @@ fun EventStaffScreen(
 ) {
     val onOpenPastovyklEs = onOpenPastovyklės
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var activeSlot by remember { mutableStateOf<EventStaffSlotUiModel?>(null) }
     var pendingRemovalSlot by remember { mutableStateOf<EventStaffSlotUiModel?>(null) }
@@ -101,16 +98,8 @@ fun EventStaffScreen(
     }
 
     val state = uiState
-    val readOnly = (state as? EventStaffUiState.Success)?.event?.status?.let(::isEventReadOnlyStatus) == true
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    val eventRoles = (state as? EventStaffUiState.Success)
-        ?.let { eventRolesForUser(it.event.eventRoles, it.currentUserId) }
-        .orEmpty()
-    val canManage = canManageEventSections(
-        permissions = permissions,
-        eventRoles = eventRoles,
-        isReadOnly = readOnly
-    )
+    val canManage = (state as? EventStaffUiState.Success)?.event?.capabilities?.canManage == true
 
     if (canManage && state is EventStaffUiState.Success && panelMode == StaffPanelMode.Slot && activeSlot != null) {
         ModalBottomSheet(
@@ -349,19 +338,7 @@ fun EventStaffScreen(
 }
 
 private fun eligibleStaffMembers(members: List<MemberDto>): List<MemberDto> {
-    val vadovasOrHigherRanks = setOf(
-        "Vadovas",
-        "Tuntininkas",
-        "Tuntininko pavaduotojas",
-        "Inventorininkas",
-        "Draugininkas",
-        "Pirmininkas",
-        "Pavaduotojas"
-    )
-    return members.filter { member ->
-        member.ranks.any { it.roleName in vadovasOrHigherRanks } ||
-            member.leadershipRoles.any { it.termStatus == "ACTIVE" && it.leftAt == null }
-    }
+    return members
 }
 
 private fun eligibleStaffMembersForSlot(

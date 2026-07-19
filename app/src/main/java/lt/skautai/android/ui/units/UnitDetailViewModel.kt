@@ -18,7 +18,6 @@ import lt.skautai.android.data.repository.RequestRepository
 import lt.skautai.android.data.repository.RequisitionRepository
 import lt.skautai.android.data.repository.ReservationRepository
 import lt.skautai.android.data.repository.UserRepository
-import lt.skautai.android.ui.common.isScoutReadOnlyMember
 import lt.skautai.android.ui.common.isActiveRequestStatus
 import lt.skautai.android.ui.common.isActiveReservationStatus
 import lt.skautai.android.ui.common.isActiveSharedRequest
@@ -69,17 +68,6 @@ class UnitDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             val currentUserId = tokenManager.userId.first()
-            val currentUserMember = currentUserId?.let {
-                memberRepository.getCachedMember(it) ?: memberRepository.getMember(it).getOrNull()
-            }
-            if (currentUserMember != null && isScoutReadOnlyMember(currentUserMember)) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    accessDenied = true,
-                    error = "Vieneto informacija prieinama tik vadovams."
-                )
-                return@launch
-            }
             val cachedUnit = orgUnitRepository.getCachedUnit(unitId)
             val cachedMembers = orgUnitRepository.getCachedUnitMembers(unitId)
             val cachedAllMembers = memberRepository.getCachedMembers().members
@@ -291,7 +279,7 @@ class UnitDetailViewModel @Inject constructor(
         userId: String,
         isPubliclyVisible: Boolean
     ) {
-        if (_uiState.value.isSaving || !_uiState.value.canCurrentUserManageThisUnit) return
+        if (_uiState.value.isSaving || _uiState.value.members.none { it.userId == userId && it.canManageVisibility }) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isSaving = true, actionError = null)
             orgUnitRepository.updateUnitMemberVisibility(unitId, userId, isPubliclyVisible)

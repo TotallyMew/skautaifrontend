@@ -74,9 +74,7 @@ fun ReservationDetailScreen(
     viewModel: ReservationDetailViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val permissions by viewModel.permissions.collectAsStateWithLifecycle()
     val userId by viewModel.userId.collectAsStateWithLifecycle()
-    val activeOrgUnitId by viewModel.activeOrgUnitId.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     var showCancelDialog by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -139,16 +137,19 @@ fun ReservationDetailScreen(
                 }
 
                 is ReservationDetailUiState.Success -> {
-                    val canReviewUnit = state.reservation.canReviewUnit(permissions, activeOrgUnitId)
-                    val canReviewTopLevel = state.reservation.canReviewTopLevel(permissions)
+                    val capabilities = state.reservation.capabilities
                     ReservationDetailContent(
                         reservation = state.reservation,
                         isCancelling = state.isCancelling,
-                        canReviewUnit = canReviewUnit,
-                        canReviewTopLevel = canReviewTopLevel,
-                        canManageMovements = state.reservation.canManageMovements(permissions, activeOrgUnitId),
+                        canReviewUnit = capabilities?.canReviewUnit == true,
+                        canReviewTopLevel = capabilities?.canReviewTopLevel == true,
+                        canIssue = capabilities?.canIssue == true,
+                        canConfirmReturn = capabilities?.canConfirmReturn == true,
+                        canMarkReturned = capabilities?.canMarkReturned == true,
+                        canManagePickup = capabilities?.canManagePickup == true,
+                        canManageReturn = capabilities?.canManageReturn == true,
                         isOwnReservation = state.reservation.reservedByUserId == userId,
-                        canCancel = state.reservation.canBeCancelledBy(userId),
+                        canCancel = capabilities?.canCancel == true,
                         onCancel = { showCancelDialog = true },
                         onApproveUnit = { viewModel.reviewUnitReservation(reservationId, "APPROVED") },
                         onRejectUnit = { viewModel.reviewUnitReservation(reservationId, "REJECTED") },
@@ -168,58 +169,17 @@ fun ReservationDetailScreen(
     }
 }
 
-private fun ReservationDto.canReviewUnit(
-    permissions: Set<String>,
-    activeOrgUnitId: String?
-): Boolean =
-    status == "PENDING" &&
-        (unitReviewStatus == "PENDING" ||
-            (unitReviewStatus == null && items.any { it.custodianId != null })) &&
-        permissions.canApproveUnitReservations() &&
-        items.any { it.custodianId != null && it.custodianId == activeOrgUnitId }
-
-private fun ReservationDto.canReviewTopLevel(
-    permissions: Set<String>
-): Boolean =
-    status == "PENDING" &&
-        (topLevelReviewStatus == "PENDING" ||
-            (topLevelReviewStatus == null && items.any { it.custodianId == null })) &&
-        permissions.canApproveTopLevelReservations() &&
-        items.any { it.custodianId == null }
-
-private fun Set<String>.canApproveTopLevelReservations(): Boolean =
-    "reservations.approve:ALL" in this
-
-private fun Set<String>.canApproveUnitReservations(): Boolean =
-    "reservations.approve:OWN_UNIT" in this || canApproveTopLevelReservations()
-
-private fun ReservationDto.canManageMovements(
-    permissions: Set<String>,
-    activeOrgUnitId: String?
-): Boolean =
-    items.any { item ->
-        if (item.custodianId == null) {
-            permissions.canApproveTopLevelReservations()
-        } else {
-            permissions.canApproveOwnUnitReservations() && item.custodianId == activeOrgUnitId
-        }
-    }
-
-private fun Set<String>.canApproveOwnUnitReservations(): Boolean =
-    "reservations.approve:OWN_UNIT" in this
-
-private fun ReservationDto.canBeCancelledBy(userId: String?): Boolean =
-    userId != null &&
-        reservedByUserId == userId &&
-        status in listOf("PENDING", "APPROVED")
-
 @Composable
 private fun ReservationDetailContent(
     reservation: ReservationDto,
     isCancelling: Boolean,
     canReviewUnit: Boolean,
     canReviewTopLevel: Boolean,
-    canManageMovements: Boolean,
+    canIssue: Boolean,
+    canConfirmReturn: Boolean,
+    canMarkReturned: Boolean,
+    canManagePickup: Boolean,
+    canManageReturn: Boolean,
     isOwnReservation: Boolean,
     canCancel: Boolean,
     onCancel: () -> Unit,
@@ -272,7 +232,7 @@ private fun ReservationDetailContent(
 
         ReservationReviewCard(reservation)
 
-        if (reservation.status in listOf("APPROVED", "ACTIVE")) {
+        if (canManagePickup) {
             TimeProposalCard(
                 title = "Atsiėmimo laikas",
                 currentTime = reservation.pickupAt,
@@ -286,7 +246,7 @@ private fun ReservationDetailContent(
             )
         }
 
-        if (reservation.status == "ACTIVE") {
+        if (canManageReturn) {
             TimeProposalCard(
                 title = "Grąžinimo laikas",
                 currentTime = reservation.returnAt,
@@ -300,7 +260,7 @@ private fun ReservationDetailContent(
             )
         }
 
-        if (reservation.status in listOf("APPROVED", "ACTIVE")) {
+        if (canIssue || canConfirmReturn || canMarkReturned) {
             SkautaiCard(
                 modifier = Modifier.fillMaxWidth(),
                 tonal = skautaiSurfaceTone(SkautaiSurfaceRole.Muted)
@@ -315,7 +275,7 @@ private fun ReservationDetailContent(
                         fontWeight = FontWeight.SemiBold
                     )
                     HorizontalDivider()
-                    if (canManageMovements) {
+                    if (canIssue || canConfirmReturn) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -323,22 +283,22 @@ private fun ReservationDetailContent(
                             SkautaiPrimaryButton(
                                 text = "Išduoti",
                                 onClick = onIssue,
-                                enabled = reservation.items.any { it.remainingToIssue > 0 },
+                                enabled = canIssue,
                                 modifier = Modifier.weight(1f)
                             )
                             SkautaiSecondaryButton(
                                 text = "Pažymėti gautą",
                                 onClick = onReturn,
-                                enabled = reservation.items.any { it.remainingToReceive > 0 },
+                                enabled = canConfirmReturn,
                                 modifier = Modifier.weight(1f)
                             )
                         }
                     }
-                    if (isOwnReservation) {
+                    if (canMarkReturned) {
                         SkautaiSecondaryButton(
                             text = "Pažymėti grąžintą",
                             onClick = onMarkReturned,
-                            enabled = reservation.items.any { it.remainingToMarkReturned > 0 },
+                            enabled = true,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }

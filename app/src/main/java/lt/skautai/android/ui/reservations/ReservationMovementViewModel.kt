@@ -15,9 +15,7 @@ import lt.skautai.android.data.remote.ReservationMovementItemRequestDto
 import lt.skautai.android.data.remote.ReservationMovementRequestDto
 import lt.skautai.android.data.repository.LocationRepository
 import lt.skautai.android.data.repository.ReservationRepository
-import lt.skautai.android.util.TokenManager
 import javax.inject.Inject
-import kotlinx.coroutines.flow.first
 
 data class ReservationMovementUiState(
     val isLoading: Boolean = true,
@@ -28,16 +26,13 @@ data class ReservationMovementUiState(
     val selectedQuantities: Map<String, Int> = emptyMap(),
     val notes: String = "",
     val locations: List<LocationDto> = emptyList(),
-    val selectedLocationId: String? = null,
-    val permissions: Set<String> = emptySet(),
-    val activeUnitId: String? = null
+    val selectedLocationId: String? = null
 )
 
 @HiltViewModel
 class ReservationMovementViewModel @Inject constructor(
     private val reservationRepository: ReservationRepository,
     private val locationRepository: LocationRepository,
-    private val tokenManager: TokenManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     val reservationId: String = savedStateHandle["reservationId"] ?: ""
@@ -141,31 +136,21 @@ class ReservationMovementViewModel @Inject constructor(
     }
 
     fun maxQuantity(item: ReservationItemDto): Int {
-        val state = _uiState.value
-        return maxQuantity(item, state.permissions, state.activeUnitId)
+        return allowedQuantity(item)
     }
 
-    private fun maxQuantity(
-        item: ReservationItemDto,
-        permissions: Set<String>,
-        activeUnitId: String?
-    ): Int {
-        if (mode != "mark_returned" && !item.canBeMovementManagedBy(permissions, activeUnitId)) {
-            return 0
-        }
+    private fun allowedQuantity(item: ReservationItemDto): Int {
         return when (mode) {
-            "return" -> item.remainingToReceive
-            "mark_returned" -> item.remainingToMarkReturned
-            else -> item.remainingToIssue
+            "return" -> if (item.canConfirmReturn) item.remainingToReceive else 0
+            "mark_returned" -> if (item.canMarkReturned) item.remainingToMarkReturned else 0
+            else -> if (item.canIssue) item.remainingToIssue else 0
         }
     }
 
     private suspend fun applyReservation(reservation: ReservationDto, locations: List<LocationDto>) {
-        val permissions = tokenManager.permissions.first()
-        val activeUnitId = tokenManager.activeOrgUnitId.first()
         val defaultQuantities = reservation.items
             .mapNotNull { item ->
-                val max = maxQuantity(item, permissions, activeUnitId)
+                val max = allowedQuantity(item)
                 if (max > 0) item.itemId to max else null
             }
             .toMap()
@@ -174,8 +159,6 @@ class ReservationMovementViewModel @Inject constructor(
             reservation = reservation,
             selectedQuantities = defaultQuantities,
             locations = locations,
-            permissions = permissions,
-            activeUnitId = activeUnitId,
             selectedLocationId = when (mode) {
                 "return" -> reservation.returnLocationId
                 else -> reservation.pickupLocationId
@@ -183,10 +166,3 @@ class ReservationMovementViewModel @Inject constructor(
         )
     }
 }
-
-private fun ReservationItemDto.canBeMovementManagedBy(permissions: Set<String>, activeUnitId: String?): Boolean =
-    if (custodianId == null) {
-        "reservations.approve:ALL" in permissions
-    } else {
-        ("reservations.approve:OWN_UNIT" in permissions) && custodianId == activeUnitId
-    }

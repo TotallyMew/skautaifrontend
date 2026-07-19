@@ -6,7 +6,10 @@ data class RoleDto(
     @SerializedName("id") val id: String,
     @SerializedName("name") val name: String,
     @SerializedName("roleType") val roleType: String,
-    @SerializedName("isSystemRole") val isSystemRole: Boolean
+    @SerializedName("isSystemRole") val isSystemRole: Boolean,
+    @SerializedName("canBeInvited") val canBeInvited: Boolean = true,
+    @SerializedName("requiresOrganizationalUnit") val requiresOrganizationalUnit: Boolean = false,
+    @SerializedName("allowedOrganizationalUnitTypes") val allowedOrganizationalUnitTypes: List<String> = emptyList()
 )
 
 data class RoleListDto(

@@ -23,8 +23,6 @@ import lt.skautai.android.data.repository.MemberRepository
 import lt.skautai.android.data.repository.OrganizationalUnitRepository
 import lt.skautai.android.data.repository.UploadRepository
 import lt.skautai.android.util.TokenManager
-import lt.skautai.android.util.canSubmitItemAddition
-import lt.skautai.android.util.hasPermissionAll
 
 data class InventoryAddEditUiState(
     val isLoading: Boolean = false,
@@ -100,8 +98,18 @@ class InventoryAddEditViewModel @Inject constructor(
             val canManageLocations = permissions.contains("locations.manage") ||
                 permissions.contains("locations.manage:ALL") ||
                 permissions.contains("locations.manage:OWN_UNIT")
-            val canCreateSharedDirectly = permissions.hasPermissionAll("items.create")
-            val canSubmitForApproval = permissions.canSubmitItemAddition()
+            val createCapabilities = if (itemId == null) {
+                itemRepository.getItemsPage(
+                    status = "ACTIVE",
+                    limit = 1,
+                    offset = 0,
+                    forceRefresh = true
+                ).getOrNull()?.capabilities
+            } else null
+            val canCreateSharedDirectly = createCapabilities?.canCreateSharedDirectly == true
+            val canSubmitForApproval = createCapabilities?.let {
+                it.canCreate && !it.canCreateSharedDirectly
+            } == true
             val preselectedUnitId = if (resolvedMode == "UNIT_OWN") {
                 custodianId ?: activeOrgUnitId
             } else {

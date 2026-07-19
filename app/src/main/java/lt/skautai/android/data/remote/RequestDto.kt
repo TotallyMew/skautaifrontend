@@ -2,6 +2,12 @@ package lt.skautai.android.data.remote
 
 import com.google.gson.annotations.SerializedName
 
+data class BendrasRequestCapabilitiesDto(
+    @SerializedName("canReviewUnit") val canReviewUnit: Boolean = false,
+    @SerializedName("canReviewTopLevel") val canReviewTopLevel: Boolean = false,
+    @SerializedName("canCancel") val canCancel: Boolean = false
+)
+
 data class BendrasRequestItemDto(
     @SerializedName("id") val id: String,
     @SerializedName("itemId") val itemId: String,
@@ -31,7 +37,8 @@ data class BendrasRequestDto(
     @SerializedName("notes") val notes: String?,
     @SerializedName("items") val items: List<BendrasRequestItemDto>,
     @SerializedName("createdAt") val createdAt: String,
-    @SerializedName("updatedAt") val updatedAt: String
+    @SerializedName("updatedAt") val updatedAt: String,
+    @SerializedName("capabilities") val capabilities: BendrasRequestCapabilitiesDto? = null
 )
 
 data class BendrasRequestListDto(

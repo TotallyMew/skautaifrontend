@@ -27,14 +27,19 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
@@ -61,6 +66,8 @@ import java.util.Date
 import java.util.Locale
 import lt.skautai.android.data.remote.ItemDto
 import lt.skautai.android.data.remote.LocationDto
+import lt.skautai.android.data.remote.ReservationCreateLocationOptionDto
+import lt.skautai.android.data.remote.ReservationCreateUnitOptionDto
 import lt.skautai.android.ui.common.RemoteImage
 import lt.skautai.android.ui.common.SkautaiCard
 import lt.skautai.android.ui.common.SkautaiInlineErrorBanner
@@ -94,8 +101,8 @@ fun ReservationCreateScreen(
         uiState.selectedItems.associate { it.itemId to it.quantity }
     }
     val sharedItems = remember(filteredItems) { filteredItems.filter { it.custodianId == null } }
-    val unitItems = remember(filteredItems, uiState.activeOrgUnitId) {
-        filteredItems.filter { it.custodianId == uiState.activeOrgUnitId && it.custodianId != null }
+    val unitItems = remember(filteredItems) {
+        filteredItems.filter { it.custodianId != null }
     }
     val density = LocalDensity.current
     val isKeyboardVisible = WindowInsets.ime.getBottom(density) > 0
@@ -240,11 +247,21 @@ fun ReservationCreateScreen(
                     item { LinearProgressIndicator(modifier = Modifier.fillMaxWidth()) }
                 }
 
+                if (uiState.requestingUnits.isNotEmpty()) {
+                    item {
+                        RequestingUnitField(
+                            units = uiState.requestingUnits,
+                            selectedUnitId = uiState.requestingUnitId,
+                            onSelected = viewModel::onRequestingUnitChange
+                        )
+                    }
+                }
+
                 item {
                     ReservationLocationFields(
                         locations = uiState.locations,
-                        activeOrgUnitId = uiState.activeOrgUnitId,
-                        hasSelectedUnitInventory = uiState.hasSelectedUnitInventory(),
+                        locationOptions = uiState.locationOptions,
+                        selectedCustodianIds = uiState.selectedCustodianIds(),
                         pickupLocationId = uiState.pickupLocationId,
                         returnLocationId = uiState.returnLocationId,
                         onPickupLocationChange = viewModel::onPickupLocationChange,
@@ -314,7 +331,7 @@ fun ReservationCreateScreen(
 
                 stickyHeader {
                     ReservationSectionHeader(
-                        title = "Tavo vieneto inventorius",
+                        title = "VienetÅ³ inventorius",
                         subtitle = "Tvirtina vieneto vadovas"
                     )
                 }
@@ -347,10 +364,54 @@ fun ReservationCreateScreen(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun RequestingUnitField(
+    units: List<ReservationCreateUnitOptionDto>,
+    selectedUnitId: String?,
+    onSelected: (String?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedUnit = units.find { it.id == selectedUnitId }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value = selectedUnit?.name ?: "Be vieneto",
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("PraÅ¡antis vienetas") },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+        )
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenuItem(
+                text = { Text("Be vieneto") },
+                onClick = {
+                    onSelected(null)
+                    expanded = false
+                }
+            )
+            units.forEach { unit ->
+                DropdownMenuItem(
+                    text = { Text(unit.name) },
+                    onClick = {
+                        onSelected(unit.id)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun ReservationLocationFields(
     locations: List<LocationDto>,
-    activeOrgUnitId: String?,
-    hasSelectedUnitInventory: Boolean,
+    locationOptions: List<ReservationCreateLocationOptionDto>,
+    selectedCustodianIds: Set<String>,
     pickupLocationId: String?,
     returnLocationId: String?,
     onPickupLocationChange: (String?) -> Unit,
@@ -363,7 +424,7 @@ private fun ReservationLocationFields(
             selectedId = pickupLocationId,
             onSelected = { onPickupLocationChange(it?.id) },
             filter = { location ->
-                reservationLocationAllowed(location, activeOrgUnitId, hasSelectedUnitInventory)
+                reservationLocationAllowed(location.id, locationOptions, selectedCustodianIds)
             }
         )
         LocationPickerField(
@@ -372,25 +433,27 @@ private fun ReservationLocationFields(
             selectedId = returnLocationId,
             onSelected = { onReturnLocationChange(it?.id) },
             filter = { location ->
-                reservationLocationAllowed(location, activeOrgUnitId, hasSelectedUnitInventory)
+                reservationLocationAllowed(location.id, locationOptions, selectedCustodianIds)
             }
         )
     }
 }
 
 private fun reservationLocationAllowed(
-    location: LocationDto,
-    activeOrgUnitId: String?,
-    hasSelectedUnitInventory: Boolean
-): Boolean = when (location.visibility) {
-    "UNIT" -> hasSelectedUnitInventory && activeOrgUnitId == location.ownerUnitId
-    "PRIVATE" -> false
-    else -> true
+    locationId: String,
+    locationOptions: List<ReservationCreateLocationOptionDto>,
+    selectedCustodianIds: Set<String>
+): Boolean {
+    val option = locationOptions.find { it.id == locationId } ?: return false
+    return option.canUseWithAnyInventory ||
+        option.requiredCustodianId?.let { it in selectedCustodianIds } == true
 }
 
-private fun ReservationCreateUiState.hasSelectedUnitInventory(): Boolean {
+private fun ReservationCreateUiState.selectedCustodianIds(): Set<String> {
     val selectedIds = selectedItems.map { it.itemId }.toSet()
-    return items.any { it.id in selectedIds && it.custodianId != null }
+    return itemOptions
+        .filter { it.itemId in selectedIds }
+        .mapNotNullTo(linkedSetOf()) { it.custodianId }
 }
 
 @Composable
